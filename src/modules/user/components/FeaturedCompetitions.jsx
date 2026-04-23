@@ -1,10 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Flame, Sparkles, Users, Ticket } from "lucide-react";
 import { useState } from "react";
-import Badge from "./ui/Badge.jsx";
-import CountdownTimer from "./ui/CountdownTimer.jsx";
-import { competitions } from "../data/competitions.js";
-import Reveal from "./ui/Reveal.jsx";
+import Badge from "../../../components/ui/Badge.jsx";
+import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
+import { competitions } from "../../../data/competitions.js";
+import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
 function CompetitionCard({ competition, onNavigate }) {

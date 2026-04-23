@@ -1,5 +1,5 @@
 import { Search, Ticket, Video, Gift } from "lucide-react";
-import Reveal from "./ui/Reveal.jsx";
+import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
 export default function HowItWorks() {

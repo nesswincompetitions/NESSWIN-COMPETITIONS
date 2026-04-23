@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { getCompetitionById } from "../data/competitions.js";
+import { getCompetitionById } from "../../../data/competitions.js";
 import { useTranslation } from "react-i18next";
 
 const PARTICIPANTS = [

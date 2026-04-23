@@ -1,5 +1,5 @@
 import { Trophy, LogIn } from "lucide-react";
-import Reveal from "./ui/Reveal.jsx";
+import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
 export default function CTASection() {

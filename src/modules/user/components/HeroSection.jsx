@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import Reveal from "./ui/Reveal.jsx";
+import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
 /**

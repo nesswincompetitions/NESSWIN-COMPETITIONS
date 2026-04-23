@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Flame, Sparkles, Tag, Users, Ticket } from "lucide-react";
-import CountdownTimer from "../components/ui/CountdownTimer.jsx";
-import { competitions } from "../data/competitions.js";
-import Reveal from "../components/ui/Reveal.jsx";
+import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
+import { competitions } from "../../../data/competitions.js";
+import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
