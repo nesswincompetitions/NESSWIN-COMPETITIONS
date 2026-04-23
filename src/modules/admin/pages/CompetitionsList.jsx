@@ -4,6 +4,7 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
+import Modal from '../../../components/ui/Modal';
 import { 
   Plus, Search, Calendar, Download, 
   Eye, Edit, Trash2, ChevronLeft, ChevronRight
@@ -11,6 +12,8 @@ import {
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [competitionToDelete, setCompetitionToDelete] = useState(null);
   const navigate = useNavigate();
 
   const tabs = ['All', 'Active', 'Ended', 'Archived'];
@@ -135,13 +138,22 @@ const CompetitionsList = () => {
                   <TableCell>{comp.drawDate}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View">
+                      <button 
+                        onClick={() => navigate(`/admin/competitions/${comp.id}`)}
+                        className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View"
+                      >
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit">
+                      <button 
+                        onClick={() => navigate(`/admin/competitions/${comp.id}?tab=edit`)}
+                        className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit"
+                      >
                         <Edit size={16} />
                       </button>
-                      <button className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete">
+                      <button 
+                        onClick={() => { setCompetitionToDelete(comp); setDeleteModalOpen(true); }}
+                        className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -169,6 +181,36 @@ const CompetitionsList = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Competition"
+        description="Are you sure you want to delete this competition? This action cannot be undone."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={() => {
+              // Handle delete logic here
+              setDeleteModalOpen(false);
+            }}>
+              Delete
+            </Button>
+          </>
+        }
+      >
+        {competitionToDelete && (
+          <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+              <span className="text-xs text-gray-500 font-medium">IMG</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-white">{competitionToDelete.name}</p>
+              <p className="text-xs text-gray-500">ID: #{competitionToDelete.id}</p>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
