@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -9,6 +10,8 @@ import {
 } from 'lucide-react';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
   const kpiData = [
     { title: 'Total Active Competitions', value: '12', icon: Trophy, color: 'text-primary' },
     { title: 'Tickets Sold Today', value: '320', icon: Ticket, color: 'text-emerald-400' },
@@ -19,11 +22,11 @@ const Dashboard = () => {
   ];
 
   const activeCompetitions = [
-    { name: '2024 Range Rover Sport', status: 'Active', sold: 340, total: 500, revenue: '£3,400', drawDate: '2024-05-01' },
-    { name: 'Rolex Submariner', status: 'Active', sold: 450, total: 1000, revenue: '£9,000', drawDate: '2024-05-05' },
-    { name: '£5,000 Cash Prize', status: 'Ending Soon', sold: 1800, total: 2000, revenue: '£9,000', drawDate: '2024-04-25' },
-    { name: 'Gaming PC Setup', status: 'Active', sold: 85, total: 200, revenue: '£425', drawDate: '2024-05-10' },
-    { name: 'Trip to Maldives', status: 'Active', sold: 600, total: 1000, revenue: '£12,000', drawDate: '2024-06-01' },
+    { id: '1', name: '2024 Range Rover Sport', status: 'Active', sold: 340, total: 500, revenue: '£3,400', drawDate: '2024-05-01' },
+    { id: '2', name: 'Rolex Submariner', status: 'Active', sold: 450, total: 1000, revenue: '£9,000', drawDate: '2024-05-05' },
+    { id: '3', name: '£5,000 Cash Prize', status: 'Ending Soon', sold: 1800, total: 2000, revenue: '£9,000', drawDate: '2024-04-25' },
+    { id: '4', name: 'Gaming PC Setup', status: 'Active', sold: 85, total: 200, revenue: '£425', drawDate: '2024-05-10' },
+    { id: '5', name: 'Trip to Maldives', status: 'Active', sold: 600, total: 1000, revenue: '£12,000', drawDate: '2024-06-01' },
   ];
 
   const recentOrders = [
@@ -35,9 +38,9 @@ const Dashboard = () => {
   ];
 
   const upcomingDraws = [
-    { name: '£5,000 Cash Prize', countdown: '2d 4h 30m', remaining: 200 },
-    { name: 'Rolex Submariner', countdown: '5d 12h 15m', remaining: 550 },
-    { name: '2024 Range Rover Sport', countdown: '8d 6h 45m', remaining: 160 },
+    { id: '3', name: '£5,000 Cash Prize', countdown: '2d 4h 30m', remaining: 200 },
+    { id: '2', name: 'Rolex Submariner', countdown: '5d 12h 15m', remaining: 550 },
+    { id: '1', name: '2024 Range Rover Sport', countdown: '8d 6h 45m', remaining: 160 },
   ];
 
   return (
@@ -79,7 +82,7 @@ const Dashboard = () => {
           <Card>
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
               <h2 className="text-lg font-semibold">Active Competitions</h2>
-              <Button variant="outline" size="sm">View All</Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/admin/competitions')}>View All</Button>
             </div>
             <Table>
               <TableHeader>
@@ -116,7 +119,10 @@ const Dashboard = () => {
                     <TableCell>{new Date(comp.drawDate).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors">
+                        <button 
+                          className="cursor-pointer p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                          onClick={() => navigate(`/admin/competitions/${comp.id}`)}
+                        >
                           <Eye size={16} />
                         </button>
                       </div>
@@ -170,19 +176,35 @@ const Dashboard = () => {
             </div>
             <CardContent className="p-6">
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="primary" className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto">
+                <Button 
+                  variant="primary" 
+                  className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto"
+                  onClick={() => navigate('/admin/competitions/create')}
+                >
                   <Plus size={20} />
                   <span>Create Competition</span>
                 </Button>
-                <Button variant="outline" className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10">
+                <Button 
+                  variant="outline" 
+                  className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10"
+                  onClick={() => navigate('/admin/winners')}
+                >
                   <Trophy size={20} className="text-yellow-400" />
                   <span>Select Winner</span>
                 </Button>
-                <Button variant="outline" className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10">
+                <Button 
+                  variant="outline" 
+                  className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10"
+                  onClick={() => navigate('/admin/users')}
+                >
                   <User size={20} className="text-blue-400" />
                   <span>View Users</span>
                 </Button>
-                <Button variant="outline" className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10">
+                <Button 
+                  variant="outline" 
+                  className="w-full text-sm py-3 px-2 flex flex-col gap-2 h-auto bg-white/5 border-white/10"
+                  onClick={() => navigate('/admin/orders')}
+                >
                   <ShoppingCart size={20} className="text-emerald-400" />
                   <span>View Orders</span>
                 </Button>
@@ -206,7 +228,12 @@ const Dashboard = () => {
                       <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">{draw.countdown}</span>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" className="w-full text-xs py-1.5">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs py-1.5"
+                    onClick={() => navigate(`/admin/competitions/${draw.id}`)}
+                  >
                     View Details
                   </Button>
                 </div>

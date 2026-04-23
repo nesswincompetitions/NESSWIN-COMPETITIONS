@@ -38,7 +38,7 @@ const Sidebar = () => {
           Admin Panel
         </h2>
         {/* Mobile close button inside sidebar */}
-        <button className="md:hidden text-gray-400 hover:text-white" onClick={toggleSidebar}>
+        <button className="cursor-pointer md:hidden text-gray-400 hover:text-white" onClick={toggleSidebar}>
           <X size={24} />
         </button>
       </div>
@@ -59,7 +59,7 @@ const Sidebar = () => {
           >
             {({ isActive }) => (
               <>
-                <span className={`transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+                <span className={`cursor-pointer transition-transform duration-200 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
                   {item.icon}
                 </span>
                 <span className="font-medium">{item.name}</span>
@@ -92,7 +92,7 @@ const Sidebar = () => {
       {!isMobileOpen && (
         <button
           onClick={toggleSidebar}
-          className="md:hidden fixed top-4 left-4 z-50 p-2 bg-[#0a0a0a] border border-white/10 rounded-lg text-white shadow-lg"
+          className="cursor-pointer md:hidden fixed top-4 left-4 z-50 p-2 bg-[#0a0a0a] border border-white/10 rounded-lg text-white shadow-lg"
         >
           <Menu size={24} />
         </button>
@@ -104,7 +104,7 @@ const Sidebar = () => {
       </aside>
 
       {/* Mobile Sidebar (Overlay) */}
-      <div className={`md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${isMobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      <div className={`cursor-pointer md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${isMobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         {/* Backdrop */}
         <div 
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"

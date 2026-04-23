@@ -26,6 +26,10 @@ const CompetitionsList = () => {
     { id: 5, name: "Trip to Maldives", status: "Archived", price: "£20.00", sold: 950, total: 1000, revenue: "£19,000", drawDate: "01 Jan 2026" },
   ];
 
+  const filteredCompetitions = activeTab === 'All' 
+    ? competitions 
+    : competitions.filter(c => c.status === activeTab);
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in">
       {/* Header */}
@@ -51,7 +55,7 @@ const CompetitionsList = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors ${
                     activeTab === tab 
                       ? 'bg-white/10 text-white font-medium' 
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -101,7 +105,7 @@ const CompetitionsList = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {competitions.map((comp) => (
+              {filteredCompetitions.map((comp) => (
                 <TableRow key={comp.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -140,19 +144,19 @@ const CompetitionsList = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button 
                         onClick={() => navigate(`/admin/competitions/${comp.id}`)}
-                        className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View"
+                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View"
                       >
                         <Eye size={16} />
                       </button>
                       <button 
                         onClick={() => navigate(`/admin/competitions/${comp.id}?tab=edit`)}
-                        className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit"
+                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit"
                       >
                         <Edit size={16} />
                       </button>
                       <button 
                         onClick={() => { setCompetitionToDelete(comp); setDeleteModalOpen(true); }}
-                        className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete"
+                        className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -166,7 +170,7 @@ const CompetitionsList = () => {
           {/* Pagination */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              Showing <span className="font-medium text-white">1</span> to <span className="font-medium text-white">5</span> of <span className="font-medium text-white">12</span> results
+              Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> of <span className="font-medium text-white">12</span> results
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>

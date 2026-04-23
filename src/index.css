@@ -62,6 +62,16 @@
     font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif,
       "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   }
+
+  /* Tailwind CSS v4 removes cursor pointer from buttons by default, 
+     so we restore it globally for all interactive elements */
+  button, 
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    cursor: pointer !important;
+  }
 }
 
 /* Global thin scrollbar for Chromium/WebKit browsers */
@@ -102,6 +112,10 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.fade-in {
+  animation: pageFadeIn 500ms ease-out forwards;
 }
 
 @keyframes routePageIn {
