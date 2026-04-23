@@ -5,8 +5,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
-import { 
-  Plus, Search, Calendar, Download, 
+import {
+  Plus, Search, Calendar, Download,
   Eye, Edit, Trash2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -26,8 +26,8 @@ const CompetitionsList = () => {
     { id: 5, name: "Trip to Maldives", status: "Archived", price: "£20.00", sold: 950, total: 1000, revenue: "£19,000", drawDate: "01 Jan 2026" },
   ];
 
-  const filteredCompetitions = activeTab === 'All' 
-    ? competitions 
+  const filteredCompetitions = activeTab === 'All'
+    ? competitions
     : competitions.filter(c => c.status === activeTab);
 
   return (
@@ -48,18 +48,17 @@ const CompetitionsList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
+
             {/* Status Tabs */}
-            <div className="flex bg-white/5 p-1 rounded-lg w-fit">
+            <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {tabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors ${
-                    activeTab === tab 
-                      ? 'bg-white/10 text-white font-medium' 
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeTab === tab
+                      ? 'bg-white/10 text-white font-medium'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {tab}
                 </button>
@@ -67,22 +66,22 @@ const CompetitionsList = () => {
             </div>
 
             {/* Search & Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search by name or ID..." 
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+                <input
+                  type="text"
+                  placeholder="Search by name or ID..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
-              
+
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
                   <Calendar size={16} className="text-gray-400" />
                   <span className="text-sm">Filter Dates</span>
                 </Button>
-                
+
                 <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
                   <Download size={16} className="text-gray-400" />
                   <span className="text-sm">Export</span>
@@ -120,8 +119,8 @@ const CompetitionsList = () => {
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      comp.status === 'Active' ? 'success' : 
-                      comp.status === 'Ended' ? 'neutral' : 'warning'
+                      comp.status === 'Active' ? 'success' :
+                        comp.status === 'Ended' ? 'neutral' : 'warning'
                     }>
                       {comp.status}
                     </Badge>
@@ -131,8 +130,8 @@ const CompetitionsList = () => {
                     <div className="flex flex-col gap-1 w-24">
                       <span className="text-xs text-gray-400">{comp.sold} / {comp.total}</span>
                       <div className="w-full bg-white/10 rounded-full h-1.5">
-                        <div 
-                          className={`h-1.5 rounded-full ${comp.sold === comp.total ? 'bg-emerald-400' : 'bg-primary'}`} 
+                        <div
+                          className={`h-1.5 rounded-full ${comp.sold === comp.total ? 'bg-emerald-400' : 'bg-primary'}`}
                           style={{ width: `${(comp.sold / comp.total) * 100}%` }}
                         ></div>
                       </div>
@@ -142,19 +141,19 @@ const CompetitionsList = () => {
                   <TableCell>{comp.drawDate}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button 
+                      <button
                         onClick={() => navigate(`/admin/competitions/${comp.id}`)}
                         className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View"
                       >
                         <Eye size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => navigate(`/admin/competitions/${comp.id}?tab=edit`)}
                         className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit"
                       >
                         <Edit size={16} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => { setCompetitionToDelete(comp); setDeleteModalOpen(true); }}
                         className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete"
                       >

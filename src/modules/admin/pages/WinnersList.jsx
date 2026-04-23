@@ -12,41 +12,41 @@ const WinnersList = () => {
 
   // Dummy Winners Data
   const winners = [
-    { 
-      id: 1, 
-      name: "John Doe", 
-      email: "john@example.com", 
-      competition: "iPhone 15 Giveaway", 
-      ticket: "#0234", 
-      drawDate: "12 May 2026", 
-      status: "Completed" 
+    {
+      id: 1,
+      name: "John Doe",
+      email: "john@example.com",
+      competition: "iPhone 15 Giveaway",
+      ticket: "#0234",
+      drawDate: "12 May 2026",
+      status: "Completed"
     },
-    { 
-      id: 2, 
-      name: "Sarah Smith", 
-      email: "sarah@example.com", 
-      competition: "2024 Range Rover Sport", 
-      ticket: "#1450", 
-      drawDate: "01 Jun 2026", 
-      status: "Contacted" 
+    {
+      id: 2,
+      name: "Sarah Smith",
+      email: "sarah@example.com",
+      competition: "2024 Range Rover Sport",
+      ticket: "#1450",
+      drawDate: "01 Jun 2026",
+      status: "Contacted"
     },
-    { 
-      id: 3, 
-      name: "Mike Johnson", 
-      email: "mike@example.com", 
-      competition: "Rolex Submariner", 
-      ticket: "#0899", 
-      drawDate: "15 Apr 2026", 
-      status: "Pending" 
+    {
+      id: 3,
+      name: "Mike Johnson",
+      email: "mike@example.com",
+      competition: "Rolex Submariner",
+      ticket: "#0899",
+      drawDate: "15 Apr 2026",
+      status: "Pending"
     },
   ];
 
-  const filteredWinners = activeStatus === 'All' 
-    ? winners 
+  const filteredWinners = activeStatus === 'All'
+    ? winners
     : winners.filter(w => w.status === activeStatus);
 
   const renderStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Completed': return <Badge variant="success">Completed</Badge>;
       case 'Contacted': return <Badge variant="hot">Contacted</Badge>;
       case 'Pending': return <Badge variant="warning">Pending</Badge>;
@@ -72,18 +72,17 @@ const WinnersList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
+
             {/* Status Tabs */}
-            <div className="flex bg-white/5 p-1 rounded-lg w-fit overflow-x-auto hide-scrollbar">
+            <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {['All', 'Pending', 'Contacted', 'Completed'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap ${
-                    activeStatus === status 
-                      ? 'bg-white/10 text-white font-medium' 
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                      ? 'bg-white/10 text-white font-medium'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {status}
                 </button>
@@ -91,17 +90,17 @@ const WinnersList = () => {
             </div>
 
             {/* Search & Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search by name, email..." 
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+                <input
+                  type="text"
+                  placeholder="Search by name, email..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
-              
-              <Button variant="outline" size="sm" className="w-full sm:w-auto flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
+
+              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
                 <span className="text-sm">Filter Dates</span>
               </Button>
@@ -137,13 +136,13 @@ const WinnersList = () => {
                     <TableCell>{renderStatusBadge(winner.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button 
+                        <button
                           onClick={() => navigate(`/admin/winners/${winner.id}`)}
                           className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View Winner"
                         >
                           <Eye size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => navigate(`/admin/competitions/${winner.id}`)}
                           className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-primary transition-colors" title="View Competition"
                         >
@@ -164,7 +163,7 @@ const WinnersList = () => {
               <div>
                 <p className="text-white font-medium text-lg">No winners found</p>
                 <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                  {activeStatus === 'All' 
+                  {activeStatus === 'All'
                     ? 'Winners will appear here after competitions end and draws are executed.'
                     : `No winners currently match the "${activeStatus}" status filter.`}
                 </p>

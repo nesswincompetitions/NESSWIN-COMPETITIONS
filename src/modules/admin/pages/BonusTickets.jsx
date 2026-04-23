@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
-import { 
+import {
   Search, Plus, Upload, Settings, Ticket, HelpCircle
 } from 'lucide-react';
 
@@ -20,30 +20,30 @@ const BonusTickets = () => {
 
   // Dummy Ledger Data
   const tickets = [
-    { 
-      id: 1, userName: "John Doe", amount: "+5", reason: "Referral reward", 
-      assignedBy: "Admin", dateAssigned: "12 May 2026", expiryDate: "30 May 2026", status: "Active" 
+    {
+      id: 1, userName: "John Doe", amount: "+5", reason: "Referral reward",
+      assignedBy: "Admin", dateAssigned: "12 May 2026", expiryDate: "30 May 2026", status: "Active"
     },
-    { 
-      id: 2, userName: "Sarah Smith", amount: "-1", reason: "Used on iPhone Giveaway", 
-      assignedBy: "System", dateAssigned: "10 May 2026", expiryDate: "-", status: "Used" 
+    {
+      id: 2, userName: "Sarah Smith", amount: "-1", reason: "Used on iPhone Giveaway",
+      assignedBy: "System", dateAssigned: "10 May 2026", expiryDate: "-", status: "Used"
     },
-    { 
-      id: 3, userName: "Mike Johnson", amount: "+2", reason: "Customer service compensation", 
-      assignedBy: "Admin", dateAssigned: "05 May 2026", expiryDate: "No Expiry", status: "Active" 
+    {
+      id: 3, userName: "Mike Johnson", amount: "+2", reason: "Customer service compensation",
+      assignedBy: "Admin", dateAssigned: "05 May 2026", expiryDate: "No Expiry", status: "Active"
     },
-    { 
-      id: 4, userName: "Emma Wilson", amount: "+10", reason: "Welcome Bonus", 
-      assignedBy: "System", dateAssigned: "01 Jan 2026", expiryDate: "01 Feb 2026", status: "Expired" 
+    {
+      id: 4, userName: "Emma Wilson", amount: "+10", reason: "Welcome Bonus",
+      assignedBy: "System", dateAssigned: "01 Jan 2026", expiryDate: "01 Feb 2026", status: "Expired"
     },
   ];
 
-  const filteredTickets = activeStatus === 'All' 
-    ? tickets 
+  const filteredTickets = activeStatus === 'All'
+    ? tickets
     : tickets.filter(t => t.status === activeStatus);
 
   const renderStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Active': return <Badge variant="success">Active</Badge>;
       case 'Used': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">Used</Badge>;
       case 'Expired': return <Badge variant="danger">Expired</Badge>;
@@ -65,7 +65,7 @@ const BonusTickets = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-      
+
       {/* 1. Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
@@ -100,18 +100,17 @@ const BonusTickets = () => {
         <CardContent className="p-0">
           {/* 4. Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
+
             {/* Status Tabs */}
-            <div className="flex bg-white/5 p-1 rounded-lg w-fit overflow-x-auto hide-scrollbar">
+            <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {['All', 'Active', 'Used', 'Expired'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap ${
-                    activeStatus === status 
-                      ? 'bg-white/10 text-white font-medium' 
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                      ? 'bg-white/10 text-white font-medium'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {status}
                 </button>
@@ -119,12 +118,12 @@ const BonusTickets = () => {
             </div>
 
             {/* Search */}
-            <div className="relative w-full md:w-80">
+            <div className="relative w-full lg:w-80">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search user name or email..." 
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+              <input
+                type="text"
+                placeholder="Search user name or email..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
               />
             </div>
           </div>
@@ -149,11 +148,10 @@ const BonusTickets = () => {
                     <TableRow key={ticket.id}>
                       <TableCell className="font-medium text-white">{ticket.userName}</TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-bold font-mono px-2 py-1 rounded-md ${
-                          ticket.amount.startsWith('+') 
-                            ? 'text-emerald-400 bg-emerald-400/10' 
+                        <span className={`font-bold font-mono px-2 py-1 rounded-md ${ticket.amount.startsWith('+')
+                            ? 'text-emerald-400 bg-emerald-400/10'
                             : 'text-red-400 bg-red-400/10'
-                        }`}>
+                          }`}>
                           {ticket.amount}
                         </span>
                       </TableCell>
@@ -184,7 +182,7 @@ const BonusTickets = () => {
                 <div>
                   <p className="text-white font-medium text-lg">No tickets found</p>
                   <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                    {activeStatus === 'All' 
+                    {activeStatus === 'All'
                       ? 'No bonus tickets have been assigned yet.'
                       : `No bonus tickets match the "${activeStatus}" filter.`}
                   </p>
@@ -196,8 +194,8 @@ const BonusTickets = () => {
       </Card>
 
       {/* 3. Assign Modal */}
-      <Modal 
-        isOpen={isAssignModalOpen} 
+      <Modal
+        isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
         title="Assign Bonus Tickets"
       >
@@ -206,12 +204,12 @@ const BonusTickets = () => {
             <label className="text-sm font-medium text-gray-300">Search User</label>
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 required
                 value={assignUser}
                 onChange={(e) => setAssignUser(e.target.value)}
-                placeholder="Type name or email (e.g. John Doe)..." 
+                placeholder="Type name or email (e.g. John Doe)..."
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
               />
             </div>
@@ -220,8 +218,8 @@ const BonusTickets = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">Number of Tickets</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 required
                 min="1"
                 value={assignAmount}
@@ -231,8 +229,8 @@ const BonusTickets = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">Expiry Date <span className="text-gray-500 font-normal">(Optional)</span></label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={assignExpiry}
                 onChange={(e) => setAssignExpiry(e.target.value)}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
@@ -242,11 +240,11 @@ const BonusTickets = () => {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Reason / Note</label>
-            <textarea 
+            <textarea
               required
               value={assignReason}
               onChange={(e) => setAssignReason(e.target.value)}
-              placeholder="Why are you giving these tickets?" 
+              placeholder="Why are you giving these tickets?"
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
             />
           </div>

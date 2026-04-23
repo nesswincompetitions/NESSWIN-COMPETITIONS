@@ -4,8 +4,8 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
-import { 
-  Search, Calendar, Download, Eye, AlertTriangle, 
+import {
+  Search, Calendar, Download, Eye, AlertTriangle,
   Ban, ChevronDown, Filter, MoreVertical, Users as UsersIcon
 } from 'lucide-react';
 
@@ -16,39 +16,39 @@ const UsersList = () => {
 
   // Dummy Users Data
   const users = [
-    { 
-      id: 1, name: "John Doe", email: "john@example.com", phone: "+44 7700 900123", 
-      regDate: "10 Jan 2026", compsEntered: 12, totalSpend: 450.00, 
-      referrals: 3, bonusTickets: 5, status: "Active" 
+    {
+      id: 1, name: "John Doe", email: "john@example.com", phone: "+44 7700 900123",
+      regDate: "10 Jan 2026", compsEntered: 12, totalSpend: 450.00,
+      referrals: 3, bonusTickets: 5, status: "Active"
     },
-    { 
-      id: 2, name: "Sarah Smith", email: "sarah@example.com", phone: "+44 7700 900456", 
-      regDate: "15 Feb 2026", compsEntered: 4, totalSpend: 120.50, 
-      referrals: 0, bonusTickets: 1, status: "Active" 
+    {
+      id: 2, name: "Sarah Smith", email: "sarah@example.com", phone: "+44 7700 900456",
+      regDate: "15 Feb 2026", compsEntered: 4, totalSpend: 120.50,
+      referrals: 0, bonusTickets: 1, status: "Active"
     },
-    { 
-      id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "+44 7700 900789", 
-      regDate: "01 Mar 2026", compsEntered: 45, totalSpend: 2100.00, 
-      referrals: 12, bonusTickets: 20, status: "Active" 
+    {
+      id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "+44 7700 900789",
+      regDate: "01 Mar 2026", compsEntered: 45, totalSpend: 2100.00,
+      referrals: 12, bonusTickets: 20, status: "Active"
     },
-    { 
-      id: 4, name: "Emma Wilson", email: "emma@example.com", phone: "+44 7700 900321", 
-      regDate: "20 Mar 2026", compsEntered: 2, totalSpend: 15.00, 
-      referrals: 0, bonusTickets: 0, status: "Suspended" 
+    {
+      id: 4, name: "Emma Wilson", email: "emma@example.com", phone: "+44 7700 900321",
+      regDate: "20 Mar 2026", compsEntered: 2, totalSpend: 15.00,
+      referrals: 0, bonusTickets: 0, status: "Suspended"
     },
-    { 
-      id: 5, name: "Tom Brown", email: "tom@example.com", phone: "+44 7700 900654", 
-      regDate: "05 Apr 2026", compsEntered: 0, totalSpend: 0.00, 
-      referrals: 0, bonusTickets: 0, status: "Banned" 
+    {
+      id: 5, name: "Tom Brown", email: "tom@example.com", phone: "+44 7700 900654",
+      regDate: "05 Apr 2026", compsEntered: 0, totalSpend: 0.00,
+      referrals: 0, bonusTickets: 0, status: "Banned"
     },
   ];
 
-  const filteredUsers = activeStatus === 'All' 
-    ? users 
+  const filteredUsers = activeStatus === 'All'
+    ? users
     : users.filter(u => u.status === activeStatus);
 
   const renderStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Active': return <Badge variant="success">Active</Badge>;
       case 'Suspended': return <Badge variant="warning">Suspended</Badge>;
       case 'Banned': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">Banned</Badge>;
@@ -74,18 +74,17 @@ const UsersList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
+
             {/* Status Tabs */}
-            <div className="flex bg-white/5 p-1 rounded-lg w-fit overflow-x-auto hide-scrollbar">
+            <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {['All', 'Active', 'Suspended', 'Banned'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap ${
-                    activeStatus === status 
-                      ? 'bg-white/10 text-white font-medium' 
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                      ? 'bg-white/10 text-white font-medium'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {status}
                 </button>
@@ -93,24 +92,24 @@ const UsersList = () => {
             </div>
 
             {/* Search & Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search name, email, phone..." 
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+                <input
+                  type="text"
+                  placeholder="Search name, email, phone..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
-              
-              <Button variant="outline" size="sm" className="w-full sm:w-auto flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
+
+              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
                 <span className="text-sm hidden sm:inline">Date</span>
               </Button>
 
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  className="w-full sm:w-40 appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10"
+              <div className="relative flex-1 sm:flex-none sm:w-40">
+                <select
+                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
@@ -168,7 +167,7 @@ const UsersList = () => {
                       <TableCell>{renderStatusBadge(user.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button 
+                          <button
                             onClick={() => navigate(`/admin/users/${user.id}`)}
                             className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="View Profile"
                           >
@@ -195,7 +194,7 @@ const UsersList = () => {
                 <div>
                   <p className="text-white font-medium text-lg">No users found</p>
                   <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                    {activeStatus === 'All' 
+                    {activeStatus === 'All'
                       ? 'No users have registered yet.'
                       : `No users currently match the "${activeStatus}" status filter.`}
                   </p>

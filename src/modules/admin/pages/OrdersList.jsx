@@ -4,8 +4,8 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
-import { 
-  Search, Calendar, Download, Eye, 
+import {
+  Search, Calendar, Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag
 } from 'lucide-react';
 
@@ -16,40 +16,40 @@ const OrdersList = () => {
 
   // Dummy Orders Data
   const orders = [
-    { 
+    {
       id: "ORD-1023", userName: "John Doe", userEmail: "john@example.com",
-      competition: "iPhone 15 Giveaway", tickets: 5, amount: 14.95, 
-      date: "12 May 2026", status: "Paid" 
+      competition: "iPhone 15 Giveaway", tickets: 5, amount: 14.95,
+      date: "12 May 2026", status: "Paid"
     },
-    { 
+    {
       id: "ORD-1024", userName: "Sarah Smith", userEmail: "sarah@example.com",
-      competition: "Rolex Submariner", tickets: 2, amount: 30.00, 
-      date: "12 May 2026", status: "Paid" 
+      competition: "Rolex Submariner", tickets: 2, amount: 30.00,
+      date: "12 May 2026", status: "Paid"
     },
-    { 
+    {
       id: "ORD-1025", userName: "Mike Johnson", userEmail: "mike@example.com",
-      competition: "2024 Range Rover Sport", tickets: 1, amount: 10.00, 
-      date: "11 May 2026", status: "Pending" 
+      competition: "2024 Range Rover Sport", tickets: 1, amount: 10.00,
+      date: "11 May 2026", status: "Pending"
     },
-    { 
+    {
       id: "ORD-1026", userName: "Emma Wilson", userEmail: "emma@example.com",
-      competition: "iPhone 15 Giveaway", tickets: 10, amount: 29.90, 
-      date: "10 May 2026", status: "Failed" 
+      competition: "iPhone 15 Giveaway", tickets: 10, amount: 29.90,
+      date: "10 May 2026", status: "Failed"
     },
-    { 
+    {
       id: "ORD-1027", userName: "Tom Brown", userEmail: "tom@example.com",
-      competition: "Rolex Submariner", tickets: 1, amount: 15.00, 
-      date: "09 May 2026", status: "Refunded" 
+      competition: "Rolex Submariner", tickets: 1, amount: 15.00,
+      date: "09 May 2026", status: "Refunded"
     },
   ];
 
-  const filteredOrders = orders.filter(o => 
+  const filteredOrders = orders.filter(o =>
     (activeStatus === 'All' || o.status === activeStatus) &&
     (selectedComp === 'All' || o.competition === selectedComp)
   );
 
   const renderStatusBadge = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Paid': return <Badge variant="success">Paid</Badge>;
       case 'Pending': return <Badge variant="warning">Pending</Badge>;
       case 'Failed': return <Badge variant="danger">Failed</Badge>;
@@ -90,18 +90,17 @@ const OrdersList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            
+
             {/* Status Tabs */}
-            <div className="flex bg-white/5 p-1 rounded-lg w-fit overflow-x-auto hide-scrollbar">
+            <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {['All', 'Paid', 'Pending', 'Failed', 'Refunded'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap ${
-                    activeStatus === status 
-                      ? 'bg-white/10 text-white font-medium' 
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                      ? 'bg-white/10 text-white font-medium'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {status}
                 </button>
@@ -109,19 +108,19 @@ const OrdersList = () => {
             </div>
 
             {/* Search & Selects */}
-            <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-64">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search order ID, user, email..." 
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+                <input
+                  type="text"
+                  placeholder="Search order ID, user, email..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
 
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  className="w-full sm:w-48 appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
+              <div className="relative flex-1 sm:flex-none sm:w-48">
+                <select
+                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={selectedComp}
                   onChange={(e) => setSelectedComp(e.target.value)}
                 >
@@ -132,8 +131,8 @@ const OrdersList = () => {
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
-              
-              <Button variant="outline" size="sm" className="w-full sm:w-auto flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
+
+              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
               </Button>
             </div>
@@ -172,7 +171,7 @@ const OrdersList = () => {
                       <TableCell>{renderStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button 
+                          <button
                             onClick={() => navigate(`/admin/orders/${order.id}`)}
                             className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="View Order"
                           >

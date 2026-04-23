@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
-import { 
+import {
   Search, Calendar, Download, Eye, ChevronDown, Users as UsersIcon
 } from 'lucide-react';
 
@@ -14,24 +14,24 @@ const ReferralsList = () => {
 
   // Dummy Referrals Data
   const referrals = [
-    { 
+    {
       id: 1, name: "John Doe", email: "john@example.com",
-      code: "JOHN123", referredCount: 12, rewardsEarned: 24, 
+      code: "JOHN123", referredCount: 12, rewardsEarned: 24,
       dateJoined: "10 May 2026"
     },
-    { 
+    {
       id: 2, name: "Sarah Smith", email: "sarah@example.com",
-      code: "SARAH456", referredCount: 8, rewardsEarned: 16, 
+      code: "SARAH456", referredCount: 8, rewardsEarned: 16,
       dateJoined: "12 May 2026"
     },
-    { 
+    {
       id: 3, name: "Mike Johnson", email: "mike@example.com",
-      code: "MIKE789", referredCount: 3, rewardsEarned: 6, 
+      code: "MIKE789", referredCount: 3, rewardsEarned: 6,
       dateJoined: "15 May 2026"
     },
-    { 
+    {
       id: 4, name: "Emma Wilson", email: "emma@example.com",
-      code: "EMMA321", referredCount: 1, rewardsEarned: 2, 
+      code: "EMMA321", referredCount: 1, rewardsEarned: 2,
       dateJoined: "20 May 2026"
     },
   ];
@@ -54,25 +54,25 @@ const ReferralsList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
-            <div className="relative w-full md:w-80">
+
+            <div className="relative w-full lg:w-80">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search name, email, or referral code..." 
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+              <input
+                type="text"
+                placeholder="Search name, email, or referral code..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-              <Button variant="outline" size="sm" className="w-full sm:w-auto flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
                 <span className="text-sm hidden sm:inline">Date</span>
               </Button>
 
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  className="w-full sm:w-48 appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
+              <div className="relative flex-1 sm:flex-none sm:w-48">
+                <select
+                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
@@ -125,9 +125,9 @@ const ReferralsList = () => {
                       </TableCell>
                       <TableCell className="text-gray-400">{user.dateJoined}</TableCell>
                       <TableCell className="text-right">
-                        <button 
+                        <button
                           onClick={() => navigate(`/admin/referrals/${user.id}`)}
-                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors inline-flex items-center" 
+                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors inline-flex items-center"
                           title="View Details"
                         >
                           <Eye size={16} />
