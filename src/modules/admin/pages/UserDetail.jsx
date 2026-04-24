@@ -285,9 +285,8 @@ const UserDetail = () => {
       </div>
 
       {/* 2. Profile Card (Top) */}
-      <Card className="overflow-hidden relative">
-        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-primary/20 via-blue-500/10 to-transparent"></div>
-        <CardContent className="p-8 pt-12 relative z-10">
+      <Card className="overflow-hidden relative bg-[#121212]">
+        <CardContent className="p-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white relative">
@@ -300,8 +299,6 @@ const UserDetail = () => {
                 <h2 className="text-2xl font-bold text-white">{user.name}</h2>
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-gray-400 text-sm">
                   <span className="flex items-center gap-1"><Mail size={14} /> {user.email}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span>{user.phone}</span>
                 </div>
                 <p className="text-xs text-gray-500 pt-1">Registered: {user.joinDate}</p>
               </div>

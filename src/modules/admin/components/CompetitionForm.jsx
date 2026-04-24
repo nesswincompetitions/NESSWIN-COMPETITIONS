@@ -26,6 +26,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     
     // Step 3: Skill Question
     questionText: '',
+    questionImage: null,
+    questionImagePreview: null,
     answers: [
       { text: '', isCorrect: true },
       { text: '', isCorrect: false },
@@ -78,6 +80,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         imagePreviews: newPreviews
       };
     });
+  };
+
+  const handleQuestionImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const preview = URL.createObjectURL(file);
+    
+    setFormData(prev => ({
+      ...prev,
+      questionImage: file,
+      questionImagePreview: preview
+    }));
+  };
+
+  const removeQuestionImage = () => {
+    if (formData.questionImagePreview) {
+      URL.revokeObjectURL(formData.questionImagePreview);
+    }
+    setFormData(prev => ({
+      ...prev,
+      questionImage: null,
+      questionImagePreview: null
+    }));
   };
 
   const handleAnswerChange = (index, value) => {
@@ -321,6 +347,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           />
         </div>
 
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-300">Question Image (Optional)</label>
+          {!formData.questionImagePreview ? (
+            <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-colors cursor-pointer group">
+              <input type="file" accept="image/*" className="hidden" onChange={handleQuestionImageUpload} />
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Upload className="text-gray-400" size={20} />
+              </div>
+              <p className="text-sm text-white font-medium mt-1">Upload an image for the question</p>
+            </label>
+          ) : (
+            <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 group max-w-sm">
+              <img src={formData.questionImagePreview} alt="Question Preview" className="w-full h-full object-cover" />
+              <button 
+                type="button"
+                onClick={(e) => { e.preventDefault(); removeQuestionImage(); }}
+                className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-gray-300">Answer Options (2-4)</label>
@@ -366,7 +416,12 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
         <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
           <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2"><Eye size={14}/> Preview (User View)</h4>
-          <p className="text-white font-medium">{formData.questionText || "Question text will appear here"}</p>
+          {formData.questionImagePreview && (
+            <div className="aspect-video w-full rounded-lg overflow-hidden border border-white/5 max-w-sm mx-auto">
+              <img src={formData.questionImagePreview} alt="Question" className="w-full h-full object-cover" />
+            </div>
+          )}
+          <p className="text-white font-medium text-center">{formData.questionText || "Question text will appear here"}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {formData.answers.map((ans, i) => (
               <div key={i} className="p-3 border border-white/10 rounded-lg text-sm text-gray-300 text-center">
@@ -566,27 +621,27 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     <div className="space-y-6 fade-in">
       {/* Stepper */}
       <div className="mb-8">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-white/10 -z-10"></div>
+        <div className="flex items-start justify-between relative">
+          <div className="absolute left-0 top-[14px] sm:top-[16px] w-full h-0.5 bg-white/10 -z-10"></div>
           {steps.map((step, index) => {
             const isActive = index === currentStep;
             const isCompleted = index < currentStep;
             return (
-              <div key={step} className="flex flex-col items-center gap-2 bg-[#0a0a0a] px-2 relative z-10">
+              <div key={step} className="flex flex-col items-center gap-1.5 sm:gap-2 bg-[#0a0a0a] px-0 sm:px-2 relative z-10 flex-1 text-center">
                 <button 
                   type="button"
                   onClick={() => index < currentStep && setCurrentStep(index)}
                   disabled={index > currentStep}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium border-2 transition-colors ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium border-2 transition-colors shrink-0 ${
                     isActive 
                       ? 'border-primary bg-primary text-black' 
                       : isCompleted
                         ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400 cursor-pointer hover:bg-emerald-400/20'
                         : 'border-white/20 bg-[#0a0a0a] text-gray-400'
                 }`}>
-                  {isCompleted ? <CheckCircle2 size={16} /> : index + 1}
+                  {isCompleted ? <CheckCircle2 size={16} className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : index + 1}
                 </button>
-                <span className={`text-xs font-medium ${isActive ? 'text-primary' : isCompleted ? 'text-emerald-400' : 'text-gray-500'}`}>
+                <span className={`text-[10px] sm:text-xs font-medium leading-tight sm:leading-normal ${isActive ? 'text-primary' : isCompleted ? 'text-emerald-400' : 'text-gray-500'}`}>
                   {step}
                 </span>
               </div>
@@ -605,18 +660,18 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           {currentStep === 3 && renderStep4()}
           {currentStep === 4 && renderStep5()}
           
-          <div className="flex items-center justify-between pt-4 border-t border-white/10 mt-6">
-            <Button variant="outline" onClick={currentStep === 0 ? onCancel : handleBack}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-4 border-t border-white/10 mt-6 gap-3">
+            <Button variant="outline" className="w-full sm:w-auto order-2 sm:order-1" onClick={currentStep === 0 ? onCancel : handleBack}>
               {currentStep === 0 ? 'Cancel' : 'Back'}
             </Button>
-            <div className="flex gap-3">
-              {!isEditMode && <Button variant="outline" onClick={() => onSaveDraft && onSaveDraft(formData)}>Save as Draft</Button>}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
+              {!isEditMode && <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>Save as Draft</Button>}
               {currentStep === steps.length - 1 ? (
-                <Button variant="primary" onClick={() => onSubmit && onSubmit(formData)}>
+                <Button variant="primary" className="w-full sm:w-auto" onClick={() => onSubmit && onSubmit(formData)}>
                   {isEditMode ? 'Save Changes' : 'Publish Competition'}
                 </Button>
               ) : (
-                <Button variant="primary" onClick={handleNext}>Next Step: {steps[currentStep + 1]}</Button>
+                <Button variant="primary" className="w-full sm:w-auto" onClick={handleNext}>Next Step: {steps[currentStep + 1]}</Button>
               )}
             </div>
           </div>

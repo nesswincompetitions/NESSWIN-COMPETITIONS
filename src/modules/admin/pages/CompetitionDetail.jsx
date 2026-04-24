@@ -369,17 +369,19 @@ const CompetitionDetail = () => {
           <p className="text-gray-400">ID: #{competition.id}</p>
         </div>
         
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="hidden sm:flex items-center gap-2" onClick={() => window.open('/', '_blank')}>
-            <ExternalLink size={16} />
-            View on Website
+        <div className="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 mt-4 md:mt-0 w-full md:w-auto">
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => window.open('/', '_blank')}>
+            <ExternalLink size={14} />
+            <span className="hidden sm:inline">View on Website</span>
+            <span className="sm:hidden">View</span>
           </Button>
-          <Button variant="outline" className="flex items-center gap-2">
-            <CalendarPlus size={16} />
-            Extend Draw
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+            <CalendarPlus size={14} />
+            <span className="hidden sm:inline">Extend Draw</span>
+            <span className="sm:hidden">Extend</span>
           </Button>
-          <Button variant="primary" className="flex items-center gap-2" onClick={() => handleTabChange('edit')}>
-            <Edit3 size={16} />
+          <Button variant="primary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleTabChange('edit')}>
+            <Edit3 size={14} />
             Edit
           </Button>
         </div>

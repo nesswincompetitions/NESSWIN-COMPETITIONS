@@ -56,8 +56,8 @@ const CompetitionsList = () => {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeTab === tab
-                      ? 'bg-white/10 text-white font-medium'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-white/10 text-white font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   {tab}
@@ -169,7 +169,7 @@ const CompetitionsList = () => {
           {/* Pagination */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> of <span className="font-medium text-white">12</span> results
+              Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> of <span className="font-medium text-white">12</span>
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>

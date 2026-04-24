@@ -224,6 +224,13 @@ function TicketPurchaseCard({ competition }) {
             {t("competitionDetails.liveNote")}
           </p>
         </div>
+
+        {/* Free Postal Entry note */}
+        <div className="text-center pt-1 border-t border-border/40 mt-4">
+          <p className="text-[11px] text-muted-foreground">
+            Free Postal Entry available. See <Link to="/terms" className="text-primary hover:underline">Terms & Conditions</Link>.
+          </p>
+        </div>
       </div>
     </div>
   );

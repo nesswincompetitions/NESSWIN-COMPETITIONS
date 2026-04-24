@@ -80,8 +80,8 @@ const WinnersList = () => {
                   key={status}
                   onClick={() => setActiveStatus(status)}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
-                      ? 'bg-white/10 text-white font-medium'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-white/10 text-white font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
                   {status}

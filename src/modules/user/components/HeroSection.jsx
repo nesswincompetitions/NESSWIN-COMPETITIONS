@@ -131,11 +131,11 @@ export default function HeroSection() {
               transition: `opacity 1.1s cubic-bezier(0.16,1,0.3,1) 480ms, transform 1.1s cubic-bezier(0.16,1,0.3,1) 480ms`,
             }}
           >
-            <div className="space-y-1">
-              <h1 className="font-serif text-6xl sm:text-7xl lg:text-[5.5rem] font-bold leading-[1.05] tracking-tight text-(--color-foreground)">
+            <div className="space-y-1 w-full max-w-[100vw] px-2 sm:px-4 overflow-hidden">
+              <h1 className="font-serif text-[2.5rem] leading-[1.1] sm:text-7xl lg:text-[5.5rem] font-bold sm:leading-[1.05] tracking-tight text-(--color-foreground) break-words">
                 {t("hero.titleTop")}
               </h1>
-              <h1 className="font-serif text-6xl sm:text-7xl lg:text-[5.5rem] font-bold leading-[1.05] tracking-tight text-primary">
+              <h1 className="font-serif text-[2.5rem] leading-[1.1] sm:text-7xl lg:text-[5.5rem] font-bold sm:leading-[1.05] tracking-tight text-primary break-words hyphens-auto">
                 {t("hero.titleBottom")}
               </h1>
             </div>

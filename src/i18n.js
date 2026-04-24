@@ -119,7 +119,10 @@ const resources = {
           careers: "Careers",
           terms: "Terms and Conditions",
           privacy: "Privacy Policy",
-          rules: "Competition Rules"
+          rules: "Competition Rules",
+          freePostalEntry: "Free Postal Entry",
+          responsiblePlay: "Responsible Play (18+)",
+          contactUs: "Contact Us"
         },
         rights: "© 2026 NessWin. All rights reserved. Competition for 18+ only.",
         systems: "All systems operational"
@@ -294,7 +297,10 @@ const resources = {
           careers: "Carrieres",
           terms: "Conditions generales",
           privacy: "Politique de confidentialite",
-          rules: "Regles du concours"
+          rules: "Regles du concours",
+          freePostalEntry: "Participation postale gratuite",
+          responsiblePlay: "Jeu responsable (18+)",
+          contactUs: "Nous contacter"
         },
         rights: "© 2026 NessWin. Tous droits reserves. Concours reserves aux 18+.",
         systems: "Tous les systemes operationnels"

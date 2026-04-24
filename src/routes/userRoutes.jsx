@@ -5,6 +5,11 @@ import SignupPage from '../modules/user/pages/SignupPage';
 import CompetitionsPage from '../modules/user/pages/CompetitionsPage';
 import CompetitionDetails from '../modules/user/pages/CompetitionDetails';
 import WinnersPage from '../modules/user/pages/WinnersPage';
+import TermsConditions from '../modules/user/pages/legal/TermsConditions';
+import PrivacyPolicy from '../modules/user/pages/legal/PrivacyPolicy';
+import FreePostalEntry from '../modules/user/pages/legal/FreePostalEntry';
+import ResponsiblePlay from '../modules/user/pages/legal/ResponsiblePlay';
+import CompetitionRules from '../modules/user/pages/legal/CompetitionRules';
 import UserLayout from '../layouts/UserLayout';
 
 export const UserRoutes = (
@@ -16,5 +21,10 @@ export const UserRoutes = (
     <Route path="/winner-component" element={<Home scrollTargetId="winners" />} />
     <Route path="/competitions/:id" element={<CompetitionDetails />} />
     <Route path="/winners" element={<WinnersPage />} />
+    <Route path="/terms" element={<TermsConditions />} />
+    <Route path="/privacy" element={<PrivacyPolicy />} />
+    <Route path="/free-postal-entry" element={<FreePostalEntry />} />
+    <Route path="/responsible-play" element={<ResponsiblePlay />} />
+    <Route path="/rules" element={<CompetitionRules />} />
   </Route>
 );
