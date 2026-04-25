@@ -1,6 +1,7 @@
 import React from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout';
+import { ProtectedRoute } from '../components/common/ProtectedRoute';
 import Dashboard from '../modules/admin/pages/Dashboard';
 import CompetitionsList from '../modules/admin/pages/CompetitionsList';
 import CreateCompetition from '../modules/admin/pages/CreateCompetition';
@@ -17,7 +18,7 @@ import BonusTickets from '../modules/admin/pages/BonusTickets';
 import Settings from '../modules/admin/pages/Settings';
 
 export const AdminRoutes = (
-  <Route path="/admin" element={<AdminLayout />}>
+  <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute>}>
     <Route index element={<Navigate to="dashboard" replace />} />
     <Route path="dashboard" element={<Dashboard />} />
     <Route path="competitions" element={<CompetitionsList />} />

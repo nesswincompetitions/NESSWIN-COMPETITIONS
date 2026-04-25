@@ -13,6 +13,27 @@ const OrdersList = () => {
   const navigate = useNavigate();
   const [activeStatus, setActiveStatus] = useState('All');
   const [selectedComp, setSelectedComp] = useState('All');
+  const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
+  const compDropdownRef = React.useRef(null);
+
+  const competitions = [
+    { value: 'All', label: 'All Competitions' },
+    { value: 'iPhone 15 Giveaway', label: 'iPhone 15 Giveaway' },
+    { value: 'Rolex Submariner', label: 'Rolex Submariner' },
+    { value: '2024 Range Rover Sport', label: '2024 Range Rover Sport' },
+  ];
+
+  const selectedCompLabel = competitions.find(c => c.value === selectedComp)?.label || 'All Competitions';
+
+  React.useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (compDropdownRef.current && !compDropdownRef.current.contains(e.target)) {
+        setIsCompDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Dummy Orders Data
   const orders = [
