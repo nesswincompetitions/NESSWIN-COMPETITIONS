@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, CheckCircle, ArrowRight, ChevronDown, Search } from 'lucide-react';
+import { CheckCircle, ArrowRight, ChevronDown, Search } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { linkWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -73,44 +73,68 @@ function CountryCodeSelect({ selected, onChange }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 h-12 px-3 rounded-l-xl border border-r-0 border-[var(--color-border)] bg-[var(--color-muted)]/30 hover:bg-[var(--color-muted)]/50 transition-colors cursor-pointer min-w-[100px]"
+        className={`
+          flex items-center gap-2 h-12 px-4 rounded-l-xl border border-r-0 transition-all cursor-pointer min-w-[110px]
+          ${open 
+            ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/5' 
+            : 'border-[var(--color-border)] bg-[var(--color-muted)]/20 hover:border-[var(--color-primary)]/30'}
+        `}
       >
-        <span className="text-lg leading-none">{selected.flag}</span>
-        <span className="text-sm font-medium text-[var(--color-foreground)]">{selected.code}</span>
-        <ChevronDown className={`w-3.5 h-3.5 text-[var(--color-muted-foreground)] transition-transform ${open ? 'rotate-180' : ''}`} />
+        <span className="text-xl leading-none">{selected.flag}</span>
+        <span className="text-sm font-bold text-[var(--color-foreground)]">{selected.code}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-[var(--color-muted-foreground)] transition-transform duration-300 ${open ? 'rotate-180 text-[var(--color-primary)]' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-[280px] max-h-[260px] bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-50 overflow-hidden">
-          <div className="p-2 border-b border-[var(--color-border)]">
-            <div className="flex items-center gap-2 px-3 h-9 rounded-lg bg-[var(--color-muted)]/30">
-              <Search className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
+        <div className="absolute top-full left-0 mt-2 w-[300px] bg-[var(--color-card)] border border-[var(--color-border)]/60 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.5)] z-50 overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="p-3 border-b border-[var(--color-border)]/40 bg-[var(--color-muted)]/10">
+            <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-[var(--color-background)] border border-[var(--color-border)]/60 focus-within:border-[var(--color-primary)]/40 transition-all">
+              <Search className="w-4 h-4 text-[var(--color-muted-foreground)]" />
               <input
                 type="text"
                 placeholder="Search country..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-xs text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/50"
+                className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/50"
                 autoFocus
               />
             </div>
           </div>
-          <div className="overflow-y-auto max-h-[200px]">
+          <div className="overflow-y-auto max-h-[240px] py-1 custom-scrollbar">
             {filtered.length === 0 ? (
-              <p className="text-xs text-[var(--color-muted-foreground)] text-center py-4">No results</p>
+              <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                <Search className="w-8 h-8 text-[var(--color-muted-foreground)]/20 mb-2" />
+                <p className="text-xs text-[var(--color-muted-foreground)]">No countries found matching your search</p>
+              </div>
             ) : (
-              filtered.map((c, i) => (
+              filtered.map((c) => (
                 <button
-                  key={`${c.country}-${i}`}
+                  key={`${c.country}-${c.code}`}
                   type="button"
-                  onClick={() => { onChange(c); setOpen(false); setSearch(''); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer ${
-                    selected.country === c.country && selected.code === c.code ? 'bg-[var(--color-primary)]/10' : ''
-                  }`}
+                  onClick={() => {
+                    onChange(c);
+                    setOpen(false);
+                    setSearch('');
+                  }}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer
+                    ${selected.country === c.country && selected.code === c.code
+                      ? 'bg-[var(--color-primary)]/10'
+                      : 'hover:bg-[var(--color-muted)]/40'}
+                  `}
                 >
-                  <span className="text-base leading-none">{c.flag}</span>
-                  <span className="text-sm text-[var(--color-foreground)] flex-1">{c.name}</span>
-                  <span className="text-xs text-[var(--color-muted-foreground)] font-mono">{c.code}</span>
+                  <span className="text-xl leading-none">{c.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${selected.country === c.country ? 'font-bold text-[var(--color-primary)]' : 'font-medium text-[var(--color-foreground)]'}`}>
+                      {c.name}
+                    </p>
+                    <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">
+                      {c.country}
+                    </p>
+                  </div>
+                  <span className={`text-xs font-mono font-bold ${selected.country === c.country ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]'}`}>
+                    {c.code}
+                  </span>
                 </button>
               ))
             )}
@@ -190,7 +214,7 @@ function OtpInput({ value, onChange }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function PhoneVerification() {
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[1]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [verificationCode, setVerificationCode] = useState('');
@@ -307,19 +331,18 @@ export default function PhoneVerification() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+    <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_60px_rgba(0,0,0,0.35)] relative">
       <div className="h-px w-full bg-gradient-to-r from-transparent via-[var(--color-primary)] to-transparent" />
       <div className="p-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 mb-4">
-            <Phone className="w-6 h-6 text-[var(--color-primary)]" />
-          </div>
+          <img src="/nesswin_logo.svg" alt="NessWin Logo" className="w-20 h-20 object-contain mx-auto mb-0" />
+          <img src="/nesswin_logo_2.svg" alt="NessWin Text" className="h-12 object-contain mx-auto mb-4 -mt-2" />
           <p className="text-xs font-bold text-[var(--color-primary)] tracking-[0.25em] uppercase mb-2">Step 2 of 3</p>
           <h2 className="font-serif text-2xl font-bold text-[var(--color-foreground)] mb-2">Verify Phone</h2>
           <p className="text-sm text-[var(--color-muted-foreground)]">
             {step === 'phone'
-              ? 'Enter your phone number to receive a verification code.'
+              ? 'Required for competition integrity and account security.'
               : `We sent a 6-digit code to ${selectedCountry.flag} ${selectedCountry.code} ••••${phoneNumber.slice(-4)}`}
           </p>
         </div>
@@ -335,7 +358,7 @@ export default function PhoneVerification() {
                 <div className="flex-1 flex items-center h-12 px-4 rounded-r-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 focus-within:border-[var(--color-primary)]/60 transition-all">
                   <input
                     type="tel"
-                    placeholder="7700 900000"
+                    placeholder="Enter your phone number"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ''))}
                     className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/40"

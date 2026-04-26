@@ -4,6 +4,7 @@ import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield } from "lu
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { logout } from "../../services/authService";
+import { toast } from "react-hot-toast";
 
 const LANGUAGE_OPTIONS = [
   { code: "en", short: "GB", flag: "🇬🇧", label: "English", secondary: "English" },
@@ -44,10 +45,12 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
+      toast.success("Signed out successfully");
       setProfileOpen(false);
       setMenuOpen(false);
       navigate("/");
     } catch (error) {
+      toast.error("Failed to sign out");
       console.error("Logout error:", error);
     }
   };

@@ -3,6 +3,7 @@ import { Route } from 'react-router-dom';
 import Home from '../modules/user/pages/Home';
 import SignupPage from '../modules/user/pages/SignupPage';
 import OnboardingPage from '../modules/user/pages/OnboardingPage';
+import ForgotPasswordPage from '../modules/user/pages/ForgotPasswordPage';
 import ProfilePage from '../modules/user/pages/ProfilePage';
 import CompetitionsPage from '../modules/user/pages/CompetitionsPage';
 import CompetitionDetails from '../modules/user/pages/CompetitionDetails';
@@ -19,6 +20,7 @@ export const UserRoutes = (
   <Route element={<UserLayout />}>
     <Route path="/" element={<Home />} />
     <Route path="/signin" element={<AuthRoute><SignupPage /></AuthRoute>} />
+    <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/competitions" element={<CompetitionsPage />} />

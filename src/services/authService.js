@@ -8,6 +8,7 @@ import {
   RecaptchaVerifier,
   linkWithCredential,
   PhoneAuthProvider,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import {
   doc,
@@ -93,6 +94,10 @@ export const signInWithApple = async () => {
 };
 
 export const logout = () => signOut(auth);
+
+export const passwordReset = async (email) => {
+  await sendPasswordResetEmail(auth, email);
+};
 
 // ─── Step 2: Phone Verification ───────────────────────────────────────────────
 

@@ -35,6 +35,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await logout();
+      toast.success("Signed out successfully");
       navigate("/");
     } catch (error) {
       toast.error("Failed to sign out");

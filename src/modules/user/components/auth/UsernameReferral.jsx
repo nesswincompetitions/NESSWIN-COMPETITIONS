@@ -32,8 +32,8 @@ export default function UsernameReferral() {
       return;
     }
 
-    // Too short — show inline without hitting DB
-    if (trimmed.length < 3) {
+    // Validation — show inline without hitting DB
+    if (trimmed.length < 3 || trimmed.length > 20) {
       setUsernameStatus(STATUS.TOO_SHORT);
       return;
     }
@@ -104,10 +104,12 @@ export default function UsernameReferral() {
     !username.trim();
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_60px_rgba(0,0,0,0.35)] overflow-hidden">
+    <div className="w-full max-w-md rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_60px_rgba(0,0,0,0.35)] relative">
       <div className="h-px w-full bg-gradient-to-r from-transparent via-[var(--color-primary)] to-transparent" />
       <div className="p-8">
         <div className="text-center mb-8">
+          <img src="/nesswin_logo.svg" alt="NessWin Logo" className="w-20 h-20 object-contain mx-auto mb-0" />
+          <img src="/nesswin_logo_2.svg" alt="NessWin Text" className="h-12 object-contain mx-auto mb-4 -mt-2" />
           <p className="text-xs font-bold text-[var(--color-primary)] tracking-[0.25em] uppercase mb-2">Final Step</p>
           <h2 className="font-serif text-2xl font-bold text-[var(--color-foreground)] mb-2">Choose Username</h2>
           <p className="text-sm text-[var(--color-muted-foreground)]">
@@ -127,6 +129,7 @@ export default function UsernameReferral() {
                 type="text"
                 placeholder="yash123"
                 value={username}
+                maxLength={20}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none"
                 autoComplete="username"
@@ -146,9 +149,16 @@ export default function UsernameReferral() {
             </div>
 
             {/* Status message */}
-            <div className="ml-1 h-4">
+            <div className="ml-1 mt-1.5 flex flex-col gap-1">
+              {usernameStatus === STATUS.IDLE && (
+                <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">
+                  3-20 characters · Letters, numbers, underscores only
+                </p>
+              )}
               {usernameStatus === STATUS.TOO_SHORT && (
-                <p className="text-[11px] text-[var(--color-muted-foreground)]">Min 3 characters · only letters, numbers, _</p>
+                <p className="text-[11px] text-red-400">
+                  Username must be between 3 and 20 characters
+                </p>
               )}
               {usernameStatus === STATUS.CHECKING && (
                 <p className="text-[11px] text-[var(--color-muted-foreground)]">Checking availability…</p>
