@@ -1,4 +1,5 @@
 import { Trophy, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
 import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
 
@@ -39,10 +40,13 @@ export default function CTASection() {
 
           <Reveal delay={130}>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
-              <button className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md text-sm font-medium bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer">
+              <Link 
+                to="/signin"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-md text-sm font-medium bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
+              >
                 <LogIn className="w-4 h-4" aria-hidden="true" />
                 {t("cta.signIn")}
-              </button>
+              </Link>
               <button className="inline-flex items-center justify-center gap-2 text-base font-medium px-8 py-3 rounded-md border border-border hover:border-primary/40 hover:bg-primary/5 transition-all text-(--color-foreground) cursor-pointer">
                 {t("cta.nextDraw")}
               </button>

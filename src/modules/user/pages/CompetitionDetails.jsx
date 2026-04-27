@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getCompetitionById } from "../../../data/competitions.js";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../../../context/AuthContext";
 
 const PARTICIPANTS = [
   {
@@ -119,6 +120,7 @@ function WhatsIncluded({ items }) {
 
 function TicketPurchaseCard({ competition }) {
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
   const {
     title,
     images,
@@ -160,24 +162,38 @@ function TicketPurchaseCard({ competition }) {
 
       {/* Card body */}
       <div className="p-6 space-y-5">
-        {/* Sign in prompt */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]">
-            <Lock className="w-5 h-5 text-primary" aria-hidden="true" />
-          </div>
-          <h3 className="font-serif font-bold text-lg text-(--color-foreground)">
-            {t("competitionDetails.loginToJoin")}
-          </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {t("competitionDetails.loginSubtitle")}
-          </p>
-        </div>
+        {!currentUser ? (
+          <>
+            {/* Sign in prompt */}
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]">
+                <Lock className="w-5 h-5 text-primary" aria-hidden="true" />
+              </div>
+              <h3 className="font-serif font-bold text-lg text-(--color-foreground)">
+                {t("competitionDetails.loginToJoin")}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {t("competitionDetails.loginSubtitle")}
+              </p>
+            </div>
 
-        {/* Sign in button */}
-        <button className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-medium h-9 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer">
-          <LogIn className="w-4 h-4" aria-hidden="true" />
-          {t("competitionDetails.signIn")}
-        </button>
+            {/* Sign in button */}
+            <Link 
+              to="/signin"
+              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-medium h-9 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" aria-hidden="true" />
+              {t("competitionDetails.signIn")}
+            </Link>
+          </>
+        ) : (
+          <div className="text-center py-2">
+            <button className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer">
+              <Ticket className="w-4 h-4" aria-hidden="true" />
+              {t("common.participate")}
+            </button>
+          </div>
+        )}
 
         {/* Draw info grid */}
         <div className="grid grid-cols-2 gap-3">

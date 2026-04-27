@@ -72,17 +72,7 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-            A
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Admin User</span>
-            <span className="text-xs text-gray-500">admin@nesswin.com</span>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 
