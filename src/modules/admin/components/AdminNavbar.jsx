@@ -1,13 +1,43 @@
-import React from 'react';
-import { LogOut, User } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { LogOut, User, Globe, Check } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { logout } from '../../../services/authService';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
+const LANGUAGE_OPTIONS = [
+  { code: 'en', short: 'GB', flag: '🇬🇧', label: 'English', secondary: 'English' },
+  { code: 'fr', short: 'FR', flag: '🇫🇷', label: 'Français', secondary: 'French' },
+  { code: 'es', short: 'ES', flag: '🇪🇸', label: 'Español', secondary: 'Spanish' },
+];
 
 const AdminNavbar = () => {
+  const { t, i18n } = useTranslation('admin');
   const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const languageMenuRef = useRef(null);
+
+  const activeLanguage =
+    LANGUAGE_OPTIONS.find((option) => i18n.language.startsWith(option.code)) ??
+    LANGUAGE_OPTIONS[0];
+
+  const handleLanguageChange = (nextLanguage) => {
+    i18n.changeLanguage(nextLanguage);
+    window.localStorage.setItem('lang', nextLanguage);
+    setLanguageOpen(false);
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (languageOpen && !languageMenuRef.current?.contains(event.target)) {
+        setLanguageOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [languageOpen]);
 
   const handleLogout = async () => {
     try {
@@ -36,17 +66,54 @@ const AdminNavbar = () => {
     <header className="h-16 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
       <div className="flex items-center gap-4">
         {/* Placeholder for breadcrumbs or page title if needed */}
-        <h1 className="text-sm font-medium text-gray-400 hidden md:block">
-          Overview
-        </h1>
       </div>
 
       <div className="flex items-center gap-4">
+        {/* Language Selector */}
+        <div className="relative" ref={languageMenuRef}>
+          <button
+            type="button"
+            onClick={() => setLanguageOpen(!languageOpen)}
+            className="flex items-center gap-2 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+          >
+            <Globe size={20} />
+            <span className="text-sm font-medium hidden sm:block">{activeLanguage.flag}</span>
+          </button>
+
+          {languageOpen && (
+            <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#0a0a0a] shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+              {LANGUAGE_OPTIONS.map((option) => {
+                const isActive = activeLanguage.code === option.code;
+                return (
+                  <button
+                    key={option.code}
+                    onClick={() => handleLanguageChange(option.code)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-white/5 group"
+                  >
+                    <span className="w-4 flex items-center justify-center">
+                      {isActive && <Check size={14} className="text-primary" />}
+                    </span>
+                    <span className="text-lg">{option.flag}</span>
+                    <div className="flex flex-col">
+                      <span className={`font-medium ${isActive ? 'text-primary' : 'text-gray-200'}`}>
+                        {option.label}
+                      </span>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+                        {option.secondary}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Profile Section */}
         <div className="flex items-center gap-3 pl-4 border-l border-white/10">
           <div className="flex flex-col items-end hidden sm:flex">
             <span className="text-sm font-medium text-white">
-              {userData?.display_name || 'Admin User'}
+              {userData?.display_name || t('navbar.adminUser')}
             </span>
             <span className="text-xs text-gray-500">
               {currentUser?.email || 'admin@nesswin.com'}
@@ -79,3 +146,4 @@ const AdminNavbar = () => {
 };
 
 export default AdminNavbar;
+

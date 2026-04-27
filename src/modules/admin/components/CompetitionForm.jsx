@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '../../../components/ui/Card';
+import { useTranslation } from 'react-i18next';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import { Upload, Image as ImageIcon, CheckCircle2, Clock, MapPin, Tag, Plus, Trash2, AlertCircle, Eye, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onSaveDraft, onSubmit }) => {
+  const { t } = useTranslation('admin');
   const [currentStep, setCurrentStep] = useState(0);
   
   const [formData, setFormData] = useState(initialData || {
@@ -26,10 +29,11 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     
     // Step 3: Skill Question
     questionText: '',
-    questionImage: null,
-    questionImagePreview: null,
+    questionImages: [],
+    questionImagePreviews: [],
     answers: [
       { text: '', isCorrect: true },
+      { text: '', isCorrect: false },
       { text: '', isCorrect: false },
       { text: '', isCorrect: false }
     ],
@@ -83,27 +87,36 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   };
 
   const handleQuestionImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
     
-    const preview = URL.createObjectURL(file);
+    const newPreviews = files.map(file => URL.createObjectURL(file));
     
     setFormData(prev => ({
       ...prev,
-      questionImage: file,
-      questionImagePreview: preview
+      questionImages: [...(prev.questionImages || []), ...files],
+      questionImagePreviews: [...(prev.questionImagePreviews || []), ...newPreviews]
     }));
   };
 
-  const removeQuestionImage = () => {
-    if (formData.questionImagePreview) {
-      URL.revokeObjectURL(formData.questionImagePreview);
-    }
-    setFormData(prev => ({
-      ...prev,
-      questionImage: null,
-      questionImagePreview: null
-    }));
+  const removeQuestionImage = (index) => {
+    setFormData(prev => {
+      const newImages = [...(prev.questionImages || [])];
+      const newPreviews = [...(prev.questionImagePreviews || [])];
+      
+      if (newPreviews[index]) {
+        URL.revokeObjectURL(newPreviews[index]);
+      }
+      
+      newImages.splice(index, 1);
+      newPreviews.splice(index, 1);
+      
+      return {
+        ...prev,
+        questionImages: newImages,
+        questionImagePreviews: newPreviews
+      };
+    });
   };
 
   const handleAnswerChange = (index, value) => {
@@ -139,9 +152,27 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     }
   };
 
-  const steps = ['Details', 'Pricing', 'Skill Question', 'Draw Settings', 'Review'];
+  const steps = [
+    t('competitions.form.steps.details'),
+    t('competitions.form.steps.pricing'),
+    t('competitions.form.steps.skillQuestion'),
+    t('competitions.form.steps.drawSettings'),
+    t('competitions.form.steps.review')
+  ];
 
   const handleNext = () => {
+    // Validation for Step 2: Skill Question
+    if (currentStep === 2) {
+      if (!formData.questionImagePreviews || formData.questionImagePreviews.length === 0) {
+        toast.error(t('competitions.form.step3.imageRequiredToast'));
+        return;
+      }
+      if (!formData.questionText.trim()) {
+        toast.error(t('competitions.form.step3.questionRequiredToast'));
+        return;
+      }
+    }
+
     if (currentStep < steps.length - 1) setCurrentStep(prev => prev + 1);
   };
 
@@ -158,49 +189,49 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep1 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Competition Details</h2>
-        <p className="text-sm text-gray-400 mt-1">Basic information about the competition and the prize.</p>
+        <h2 className="text-lg font-semibold">{t('competitions.form.step1.title')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t('competitions.form.step1.subtitle')}</p>
       </div>
       <CardContent className="p-6 space-y-5">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Competition Title <span className="text-red-400">*</span></label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.competitionTitle')} <span className="text-red-400">*</span></label>
           <input 
-            type="text" name="title" value={formData.title} onChange={handleChange} placeholder="e.g. 2024 Range Rover Sport" maxLength={120}
+            type="text" name="title" value={formData.title} onChange={handleChange} placeholder={t('competitions.form.step1.titlePlaceholder')} maxLength={120}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
           <div className="text-xs text-gray-500 text-right">{formData.title.length}/120</div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Short Description</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.shortDescription')}</label>
           <input 
-            type="text" name="shortDescription" value={formData.shortDescription} onChange={handleChange} placeholder="A brief catchy summary for the cards..." maxLength={200}
+            type="text" name="shortDescription" value={formData.shortDescription} onChange={handleChange} placeholder={t('competitions.form.step1.shortDescPlaceholder')} maxLength={200}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Full Description</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.fullDescription')}</label>
           <textarea 
-            name="fullDescription" value={formData.fullDescription} onChange={handleChange} placeholder="Detailed information about the competition, specs, etc." rows={5}
+            name="fullDescription" value={formData.fullDescription} onChange={handleChange} placeholder={t('competitions.form.step1.fullDescPlaceholder')} rows={5}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors resize-none"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Prize Name</label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.prizeName')}</label>
             <input 
-              type="text" name="prizeName" value={formData.prizeName} onChange={handleChange} placeholder="e.g. Range Rover Sport V8"
+              type="text" name="prizeName" value={formData.prizeName} onChange={handleChange} placeholder={t('competitions.form.step1.prizeNamePlaceholder')}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Estimated Value (£)</label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.estimatedValue')}</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input 
-                type="number" name="prizeValue" value={formData.prizeValue} onChange={handleChange} placeholder="0.00"
+                type="number" name="prizeValue" value={formData.prizeValue} onChange={handleChange} placeholder={t('competitions.form.step1.estimatedValuePlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
@@ -208,30 +239,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Category</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.category')}</label>
           <select 
             name="category" value={formData.category} onChange={handleChange}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
           >
-            <option value="Tech" className="bg-[#0a0a0a]">Tech</option>
-            <option value="Jewellery" className="bg-[#0a0a0a]">Jewellery</option>
-            <option value="Fashion" className="bg-[#0a0a0a]">Fashion</option>
-            <option value="Cars" className="bg-[#0a0a0a]">Cars</option>
-            <option value="Experiences" className="bg-[#0a0a0a]">Experiences</option>
-            <option value="Other" className="bg-[#0a0a0a]">Other</option>
+            <option value="Tech" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.tech')}</option>
+            <option value="Jewellery" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.jewellery')}</option>
+            <option value="Fashion" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.fashion')}</option>
+            <option value="Cars" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.cars')}</option>
+            <option value="Experiences" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.experiences')}</option>
+            <option value="Other" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.other')}</option>
           </select>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Images</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.images')}</label>
           <label className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group">
             <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Upload className="text-gray-400" size={24} />
             </div>
             <div className="text-center">
-              <p className="text-sm text-white font-medium">Click to upload or drag and drop</p>
-              <p className="text-xs text-gray-500 mt-1">SVG, PNG, JPG or GIF (max. 800x400px)</p>
+              <p className="text-sm text-white font-medium">{t('competitions.form.step1.uploadText')}</p>
+              <p className="text-xs text-gray-500 mt-1">{t('competitions.form.step1.uploadHint')}</p>
             </div>
           </label>
 
@@ -255,8 +286,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
           <div>
-            <p className="text-sm font-medium text-white">Featured Competition</p>
-            <p className="text-xs text-gray-400 mt-0.5">Show this competition on the home page hero section.</p>
+            <p className="text-sm font-medium text-white">{t('admin.competitions.form.step1.featuredCompetition')}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t('admin.competitions.form.step1.featuredDesc')}</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="isFeatured" checked={formData.isFeatured} onChange={handleChange} className="sr-only peer" />
@@ -270,26 +301,26 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep2 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Pricing & Tickets</h2>
-        <p className="text-sm text-gray-400 mt-1">Set the ticket price and maximum number of tickets available.</p>
+        <h2 className="text-lg font-semibold">{t('admin.competitions.form.step2.title')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t('admin.competitions.form.step2.subtitle')}</p>
       </div>
       <CardContent className="p-6 space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Ticket Price (£) <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.ticketPrice')} <span className="text-red-400">*</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input 
-                type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} placeholder="0.00"
+                type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} placeholder={t('admin.competitions.form.step2.ticketPricePlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Maximum Tickets <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.maxTickets')} <span className="text-red-400">*</span></label>
             <input 
-              type="number" name="maxTickets" value={formData.maxTickets} onChange={handleChange} placeholder="e.g. 5000"
+              type="number" name="maxTickets" value={formData.maxTickets} onChange={handleChange} placeholder={t('admin.competitions.form.step2.maxTicketsPlaceholder')}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
@@ -298,21 +329,21 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl flex gap-3 text-sm text-primary">
           <div className="mt-0.5">💰</div>
           <div>
-            <p className="font-medium mb-1">Revenue Estimate</p>
-            <p className="opacity-90">If all tickets sell: <span className="font-bold text-lg">£{revenueEstimate()}</span></p>
+            <p className="font-medium mb-1">{t('admin.competitions.form.step2.revenueEstimate')}</p>
+            <p className="opacity-90">{t('admin.competitions.form.step2.ifAllSell')} <span className="font-bold text-lg">£{revenueEstimate()}</span></p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium text-gray-300">Sell-out Behaviour</label>
+          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.sellOutBehavior')}</label>
           
           <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${formData.sellOutBehavior === 'auto_end' ? 'border-primary bg-primary/5' : 'border-white/10 bg-white/5'}`}>
             <div className="flex items-center h-5">
               <input type="radio" name="sellOutBehavior" value="auto_end" checked={formData.sellOutBehavior === 'auto_end'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">Auto-end when sold out</p>
-              <p className="text-xs text-gray-400 mt-1">The competition will automatically close and proceed to draw when all tickets are sold.</p>
+              <p className="text-sm font-medium text-white">{t('admin.competitions.form.step2.autoEndLabel')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('admin.competitions.form.step2.autoEndDesc')}</p>
             </div>
           </label>
 
@@ -321,8 +352,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <input type="radio" name="sellOutBehavior" value="keep_running" checked={formData.sellOutBehavior === 'keep_running'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">Keep running till timer ends</p>
-              <p className="text-xs text-gray-400 mt-1">The competition will remain open until the end date, even if sold out. (Useful for displaying "Sold Out" status).</p>
+              <p className="text-sm font-medium text-white">{t('admin.competitions.form.step2.keepRunningLabel')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('admin.competitions.form.step2.keepRunningDesc')}</p>
             </div>
           </label>
         </div>
@@ -334,47 +365,57 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep3 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Skill Question</h2>
-        <p className="text-sm text-gray-400 mt-1">Users must answer this question correctly to enter the draw.</p>
+        <h2 className="text-lg font-semibold">{t('admin.competitions.form.step3.title')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t('admin.competitions.form.step3.subtitle')}</p>
       </div>
       <CardContent className="p-6 space-y-6">
         
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Question Text <span className="text-red-400">*</span></label>
+          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step3.questionText')} <span className="text-red-400">*</span></label>
           <input 
-            type="text" name="questionText" value={formData.questionText} onChange={handleChange} placeholder="e.g. In what year was the first iPhone released?"
+            type="text" name="questionText" value={formData.questionText} onChange={handleChange} placeholder={t('admin.competitions.form.step3.questionTextPlaceholder')}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Question Image (Optional)</label>
-          {!formData.questionImagePreview ? (
-            <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-colors cursor-pointer group">
-              <input type="file" accept="image/*" className="hidden" onChange={handleQuestionImageUpload} />
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Upload className="text-gray-400" size={20} />
-              </div>
-              <p className="text-sm text-white font-medium mt-1">Upload an image for the question</p>
-            </label>
-          ) : (
-            <div className="relative aspect-video rounded-xl overflow-hidden border border-white/10 group max-w-sm">
-              <img src={formData.questionImagePreview} alt="Question Preview" className="w-full h-full object-cover" />
-              <button 
-                type="button"
-                onClick={(e) => { e.preventDefault(); removeQuestionImage(); }}
-                className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-              >
-                <X size={16} />
-              </button>
+          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step3.questionImages')} <span className="text-red-400">*</span> {t('admin.competitions.form.step3.questionImagesMin')}</label>
+          <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-colors cursor-pointer group">
+            <input type="file" multiple accept="image/*" className="hidden" onChange={handleQuestionImageUpload} />
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Upload className="text-gray-400" size={20} />
             </div>
+            <p className="text-sm text-white font-medium mt-1">{t('admin.competitions.form.step3.uploadQuestionImages')}</p>
+          </label>
+
+          {formData.questionImagePreviews && formData.questionImagePreviews.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              {formData.questionImagePreviews.map((preview, idx) => (
+                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
+                  <img src={preview} alt={`Question ${idx}`} className="w-full h-full object-cover" />
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); removeQuestionImage(idx); }}
+                    className="absolute top-1 right-1 bg-black/60 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {(!formData.questionImagePreviews || formData.questionImagePreviews.length === 0) && currentStep === 2 && (
+            <p className="text-xs text-red-400 flex items-center gap-1 mt-2">
+              <AlertCircle size={12} /> {t('competitions.form.step3.imageRequired')}
+            </p>
           )}
         </div>
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-300">Answer Options (2-4)</label>
-            <span className="text-xs text-gray-500">Select the radio button to mark the correct answer.</span>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step3.answerOptions')}</label>
+            <span className="text-xs text-gray-500">{t('competitions.form.step3.answerHint')}</span>
           </div>
           
           <div className="space-y-3">
@@ -386,13 +427,13 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
                   checked={answer.isCorrect} 
                   onChange={() => setCorrectAnswer(index)}
                   className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2 cursor-pointer" 
-                  title="Mark as correct answer"
+                  title={t('competitions.form.step3.markCorrect')}
                 />
                 <input 
                   type="text" 
                   value={answer.text} 
                   onChange={(e) => handleAnswerChange(index, e.target.value)} 
-                  placeholder={`Answer Option ${index + 1}`}
+                  placeholder={`${t('competitions.form.step3.answerPlaceholder')} ${index + 1}`}
                   className={`flex-1 bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors ${answer.isCorrect ? 'border-primary' : 'border-white/10'}`}
                 />
                 <button 
@@ -409,23 +450,32 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
           {formData.answers.length < 4 && (
             <Button variant="outline" size="sm" onClick={addAnswer} className="mt-2 text-xs">
-              <Plus size={14} className="mr-1" /> Add Option
+              <Plus size={14} className="mr-1" /> {t('competitions.form.step3.addOption')}
             </Button>
           )}
         </div>
 
         <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
-          <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2"><Eye size={14}/> Preview (User View)</h4>
-          {formData.questionImagePreview && (
-            <div className="aspect-video w-full rounded-lg overflow-hidden border border-white/5 max-w-sm mx-auto">
-              <img src={formData.questionImagePreview} alt="Question" className="w-full h-full object-cover" />
+          <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2"><Eye size={14}/> {t('competitions.form.step3.preview')}</h4>
+          {formData.questionImagePreviews && formData.questionImagePreviews.length > 0 && (
+            <div className={`mx-auto ${formData.questionImagePreviews.length === 1 ? 'max-w-sm' : 'max-w-sm grid grid-cols-2 gap-2'}`}>
+              {formData.questionImagePreviews.map((preview, idx) => (
+                <div 
+                  key={idx} 
+                  className={`rounded-lg overflow-hidden border border-white/5 ${
+                    formData.questionImagePreviews.length === 1 ? 'aspect-video w-full' : 'aspect-square'
+                  }`}
+                >
+                  <img src={preview} alt={`Question Preview ${idx}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
             </div>
           )}
-          <p className="text-white font-medium text-center">{formData.questionText || "Question text will appear here"}</p>
+          <p className="text-white font-medium text-center">{formData.questionText || t('competitions.form.step3.questionPreviewPlaceholder')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {formData.answers.map((ans, i) => (
               <div key={i} className="p-3 border border-white/10 rounded-lg text-sm text-gray-300 text-center">
-                {ans.text || `Option ${i + 1}`}
+                {ans.text || `${t('competitions.form.step3.option')} ${i + 1}`}
               </div>
             ))}
           </div>
@@ -438,21 +488,21 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep4 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Draw Settings</h2>
-        <p className="text-sm text-gray-400 mt-1">Configure when and how the draw will take place.</p>
+        <h2 className="text-lg font-semibold">{t('competitions.form.step4.title')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t('competitions.form.step4.subtitle')}</p>
       </div>
       <CardContent className="p-6 space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Draw End Date <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.drawEndDate')} <span className="text-red-400">*</span></label>
             <input 
               type="date" name="drawEndDate" value={formData.drawEndDate} onChange={handleChange}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Draw End Time <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.drawEndTime')} <span className="text-red-400">*</span></label>
             <input 
               type="time" name="drawEndTime" value={formData.drawEndTime} onChange={handleChange}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
@@ -462,8 +512,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
           <div>
-            <p className="text-sm font-medium text-white">Auto-end Draw</p>
-            <p className="text-xs text-gray-400 mt-0.5">Automatically close entries at the specified date/time.</p>
+            <p className="text-sm font-medium text-white">{t('competitions.form.step4.autoEndDraw')}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t('competitions.form.step4.autoEndDrawDesc')}</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="autoEndDraw" checked={formData.autoEndDraw} onChange={handleChange} className="sr-only peer" />
@@ -472,12 +522,12 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Instagram Live Link (Optional)</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.instagramLink')}</label>
           <input 
-            type="url" name="instagramLiveLink" value={formData.instagramLiveLink} onChange={handleChange} placeholder="https://instagram.com/..."
+            type="url" name="instagramLiveLink" value={formData.instagramLiveLink} onChange={handleChange} placeholder={t('competitions.form.step4.instagramPlaceholder')}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
-          <p className="text-xs text-gray-500">Provide a link if the draw will be broadcasted live.</p>
+          <p className="text-xs text-gray-500">{t('competitions.form.step4.instagramHint')}</p>
         </div>
 
       </CardContent>
@@ -487,8 +537,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep5 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Review & {isEditMode ? 'Save' : 'Publish'}</h2>
-        <p className="text-sm text-gray-400 mt-1">Review all competition details before {isEditMode ? 'saving changes' : 'publishing'}.</p>
+        <h2 className="text-lg font-semibold">{t(isEditMode ? 'competitions.form.step5.titleSave' : 'competitions.form.step5.titlePublish')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t(isEditMode ? 'competitions.form.step5.subtitleSave' : 'competitions.form.step5.subtitlePublish')}</p>
       </div>
       <CardContent className="p-6 space-y-8">
         
@@ -496,8 +546,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex gap-3 text-sm text-emerald-400">
           <CheckCircle2 className="shrink-0 mt-0.5" size={18} />
           <div>
-            <p className="font-medium">All required fields are completed</p>
-            <p className="opacity-90 text-xs mt-0.5">The competition is ready to be {isEditMode ? 'updated' : 'published'}.</p>
+            <p className="font-medium">{t('competitions.form.step5.allComplete')}</p>
+            <p className="opacity-90 text-xs mt-0.5">{t(isEditMode ? 'competitions.form.step5.readyUpdate' : 'competitions.form.step5.readyPublish')}</p>
           </div>
         </div>
 
@@ -505,17 +555,17 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           {/* Section 1 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <h3 className="text-sm font-medium text-white uppercase tracking-wider">Details</h3>
-              <button type="button" onClick={() => setCurrentStep(0)} className="text-xs text-primary hover:underline">Edit</button>
+              <h3 className="text-sm font-medium text-white uppercase tracking-wider">{t('competitions.form.step5.details')}</h3>
+              <button type="button" onClick={() => setCurrentStep(0)} className="text-xs text-primary hover:underline">{t('common.edit')}</button>
             </div>
             <div className="grid grid-cols-2 gap-y-2 text-sm">
-              <span className="text-gray-500">Title:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.title')}</span>
               <span className="text-white font-medium text-right">{formData.title || '-'}</span>
-              <span className="text-gray-500">Prize:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.prize')}</span>
               <span className="text-white text-right">{formData.prizeName || '-'}</span>
-              <span className="text-gray-500">Value:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.value')}</span>
               <span className="text-white text-right">£{formData.prizeValue || '0'}</span>
-              <span className="text-gray-500">Category:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.category')}</span>
               <span className="text-white text-right">{formData.category}</span>
             </div>
           </div>
@@ -523,30 +573,46 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           {/* Section 2 */}
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <h3 className="text-sm font-medium text-white uppercase tracking-wider">Pricing</h3>
-              <button type="button" onClick={() => setCurrentStep(1)} className="text-xs text-primary hover:underline">Edit</button>
+              <h3 className="text-sm font-medium text-white uppercase tracking-wider">{t('competitions.form.step5.pricing')}</h3>
+              <button type="button" onClick={() => setCurrentStep(1)} className="text-xs text-primary hover:underline">{t('common.edit')}</button>
             </div>
             <div className="grid grid-cols-2 gap-y-2 text-sm">
-              <span className="text-gray-500">Ticket Price:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.ticketPrice')}</span>
               <span className="text-white font-medium text-right">£{formData.ticketPrice || '0'}</span>
-              <span className="text-gray-500">Max Tickets:</span>
+              <span className="text-gray-500">{t('competitions.form.step5.maxTickets')}</span>
               <span className="text-white text-right">{formData.maxTickets || '0'}</span>
-              <span className="text-gray-500">Sell-out:</span>
-              <span className="text-white text-right">{formData.sellOutBehavior === 'auto_end' ? 'Auto-end' : 'Keep running'}</span>
+              <span className="text-gray-500">{t('competitions.form.step5.sellOut')}</span>
+              <span className="text-white text-right">{formData.sellOutBehavior === 'auto_end' ? t('competitions.form.step5.autoEnd') : t('competitions.form.step5.keepRunning')}</span>
             </div>
           </div>
 
-          {/* Section 3 */}
+          {/* Section 3: Skill Question */}
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
-              <h3 className="text-sm font-medium text-white uppercase tracking-wider">Draw Settings</h3>
-              <button type="button" onClick={() => setCurrentStep(3)} className="text-xs text-primary hover:underline">Edit</button>
+              <h3 className="text-sm font-medium text-white uppercase tracking-wider">{t('competitions.form.step5.skillQuestion')}</h3>
+              <button type="button" onClick={() => setCurrentStep(2)} className="text-xs text-primary hover:underline">{t('common.edit')}</button>
             </div>
             <div className="grid grid-cols-2 gap-y-2 text-sm">
-              <span className="text-gray-500">End Date:</span>
-              <span className="text-white font-medium text-right">{formData.drawEndDate || '-'} at {formData.drawEndTime || '-'}</span>
-              <span className="text-gray-500">Auto-end:</span>
-              <span className="text-white text-right">{formData.autoEndDraw ? 'Yes' : 'No'}</span>
+              <span className="text-gray-500">{t('competitions.form.step5.question')}</span>
+              <span className="text-white font-medium text-right line-clamp-1">{formData.questionText || '-'}</span>
+              <span className="text-gray-500">{t('competitions.form.step1.images')}</span>
+              <span className="text-white text-right">{formData.questionImagePreviews?.length || 0} {t('competitions.form.step5.imagesCount')}</span>
+              <span className="text-gray-500">{t('competitions.form.step3.answerOptions')}</span>
+              <span className="text-white text-right">{formData.answers.length} {t('competitions.form.step5.optionsCount')}</span>
+            </div>
+          </div>
+
+          {/* Section 4 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h3 className="text-sm font-medium text-white uppercase tracking-wider">{t('competitions.form.step5.drawSettings')}</h3>
+              <button type="button" onClick={() => setCurrentStep(3)} className="text-xs text-primary hover:underline">{t('common.edit')}</button>
+            </div>
+            <div className="grid grid-cols-2 gap-y-2 text-sm">
+              <span className="text-gray-500">{t('competitions.form.step5.endDate')}</span>
+              <span className="text-white font-medium text-right">{formData.drawEndDate || '-'} {t('competitions.form.step5.atTime')} {formData.drawEndTime || '-'}</span>
+              <span className="text-gray-500">{t('competitions.form.step5.autoEndLabel')}</span>
+              <span className="text-white text-right">{formData.autoEndDraw ? t('common.yes') : t('common.no')}</span>
             </div>
           </div>
         </div>
@@ -558,7 +624,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderLivePreview = () => (
     <div className="sticky top-6">
       <h3 className="text-sm font-medium text-gray-400 mb-3 uppercase tracking-wider">
-        {currentStep === 3 ? 'Countdown Preview' : 'Live Preview'}
+        {currentStep === 3 ? t('competitions.form.preview.countdownPreview') : t('competitions.form.preview.livePreview')}
       </h3>
       
       <div className="bg-[#121212] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
@@ -570,7 +636,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           )}
           {formData.isFeatured && (
             <div className="absolute top-3 left-3">
-              <Badge variant="hot">Featured</Badge>
+              <Badge variant="hot">{t('competitions.detail.featured')}</Badge>
             </div>
           )}
         </div>
@@ -578,39 +644,39 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         <div className="p-5 space-y-4">
           <div>
             <h4 className="text-xl font-bold text-white line-clamp-2 leading-tight">
-              {formData.title || "Competition Title Will Appear Here"}
+              {formData.title || t('competitions.form.preview.titlePlaceholder')}
             </h4>
             <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-              {formData.shortDescription || "Add a short description to give users a quick overview of what they can win."}
+              {formData.shortDescription || t('competitions.form.preview.descPlaceholder')}
             </p>
           </div>
 
           {currentStep === 3 ? (
             <div className="pt-4 border-t border-white/5 text-center">
-              <p className="text-xs text-gray-500 mb-2">Draw Ends In</p>
+              <p className="text-xs text-gray-500 mb-2">{t('competitions.form.preview.drawEndsIn')}</p>
               <div className="flex justify-center gap-2">
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">05</span><span className="text-[10px] text-gray-500 block">DAYS</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">12</span><span className="text-[10px] text-gray-500 block">HRS</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">45</span><span className="text-[10px] text-gray-500 block">MIN</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">05</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.days')}</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">12</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.hrs')}</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">45</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.min')}</span></div>
               </div>
             </div>
           ) : (
             <div className="flex items-center justify-between pt-4 border-t border-white/5">
               <div>
-                <p className="text-xs text-gray-500">Ticket Price</p>
+                <p className="text-xs text-gray-500">{t('competitions.form.preview.ticketPrice')}</p>
                 <p className="text-lg font-bold text-primary mt-0.5">
                   {formData.ticketPrice ? `£${parseFloat(formData.ticketPrice).toLocaleString()}` : "£0.00"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500">Value</p>
+                <p className="text-xs text-gray-500">{t('competitions.form.preview.value')}</p>
                 <p className="text-sm font-medium text-white mt-1">£{formData.prizeValue ? parseFloat(formData.prizeValue).toLocaleString() : "0.00"}</p>
               </div>
             </div>
           )}
           
           <Button variant="primary" className="w-full mt-2 pointer-events-none opacity-80" size="sm">
-            Enter Now
+            {t('competitions.form.preview.enterNow')}
           </Button>
         </div>
       </div>
@@ -662,16 +728,16 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-4 border-t border-white/10 mt-6 gap-3">
             <Button variant="outline" className="w-full sm:w-auto order-2 sm:order-1" onClick={currentStep === 0 ? onCancel : handleBack}>
-              {currentStep === 0 ? 'Cancel' : 'Back'}
+              {currentStep === 0 ? t('competitions.form.buttons.cancel') : t('common.back')}
             </Button>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
-              {!isEditMode && <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>Save as Draft</Button>}
+              {!isEditMode && <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>{t('competitions.form.buttons.saveDraft')}</Button>}
               {currentStep === steps.length - 1 ? (
                 <Button variant="primary" className="w-full sm:w-auto" onClick={() => onSubmit && onSubmit(formData)}>
-                  {isEditMode ? 'Save Changes' : 'Publish Competition'}
+                  {isEditMode ? t('competitions.form.buttons.saveChanges') : t('competitions.form.buttons.publishCompetition')}
                 </Button>
               ) : (
-                <Button variant="primary" className="w-full sm:w-auto" onClick={handleNext}>Next Step: {steps[currentStep + 1]}</Button>
+                <Button variant="primary" className="w-full sm:w-auto" onClick={handleNext}>{t('competitions.form.buttons.nextStep')} {steps[currentStep + 1]}</Button>
               )}
             </div>
           </div>

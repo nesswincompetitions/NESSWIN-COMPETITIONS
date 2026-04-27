@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -10,7 +11,8 @@ import {
 
 const ReferralsList = () => {
   const navigate = useNavigate();
-  const [sortBy, setSortBy] = useState('Most Referrals');
+  const { t } = useTranslation('admin');
+  const [sortBy, setSortBy] = useState('mostReferrals');
 
   // Dummy Referrals Data
   const referrals = [
@@ -41,12 +43,12 @@ const ReferralsList = () => {
       {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Referrals</h1>
-          <p className="text-gray-400 mt-1">Track user referrals and rewards.</p>
+          <h1 className="text-3xl font-serif font-bold text-white">{t('referrals.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('referrals.subtitle')}</p>
         </div>
         <Button variant="outline" className="flex items-center gap-2">
           <Download size={16} />
-          Export CSV
+          {t('common.exportCsv')}
         </Button>
       </header>
 
@@ -59,7 +61,7 @@ const ReferralsList = () => {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search name, email, or referral code..."
+                placeholder={t('referrals.searchPlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
               />
             </div>
@@ -67,7 +69,7 @@ const ReferralsList = () => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
-                <span className="text-sm hidden sm:inline">Date</span>
+                <span className="text-sm hidden sm:inline">{t('common.date')}</span>
               </Button>
 
               <div className="relative flex-1 sm:flex-none sm:w-48">
@@ -76,9 +78,9 @@ const ReferralsList = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
-                  <option value="Most Referrals" className="bg-[#121212]">Most Referrals</option>
-                  <option value="Newest" className="bg-[#121212]">Newest First</option>
-                  <option value="Rewards" className="bg-[#121212]">Most Rewards</option>
+                  <option value="mostReferrals" className="bg-[#121212]">{t('referrals.sort.mostReferrals')}</option>
+                  <option value="newest" className="bg-[#121212]">{t('referrals.sort.newest')}</option>
+                  <option value="mostRewards" className="bg-[#121212]">{t('referrals.sort.mostRewards')}</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
@@ -91,13 +93,13 @@ const ReferralsList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>Referrer</TableHead>
-                    <TableHead>Referral Code</TableHead>
-                    <TableHead className="text-center">Referred Users</TableHead>
-                    <TableHead className="text-center">Rewards Earned</TableHead>
-                    <TableHead>Date Joined</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-12">{t('users.table.number')}</TableHead>
+                    <TableHead>{t('referrals.table.referrer')}</TableHead>
+                    <TableHead>{t('referrals.table.referralCode')}</TableHead>
+                    <TableHead className="text-center">{t('referrals.table.referredUsers')}</TableHead>
+                    <TableHead className="text-center">{t('referrals.table.rewardsEarned')}</TableHead>
+                    <TableHead>{t('referrals.table.date')}</TableHead>
+                    <TableHead className="text-right">{t('referrals.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,11 +118,11 @@ const ReferralsList = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-center text-gray-300">
-                        {user.referredCount} users
+                        {user.referredCount} {t('referrals.table.users')}
                       </TableCell>
                       <TableCell className="text-center">
                         <span className="font-bold text-yellow-500 bg-yellow-500/10 px-3 py-1 rounded-full text-sm border border-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.1)]">
-                          {user.rewardsEarned} Tickets
+                          {user.rewardsEarned} {t('referrals.table.tickets')}
                         </span>
                       </TableCell>
                       <TableCell className="text-gray-400">{user.dateJoined}</TableCell>
@@ -128,7 +130,7 @@ const ReferralsList = () => {
                         <button
                           onClick={() => navigate(`/admin/referrals/${user.id}`)}
                           className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors inline-flex items-center"
-                          title="View Details"
+                          title={t('common.viewDetails')}
                         >
                           <Eye size={16} />
                         </button>
@@ -144,9 +146,9 @@ const ReferralsList = () => {
                   <UsersIcon className="text-gray-500" size={32} />
                 </div>
                 <div>
-                  <p className="text-white font-medium text-lg">No referrals yet</p>
+                  <p className="text-white font-medium text-lg">{t('referrals.empty.title')}</p>
                   <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                    When users start inviting friends, their stats will appear here.
+                    {t('referrals.empty.desc')}
                   </p>
                 </div>
               </div>
@@ -157,14 +159,14 @@ const ReferralsList = () => {
           {referrals.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-sm text-gray-400">
-                Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{referrals.length}</span> of <span className="font-medium text-white">{referrals.length}</span> results
+                {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{referrals.length}</span> {t('common.of')} <span className="font-medium text-white">{referrals.length}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Next
+                  {t('common.next')}
                 </Button>
               </div>
             </div>

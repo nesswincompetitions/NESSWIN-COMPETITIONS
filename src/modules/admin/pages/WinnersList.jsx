@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -8,7 +9,8 @@ import { Search, Calendar, Download, Eye, ExternalLink, Trophy } from 'lucide-re
 
 const WinnersList = () => {
   const navigate = useNavigate();
-  const [activeStatus, setActiveStatus] = useState('All');
+  const { t } = useTranslation('admin');
+  const [activeStatus, setActiveStatus] = useState('all');
 
   // Dummy Winners Data
   const winners = [
@@ -16,7 +18,7 @@ const WinnersList = () => {
       id: 1,
       name: "John Doe",
       email: "john@example.com",
-      competition: "iPhone 15 Giveaway",
+      competition: t('competitionNames.iphone'),
       ticket: "#0234",
       drawDate: "12 May 2026",
       status: "Completed"
@@ -25,7 +27,7 @@ const WinnersList = () => {
       id: 2,
       name: "Sarah Smith",
       email: "sarah@example.com",
-      competition: "2024 Range Rover Sport",
+      competition: t('competitionNames.rangeRover'),
       ticket: "#1450",
       drawDate: "01 Jun 2026",
       status: "Contacted"
@@ -34,22 +36,22 @@ const WinnersList = () => {
       id: 3,
       name: "Mike Johnson",
       email: "mike@example.com",
-      competition: "Rolex Submariner",
+      competition: t('competitionNames.rolex'),
       ticket: "#0899",
       drawDate: "15 Apr 2026",
-      status: "Pending"
+      status: "pending"
     },
   ];
 
-  const filteredWinners = activeStatus === 'All'
+  const filteredWinners = activeStatus === 'all'
     ? winners
-    : winners.filter(w => w.status === activeStatus);
+    : winners.filter(w => w.status.toLowerCase() === activeStatus);
 
   const renderStatusBadge = (status) => {
-    switch (status) {
-      case 'Completed': return <Badge variant="success">Completed</Badge>;
-      case 'Contacted': return <Badge variant="hot">Contacted</Badge>;
-      case 'Pending': return <Badge variant="warning">Pending</Badge>;
+    switch (status.toLowerCase()) {
+      case 'completed': return <Badge variant="success">{t('common.completed')}</Badge>;
+      case 'contacted': return <Badge variant="hot">{t('common.contacted')}</Badge>;
+      case 'pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
       default: return <Badge variant="neutral">{status}</Badge>;
     }
   };
@@ -59,12 +61,12 @@ const WinnersList = () => {
       {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Winners</h1>
-          <p className="text-gray-400 mt-1">View and manage all competition winners across the platform.</p>
+          <h1 className="text-3xl font-serif font-bold text-white">{t('winners.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('winners.subtitle')}</p>
         </div>
         <Button variant="outline" className="flex items-center gap-2">
           <Download size={16} />
-          Export CSV
+          {t('common.exportCsv')}
         </Button>
       </header>
 
@@ -75,16 +77,21 @@ const WinnersList = () => {
 
             {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
-              {['All', 'Pending', 'Contacted', 'Completed'].map((status) => (
+              {[
+                { key: 'all', label: t('common.all') },
+                { key: 'pending', label: t('common.pending') },
+                { key: 'contacted', label: t('common.contacted') },
+                { key: 'completed', label: t('common.completed') }
+              ].map((status) => (
                 <button
-                  key={status}
-                  onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                  key={status.key}
+                  onClick={() => setActiveStatus(status.key)}
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
-                  {status}
+                  {status.label}
                 </button>
               ))}
             </div>
@@ -95,14 +102,14 @@ const WinnersList = () => {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by name, email..."
+                  placeholder={t('winners.searchPlaceholder')}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
 
               <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
-                <span className="text-sm">Filter Dates</span>
+                <span className="text-sm">{t('common.filterDates')}</span>
               </Button>
             </div>
           </div>
@@ -112,14 +119,14 @@ const WinnersList = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Winner Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Competition</TableHead>
-                  <TableHead>Ticket No</TableHead>
-                  <TableHead>Draw Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-12">{t('users.table.number')}</TableHead>
+                  <TableHead>{t('winners.table.winner')}</TableHead>
+                  <TableHead>{t('common.email')}</TableHead>
+                  <TableHead>{t('winners.table.competition')}</TableHead>
+                  <TableHead>{t('winners.table.ticketNo')}</TableHead>
+                  <TableHead>{t('winners.table.drawDate')}</TableHead>
+                  <TableHead>{t('winners.table.status')}</TableHead>
+                  <TableHead className="text-right">{t('winners.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -138,13 +145,13 @@ const WinnersList = () => {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => navigate(`/admin/winners/${winner.id}`)}
-                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View Winner"
+                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title={t('winners.tooltips.viewWinner')}
                         >
                           <Eye size={16} />
                         </button>
                         <button
                           onClick={() => navigate(`/admin/competitions/${winner.id}`)}
-                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-primary transition-colors" title="View Competition"
+                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-primary transition-colors" title={t('winners.tooltips.viewCompetition')}
                         >
                           <ExternalLink size={16} />
                         </button>
@@ -161,16 +168,14 @@ const WinnersList = () => {
                 <Trophy className="text-gray-500" size={32} />
               </div>
               <div>
-                <p className="text-white font-medium text-lg">No winners found</p>
+                <p className="text-white font-medium text-lg">{t('winners.empty.title')}</p>
                 <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                  {activeStatus === 'All'
-                    ? 'Winners will appear here after competitions end and draws are executed.'
-                    : `No winners currently match the "${activeStatus}" status filter.`}
+                  {t('winners.empty.desc')}
                 </p>
               </div>
-              {activeStatus !== 'All' && (
-                <Button variant="outline" size="sm" onClick={() => setActiveStatus('All')} className="mt-2">
-                  Clear Filters
+              {activeStatus !== 'all' && (
+                <Button variant="outline" size="sm" onClick={() => setActiveStatus('all')} className="mt-2">
+                  {t('common.clearFilters')}
                 </Button>
               )}
             </div>
@@ -180,14 +185,14 @@ const WinnersList = () => {
           {filteredWinners.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-sm text-gray-400">
-                Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{filteredWinners.length}</span> of <span className="font-medium text-white">{filteredWinners.length}</span> results
+                {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{filteredWinners.length}</span> {t('common.of')} <span className="font-medium text-white">{filteredWinners.length}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Next
+                  {t('common.next')}
                 </Button>
               </div>
             </div>

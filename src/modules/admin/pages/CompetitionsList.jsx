@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -15,15 +16,21 @@ const CompetitionsList = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [competitionToDelete, setCompetitionToDelete] = useState(null);
   const navigate = useNavigate();
+  const { t } = useTranslation('admin');
 
-  const tabs = ['All', 'Active', 'Ended', 'Archived'];
+  const tabs = [
+    { key: 'All', label: t('common.all') },
+    { key: 'Active', label: t('common.active') },
+    { key: 'Ended', label: t('common.ended') },
+    { key: 'Archived', label: t('common.archived') },
+  ];
 
   const competitions = [
-    { id: 1, name: "iPhone 15 Giveaway", status: "Active", price: "£2.99", sold: 340, total: 500, revenue: "£1,016", drawDate: "12 May 2026" },
-    { id: 2, name: "2024 Range Rover Sport", status: "Active", price: "£10.00", sold: 1450, total: 5000, revenue: "£14,500", drawDate: "01 Jun 2026" },
-    { id: 3, name: "Rolex Submariner", status: "Ended", price: "£5.00", sold: 2000, total: 2000, revenue: "£10,000", drawDate: "15 Apr 2026" },
-    { id: 4, name: "Gaming PC Setup", status: "Active", price: "£1.50", sold: 85, total: 200, revenue: "£127.50", drawDate: "20 May 2026" },
-    { id: 5, name: "Trip to Maldives", status: "Archived", price: "£20.00", sold: 950, total: 1000, revenue: "£19,000", drawDate: "01 Jan 2026" },
+    { id: 1, name: t('competitionNames.iphone'), status: "Active", price: "£2.99", sold: 340, total: 500, revenue: "£1,016", drawDate: "12 May 2026" },
+    { id: 2, name: t('competitionNames.rangeRover'), status: "Active", price: "£10.00", sold: 1450, total: 5000, revenue: "£14,500", drawDate: "01 Jun 2026" },
+    { id: 3, name: t('competitionNames.rolex'), status: "Ended", price: "£5.00", sold: 2000, total: 2000, revenue: "£10,000", drawDate: "15 Apr 2026" },
+    { id: 4, name: t('competitionNames.gamingPC'), status: "Active", price: "£1.50", sold: 85, total: 200, revenue: "£127.50", drawDate: "20 May 2026" },
+    { id: 5, name: t('competitionNames.maldives'), status: "Archived", price: "£20.00", sold: 950, total: 1000, revenue: "£19,000", drawDate: "01 Jan 2026" },
   ];
 
   const filteredCompetitions = activeTab === 'All'
@@ -35,12 +42,12 @@ const CompetitionsList = () => {
       {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Competitions</h1>
-          <p className="text-gray-400 mt-1">Manage and track all your raffles and giveaways.</p>
+          <h1 className="text-3xl font-serif font-bold">{t('competitions.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('competitions.subtitle')}</p>
         </div>
         <Button variant="primary" className="flex items-center gap-2" onClick={() => navigate('/admin/competitions/create')}>
           <Plus size={18} />
-          Create New Competition
+          {t('competitions.createNew')}
         </Button>
       </header>
 
@@ -53,14 +60,14 @@ const CompetitionsList = () => {
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {tabs.map((tab) => (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeTab === tab
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeTab === tab.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
-                  {tab}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -71,7 +78,7 @@ const CompetitionsList = () => {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by name or ID..."
+                  placeholder={t('competitions.searchPlaceholder')}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
@@ -79,12 +86,12 @@ const CompetitionsList = () => {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
                   <Calendar size={16} className="text-gray-400" />
-                  <span className="text-sm">Filter Dates</span>
+                  <span className="text-sm">{t('common.filterDates')}</span>
                 </Button>
 
                 <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
                   <Download size={16} className="text-gray-400" />
-                  <span className="text-sm">Export</span>
+                  <span className="text-sm">{t('common.export')}</span>
                 </Button>
               </div>
             </div>
@@ -94,13 +101,13 @@ const CompetitionsList = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Competition Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ticket Price</TableHead>
-                <TableHead>Tickets Sold</TableHead>
-                <TableHead>Revenue</TableHead>
-                <TableHead>Draw Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>{t('competitions.table.competitionName')}</TableHead>
+                <TableHead>{t('competitions.table.status')}</TableHead>
+                <TableHead>{t('competitions.table.ticketPrice')}</TableHead>
+                <TableHead>{t('competitions.table.ticketsSold')}</TableHead>
+                <TableHead>{t('competitions.table.revenue')}</TableHead>
+                <TableHead>{t('competitions.table.drawDate')}</TableHead>
+                <TableHead className="text-right">{t('competitions.table.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -122,7 +129,9 @@ const CompetitionsList = () => {
                       comp.status === 'Active' ? 'success' :
                         comp.status === 'Ended' ? 'neutral' : 'warning'
                     }>
-                      {comp.status}
+                      {comp.status === 'Active' ? t('common.active') :
+                        comp.status === 'Ended' ? t('common.ended') :
+                          comp.status === 'Archived' ? t('common.archived') : comp.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{comp.price}</TableCell>
@@ -143,19 +152,19 @@ const CompetitionsList = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => navigate(`/admin/competitions/${comp.id}`)}
-                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title="View"
+                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title={t('common.view')}
                       >
                         <Eye size={16} />
                       </button>
                       <button
                         onClick={() => navigate(`/admin/competitions/${comp.id}?tab=edit`)}
-                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title="Edit"
+                        className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-blue-400 transition-colors" title={t('common.edit')}
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => { setCompetitionToDelete(comp); setDeleteModalOpen(true); }}
-                        className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title="Delete"
+                        className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-400 transition-colors" title={t('common.delete')}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -169,15 +178,15 @@ const CompetitionsList = () => {
           {/* Pagination */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> of <span className="font-medium text-white">12</span>
+              {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> {t('common.of')} <span className="font-medium text-white">12</span>
             </p>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
                 <ChevronLeft size={14} className="mr-1" />
-                Previous
+                {t('common.previous')}
               </Button>
               <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10">
-                Next
+                {t('common.next')}
                 <ChevronRight size={14} className="ml-1" />
               </Button>
             </div>
@@ -188,16 +197,15 @@ const CompetitionsList = () => {
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
-        title="Delete Competition"
-        description="Are you sure you want to delete this competition? This action cannot be undone."
+        title={t('competitions.deleteModal.title')}
+        description={t('competitions.deleteModal.description')}
         actions={
           <>
-            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>{t('common.cancel')}</Button>
             <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={() => {
-              // Handle delete logic here
               setDeleteModalOpen(false);
             }}>
-              Delete
+              {t('common.delete')}
             </Button>
           </>
         }

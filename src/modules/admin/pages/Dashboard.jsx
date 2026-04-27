@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -11,48 +12,49 @@ import {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('admin');
 
   const kpiData = [
-    { title: 'Total Active Competitions', value: '12', icon: Trophy, color: 'text-primary' },
-    { title: 'Tickets Sold Today', value: '320', icon: Ticket, color: 'text-emerald-400' },
-    { title: 'Total Revenue', value: '£12,400', icon: PoundSterling, color: 'text-yellow-400' },
-    { title: 'Registered Users', value: '5,400', icon: Users, color: 'text-blue-400' },
-    { title: 'Pending Winners', value: '3', icon: CheckCircle, color: 'text-orange-400' },
-    { title: 'Draws Ending Soon (7d)', value: '5', icon: Clock, color: 'text-red-400' },
+    { title: t('dashboard.kpi.activeCompetitions'), value: '12', icon: Trophy, color: 'text-primary' },
+    { title: t('dashboard.kpi.ticketsSoldToday'), value: '320', icon: Ticket, color: 'text-emerald-400' },
+    { title: t('dashboard.kpi.totalRevenue'), value: '£12,400', icon: PoundSterling, color: 'text-yellow-400' },
+    { title: t('dashboard.kpi.registeredUsers'), value: '5,400', icon: Users, color: 'text-blue-400' },
+    { title: t('dashboard.kpi.pendingWinners'), value: '3', icon: CheckCircle, color: 'text-orange-400' },
+    { title: t('dashboard.kpi.drawsEndingSoon'), value: '5', icon: Clock, color: 'text-red-400' },
   ];
 
   const activeCompetitions = [
-    { id: '1', name: '2024 Range Rover Sport', status: 'Active', sold: 340, total: 500, revenue: '£3,400', drawDate: '2024-05-01' },
-    { id: '2', name: 'Rolex Submariner', status: 'Active', sold: 450, total: 1000, revenue: '£9,000', drawDate: '2024-05-05' },
-    { id: '3', name: '£5,000 Cash Prize', status: 'Ending Soon', sold: 1800, total: 2000, revenue: '£9,000', drawDate: '2024-04-25' },
-    { id: '4', name: 'Gaming PC Setup', status: 'Active', sold: 85, total: 200, revenue: '£425', drawDate: '2024-05-10' },
-    { id: '5', name: 'Trip to Maldives', status: 'Active', sold: 600, total: 1000, revenue: '£12,000', drawDate: '2024-06-01' },
+    { id: '1', name: t('competitionNames.rangeRover'), status: 'Active', sold: 340, total: 500, revenue: '£3,400', drawDate: '2024-05-01' },
+    { id: '2', name: t('competitionNames.rolex'), status: 'Active', sold: 450, total: 1000, revenue: '£9,000', drawDate: '2024-05-05' },
+    { id: '3', name: t('competitionNames.cashPrize'), status: 'Ending Soon', sold: 1800, total: 2000, revenue: '£9,000', drawDate: '2024-04-25' },
+    { id: '4', name: t('competitionNames.gamingPC'), status: 'Active', sold: 85, total: 200, revenue: '£425', drawDate: '2024-05-10' },
+    { id: '5', name: t('competitionNames.maldives'), status: 'Active', sold: 600, total: 1000, revenue: '£12,000', drawDate: '2024-06-01' },
   ];
 
   const recentOrders = [
-    { id: '#ORD-001', user: 'John Doe', competition: '2024 Range Rover', tickets: 5, amount: '£50', time: '10 mins ago' },
-    { id: '#ORD-002', user: 'Jane Smith', competition: 'Rolex Submariner', tickets: 2, amount: '£40', time: '25 mins ago' },
-    { id: '#ORD-003', user: 'Mike Johnson', competition: '£5,000 Cash Prize', tickets: 10, amount: '£50', time: '1 hour ago' },
-    { id: '#ORD-004', user: 'Sarah Wilson', competition: 'Gaming PC Setup', tickets: 1, amount: '£5', time: '2 hours ago' },
-    { id: '#ORD-005', user: 'Tom Brown', competition: '2024 Range Rover', tickets: 3, amount: '£30', time: '3 hours ago' },
+    { id: '#ORD-001', user: 'John Doe', competition: t('competitionNames.rangeRover'), tickets: 5, amount: '£50', time: '10 mins ago' },
+    { id: '#ORD-002', user: 'Jane Smith', competition: t('competitionNames.rolex'), tickets: 2, amount: '£40', time: '25 mins ago' },
+    { id: '#ORD-003', user: 'Mike Johnson', competition: t('competitionNames.cashPrize'), tickets: 10, amount: '£50', time: '1 hour ago' },
+    { id: '#ORD-004', user: 'Sarah Wilson', competition: t('competitionNames.gamingPC'), tickets: 1, amount: '£5', time: '2 hours ago' },
+    { id: '#ORD-005', user: 'Tom Brown', competition: t('competitionNames.rangeRover'), tickets: 3, amount: '£30', time: '3 hours ago' },
   ];
 
   const upcomingDraws = [
-    { id: '3', name: '£5,000 Cash Prize', countdown: '2d 4h 30m', remaining: 200 },
-    { id: '2', name: 'Rolex Submariner', countdown: '5d 12h 15m', remaining: 550 },
-    { id: '1', name: '2024 Range Rover Sport', countdown: '8d 6h 45m', remaining: 160 },
+    { id: '3', name: t('competitionNames.cashPrize'), countdown: '2d 4h 30m', remaining: 200 },
+    { id: '2', name: t('competitionNames.rolex'), countdown: '5d 12h 15m', remaining: 550 },
+    { id: '1', name: t('competitionNames.rangeRover'), countdown: '8d 6h 45m', remaining: 160 },
   ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 fade-in">
       <header className="flex flex-col gap-2 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold">Dashboard</h1>
-          <p className="text-gray-400 mt-1">Overview of your platform's performance.</p>
+          <h1 className="text-3xl font-serif font-bold">{t('dashboard.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('dashboard.subtitle')}</p>
         </div>
       </header>
 
-      {/* KPI Cards (Top Row) */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {kpiData.map((stat, i) => {
           const Icon = stat.icon;
@@ -81,18 +83,18 @@ const Dashboard = () => {
           {/* Active Competitions Table */}
           <Card>
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Active Competitions</h2>
-              <Button variant="outline" size="sm" onClick={() => navigate('/admin/competitions')}>View All</Button>
+              <h2 className="text-lg font-semibold">{t('dashboard.activeCompetitions')}</h2>
+              <Button variant="outline" size="sm" onClick={() => navigate('/admin/competitions')}>{t('common.viewAll')}</Button>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Tickets Sold</TableHead>
-                  <TableHead>Revenue</TableHead>
-                  <TableHead>Draw Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t('dashboard.table.name')}</TableHead>
+                  <TableHead>{t('dashboard.table.status')}</TableHead>
+                  <TableHead>{t('dashboard.table.ticketsSold')}</TableHead>
+                  <TableHead>{t('dashboard.table.revenue')}</TableHead>
+                  <TableHead>{t('dashboard.table.drawDate')}</TableHead>
+                  <TableHead className="text-right">{t('dashboard.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -101,7 +103,8 @@ const Dashboard = () => {
                     <TableCell className="font-medium text-white">{comp.name}</TableCell>
                     <TableCell>
                       <Badge variant={comp.status === 'Active' ? 'success' : 'warning'}>
-                        {comp.status}
+                        {comp.status === 'Active' ? t('common.active') : 
+                         comp.status === 'Ending Soon' ? t('common.endingSoon') : t('common.pending')}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -136,17 +139,17 @@ const Dashboard = () => {
           {/* Recent Orders Table */}
           <Card>
             <div className="p-6 border-b border-white/10">
-              <h2 className="text-lg font-semibold">Recent Orders</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.recentOrders')}</h2>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Competition</TableHead>
-                  <TableHead>Tickets</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>{t('dashboard.table.orderId')}</TableHead>
+                  <TableHead>{t('dashboard.table.user')}</TableHead>
+                  <TableHead>{t('dashboard.table.competition')}</TableHead>
+                  <TableHead>{t('dashboard.table.tickets')}</TableHead>
+                  <TableHead>{t('dashboard.table.amount')}</TableHead>
+                  <TableHead>{t('dashboard.table.time')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,7 +175,7 @@ const Dashboard = () => {
           {/* Quick Actions */}
           <Card>
             <div className="p-6 border-b border-white/10">
-              <h2 className="text-lg font-semibold">Quick Actions</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.quickActions')}</h2>
             </div>
             <CardContent className="p-6">
               <div className="grid grid-cols-2 gap-3">
@@ -182,7 +185,7 @@ const Dashboard = () => {
                   onClick={() => navigate('/admin/competitions/create')}
                 >
                   <Plus size={20} />
-                  <span>Create Competition</span>
+                  <span>{t('dashboard.createCompetition')}</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -190,7 +193,7 @@ const Dashboard = () => {
                   onClick={() => navigate('/admin/winners')}
                 >
                   <Trophy size={20} className="text-yellow-400" />
-                  <span>Select Winner</span>
+                  <span>{t('dashboard.selectWinner')}</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -198,7 +201,7 @@ const Dashboard = () => {
                   onClick={() => navigate('/admin/users')}
                 >
                   <User size={20} className="text-blue-400" />
-                  <span>View Users</span>
+                  <span>{t('dashboard.viewUsers')}</span>
                 </Button>
                 <Button 
                   variant="outline" 
@@ -206,7 +209,7 @@ const Dashboard = () => {
                   onClick={() => navigate('/admin/orders')}
                 >
                   <ShoppingCart size={20} className="text-emerald-400" />
-                  <span>View Orders</span>
+                  <span>{t('dashboard.viewOrders')}</span>
                 </Button>
               </div>
             </CardContent>
@@ -215,7 +218,7 @@ const Dashboard = () => {
           {/* Upcoming Draws */}
           <Card>
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
-              <h2 className="text-lg font-semibold">Upcoming Draws</h2>
+              <h2 className="text-lg font-semibold">{t('dashboard.upcomingDraws')}</h2>
               <Badge variant="hot">Live</Badge>
             </div>
             <div className="p-2">
@@ -224,7 +227,7 @@ const Dashboard = () => {
                   <div>
                     <h4 className="font-medium text-white">{draw.name}</h4>
                     <div className="flex justify-between items-center mt-1">
-                      <span className="text-xs text-gray-400">{draw.remaining} tickets left</span>
+                      <span className="text-xs text-gray-400">{draw.remaining} {t('dashboard.ticketsLeft')}</span>
                       <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">{draw.countdown}</span>
                     </div>
                   </div>
@@ -234,7 +237,7 @@ const Dashboard = () => {
                     className="w-full text-xs py-1.5"
                     onClick={() => navigate(`/admin/competitions/${draw.id}`)}
                   >
-                    View Details
+                    {t('common.viewDetails')}
                   </Button>
                 </div>
               ))}

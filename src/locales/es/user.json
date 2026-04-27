@@ -1,0 +1,176 @@
+{
+  "navbar": {
+    "competitions": "Sorteos",
+    "howItWorks": "Cómo funciona",
+    "winners": "Ganadores",
+    "signIn": "Iniciar Sesión",
+    "languageLabel": "Idioma"
+  },
+  "common": {
+    "sold": "vendidos",
+    "remaining": "restantes",
+    "beforeDraw": "antes del sorteo",
+    "participate": "Participar"
+  },
+  "hero": {
+    "liveBadge": "Sorteos en vivo · Certificados · Transparentes",
+    "titleTop": "Gana lo",
+    "titleBottom": "Extraordinario",
+    "subtitle": "Coches de lujo, relojes, viajes de ensueño — accesibles para todos. Participa desde 2€ y prueba tu suerte en nuestros sorteos certificados.",
+    "seeCompetitions": "Ver Sorteos",
+    "ourWinners": "Nuestros Ganadores",
+    "stats": {
+      "participants": "Participantes",
+      "winners": "Ganadores",
+      "prizes": "En Premios",
+      "countries": "Países"
+    },
+    "trustBadges": {
+      "securePayments": "Pagos seguros",
+      "notarizedDraws": "Sorteos ante notario",
+      "publicResults": "Resultados públicos"
+    }
+  },
+  "featured": {
+    "overline": "Premios Actuales",
+    "title": "Sorteos en Curso",
+    "subtitle": "Te esperan premios excepcionales. Cada entrada es una oportunidad para cambiar tu vida.",
+    "seeAll": "Ver todos los sorteos"
+  },
+  "howItWorks": {
+    "overline": "Simple y Transparente",
+    "title": "Cómo Funciona",
+    "subtitle": "En 4 simples pasos, puedes pasar de espectador a ganador.",
+    "steps": {
+      "one": {
+        "title": "Elige Tu Premio",
+        "desc": "Explora nuestra exclusiva selección de premios excepcionales: coches, relojes de lujo, viajes y mucho más."
+      },
+      "two": {
+        "title": "Compra Tus Entradas",
+        "desc": "Asegura tus entradas desde 2€. Cuantas más entradas tengas, mayores serán tus posibilidades de ganar."
+      },
+      "three": {
+        "title": "Sorteo en Vivo",
+        "desc": "Mira el sorteo en tiempo real, supervisado por un notario. Completamente transparente y verificable."
+      },
+      "four": {
+        "title": "Reclama Tu Premio",
+        "desc": "El ganador es notificado inmediatamente. Entrega garantizada o entrega personal dependiendo del premio."
+      }
+    }
+  },
+  "winnersShowcase": {
+    "overline": "Ellos Ganaron",
+    "title": "Nuestros Ganadores",
+    "subtitle": "Gente real, premios reales. Lee sus testimonios.",
+    "prizeWon": "Premio Ganado",
+    "tickets": "Entradas",
+    "launchTitle": "1,247 ganadores desde nuestro lanzamiento",
+    "launchText": "Cada sorteo se filma en vivo y los videos están disponibles públicamente. La transparencia no es opcional, es nuestro compromiso."
+  },
+  "trust": {
+    "overline": "Nuestro Compromiso",
+    "title": "¿Por qué confiar en nosotros?",
+    "subtitle": "NessWin fue diseñado para ser la plataforma más transparente y fiable del mercado.",
+    "items": {
+      "publicResults": {
+        "title": "Resultados Públicos",
+        "desc": "Todos los sorteos se transmiten en vivo. Los resultados son públicos y verificables por cualquier persona.",
+        "badge": "Totalmente Transparente"
+      },
+      "securePayments": {
+        "title": "Pagos Seguros",
+        "desc": "Cifrado SSL de 256 bits. Pagos procesados por Stripe, certificado PCI DSS Nivel 1 - estándar bancario.",
+        "badge": "Certificado por Stripe"
+      },
+      "support": {
+        "title": "Soporte 24/7",
+        "desc": "Nuestro equipo dedicado está disponible 24/7 para responder a todas tus preguntas.",
+        "badge": "Respuesta < 2h"
+      }
+    }
+  },
+  "cta": {
+    "titleTop": "¿Listo para probar",
+    "titleBottom": "tu suerte?",
+    "subtitle": "Únete a miles de participantes en nuestros sorteos premium. El próximo ganador podrías ser tú.",
+    "signIn": "Iniciar Sesión",
+    "nextDraw": "Ver Próximo Sorteo",
+    "legal": "Al participar, aceptas nuestros términos. Sorteos legales, abiertos a adultos. Sorteos supervisados por notario."
+  },
+  "footer": {
+    "description": "La plataforma de sorteos de premios premium. Premios excepcionales, sorteos certificados, transparencia total.",
+    "platform": "Plataforma",
+    "company": "Empresa",
+    "legal": "Legal",
+    "links": {
+      "competitions": "Nuestros Sorteos",
+      "howItWorks": "Cómo Funciona",
+      "winners": "Nuestros Ganadores",
+      "liveDraws": "Sorteos en Vivo",
+      "press": "Prensa",
+      "affiliates": "Afiliados",
+      "careers": "Carreras",
+      "terms": "Términos y Condiciones",
+      "privacy": "Política de Privacidad",
+      "rules": "Reglas del Sorteo",
+      "freePostalEntry": "Entrada Postal Gratuita",
+      "responsiblePlay": "Juego Responsable (18+)",
+      "contactUs": "Contáctanos"
+    },
+    "rights": "© 2026 NessWin. Todos los derechos reservados. Sorteos solo para mayores de 18 años.",
+    "systems": "Todos los sistemas operativos"
+  },
+  "competitionsPage": {
+    "statusFilters": {
+      "all": "Todos",
+      "ongoing": "En Curso",
+      "comingSoon": "Próximamente",
+      "completed": "Completados"
+    },
+    "categoryFilters": {
+      "allCategories": "Todas las Categorías",
+      "cars": "Coches",
+      "watches": "Relojes",
+      "travel": "Viajes",
+      "realEstate": "Inmobiliaria",
+      "tech": "Tecnología",
+      "other": "Otros"
+    },
+    "overline": "Catálogo",
+    "title": "Todos los Sorteos",
+    "subtitle": "Coches, relojes, viajes, inmobiliaria - premios excepcionales al alcance de una entrada.",
+    "noResults": "Ningún sorteo coincide con tus filtros."
+  },
+  "competitionDetails": {
+    "competitions": "Sorteos",
+    "ongoing": "En Curso",
+    "whatsIncluded": "Qué está incluido",
+    "yourPrize": "Tu premio",
+    "perTicket": "/ entrada",
+    "loginToJoin": "Inicia sesión para participar",
+    "loginSubtitle": "Crea una cuenta gratis y prueba tu suerte hoy mismo.",
+    "signIn": "Iniciar Sesión",
+    "drawOn": "Sorteo el",
+    "left": "Restantes",
+    "liveNote": "Todos los sorteos se filman en vivo y los ganadores se anuncian públicamente.",
+    "stats": {
+      "ticketPrice": "Precio de la entrada",
+      "maxTickets": "Entradas máx.",
+      "ticketsSold": "Entradas vendidas",
+      "prizeValue": "Valor del premio"
+    },
+    "participantsTitle": "Participantes y Transparencia",
+    "participantsSubtitle": "Cada compra de entrada se enumera aquí. Transparencia total sobre todos los participantes.",
+    "participants": "participante(s)",
+    "ticketCount": "entrada(s)",
+    "transparencyNote": "Esta lista se actualiza en tiempo real. Cada participante se enumera con su nombre de usuario público o nombre real. Los sorteos están supervisados por un notario certificado y se filman en vivo."
+  },
+  "winnersPage": {
+    "hallOfFame": "Salón de la Fama",
+    "title": "Nuestros Ganadores",
+    "subtitle": "Participaron, ganaron. Descubre a los afortunados ganadores de nuestros sorteos y sus testimonios.",
+    "ticket": "Entrada"
+  }
+}

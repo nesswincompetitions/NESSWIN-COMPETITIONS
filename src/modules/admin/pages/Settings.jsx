@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react';
 
 const Settings = () => {
+  const { t } = useTranslation('admin');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Admin');
@@ -36,18 +38,18 @@ const Settings = () => {
 
   const renderStatusBadge = (status) => {
     switch(status) {
-      case 'Active': return <Badge variant="success">Active</Badge>;
-      case 'Invited': return <Badge variant="warning">Invited</Badge>;
-      case 'Disabled': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">Disabled</Badge>;
+      case 'Active': return <Badge variant="success">{t('common.active')}</Badge>;
+      case 'Invited': return <Badge variant="warning">{t('common.invited')}</Badge>;
+      case 'Disabled': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">{t('common.disabled')}</Badge>;
       default: return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
   const renderRoleBadge = (role) => {
     switch(role) {
-      case 'Super Admin': return <span className="px-2.5 py-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-semibold tracking-wide">SUPER ADMIN</span>;
-      case 'Admin': return <span className="px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold tracking-wide">ADMIN</span>;
-      case 'Support': return <span className="px-2.5 py-1 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20 text-xs font-semibold tracking-wide">SUPPORT</span>;
+      case 'Super Admin': return <span className="px-2.5 py-1 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-semibold tracking-wide uppercase">{t('common.superAdmin')}</span>;
+      case 'Admin': return <span className="px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold tracking-wide uppercase">{t('common.admin')}</span>;
+      case 'Support': return <span className="px-2.5 py-1 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20 text-xs font-semibold tracking-wide uppercase">{t('common.support')}</span>;
       default: return <span>{role}</span>;
     }
   };
@@ -72,7 +74,7 @@ const Settings = () => {
         <div className="fixed top-24 right-8 z-50 animate-slide-in-right">
           <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 backdrop-blur-md">
             <CheckCircle2 size={18} />
-            <span className="font-medium">Invite sent successfully!</span>
+            <span className="font-medium">{t('settings.inviteSuccess')}</span>
           </div>
         </div>
       )}
@@ -80,12 +82,12 @@ const Settings = () => {
       {/* 1. Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Admin Users</h1>
-          <p className="text-gray-400 mt-1">Manage staff access and platform permissions.</p>
+          <h1 className="text-3xl font-serif font-bold text-white">{t('settings.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('settings.subtitle')}</p>
         </div>
         <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsInviteModalOpen(true)}>
           <UserPlus size={16} />
-          Invite Admin
+          {t('settings.inviteAdmin')}
         </Button>
       </header>
 
@@ -100,11 +102,11 @@ const Settings = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>User Details</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Last Login</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>{t('users.table.userDetails')}</TableHead>
+                      <TableHead>{t('common.role')}</TableHead>
+                      <TableHead>{t('common.lastLogin')}</TableHead>
+                      <TableHead>{t('common.status')}</TableHead>
+                      <TableHead className="text-right">{t('common.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -126,15 +128,15 @@ const Settings = () => {
                         <TableCell>{renderStatusBadge(user.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <button className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="Edit Role">
+                            <button className="cursor-pointer p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title={t('settings.editRole')}>
                               <Edit3 size={16} />
                             </button>
                             {user.status !== 'Disabled' && (
-                              <button className="cursor-pointer p-2 hover:bg-yellow-500/10 rounded-md text-gray-400 hover:text-yellow-500 transition-colors" title="Disable User">
+                              <button className="cursor-pointer p-2 hover:bg-yellow-500/10 rounded-md text-gray-400 hover:text-yellow-500 transition-colors" title={t('settings.disableUser')}>
                                 <ShieldOff size={16} />
                               </button>
                             )}
-                            <button className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500 transition-colors" title="Remove User">
+                            <button className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500 transition-colors" title={t('settings.removeUser')}>
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -154,23 +156,23 @@ const Settings = () => {
             <CardContent className="p-6">
               <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
                 <Shield size={18} className="text-primary" />
-                Roles Reference
+                {t('settings.rolesReference')}
               </h3>
               
               <div className="space-y-6">
                 <div className="space-y-2">
                   {renderRoleBadge('Super Admin')}
-                  <p className="text-sm text-gray-400 mt-1">Full system access. Can modify settings, manage all admins, and access financial ledgers.</p>
+                  <p className="text-sm text-gray-400 mt-1">{t('settings.superAdminDesc')}</p>
                 </div>
                 
                 <div className="space-y-2">
                   {renderRoleBadge('Admin')}
-                  <p className="text-sm text-gray-400 mt-1">Can manage competitions, users, and process basic refunds. Cannot manage settings.</p>
+                  <p className="text-sm text-gray-400 mt-1">{t('settings.adminDesc')}</p>
                 </div>
                 
                 <div className="space-y-2">
                   {renderRoleBadge('Support')}
-                  <p className="text-sm text-gray-400 mt-1">Read-only access to users and orders for answering customer service inquiries.</p>
+                  <p className="text-sm text-gray-400 mt-1">{t('settings.supportDesc')}</p>
                 </div>
               </div>
             </CardContent>
@@ -183,11 +185,11 @@ const Settings = () => {
       <Modal 
         isOpen={isInviteModalOpen} 
         onClose={() => setIsInviteModalOpen(false)}
-        title="Invite New Admin"
+        title={t('settings.inviteAdmin')}
       >
         <form onSubmit={handleInviteSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Email Address</label>
+            <label className="text-sm font-medium text-gray-300">{t('settings.emailAddress')}</label>
             <div className="relative">
               <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input 
@@ -202,30 +204,30 @@ const Settings = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Assign Role</label>
+            <label className="text-sm font-medium text-gray-300">{t('settings.assignRole')}</label>
             <select 
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
             >
-              <option value="Super Admin">Super Admin</option>
-              <option value="Admin">Admin</option>
-              <option value="Support">Support</option>
+              <option value="Super Admin">{t('common.superAdmin')}</option>
+              <option value="Admin">{t('common.admin')}</option>
+              <option value="Support">{t('common.support')}</option>
             </select>
           </div>
 
           <div className="pt-2">
             <p className="text-xs text-gray-500">
-              An invitation email will be sent to this address with a secure link to set up their password.
+              {t('settings.inviteNote')}
             </p>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
             <Button type="button" variant="outline" onClick={() => setIsInviteModalOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="primary">
-              Send Invite
+              {t('settings.sendInvite')}
             </Button>
           </div>
         </form>

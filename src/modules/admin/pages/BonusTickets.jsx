@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -9,7 +10,8 @@ import {
 } from 'lucide-react';
 
 const BonusTickets = () => {
-  const [activeStatus, setActiveStatus] = useState('All');
+  const { t } = useTranslation('admin');
+  const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   // Modal Form State
@@ -38,15 +40,15 @@ const BonusTickets = () => {
     },
   ];
 
-  const filteredTickets = activeStatus === 'All'
+  const filteredTickets = activeStatus === 'all'
     ? tickets
-    : tickets.filter(t => t.status === activeStatus);
+    : tickets.filter(t => t.status.toLowerCase() === activeStatus);
 
   const renderStatusBadge = (status) => {
-    switch (status) {
-      case 'Active': return <Badge variant="success">Active</Badge>;
-      case 'Used': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">Used</Badge>;
-      case 'Expired': return <Badge variant="danger">Expired</Badge>;
+    switch (status.toLowerCase()) {
+      case 'active': return <Badge variant="success">{t('common.active')}</Badge>;
+      case 'used': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">{t('common.used')}</Badge>;
+      case 'expired': return <Badge variant="danger">{t('common.expired')}</Badge>;
       default: return <Badge variant="neutral">{status}</Badge>;
     }
   };
@@ -69,14 +71,14 @@ const BonusTickets = () => {
       {/* 1. Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Bonus Tickets</h1>
-          <p className="text-gray-400 mt-1">Manage, assign, and track promotional tickets.</p>
+          <h1 className="text-3xl font-serif font-bold text-white">{t('bonusTickets.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('bonusTickets.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3 h-[52px]">
             <Ticket className="text-primary opacity-70" size={20} />
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Circulation</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">{t('common.circulation')}</p>
               <p className="text-lg font-bold text-white leading-none mt-0.5">1,245</p>
             </div>
           </Card>
@@ -86,13 +88,13 @@ const BonusTickets = () => {
       {/* 2. Action Buttons */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsAssignModalOpen(true)}>
-          <Plus size={16} /> Assign to User
+          <Plus size={16} /> {t('bonusTickets.issueTickets')}
         </Button>
         <Button variant="outline" className="flex items-center gap-2">
-          <Upload size={16} /> Bulk Assign (CSV)
+          <Upload size={16} /> {t('bonusTickets.bulkAssign')}
         </Button>
         <Button variant="outline" className="flex items-center gap-2">
-          <Settings size={16} /> Set Expiry Rules
+          <Settings size={16} /> {t('bonusTickets.setExpiryRules')}
         </Button>
       </div>
 
@@ -103,16 +105,21 @@ const BonusTickets = () => {
 
             {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
-              {['All', 'Active', 'Used', 'Expired'].map((status) => (
+              {[
+                { key: 'all', label: t('common.all') },
+                { key: 'active', label: t('common.active') },
+                { key: 'used', label: t('common.used') },
+                { key: 'expired', label: t('common.expired') }
+              ].map((status) => (
                 <button
-                  key={status}
-                  onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
-                      ? 'bg-white/10 text-white font-medium'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  key={status.key}
+                  onClick={() => setActiveStatus(status.key)}
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
+                    ? 'bg-white/10 text-white font-medium'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
-                  {status}
+                  {status.label}
                 </button>
               ))}
             </div>
@@ -122,7 +129,7 @@ const BonusTickets = () => {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search user name or email..."
+                placeholder={t('bonusTickets.searchPlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
               />
             </div>
@@ -134,13 +141,13 @@ const BonusTickets = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User Name</TableHead>
-                    <TableHead className="text-center">Amount</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Assigned By</TableHead>
-                    <TableHead>Date Assigned</TableHead>
-                    <TableHead>Expiry Date</TableHead>
-                    <TableHead className="text-right">Status</TableHead>
+                    <TableHead>{t('bonusTickets.table.user')}</TableHead>
+                    <TableHead className="text-center">{t('bonusTickets.table.tickets')}</TableHead>
+                    <TableHead>{t('bonusTickets.table.reason')}</TableHead>
+                    <TableHead>{t('bonusTickets.table.issuedBy')}</TableHead>
+                    <TableHead>{t('bonusTickets.table.date')}</TableHead>
+                    <TableHead>{t('common.expiryDate')}</TableHead>
+                    <TableHead className="text-right">{t('common.status')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -149,8 +156,8 @@ const BonusTickets = () => {
                       <TableCell className="font-medium text-white">{ticket.userName}</TableCell>
                       <TableCell className="text-center">
                         <span className={`font-bold font-mono px-2 py-1 rounded-md ${ticket.amount.startsWith('+')
-                            ? 'text-emerald-400 bg-emerald-400/10'
-                            : 'text-red-400 bg-red-400/10'
+                          ? 'text-emerald-400 bg-emerald-400/10'
+                          : 'text-red-400 bg-red-400/10'
                           }`}>
                           {ticket.amount}
                         </span>
@@ -180,11 +187,9 @@ const BonusTickets = () => {
                   <Ticket className="text-gray-500" size={32} />
                 </div>
                 <div>
-                  <p className="text-white font-medium text-lg">No tickets found</p>
+                  <p className="text-white font-medium text-lg">{t('bonusTickets.empty.title')}</p>
                   <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                    {activeStatus === 'All'
-                      ? 'No bonus tickets have been assigned yet.'
-                      : `No bonus tickets match the "${activeStatus}" filter.`}
+                    {t('bonusTickets.empty.desc')}
                   </p>
                 </div>
               </div>
@@ -197,11 +202,11 @@ const BonusTickets = () => {
       <Modal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
-        title="Assign Bonus Tickets"
+        title={t('bonusTickets.issueTickets')}
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Search User</label>
+            <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.searchUser')}</label>
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
@@ -209,7 +214,7 @@ const BonusTickets = () => {
                 required
                 value={assignUser}
                 onChange={(e) => setAssignUser(e.target.value)}
-                placeholder="Type name or email (e.g. John Doe)..."
+                placeholder={t('bonusTickets.modal.searchUserPlaceholder')}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
               />
             </div>
@@ -217,7 +222,7 @@ const BonusTickets = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Number of Tickets</label>
+              <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.numberOfTickets')}</label>
               <input
                 type="number"
                 required
@@ -228,7 +233,7 @@ const BonusTickets = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">Expiry Date <span className="text-gray-500 font-normal">(Optional)</span></label>
+              <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.expiryDateOptional')}</label>
               <input
                 type="date"
                 value={assignExpiry}
@@ -239,22 +244,22 @@ const BonusTickets = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Reason / Note</label>
+            <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.reasonNote')}</label>
             <textarea
               required
               value={assignReason}
               onChange={(e) => setAssignReason(e.target.value)}
-              placeholder="Why are you giving these tickets?"
+              placeholder={t('bonusTickets.modal.reasonPlaceholder')}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
             />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
             <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" variant="primary">
-              Assign Tickets
+              {t('bonusTickets.issueTickets')}
             </Button>
           </div>
         </form>

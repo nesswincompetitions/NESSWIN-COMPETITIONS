@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
@@ -14,6 +15,7 @@ const CompetitionDetail = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { t } = useTranslation('admin');
 
   const [activeTab, setActiveTab] = useState('overview');
   const [isDrawConfirmed, setIsDrawConfirmed] = useState(false);
@@ -31,19 +33,18 @@ const CompetitionDetail = () => {
     setSearchParams({ tab });
   };
 
-  // Dummy data
   const competition = {
     id: id || '1',
-    title: "2024 Range Rover Sport",
-    status: "Active",
+    title: t('competitionNames.rangeRover'),
+    status: t('common.active'),
     price: "10.00",
     ticketsSold: 1450,
     maxTickets: 5000,
     revenue: 14500,
     drawDate: "2026-06-01",
     drawTime: "20:00",
-    category: "Cars",
-    description: "Win a brand new 2024 Range Rover Sport in our biggest giveaway yet!",
+    category: t('competitions.form.step1.categories.cars'),
+    description: t('competitionNames.rangeRoverDesc'),
     prizeValue: "95000"
   };
 
@@ -57,15 +58,13 @@ const CompetitionDetail = () => {
 
   const renderOverview = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in">
-      {/* Left Col - Image & Details */}
       <div className="lg:col-span-2 space-y-6">
         <Card>
           <div className="aspect-video bg-white/5 border-b border-white/10 flex items-center justify-center relative overflow-hidden">
-            {/* Placeholder Image */}
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent"></div>
-            <span className="text-gray-500 font-medium text-lg relative z-10">Competition Image</span>
+            <span className="text-gray-500 font-medium text-lg relative z-10">{t('competitions.detail.competitionImage')}</span>
             <div className="absolute top-4 left-4 z-10">
-              <Badge variant="hot">Featured</Badge>
+              <Badge variant="hot">{t('competitions.detail.featured')}</Badge>
             </div>
           </div>
           <CardContent className="p-6 space-y-4">
@@ -76,19 +75,19 @@ const CompetitionDetail = () => {
             
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-white/10">
               <div>
-                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Tag size={12} /> Category</p>
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Tag size={12} /> {t('competitions.detail.category')}</p>
                 <p className="font-medium text-white">{competition.category}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Ticket size={12} /> Ticket Price</p>
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Ticket size={12} /> {t('competitions.detail.ticketPrice')}</p>
                 <p className="font-medium text-primary">£{competition.price}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Trophy size={12} /> Prize Value</p>
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Trophy size={12} /> {t('competitions.detail.prizeValue')}</p>
                 <p className="font-medium text-white">£{parseInt(competition.prizeValue).toLocaleString()}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Clock size={12} /> Draw Date</p>
+                <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Clock size={12} /> {t('competitions.detail.drawDate')}</p>
                 <p className="font-medium text-white">{new Date(competition.drawDate).toLocaleDateString()}</p>
               </div>
             </div>
@@ -96,15 +95,14 @@ const CompetitionDetail = () => {
         </Card>
       </div>
 
-      {/* Right Col - Stats */}
       <div className="space-y-6">
         <Card>
           <CardContent className="p-6 space-y-6">
-            <h3 className="font-semibold text-lg border-b border-white/10 pb-3">Performance</h3>
+            <h3 className="font-semibold text-lg border-b border-white/10 pb-3">{t('competitions.detail.performance')}</h3>
             
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Tickets Sold</span>
+                <span className="text-gray-400">{t('competitions.detail.ticketsSold')}</span>
                 <span className="font-medium text-white">{competition.ticketsSold} / {competition.maxTickets}</span>
               </div>
               <div className="w-full bg-white/10 rounded-full h-2">
@@ -113,12 +111,12 @@ const CompetitionDetail = () => {
                   style={{ width: `${(competition.ticketsSold / competition.maxTickets) * 100}%` }}
                 ></div>
               </div>
-              <p className="text-xs text-gray-500 text-right">{((competition.ticketsSold / competition.maxTickets) * 100).toFixed(1)}% sold</p>
+              <p className="text-xs text-gray-500 text-right">{((competition.ticketsSold / competition.maxTickets) * 100).toFixed(1)}% {t('competitions.detail.soldLabel')}</p>
             </div>
 
             <div className="pt-4 border-t border-white/10 flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Total Revenue</p>
+                <p className="text-sm text-gray-400">{t('competitions.detail.totalRevenue')}</p>
                 <p className="text-2xl font-bold text-white mt-1">£{competition.revenue.toLocaleString()}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -127,11 +125,11 @@ const CompetitionDetail = () => {
             </div>
             
             <div className="pt-4 border-t border-white/10 text-center">
-              <p className="text-xs text-gray-500 mb-2">Draw Ends In</p>
+              <p className="text-xs text-gray-500 mb-2">{t('competitions.detail.drawEndsIn')}</p>
               <div className="flex justify-center gap-2">
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">05</span><span className="text-[10px] text-gray-500 block">DAYS</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">12</span><span className="text-[10px] text-gray-500 block">HRS</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">45</span><span className="text-[10px] text-gray-500 block">MIN</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">05</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.days')}</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">12</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.hrs')}</span></div>
+                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">45</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.min')}</span></div>
               </div>
             </div>
           </CardContent>
@@ -144,19 +142,19 @@ const CompetitionDetail = () => {
     <Card className="fade-in">
       <div className="p-6 border-b border-white/10 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Participants</h2>
-          <p className="text-sm text-gray-400 mt-1">Users who have entered this competition.</p>
+          <h2 className="text-lg font-semibold">{t('competitions.detail.participants.title')}</h2>
+          <p className="text-sm text-gray-400 mt-1">{t('competitions.detail.participants.subtitle')}</p>
         </div>
-        <Button variant="outline" size="sm">Export CSV</Button>
+        <Button variant="outline" size="sm">{t('common.exportCsv')}</Button>
       </div>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Tickets</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t('competitions.detail.participants.tableUser')}</TableHead>
+              <TableHead>{t('competitions.detail.participants.tableEmail')}</TableHead>
+              <TableHead>{t('competitions.detail.participants.tableTickets')}</TableHead>
+              <TableHead>{t('competitions.detail.participants.tableStatus')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -166,8 +164,8 @@ const CompetitionDetail = () => {
                 <TableCell className="text-gray-400">{p.email}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1 max-w-[200px]">
-                    {p.tickets.slice(0, 3).map(t => (
-                      <span key={t} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs text-gray-300">{t}</span>
+                    {p.tickets.slice(0, 3).map(tk => (
+                      <span key={tk} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs text-gray-300">{tk}</span>
                     ))}
                     {p.tickets.length > 3 && (
                       <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-xs text-gray-400">+{p.tickets.length - 3}</span>
@@ -175,8 +173,8 @@ const CompetitionDetail = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={p.status === 'Paid' ? 'success' : p.status === 'Pending' ? 'warning' : 'neutral'}>
-                    {p.status}
+                  <Badge variant={p.status.toLowerCase() === 'paid' ? 'success' : p.status.toLowerCase() === 'pending' ? 'warning' : 'neutral'}>
+                    {p.status.toLowerCase() === 'paid' ? t('common.paid') : p.status.toLowerCase() === 'pending' ? t('common.pending') : p.status}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -230,15 +228,14 @@ const CompetitionDetail = () => {
       <div className="p-8 text-center space-y-8">
         
         {selectedWinner ? (
-          // WINNER SELECTED STATE
           <div className="space-y-8 fade-in transform scale-in">
             <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
               <span className="text-4xl">🎉</span>
             </div>
             
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Winner Selected!</h2>
-              <p className="text-emerald-400 font-medium">The draw has been completed successfully.</p>
+              <h2 className="text-3xl font-bold text-white mb-2">{t('competitions.detail.draw.winnerSelected')}</h2>
+              <p className="text-emerald-400 font-medium">{t('competitions.detail.draw.drawCompleted')}</p>
             </div>
 
             <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 text-left relative overflow-hidden shadow-2xl">
@@ -251,18 +248,18 @@ const CompetitionDetail = () => {
                     {selectedWinner.name.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400">Winner Name</p>
+                    <p className="text-sm text-gray-400">{t('competitions.detail.draw.winnerName')}</p>
                     <p className="text-xl font-bold text-white">{selectedWinner.name}</p>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
                   <div>
-                    <p className="text-sm text-gray-400 mb-1">Winning Ticket</p>
+                    <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.draw.winningTicket')}</p>
                     <Badge variant="hot" className="text-sm px-3 py-1 font-mono">{selectedWinner.ticket}</Badge>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-400 mb-1">Draw Date</p>
+                    <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.drawDate')}</p>
                     <p className="text-white font-medium">{new Date(selectedWinner.date).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -271,43 +268,42 @@ const CompetitionDetail = () => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
               <Button variant="outline" onClick={() => setSelectedWinner(null)}>
-                Re-draw Winner
+                {t('competitions.detail.draw.reDraw')}
               </Button>
               <Button variant="primary" className="flex items-center gap-2" onClick={() => navigate(`/admin/winners/${selectedWinner.id}`)}>
-                View Winner Details <ArrowRight size={16} />
+                {t('competitions.detail.draw.viewWinnerDetails')} <ArrowRight size={16} />
               </Button>
             </div>
           </div>
         ) : (
-          // PRE-DRAW STATE
           <>
             <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
               <Trophy className="text-primary" size={40} />
             </div>
             
             <div>
-              <h2 className="text-2xl font-bold text-white">Draw & Winner Selection</h2>
+              <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
               <p className="text-gray-400 mt-2 max-w-md mx-auto">
-                The draw is scheduled for <span className="text-white font-medium">{new Date(competition.drawDate).toLocaleDateString()} at {competition.drawTime}</span>.
+                {t('competitions.detail.draw.scheduledFor')} <span className="text-white font-medium">{new Date(competition.drawDate).toLocaleDateString()} {t('competitions.detail.draw.at')} {competition.drawTime}</span>.
               </p>
             </div>
 
             <div className="p-6 bg-white/5 border border-white/10 rounded-2xl inline-block w-full">
-              <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">Time Until Draw</p>
+              <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">{t('competitions.detail.draw.timeUntilDraw')}</p>
               <div className="flex justify-center gap-3 sm:gap-6">
                 <div className="flex flex-col items-center">
                   <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">05</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">Days</span>
+                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.days')}</span>
                 </div>
                 <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
                 <div className="flex flex-col items-center">
                   <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">12</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">Hours</span>
+                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.hours')}</span>
                 </div>
                 <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
                 <div className="flex flex-col items-center">
                   <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">45</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">Mins</span>
+                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.mins')}</span>
                 </div>
               </div>
             </div>
@@ -324,7 +320,7 @@ const CompetitionDetail = () => {
                   <CheckCircle2 size={14} className="absolute text-black opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" strokeWidth={3} />
                 </div>
                 <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                  I confirm this draw is final and ready to be executed.
+                  {t('competitions.detail.draw.confirmLabel')}
                 </span>
               </label>
 
@@ -338,9 +334,9 @@ const CompetitionDetail = () => {
                     : 'opacity-50 cursor-not-allowed'
                 }`}
               >
-                Select Winner Now
+                {t('competitions.detail.draw.selectWinnerBtn')}
               </Button>
-              <p className="text-xs text-gray-500 mt-4">Selecting a winner will automatically close the competition and choose randomly from confirmed entries.</p>
+              <p className="text-xs text-gray-500 mt-4">{t('competitions.detail.draw.selectWinnerNote')}</p>
             </div>
           </>
         )}
@@ -348,18 +344,23 @@ const CompetitionDetail = () => {
     </Card>
   );
 
+  const tabs = [
+    { id: 'overview', label: t('competitions.detail.tabs.overview'), icon: LayoutDashboard },
+    { id: 'participants', label: t('competitions.detail.tabs.participants'), icon: Users },
+    { id: 'edit', label: t('competitions.detail.tabs.editDetails'), icon: Edit3 },
+    { id: 'draw', label: t('competitions.detail.tabs.drawWinner'), icon: Trophy },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 fade-in">
-      {/* Top Navigation */}
       <button 
         onClick={() => navigate('/admin/competitions')}
         className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm w-fit"
       >
         <ArrowLeft size={16} />
-        Back to Competitions
+        {t('competitions.detail.backToCompetitions')}
       </button>
 
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -372,17 +373,17 @@ const CompetitionDetail = () => {
         <div className="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 mt-4 md:mt-0 w-full md:w-auto">
           <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={() => window.open('/', '_blank')}>
             <ExternalLink size={14} />
-            <span className="hidden sm:inline">View on Website</span>
-            <span className="sm:hidden">View</span>
+            <span className="hidden sm:inline">{t('competitions.detail.viewOnWebsite')}</span>
+            <span className="sm:hidden">{t('common.view')}</span>
           </Button>
           <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
             <CalendarPlus size={14} />
-            <span className="hidden sm:inline">Extend Draw</span>
-            <span className="sm:hidden">Extend</span>
+            <span className="hidden sm:inline">{t('competitions.detail.extendDraw')}</span>
+            <span className="sm:hidden">{t('common.extend')}</span>
           </Button>
           <Button variant="primary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleTabChange('edit')}>
             <Edit3 size={14} />
-            Edit
+            {t('common.edit')}
           </Button>
         </div>
       </div>
@@ -390,12 +391,7 @@ const CompetitionDetail = () => {
       {/* Tabs */}
       <div className="flex overflow-x-auto hide-scrollbar border-b border-white/10">
         <div className="flex gap-1 min-w-max pb-px">
-          {[
-            { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-            { id: 'participants', label: 'Participants', icon: Users },
-            { id: 'edit', label: 'Edit Details', icon: Edit3 },
-            { id: 'draw', label: 'Draw & Winner', icon: Trophy },
-          ].map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -416,7 +412,6 @@ const CompetitionDetail = () => {
         </div>
       </div>
 
-      {/* Content Area */}
       <div className="pt-2">
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'participants' && renderParticipants()}

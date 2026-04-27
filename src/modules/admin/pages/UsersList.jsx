@@ -1,46 +1,34 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import {
   Search, Calendar, Download, Eye, AlertTriangle,
-  Ban, ChevronDown, Filter, MoreVertical, Users as UsersIcon
+  Ban, ChevronDown, Users as UsersIcon
 } from 'lucide-react';
 
 const UsersList = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
 
-  // Dummy Users Data
   const users = [
-    {
-      id: 1, name: "John Doe", email: "john@example.com", phone: "+44 7700 900123",
-      regDate: "10 Jan 2026", compsEntered: 12, totalSpend: 450.00,
-      referrals: 3, bonusTickets: 5, status: "Active"
-    },
-    {
-      id: 2, name: "Sarah Smith", email: "sarah@example.com", phone: "+44 7700 900456",
-      regDate: "15 Feb 2026", compsEntered: 4, totalSpend: 120.50,
-      referrals: 0, bonusTickets: 1, status: "Active"
-    },
-    {
-      id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "+44 7700 900789",
-      regDate: "01 Mar 2026", compsEntered: 45, totalSpend: 2100.00,
-      referrals: 12, bonusTickets: 20, status: "Active"
-    },
-    {
-      id: 4, name: "Emma Wilson", email: "emma@example.com", phone: "+44 7700 900321",
-      regDate: "20 Mar 2026", compsEntered: 2, totalSpend: 15.00,
-      referrals: 0, bonusTickets: 0, status: "Suspended"
-    },
-    {
-      id: 5, name: "Tom Brown", email: "tom@example.com", phone: "+44 7700 900654",
-      regDate: "05 Apr 2026", compsEntered: 0, totalSpend: 0.00,
-      referrals: 0, bonusTickets: 0, status: "Banned"
-    },
+    { id: 1, name: "John Doe", email: "john@example.com", phone: "+44 7700 900123", regDate: "10 Jan 2026", compsEntered: 12, totalSpend: 450.00, referrals: 3, bonusTickets: 5, status: "Active" },
+    { id: 2, name: "Sarah Smith", email: "sarah@example.com", phone: "+44 7700 900456", regDate: "15 Feb 2026", compsEntered: 4, totalSpend: 120.50, referrals: 0, bonusTickets: 1, status: "Active" },
+    { id: 3, name: "Mike Johnson", email: "mike@example.com", phone: "+44 7700 900789", regDate: "01 Mar 2026", compsEntered: 45, totalSpend: 2100.00, referrals: 12, bonusTickets: 20, status: "Active" },
+    { id: 4, name: "Emma Wilson", email: "emma@example.com", phone: "+44 7700 900321", regDate: "20 Mar 2026", compsEntered: 2, totalSpend: 15.00, referrals: 0, bonusTickets: 0, status: "Suspended" },
+    { id: 5, name: "Tom Brown", email: "tom@example.com", phone: "+44 7700 900654", regDate: "05 Apr 2026", compsEntered: 0, totalSpend: 0.00, referrals: 0, bonusTickets: 0, status: "Banned" },
+  ];
+
+  const statusTabs = [
+    { key: 'All', label: t('common.all') },
+    { key: 'Active', label: t('common.active') },
+    { key: 'Suspended', label: t('common.suspended') },
+    { key: 'Banned', label: t('common.banned') },
   ];
 
   const filteredUsers = activeStatus === 'All'
@@ -49,9 +37,9 @@ const UsersList = () => {
 
   const renderStatusBadge = (status) => {
     switch (status) {
-      case 'Active': return <Badge variant="success">Active</Badge>;
-      case 'Suspended': return <Badge variant="warning">Suspended</Badge>;
-      case 'Banned': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">Banned</Badge>;
+      case 'Active': return <Badge variant="success">{t('common.active')}</Badge>;
+      case 'Suspended': return <Badge variant="warning">{t('common.suspended')}</Badge>;
+      case 'Banned': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">{t('common.banned')}</Badge>;
       default: return <Badge variant="neutral">{status}</Badge>;
     }
   };
@@ -61,12 +49,12 @@ const UsersList = () => {
       {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white">Users</h1>
-          <p className="text-gray-400 mt-1">Manage user accounts, view histories, and moderate activity.</p>
+          <h1 className="text-3xl font-serif font-bold text-white">{t('users.title')}</h1>
+          <p className="text-gray-400 mt-1">{t('users.subtitle')}</p>
         </div>
         <Button variant="outline" className="flex items-center gap-2">
           <Download size={16} />
-          Export CSV
+          {t('common.exportCsv')}
         </Button>
       </header>
 
@@ -77,16 +65,16 @@ const UsersList = () => {
 
             {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
-              {['All', 'Active', 'Suspended', 'Banned'].map((status) => (
+              {statusTabs.map((tab) => (
                 <button
-                  key={status}
-                  onClick={() => setActiveStatus(status)}
-                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status
+                  key={tab.key}
+                  onClick={() => setActiveStatus(tab.key)}
+                  className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === tab.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                     }`}
                 >
-                  {status}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -97,14 +85,14 @@ const UsersList = () => {
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search name, email, phone..."
+                  placeholder={t('users.searchPlaceholder')}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
 
               <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />
-                <span className="text-sm hidden sm:inline">Date</span>
+                <span className="text-sm hidden sm:inline">{t('common.date')}</span>
               </Button>
 
               <div className="relative flex-1 sm:flex-none sm:w-40">
@@ -113,10 +101,10 @@ const UsersList = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
-                  <option value="Newest" className="bg-[#121212]">Newest First</option>
-                  <option value="Oldest" className="bg-[#121212]">Oldest First</option>
-                  <option value="Spend" className="bg-[#121212]">Highest Spend</option>
-                  <option value="Tickets" className="bg-[#121212]">Most Tickets</option>
+                  <option value="Newest" className="bg-[#121212]">{t('common.newest')}</option>
+                  <option value="Oldest" className="bg-[#121212]">{t('common.oldest')}</option>
+                  <option value="Spend" className="bg-[#121212]">{t('common.highestSpend')}</option>
+                  <option value="Tickets" className="bg-[#121212]">{t('common.mostTickets')}</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
@@ -129,15 +117,15 @@ const UsersList = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">#</TableHead>
-                    <TableHead>User Details</TableHead>
-                    <TableHead>Reg. Date</TableHead>
-                    <TableHead className="text-center">Comps</TableHead>
-                    <TableHead>Total Spend</TableHead>
-                    <TableHead className="text-center">Referrals</TableHead>
-                    <TableHead className="text-center">Bonus</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-12">{t('users.table.number')}</TableHead>
+                    <TableHead>{t('users.table.userDetails')}</TableHead>
+                    <TableHead>{t('users.table.regDate')}</TableHead>
+                    <TableHead className="text-center">{t('users.table.comps')}</TableHead>
+                    <TableHead>{t('users.table.totalSpend')}</TableHead>
+                    <TableHead className="text-center">{t('users.table.referrals')}</TableHead>
+                    <TableHead className="text-center">{t('users.table.bonus')}</TableHead>
+                    <TableHead>{t('users.table.status')}</TableHead>
+                    <TableHead className="text-right">{t('users.table.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -169,14 +157,14 @@ const UsersList = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => navigate(`/admin/users/${user.id}`)}
-                            className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title="View Profile"
+                            className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors" title={t('users.tooltips.viewProfile')}
                           >
                             <Eye size={16} />
                           </button>
-                          <button className="cursor-pointer p-2 hover:bg-yellow-500/10 rounded-md text-gray-400 hover:text-yellow-500 transition-colors" title="Suspend User">
+                          <button className="cursor-pointer p-2 hover:bg-yellow-500/10 rounded-md text-gray-400 hover:text-yellow-500 transition-colors" title={t('users.tooltips.suspendUser')}>
                             <AlertTriangle size={16} />
                           </button>
-                          <button className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500 transition-colors" title="Ban User">
+                          <button className="cursor-pointer p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500 transition-colors" title={t('users.tooltips.banUser')}>
                             <Ban size={16} />
                           </button>
                         </div>
@@ -186,22 +174,21 @@ const UsersList = () => {
                 </TableBody>
               </Table>
             ) : (
-              /* Empty State */
               <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
                   <UsersIcon className="text-gray-500" size={32} />
                 </div>
                 <div>
-                  <p className="text-white font-medium text-lg">No users found</p>
+                  <p className="text-white font-medium text-lg">{t('users.empty.title')}</p>
                   <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
                     {activeStatus === 'All'
-                      ? 'No users have registered yet.'
-                      : `No users currently match the "${activeStatus}" status filter.`}
+                      ? t('users.empty.allDesc')
+                      : t('users.empty.filteredDesc', { status: activeStatus })}
                   </p>
                 </div>
                 {activeStatus !== 'All' && (
                   <Button variant="outline" size="sm" onClick={() => setActiveStatus('All')} className="mt-2">
-                    Clear Filters
+                    {t('common.clearFilters')}
                   </Button>
                 )}
               </div>
@@ -212,14 +199,14 @@ const UsersList = () => {
           {filteredUsers.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-sm text-gray-400">
-                Showing <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{filteredUsers.length}</span> of <span className="font-medium text-white">{filteredUsers.length}</span>
+                {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{filteredUsers.length}</span> {t('common.of')} <span className="font-medium text-white">{filteredUsers.length}</span>
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Previous
+                  {t('common.previous')}
                 </Button>
                 <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                  Next
+                  {t('common.next')}
                 </Button>
               </div>
             </div>

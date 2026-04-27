@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { 
   LayoutDashboard, 
   Trophy, 
@@ -14,17 +15,18 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
+  const { t } = useTranslation('admin');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const menuItems = [
-    { name: 'Dashboard', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
-    { name: 'Competitions', path: '/admin/competitions', icon: <Trophy size={20} /> },
-    { name: 'Winners', path: '/admin/winners', icon: <Award size={20} /> },
-    { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { name: 'Orders', path: '/admin/orders', icon: <ShoppingCart size={20} /> },
-    { name: 'Referrals', path: '/admin/referrals', icon: <Share2 size={20} /> },
-    { name: 'Bonus Tickets', path: '/admin/bonus-tickets', icon: <Ticket size={20} /> },
-    { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
+    { name: t('sidebar.dashboard'), path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
+    { name: t('sidebar.competitions'), path: '/admin/competitions', icon: <Trophy size={20} /> },
+    { name: t('sidebar.winners'), path: '/admin/winners', icon: <Award size={20} /> },
+    { name: t('sidebar.users'), path: '/admin/users', icon: <Users size={20} /> },
+    { name: t('sidebar.orders'), path: '/admin/orders', icon: <ShoppingCart size={20} /> },
+    { name: t('sidebar.referrals'), path: '/admin/referrals', icon: <Share2 size={20} /> },
+    { name: t('sidebar.bonusTickets'), path: '/admin/bonus-tickets', icon: <Ticket size={20} /> },
+    { name: t('sidebar.settings'), path: '/admin/settings', icon: <Settings size={20} /> },
   ];
 
   const toggleSidebar = () => {
@@ -35,7 +37,7 @@ const Sidebar = () => {
     <div className="flex flex-col h-full bg-[#0a0a0a] border-r border-white/10 w-64 text-white">
       <div className="p-6 flex items-center justify-between">
         <h2 className="text-2xl font-serif font-bold bg-gradient-to-r from-primary to-white bg-clip-text text-transparent">
-          Admin Panel
+          {t('navbar.adminPanel')}
         </h2>
         {/* Mobile close button inside sidebar */}
         <button className="cursor-pointer md:hidden text-gray-400 hover:text-white" onClick={toggleSidebar}>

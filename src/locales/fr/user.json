@@ -1,0 +1,176 @@
+{
+  "navbar": {
+    "competitions": "Concours",
+    "howItWorks": "Comment ça marche",
+    "winners": "Gagnants",
+    "signIn": "Connexion",
+    "languageLabel": "Langue"
+  },
+  "common": {
+    "sold": "vendus",
+    "remaining": "restants",
+    "beforeDraw": "avant tirage",
+    "participate": "Participer"
+  },
+  "hero": {
+    "liveBadge": "Tirages en direct · Certifiés · Transparence",
+    "titleTop": "Gagnez l'",
+    "titleBottom": "Extraordinaire",
+    "subtitle": "Voitures de luxe, montres, voyages de rêve - accessibles à tous. Participez dès 2 € et tentez votre chance dans nos tirages certifiés.",
+    "seeCompetitions": "Voir les concours",
+    "ourWinners": "Nos gagnants",
+    "stats": {
+      "participants": "Participants",
+      "winners": "Gagnants",
+      "prizes": "De lots",
+      "countries": "Pays"
+    },
+    "trustBadges": {
+      "securePayments": "Paiements sécurisés",
+      "notarizedDraws": "Tirages notariés",
+      "publicResults": "Résultats publics"
+    }
+  },
+  "featured": {
+    "overline": "Lots en cours",
+    "title": "Concours en cours",
+    "subtitle": "Des lots exceptionnels vous attendent. Chaque ticket est une chance de changer votre vie.",
+    "seeAll": "Voir tous les concours"
+  },
+  "howItWorks": {
+    "overline": "Simple et transparent",
+    "title": "Comment ça marche",
+    "subtitle": "En 4 étapes simples, passez de spectateur à gagnant.",
+    "steps": {
+      "one": {
+        "title": "Choisissez votre lot",
+        "desc": "Parcourez notre sélection exclusive de lots exceptionnels : voitures, montres de luxe, voyages et bien plus."
+      },
+      "two": {
+        "title": "Achetez vos tickets",
+        "desc": "Obtenez vos participations dès 2 €. Plus vous avez de tickets, plus vos chances augmentent."
+      },
+      "three": {
+        "title": "Tirage en direct",
+        "desc": "Suivez le tirage en temps réel, supervisé par un notaire. Complètement transparent et vérifiable."
+      },
+      "four": {
+        "title": "Récupérez votre lot",
+        "desc": "Le gagnant est notifié immédiatement. Livraison garantie ou remise en main propre selon le lot."
+      }
+    }
+  },
+  "winnersShowcase": {
+    "overline": "Ils ont gagné",
+    "title": "Nos gagnants",
+    "subtitle": "De vraies personnes, de vrais lots. Consultez leurs témoignages.",
+    "prizeWon": "Lot gagné",
+    "tickets": "Tickets",
+    "launchTitle": "1 247 gagnants depuis notre lancement",
+    "launchText": "Chaque tirage est filmé en direct et les vidéos sont accessibles publiquement. La transparence n'est pas une option, c'est notre engagement."
+  },
+  "trust": {
+    "overline": "Notre engagement",
+    "title": "Pourquoi nous faire confiance ?",
+    "subtitle": "NessWin a été conçu pour être la plateforme la plus transparente et fiable du marché.",
+    "items": {
+      "publicResults": {
+        "title": "Résultats publics",
+        "desc": "Tous les tirages sont diffusés en direct. Les résultats sont publics et vérifiables par tous.",
+        "badge": "Transparence totale"
+      },
+      "securePayments": {
+        "title": "Paiements sécurisés",
+        "desc": "Chiffrement SSL 256 bits. Paiements traités par Stripe, certifié PCI DSS niveau 1.",
+        "badge": "Certifié Stripe"
+      },
+      "support": {
+        "title": "Support 24/7",
+        "desc": "Notre équipe dédiée est disponible 24/7 pour répondre à toutes vos questions.",
+        "badge": "Réponse < 2h"
+      }
+    }
+  },
+  "cta": {
+    "titleTop": "Prêt à tenter",
+    "titleBottom": "votre chance ?",
+    "subtitle": "Rejoignez des milliers de participants dans nos concours premium. Le prochain gagnant, c'est peut-être vous.",
+    "signIn": "Connexion",
+    "nextDraw": "Voir le prochain tirage",
+    "legal": "En participant, vous acceptez nos conditions. Concours légaux réservés aux adultes. Tirages supervisés par notaire."
+  },
+  "footer": {
+    "description": "La plateforme premium de concours à lots. Lots exceptionnels, tirages certifiés, transparence totale.",
+    "platform": "Plateforme",
+    "company": "Entreprise",
+    "legal": "Légal",
+    "links": {
+      "competitions": "Nos concours",
+      "howItWorks": "Comment ça marche",
+      "winners": "Nos gagnants",
+      "liveDraws": "Tirages en direct",
+      "press": "Presse",
+      "affiliates": "Affiliation",
+      "careers": "Carrières",
+      "terms": "Conditions générales",
+      "privacy": "Politique de confidentialité",
+      "rules": "Règles du concours",
+      "freePostalEntry": "Participation postale gratuite",
+      "responsiblePlay": "Jeu responsable (18+)",
+      "contactUs": "Nous contacter"
+    },
+    "rights": "© 2026 NessWin. Tous droits réservés. Concours réservés aux 18+.",
+    "systems": "Tous les systèmes opérationnels"
+  },
+  "competitionsPage": {
+    "statusFilters": {
+      "all": "Tous",
+      "ongoing": "En cours",
+      "comingSoon": "Bientôt",
+      "completed": "Terminés"
+    },
+    "categoryFilters": {
+      "allCategories": "Toutes catégories",
+      "cars": "Voitures",
+      "watches": "Montres",
+      "travel": "Voyage",
+      "realEstate": "Immobilier",
+      "tech": "Tech",
+      "other": "Autre"
+    },
+    "overline": "Catalogue",
+    "title": "Tous les concours",
+    "subtitle": "Voitures, montres, voyages, immobilier - des lots exceptionnels accessibles avec un ticket.",
+    "noResults": "Aucun concours ne correspond à vos filtres."
+  },
+  "competitionDetails": {
+    "competitions": "Concours",
+    "ongoing": "En cours",
+    "whatsIncluded": "Ce qui est inclus",
+    "yourPrize": "Votre lot",
+    "perTicket": "/ ticket",
+    "loginToJoin": "Connectez-vous pour participer",
+    "loginSubtitle": "Créez un compte gratuitement et tentez votre chance dès aujourd'hui.",
+    "signIn": "Connexion",
+    "drawOn": "Tirage le",
+    "left": "Restants",
+    "liveNote": "Tous les tirages sont filmés en direct et les gagnants annoncés publiquement.",
+    "stats": {
+      "ticketPrice": "Prix du ticket",
+      "maxTickets": "Tickets max",
+      "ticketsSold": "Tickets vendus",
+      "prizeValue": "Valeur du lot"
+    },
+    "participantsTitle": "Participants et transparence",
+    "participantsSubtitle": "Chaque achat de ticket est listé ici. Transparence totale sur tous les participants.",
+    "participants": "participant(s)",
+    "ticketCount": "ticket(s)",
+    "transparencyNote": "Cette liste est mise à jour en temps réel. Chaque participant est affiché avec son nom public ou réel. Les tirages sont supervisés par un notaire certifié et filmés en direct."
+  },
+  "winnersPage": {
+    "hallOfFame": "Hall of Fame",
+    "title": "Nos gagnants",
+    "subtitle": "Ils ont participé, ils ont gagné. Découvrez les heureux gagnants de nos concours et leurs témoignages.",
+    "ticket": "Ticket"
+  }
+}
