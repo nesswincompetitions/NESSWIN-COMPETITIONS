@@ -230,11 +230,19 @@ export const completeOnboarding = async (username, referralCodeInput) => {
       };
       
       transaction.set(newReferralRef, referralDocData);
-
-      // Increment the total referral signup count
-      transaction.update(referrerRef, {
-        referral_count: increment(1)
-      });
+      
+      // Note: We DO NOT increment the referrer's referral_count here.
+      // The backend cloud function (referralController.js) listens for the 
+      // creation of this referral document and handles all increments securely.
     }
   });
+
+  // After successful transaction, clean up stored referral code
+  if (referrerRef) {
+    try {
+      localStorage.removeItem('nesswin_referral_code');
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  }
 };

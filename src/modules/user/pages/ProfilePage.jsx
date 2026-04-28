@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const handleCopyReferral = () => {
     if (userData?.referral_code) {
@@ -29,6 +30,16 @@ export default function ProfilePage() {
       setCopied(true);
       toast.success("Referral code copied!");
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (userData?.referral_code) {
+      const link = `https://www.nesswin.com/signup?ref=${userData.referral_code}`;
+      navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      toast.success("Referral link copied!");
+      setTimeout(() => setCopiedLink(false), 2000);
     }
   };
 
@@ -176,27 +187,54 @@ export default function ProfilePage() {
               Referral & Rewards
             </h2>
             <div className="space-y-4">
-              {/* Referral Code */}
+              {/* Referral Code & Link */}
               {userData?.referral_code && (
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center shrink-0">
-                    <Tag className="w-4 h-4 text-[var(--color-primary)]" />
+                <div className="space-y-3">
+                  {/* Code */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center shrink-0">
+                      <Tag className="w-4 h-4 text-[var(--color-primary)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Code</p>
+                      <p className="text-sm font-mono font-bold text-[var(--color-primary)]">{userData.referral_code}</p>
+                    </div>
+                    <button
+                      onClick={handleCopyReferral}
+                      className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
+                      aria-label="Copy referral code"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+                      )}
+                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">Copy Code</span>
+                    </button>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Code</p>
-                    <p className="text-sm font-mono font-bold text-[var(--color-primary)]">{userData.referral_code}</p>
+
+                  {/* Link */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center shrink-0">
+                      <Gift className="w-4 h-4 text-[var(--color-primary)]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Link</p>
+                      <p className="text-sm font-mono text-[var(--color-muted-foreground)] truncate">{`https://www.nesswin.com/signup?ref=${userData.referral_code}`}</p>
+                    </div>
+                    <button
+                      onClick={handleCopyLink}
+                      className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
+                      aria-label="Copy referral link"
+                    >
+                      {copiedLink ? (
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+                      )}
+                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">Copy Link</span>
+                    </button>
                   </div>
-                  <button
-                    onClick={handleCopyReferral}
-                    className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
-                    aria-label="Copy referral code"
-                  >
-                    {copied ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-                    )}
-                  </button>
                 </div>
               )}
 

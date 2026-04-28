@@ -47,13 +47,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }) => {
   }
 
   if (!requireAdmin && userData.role === 'admin') {
-    // Admin trying to access regular protected routes (e.g., /competitions) 
-    // Usually admins can see user routes, but based on the prompt "if role == admin navigate to admin panel"
-    // we might want to strictly redirect them if they try to use the user app
-    // I'll redirect them if they go to the root user app route, or let's be strict if needed.
-    // For now, if an admin is here and the route doesn't require admin, we can redirect to /admin
-    // But this might break if they want to view the public site. 
-    // Let's only redirect if they go to specifically protected user routes.
+    return <Navigate to="/admin" replace />;
   }
 
   return children;

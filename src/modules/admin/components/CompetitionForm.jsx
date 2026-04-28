@@ -10,39 +10,62 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const { t } = useTranslation('admin');
   const [currentStep, setCurrentStep] = useState(0);
   
-  const [formData, setFormData] = useState(initialData || {
-    // Step 1: Details
-    title: '',
-    shortDescription: '',
-    fullDescription: '',
-    prizeName: '',
-    prizeValue: '',
-    category: 'Tech',
-    isFeatured: false,
-    images: [],
-    imagePreviews: [],
-    
-    // Step 2: Pricing
-    ticketPrice: '',
-    maxTickets: '',
-    sellOutBehavior: 'auto_end',
-    
-    // Step 3: Skill Question
-    questionText: '',
-    questionImages: [],
-    questionImagePreviews: [],
-    answers: [
-      { text: '', isCorrect: true },
-      { text: '', isCorrect: false },
-      { text: '', isCorrect: false },
-      { text: '', isCorrect: false }
-    ],
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
 
-    // Step 4: Draw Settings
-    drawEndDate: '',
-    drawEndTime: '',
-    autoEndDraw: true,
-    instagramLiveLink: '',
+  const [formData, setFormData] = useState(() => {
+    const baseData = initialData || {};
+    
+    // Normalize questions to an array if they are not already
+    let questions = baseData.questions;
+    if (!questions && (baseData.questionText || baseData.answers)) {
+      questions = [
+        {
+          questionText: baseData.questionText || '',
+          questionImages: baseData.questionImages || [],
+          questionImagePreviews: baseData.questionImagePreviews || [],
+          answers: baseData.answers || [
+            { text: '', isCorrect: true },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false }
+          ]
+        }
+      ];
+    } else if (!questions || questions.length === 0) {
+      questions = [
+        {
+          questionText: '',
+          questionImages: [],
+          questionImagePreviews: [],
+          answers: [
+            { text: '', isCorrect: true },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false }
+          ]
+        }
+      ];
+    }
+
+    return {
+      title: baseData.title || '',
+      shortDescription: baseData.shortDescription || '',
+      fullDescription: baseData.fullDescription || '',
+      prizeName: baseData.prizeName || '',
+      prizeValue: baseData.prizeValue || '',
+      category: baseData.category || 'Tech',
+      isFeatured: baseData.isFeatured || false,
+      images: baseData.images || [],
+      imagePreviews: baseData.imagePreviews || [],
+      ticketPrice: baseData.ticketPrice || '',
+      maxTickets: baseData.maxTickets || '',
+      sellOutBehavior: baseData.sellOutBehavior || 'auto_end',
+      questions: questions,
+      drawEndDate: baseData.drawEndDate || '',
+      drawEndTime: baseData.drawEndTime || '',
+      autoEndDraw: baseData.autoEndDraw !== undefined ? baseData.autoEndDraw : true,
+      instagramLiveLink: baseData.instagramLiveLink || '',
+    };
   });
 
   const handleChange = (e) => {
@@ -92,17 +115,22 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     
     const newPreviews = files.map(file => URL.createObjectURL(file));
     
-    setFormData(prev => ({
-      ...prev,
-      questionImages: [...(prev.questionImages || []), ...files],
-      questionImagePreviews: [...(prev.questionImagePreviews || []), ...newPreviews]
-    }));
+    setFormData(prev => {
+      const updatedQuestions = [...prev.questions];
+      const currentQ = { ...updatedQuestions[activeQuestionIndex] };
+      currentQ.questionImages = [...(currentQ.questionImages || []), ...files];
+      currentQ.questionImagePreviews = [...(currentQ.questionImagePreviews || []), ...newPreviews];
+      updatedQuestions[activeQuestionIndex] = currentQ;
+      return { ...prev, questions: updatedQuestions };
+    });
   };
 
   const removeQuestionImage = (index) => {
     setFormData(prev => {
-      const newImages = [...(prev.questionImages || [])];
-      const newPreviews = [...(prev.questionImagePreviews || [])];
+      const updatedQuestions = [...prev.questions];
+      const currentQ = { ...updatedQuestions[activeQuestionIndex] };
+      const newImages = [...(currentQ.questionImages || [])];
+      const newPreviews = [...(currentQ.questionImagePreviews || [])];
       
       if (newPreviews[index]) {
         URL.revokeObjectURL(newPreviews[index]);
@@ -111,44 +139,99 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       newImages.splice(index, 1);
       newPreviews.splice(index, 1);
       
-      return {
-        ...prev,
-        questionImages: newImages,
-        questionImagePreviews: newPreviews
-      };
+      currentQ.questionImages = newImages;
+      currentQ.questionImagePreviews = newPreviews;
+      updatedQuestions[activeQuestionIndex] = currentQ;
+      
+      return { ...prev, questions: updatedQuestions };
     });
   };
 
   const handleAnswerChange = (index, value) => {
-    const newAnswers = [...formData.answers];
-    newAnswers[index].text = value;
-    setFormData(prev => ({ ...prev, answers: newAnswers }));
+    setFormData(prev => {
+      const updatedQuestions = [...prev.questions];
+      const currentQ = { ...updatedQuestions[activeQuestionIndex] };
+      const newAnswers = [...currentQ.answers];
+      newAnswers[index] = { ...newAnswers[index], text: value };
+      currentQ.answers = newAnswers;
+      updatedQuestions[activeQuestionIndex] = currentQ;
+      return { ...prev, questions: updatedQuestions };
+    });
   };
 
   const setCorrectAnswer = (index) => {
-    const newAnswers = formData.answers.map((ans, i) => ({
-      ...ans,
-      isCorrect: i === index
-    }));
-    setFormData(prev => ({ ...prev, answers: newAnswers }));
+    setFormData(prev => {
+      const updatedQuestions = [...prev.questions];
+      const currentQ = { ...updatedQuestions[activeQuestionIndex] };
+      currentQ.answers = currentQ.answers.map((ans, i) => ({
+        ...ans,
+        isCorrect: i === index
+      }));
+      updatedQuestions[activeQuestionIndex] = currentQ;
+      return { ...prev, questions: updatedQuestions };
+    });
   };
 
   const addAnswer = () => {
-    if (formData.answers.length < 4) {
-      setFormData(prev => ({
-        ...prev,
-        answers: [...prev.answers, { text: '', isCorrect: false }]
-      }));
+    const currentQ = formData.questions[activeQuestionIndex];
+    if (currentQ.answers.length < 4) {
+      setFormData(prev => {
+        const updatedQuestions = [...prev.questions];
+        const q = { ...updatedQuestions[activeQuestionIndex] };
+        q.answers = [...q.answers, { text: '', isCorrect: false }];
+        updatedQuestions[activeQuestionIndex] = q;
+        return { ...prev, questions: updatedQuestions };
+      });
     }
   };
 
   const removeAnswer = (index) => {
-    if (formData.answers.length > 2) {
-      const newAnswers = formData.answers.filter((_, i) => i !== index);
-      if (formData.answers[index].isCorrect) {
-        newAnswers[0].isCorrect = true;
+    const currentQ = formData.questions[activeQuestionIndex];
+    if (currentQ.answers.length > 2) {
+      setFormData(prev => {
+        const updatedQuestions = [...prev.questions];
+        const q = { ...updatedQuestions[activeQuestionIndex] };
+        const newAnswers = q.answers.filter((_, i) => i !== index);
+        if (q.answers[index].isCorrect) {
+          newAnswers[0].isCorrect = true;
+        }
+        q.answers = newAnswers;
+        updatedQuestions[activeQuestionIndex] = q;
+        return { ...prev, questions: updatedQuestions };
+      });
+    }
+  };
+
+  const addQuestion = () => {
+    setFormData(prev => ({
+      ...prev,
+      questions: [
+        ...prev.questions,
+        {
+          questionText: '',
+          questionImages: [],
+          questionImagePreviews: [],
+          answers: [
+            { text: '', isCorrect: true },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false },
+            { text: '', isCorrect: false }
+          ]
+        }
+      ]
+    }));
+    setActiveQuestionIndex(formData.questions.length);
+  };
+
+  const removeQuestion = (qIndex) => {
+    if (formData.questions.length > 1) {
+      setFormData(prev => {
+        const updatedQuestions = prev.questions.filter((_, i) => i !== qIndex);
+        return { ...prev, questions: updatedQuestions };
+      });
+      if (activeQuestionIndex >= formData.questions.length - 1) {
+        setActiveQuestionIndex(Math.max(0, formData.questions.length - 2));
       }
-      setFormData(prev => ({ ...prev, answers: newAnswers }));
     }
   };
 
@@ -161,15 +244,32 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   ];
 
   const handleNext = () => {
-    // Validation for Step 2: Skill Question
+    // Validation for Step 3: Skill Question
     if (currentStep === 2) {
-      if (!formData.questionImagePreviews || formData.questionImagePreviews.length === 0) {
-        toast.error(t('competitions.form.step3.imageRequiredToast'));
-        return;
-      }
-      if (!formData.questionText.trim()) {
-        toast.error(t('competitions.form.step3.questionRequiredToast'));
-        return;
+      for (let i = 0; i < formData.questions.length; i++) {
+        const q = formData.questions[i];
+        if (!q.questionImagePreviews || q.questionImagePreviews.length === 0) {
+          toast.error(`${t('competitions.form.step3.imageRequiredToast')} (Question ${i + 1})`);
+          setActiveQuestionIndex(i);
+          return;
+        }
+        if (!q.questionText.trim()) {
+          toast.error(`${t('competitions.form.step3.questionRequiredToast')} (Question ${i + 1})`);
+          setActiveQuestionIndex(i);
+          return;
+        }
+        const hasCorrect = q.answers.some(a => a.isCorrect);
+        if (!hasCorrect) {
+          toast.error(`Please select a correct answer for Question ${i + 1}`);
+          setActiveQuestionIndex(i);
+          return;
+        }
+        const hasBlankAnswers = q.answers.some(a => !a.text.trim());
+        if (hasBlankAnswers) {
+          toast.error(`Please fill in all options for Question ${i + 1}`);
+          setActiveQuestionIndex(i);
+          return;
+        }
       }
     }
 
@@ -286,8 +386,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
           <div>
-            <p className="text-sm font-medium text-white">{t('admin.competitions.form.step1.featuredCompetition')}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{t('admin.competitions.form.step1.featuredDesc')}</p>
+            <p className="text-sm font-medium text-white">{t('competitions.form.step1.featuredCompetition')}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t('competitions.form.step1.featuredDesc')}</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" name="isFeatured" checked={formData.isFeatured} onChange={handleChange} className="sr-only peer" />
@@ -301,26 +401,26 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   const renderStep2 = () => (
     <Card>
       <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">{t('admin.competitions.form.step2.title')}</h2>
-        <p className="text-sm text-gray-400 mt-1">{t('admin.competitions.form.step2.subtitle')}</p>
+        <h2 className="text-lg font-semibold">{t('competitions.form.step2.title')}</h2>
+        <p className="text-sm text-gray-400 mt-1">{t('competitions.form.step2.subtitle')}</p>
       </div>
       <CardContent className="p-6 space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.ticketPrice')} <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step2.ticketPrice')} <span className="text-red-400">*</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input 
-                type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} placeholder={t('admin.competitions.form.step2.ticketPricePlaceholder')}
+                type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} placeholder={t('competitions.form.step2.ticketPricePlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.maxTickets')} <span className="text-red-400">*</span></label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step2.maxTickets')} <span className="text-red-400">*</span></label>
             <input 
-              type="number" name="maxTickets" value={formData.maxTickets} onChange={handleChange} placeholder={t('admin.competitions.form.step2.maxTicketsPlaceholder')}
+              type="number" name="maxTickets" value={formData.maxTickets} onChange={handleChange} placeholder={t('competitions.form.step2.maxTicketsPlaceholder')}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
@@ -329,21 +429,21 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl flex gap-3 text-sm text-primary">
           <div className="mt-0.5">💰</div>
           <div>
-            <p className="font-medium mb-1">{t('admin.competitions.form.step2.revenueEstimate')}</p>
-            <p className="opacity-90">{t('admin.competitions.form.step2.ifAllSell')} <span className="font-bold text-lg">£{revenueEstimate()}</span></p>
+            <p className="font-medium mb-1">{t('competitions.form.step2.revenueEstimate')}</p>
+            <p className="opacity-90">{t('competitions.form.step2.ifAllSell')} <span className="font-bold text-lg">£{revenueEstimate()}</span></p>
           </div>
         </div>
 
         <div className="space-y-3">
-          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step2.sellOutBehavior')}</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step2.sellOutBehaviour')}</label>
           
           <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${formData.sellOutBehavior === 'auto_end' ? 'border-primary bg-primary/5' : 'border-white/10 bg-white/5'}`}>
             <div className="flex items-center h-5">
               <input type="radio" name="sellOutBehavior" value="auto_end" checked={formData.sellOutBehavior === 'auto_end'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">{t('admin.competitions.form.step2.autoEndLabel')}</p>
-              <p className="text-xs text-gray-400 mt-1">{t('admin.competitions.form.step2.autoEndDesc')}</p>
+              <p className="text-sm font-medium text-white">{t('competitions.form.step2.autoEnd')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('competitions.form.step2.autoEndDesc')}</p>
             </div>
           </label>
 
@@ -352,8 +452,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <input type="radio" name="sellOutBehavior" value="keep_running" checked={formData.sellOutBehavior === 'keep_running'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
             </div>
             <div>
-              <p className="text-sm font-medium text-white">{t('admin.competitions.form.step2.keepRunningLabel')}</p>
-              <p className="text-xs text-gray-400 mt-1">{t('admin.competitions.form.step2.keepRunningDesc')}</p>
+              <p className="text-sm font-medium text-white">{t('competitions.form.step2.keepRunning')}</p>
+              <p className="text-xs text-gray-400 mt-1">{t('competitions.form.step2.keepRunningDesc')}</p>
             </div>
           </label>
         </div>
@@ -362,128 +462,174 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
     </Card>
   );
 
-  const renderStep3 = () => (
-    <Card>
-      <div className="p-6 border-b border-white/10">
-        <h2 className="text-lg font-semibold">{t('admin.competitions.form.step3.title')}</h2>
-        <p className="text-sm text-gray-400 mt-1">{t('admin.competitions.form.step3.subtitle')}</p>
-      </div>
-      <CardContent className="p-6 space-y-6">
-        
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step3.questionText')} <span className="text-red-400">*</span></label>
-          <input 
-            type="text" name="questionText" value={formData.questionText} onChange={handleChange} placeholder={t('admin.competitions.form.step3.questionTextPlaceholder')}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('admin.competitions.form.step3.questionImages')} <span className="text-red-400">*</span> {t('admin.competitions.form.step3.questionImagesMin')}</label>
-          <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-colors cursor-pointer group">
-            <input type="file" multiple accept="image/*" className="hidden" onChange={handleQuestionImageUpload} />
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Upload className="text-gray-400" size={20} />
-            </div>
-            <p className="text-sm text-white font-medium mt-1">{t('admin.competitions.form.step3.uploadQuestionImages')}</p>
-          </label>
-
-          {formData.questionImagePreviews && formData.questionImagePreviews.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              {formData.questionImagePreviews.map((preview, idx) => (
-                <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
-                  <img src={preview} alt={`Question ${idx}`} className="w-full h-full object-cover" />
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); removeQuestionImage(idx); }}
-                    className="absolute top-1 right-1 bg-black/60 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          
-          {(!formData.questionImagePreviews || formData.questionImagePreviews.length === 0) && currentStep === 2 && (
-            <p className="text-xs text-red-400 flex items-center gap-1 mt-2">
-              <AlertCircle size={12} /> {t('competitions.form.step3.imageRequired')}
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step3.answerOptions')}</label>
-            <span className="text-xs text-gray-500">{t('competitions.form.step3.answerHint')}</span>
+  const renderStep3 = () => {
+    const currentQ = formData.questions[activeQuestionIndex] || formData.questions[0];
+    
+    return (
+      <Card>
+        <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">{t('competitions.form.step3.title')}</h2>
+            <p className="text-sm text-gray-400 mt-1">{t('competitions.form.step3.subtitle')}</p>
           </div>
-          
-          <div className="space-y-3">
-            {formData.answers.map((answer, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <input 
-                  type="radio" 
-                  name="correctAnswer" 
-                  checked={answer.isCorrect} 
-                  onChange={() => setCorrectAnswer(index)}
-                  className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2 cursor-pointer" 
-                  title={t('competitions.form.step3.markCorrect')}
-                />
-                <input 
-                  type="text" 
-                  value={answer.text} 
-                  onChange={(e) => handleAnswerChange(index, e.target.value)} 
-                  placeholder={`${t('competitions.form.step3.answerPlaceholder')} ${index + 1}`}
-                  className={`flex-1 bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors ${answer.isCorrect ? 'border-primary' : 'border-white/10'}`}
-                />
-                <button 
+          <Button variant="outline" size="sm" onClick={addQuestion} className="w-fit">
+            <Plus size={16} className="mr-1" /> Add Question to Pool
+          </Button>
+        </div>
+
+        {/* Question Tabs */}
+        {formData.questions.length > 1 && (
+          <div className="px-6 py-3 border-b border-white/5 flex flex-wrap gap-2 bg-white/[0.02]">
+            {formData.questions.map((_, idx) => (
+              <div key={idx} className="flex items-center gap-1">
+                <button
                   type="button"
-                  onClick={() => removeAnswer(index)} 
-                  disabled={formData.answers.length <= 2}
-                  className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-50 disabled:hover:text-gray-500 transition-colors"
+                  onClick={() => setActiveQuestionIndex(idx)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    activeQuestionIndex === idx
+                      ? 'bg-primary text-black font-bold'
+                      : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                  }`}
                 >
-                  <Trash2 size={18} />
+                  Question {idx + 1}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeQuestion(idx)}
+                  className="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Delete Question"
+                >
+                  <Trash2 size={14} />
                 </button>
               </div>
             ))}
           </div>
+        )}
 
-          {formData.answers.length < 4 && (
-            <Button variant="outline" size="sm" onClick={addAnswer} className="mt-2 text-xs">
-              <Plus size={14} className="mr-1" /> {t('competitions.form.step3.addOption')}
-            </Button>
-          )}
-        </div>
+        <CardContent className="p-6 space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Question Text (Q{activeQuestionIndex + 1}) <span className="text-red-400">*</span></label>
+            <input 
+              type="text" 
+              name="questionText" 
+              value={currentQ.questionText} 
+              onChange={(e) => {
+                const updatedQuestions = [...formData.questions];
+                updatedQuestions[activeQuestionIndex] = { ...currentQ, questionText: e.target.value };
+                setFormData(prev => ({ ...prev, questions: updatedQuestions }));
+              }} 
+              placeholder={t('competitions.form.step3.questionTextPlaceholder')}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+            />
+          </div>
 
-        <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
-          <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2"><Eye size={14}/> {t('competitions.form.step3.preview')}</h4>
-          {formData.questionImagePreviews && formData.questionImagePreviews.length > 0 && (
-            <div className={`mx-auto ${formData.questionImagePreviews.length === 1 ? 'max-w-sm' : 'max-w-sm grid grid-cols-2 gap-2'}`}>
-              {formData.questionImagePreviews.map((preview, idx) => (
-                <div 
-                  key={idx} 
-                  className={`rounded-lg overflow-hidden border border-white/5 ${
-                    formData.questionImagePreviews.length === 1 ? 'aspect-video w-full' : 'aspect-square'
-                  }`}
-                >
-                  <img src={preview} alt={`Question Preview ${idx}`} className="w-full h-full object-cover" />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Question Images (Q{activeQuestionIndex + 1}) <span className="text-red-400">*</span> {t('competitions.form.step3.questionImagesMin')}</label>
+            <label className="block border-2 border-dashed border-white/10 rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-white/[0.02] transition-colors cursor-pointer group">
+              <input type="file" multiple accept="image/*" className="hidden" onChange={handleQuestionImageUpload} />
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Upload className="text-gray-400" size={20} />
+              </div>
+              <p className="text-sm text-white font-medium mt-1">{t('competitions.form.step3.uploadQuestionImages')}</p>
+            </label>
+
+            {currentQ.questionImagePreviews && currentQ.questionImagePreviews.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                {currentQ.questionImagePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
+                    <img src={preview} alt={`Question ${idx}`} className="w-full h-full object-cover" />
+                    <button 
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); removeQuestionImage(idx); }}
+                      className="absolute top-1 right-1 bg-black/60 p-1 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {(!currentQ.questionImagePreviews || currentQ.questionImagePreviews.length === 0) && currentStep === 2 && (
+              <p className="text-xs text-red-400 flex items-center gap-1 mt-2">
+                <AlertCircle size={12} /> {t('competitions.form.step3.imageRequired')}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-300">{t('competitions.form.step3.answerOptions')}</label>
+              <span className="text-xs text-gray-500">{t('competitions.form.step3.answerHint')}</span>
+            </div>
+            
+            <div className="space-y-3">
+              {currentQ.answers.map((answer, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <input 
+                    type="radio" 
+                    name={`correctAnswer_${activeQuestionIndex}`} 
+                    checked={answer.isCorrect} 
+                    onChange={() => setCorrectAnswer(index)}
+                    className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2 cursor-pointer" 
+                    title={t('competitions.form.step3.markCorrect')}
+                  />
+                  <input 
+                    type="text" 
+                    value={answer.text} 
+                    onChange={(e) => handleAnswerChange(index, e.target.value)} 
+                    placeholder={`${t('competitions.form.step3.answerPlaceholder')} ${index + 1}`}
+                    className={`flex-1 bg-white/5 border rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors ${answer.isCorrect ? 'border-primary' : 'border-white/10'}`}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => removeAnswer(index)} 
+                    disabled={currentQ.answers.length <= 2}
+                    className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-50 disabled:hover:text-gray-500 transition-colors"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               ))}
             </div>
-          )}
-          <p className="text-white font-medium text-center">{formData.questionText || t('competitions.form.step3.questionPreviewPlaceholder')}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {formData.answers.map((ans, i) => (
-              <div key={i} className="p-3 border border-white/10 rounded-lg text-sm text-gray-300 text-center">
-                {ans.text || `${t('competitions.form.step3.option')} ${i + 1}`}
-              </div>
-            ))}
-          </div>
-        </div>
 
-      </CardContent>
-    </Card>
-  );
+            {currentQ.answers.length < 4 && (
+              <Button variant="outline" size="sm" onClick={addAnswer} className="mt-2 text-xs">
+                <Plus size={14} className="mr-1" /> {t('competitions.form.step3.addOption')}
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-6 p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
+            <h4 className="text-sm font-medium text-gray-400 flex items-center gap-2"><Eye size={14}/> {t('competitions.form.step3.preview')}</h4>
+            {currentQ.questionImagePreviews && currentQ.questionImagePreviews.length > 0 && (
+              <div className={`mx-auto ${currentQ.questionImagePreviews.length === 1 ? 'max-w-sm' : 'max-w-sm grid grid-cols-2 gap-2'}`}>
+                {currentQ.questionImagePreviews.map((preview, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`rounded-lg overflow-hidden border border-white/5 ${
+                      currentQ.questionImagePreviews.length === 1 ? 'aspect-video w-full' : 'aspect-square'
+                    }`}
+                  >
+                    <img src={preview} alt={`Question Preview ${idx}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-white font-medium text-center">{currentQ.questionText || t('competitions.form.step3.questionPreviewPlaceholder')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {currentQ.answers.map((ans, i) => (
+                <div key={i} className="p-3 border border-white/10 rounded-lg text-sm text-gray-300 text-center">
+                  {ans.text || `${t('competitions.form.step3.option')} ${i + 1}`}
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderStep4 = () => (
     <Card>
@@ -593,12 +739,14 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <button type="button" onClick={() => setCurrentStep(2)} className="text-xs text-primary hover:underline">{t('common.edit')}</button>
             </div>
             <div className="grid grid-cols-2 gap-y-2 text-sm">
-              <span className="text-gray-500">{t('competitions.form.step5.question')}</span>
-              <span className="text-white font-medium text-right line-clamp-1">{formData.questionText || '-'}</span>
-              <span className="text-gray-500">{t('competitions.form.step1.images')}</span>
-              <span className="text-white text-right">{formData.questionImagePreviews?.length || 0} {t('competitions.form.step5.imagesCount')}</span>
-              <span className="text-gray-500">{t('competitions.form.step3.answerOptions')}</span>
-              <span className="text-white text-right">{formData.answers.length} {t('competitions.form.step5.optionsCount')}</span>
+              <span className="text-gray-500">Question Pool</span>
+              <span className="text-white font-medium text-right">{formData.questions.length} Question(s)</span>
+              {formData.questions.map((q, idx) => (
+                <React.Fragment key={idx}>
+                  <span className="text-gray-400 pl-2">Q{idx + 1}:</span>
+                  <span className="text-white text-right line-clamp-1">{q.questionText || '-'}</span>
+                </React.Fragment>
+              ))}
             </div>
           </div>
 

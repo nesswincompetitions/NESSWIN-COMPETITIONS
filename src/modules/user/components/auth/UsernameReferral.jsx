@@ -17,7 +17,13 @@ const STATUS = {
 
 export default function UsernameReferral() {
   const [username, setUsername] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode, setReferralCode] = useState(() => {
+    try {
+      return localStorage.getItem('nesswin_referral_code') || '';
+    } catch {
+      return '';
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState(STATUS.IDLE);
   const debounceRef = useRef(null);
