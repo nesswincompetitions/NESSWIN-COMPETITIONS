@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Flame, Sparkles, Tag, Users, Ticket } from "lucide-react";
 import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
-import { competitions } from "../../../data/competitions.js";
 import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../../utils/firebase";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -17,11 +18,10 @@ function StatusBadge({ type, label }) {
   const isHot = type === "hot";
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] ${
-        isHot
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] ${isHot
           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
           : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-      }`}
+        }`}
     >
       {isHot ? (
         <Flame className="w-3 h-3" aria-hidden="true" />
@@ -43,6 +43,7 @@ function CompetitionCard({ competition }) {
     ticketPrice,
     category,
     title,
+    subTitle,
     priceLabel,
     sold,
     total,
@@ -100,11 +101,16 @@ function CompetitionCard({ competition }) {
         {/* Title + price — fixed height so all cards align below */}
         <div className="min-h-18">
           <h3
-            className="font-serif text-xl font-bold leading-tight line-clamp-2 text-(--color-foreground)"
+            className="font-serif text-xl font-bold leading-tight line-clamp-1 text-(--color-foreground)"
             style={{ fontFamily: '"Playfair Display", Georgia, serif' }}
           >
             {title}
           </h3>
+          {subTitle && (
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+              {subTitle}
+            </p>
+          )}
           <p className="text-primary font-bold text-xl mt-1">{priceLabel}</p>
         </div>
 
@@ -126,11 +132,14 @@ function CompetitionCard({ competition }) {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progress}
-              className="relative w-full h-1.5 rounded-full bg-primary/20 overflow-hidden"
+              className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden"
             >
               <div
-                className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-500"
-                style={{ width: `${progress}%` }}
+                className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${progress}%`,
+                  boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
+                }}
               />
             </div>
           </div>
@@ -170,11 +179,10 @@ function FilterBar({ activeStatusKey, setActiveStatusKey, activeCategoryKey, set
             <button
               key={key}
               onClick={() => setActiveStatusKey(key)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold tracking-[0.12em] uppercase transition-all duration-200 border cursor-pointer ${
-                isActive
+              className={`px-4 py-2 rounded-full text-xs font-semibold tracking-[0.12em] uppercase transition-all duration-200 border cursor-pointer ${isActive
                   ? "bg-primary text-(--color-primary-foreground) border-primary shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
                   : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-(--color-foreground)"
-              }`}
+                }`}
             >
               {label}
             </button>
@@ -190,11 +198,10 @@ function FilterBar({ activeStatusKey, setActiveStatusKey, activeCategoryKey, set
             <button
               key={key}
               onClick={() => setActiveCategoryKey(key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all duration-200 border cursor-pointer ${
-                isActive
+              className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all duration-200 border cursor-pointer ${isActive
                   ? "bg-primary/15 text-primary border-primary/40"
                   : "bg-transparent border-border/50 text-muted-foreground hover:border-primary/30 hover:text-(--color-foreground)"
-              }`}
+                }`}
             >
               {label}
             </button>
@@ -214,9 +221,51 @@ export default function CompetitionsPage() {
   const [activeStatusKey, setActiveStatusKey] = useState("all");
   const [activeCategoryKey, setActiveCategoryKey] = useState("allCategories");
   const [nowTs] = useState(() => Date.now());
+  const [liveCompetitions, setLiveCompetitions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCompetitions = async () => {
+      try {
+        const q = query(collection(db, 'competition'), where('status', '!=', 'draft'));
+        const snapshot = await getDocs(q);
+        const fetchedComps = snapshot.docs.map(doc => {
+          const data = doc.data();
+          const drawDateObj = data.draw_date ? data.draw_date.toDate() : null;
+          return {
+            id: doc.id,
+            image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
+            images: data.image || [],
+            badgeType: data.is_featured ? 'hot' : 'new',
+            badgeLabel: data.status === 'active' ? 'Active' : data.status,
+            ticketPrice: data.ticket_price || 0,
+            ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+            category: data.category || 'Other',
+            title: data.title || 'Untitled',
+            subTitle: data.sub_title || '',
+            priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+            sold: data.sold_tickets || 0,
+            total: data.total_tickets || 1000,
+            endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+            drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
+            drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+            description: data.description || '',
+            included: data.included_things || [],
+            status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status
+          };
+        });
+        setLiveCompetitions(fetchedComps);
+      } catch (err) {
+        console.error("Error fetching competitions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCompetitions();
+  }, []);
 
   // Client-side filtering logic
-  const filtered = competitions.filter((c) => {
+  const filtered = liveCompetitions.filter((c) => {
     const statusMatch =
       activeStatusKey === "all" ||
       (activeStatusKey === "ongoing" && (c.endsAt && c.endsAt > nowTs || c.badgeLabel === "Draw Soon")) ||

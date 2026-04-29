@@ -15,6 +15,7 @@ import OrderDetail from '../modules/admin/pages/OrderDetail';
 import ReferralsList from '../modules/admin/pages/ReferralsList';
 import ReferralDetail from '../modules/admin/pages/ReferralDetail';
 import BonusTickets from '../modules/admin/pages/BonusTickets';
+import CompetitionDrafts from '../modules/admin/pages/CompetitionDrafts';
 import Settings from '../modules/admin/pages/Settings';
 
 export const AdminRoutes = (
@@ -23,6 +24,7 @@ export const AdminRoutes = (
     <Route path="dashboard" element={<Dashboard />} />
     <Route path="competitions" element={<CompetitionsList />} />
     <Route path="competitions/create" element={<CreateCompetition />} />
+    <Route path="competitions/drafts" element={<CompetitionDrafts />} />
     <Route path="competitions/:id" element={<CompetitionDetail />} />
     <Route path="winners" element={<WinnersList />} />
     <Route path="winners/:id" element={<WinnerDetail />} />

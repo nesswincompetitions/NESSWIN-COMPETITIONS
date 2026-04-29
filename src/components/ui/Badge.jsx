@@ -14,4 +14,4 @@ export default function Badge({ children, variant = "hot" }) {
       {children}
     </span>
   );
-}
+}

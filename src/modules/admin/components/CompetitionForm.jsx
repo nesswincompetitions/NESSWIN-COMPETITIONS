@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { useTranslation } from 'react-i18next';
 import Button from '../../../components/ui/Button';
@@ -12,8 +12,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
 
-  const [formData, setFormData] = useState(() => {
-    const baseData = initialData || {};
+  const getInitialState = (data) => {
+    const baseData = data || {};
     
     // Normalize questions to an array if they are not already
     let questions = baseData.questions;
@@ -49,8 +49,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
     return {
       title: baseData.title || '',
-      shortDescription: baseData.shortDescription || '',
-      fullDescription: baseData.fullDescription || '',
+      subTitle: baseData.subTitle || '',
+      description: baseData.description || '',
       prizeName: baseData.prizeName || '',
       prizeValue: baseData.prizeValue || '',
       category: baseData.category || 'Tech',
@@ -63,10 +63,23 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       questions: questions,
       drawEndDate: baseData.drawEndDate || '',
       drawEndTime: baseData.drawEndTime || '',
+      countdownEndDate: baseData.countdownEndDate || '',
+      countdownEndTime: baseData.countdownEndTime || '',
       autoEndDraw: baseData.autoEndDraw !== undefined ? baseData.autoEndDraw : true,
       instagramLiveLink: baseData.instagramLiveLink || '',
+      status: baseData.status || 'active',
+      includedThings: baseData.includedThings || [],
+      prizeVideoUrl: baseData.prizeVideoUrl || '',
     };
-  });
+  };
+
+  const [formData, setFormData] = useState(() => getInitialState(initialData));
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData(getInitialState(initialData));
+    }
+  }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -74,6 +87,28 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const addIncludedThing = () => {
+    setFormData(prev => ({
+      ...prev,
+      includedThings: [...prev.includedThings, '']
+    }));
+  };
+
+  const removeIncludedThing = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      includedThings: prev.includedThings.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleIncludedThingChange = (index, value) => {
+    setFormData(prev => {
+      const newThings = [...prev.includedThings];
+      newThings[index] = value;
+      return { ...prev, includedThings: newThings };
+    });
   };
 
   const handleImageUpload = (e) => {
@@ -244,6 +279,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
   ];
 
   const handleNext = () => {
+    // Validation for Step 1: Details
+    if (currentStep === 0) {
+      if (!formData.title.trim()) {
+        toast.error("Competition title is required");
+        return;
+      }
+      if (!formData.description.trim()) {
+        toast.error("Competition description is required");
+        return;
+      }
+      if (!formData.prizeName.trim()) {
+        toast.error("Prize name is required");
+        return;
+      }
+      if (!formData.prizeValue || formData.prizeValue <= 0) {
+        toast.error("Valid estimated prize value is required");
+        return;
+      }
+      if (!formData.imagePreviews || formData.imagePreviews.length === 0) {
+        toast.error("At least one competition image is required");
+        return;
+      }
+    }
+
     // Validation for Step 3: Skill Question
     if (currentStep === 2) {
       for (let i = 0; i < formData.questions.length; i++) {
@@ -303,31 +362,31 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.shortDescription')}</label>
+          <label className="text-sm font-medium text-gray-300">Sub Title</label>
           <input 
-            type="text" name="shortDescription" value={formData.shortDescription} onChange={handleChange} placeholder={t('competitions.form.step1.shortDescPlaceholder')} maxLength={200}
+            type="text" name="subTitle" value={formData.subTitle} onChange={handleChange} placeholder="A short catchy subtitle" maxLength={200}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.fullDescription')}</label>
+          <label className="text-sm font-medium text-gray-300">Description <span className="text-red-400">*</span></label>
           <textarea 
-            name="fullDescription" value={formData.fullDescription} onChange={handleChange} placeholder={t('competitions.form.step1.fullDescPlaceholder')} rows={5}
+            name="description" value={formData.description} onChange={handleChange} placeholder="Full details about the competition..." rows={5}
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors resize-none"
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.prizeName')}</label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.prizeName')} <span className="text-red-400">*</span></label>
             <input 
               type="text" name="prizeName" value={formData.prizeName} onChange={handleChange} placeholder={t('competitions.form.step1.prizeNamePlaceholder')}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.estimatedValue')}</label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.estimatedValue')} <span className="text-red-400">*</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input 
@@ -338,23 +397,65 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.category')}</label>
-          <select 
-            name="category" value={formData.category} onChange={handleChange}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
-          >
-            <option value="Tech" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.tech')}</option>
-            <option value="Jewellery" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.jewellery')}</option>
-            <option value="Fashion" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.fashion')}</option>
-            <option value="Cars" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.cars')}</option>
-            <option value="Experiences" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.experiences')}</option>
-            <option value="Other" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.other')}</option>
-          </select>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-300">Included Things (Features/Extras)</label>
+          </div>
+          {formData.includedThings.map((thing, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <input 
+                type="text" 
+                value={thing} 
+                onChange={(e) => handleIncludedThingChange(index, e.target.value)} 
+                placeholder="e.g. Free Insurance for 1 Year"
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+              />
+              <button 
+                type="button"
+                onClick={() => removeIncludedThing(index)} 
+                className="p-2.5 text-gray-500 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={addIncludedThing} className="text-xs">
+            <Plus size={14} className="mr-1" /> Add Feature
+          </Button>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.category')}</label>
+            <select 
+              name="category" value={formData.category} onChange={handleChange}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
+            >
+              <option value="Tech" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.tech')}</option>
+              <option value="Jewellery" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.jewellery')}</option>
+              <option value="Fashion" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.fashion')}</option>
+              <option value="Cars" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.cars')}</option>
+              <option value="Experiences" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.experiences')}</option>
+              <option value="Other" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.other')}</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Status</label>
+            <select 
+              name="status" value={formData.status} onChange={handleChange}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
+            >
+              <option value="active" className="bg-[#0a0a0a]">Active</option>
+              <option value="paused" className="bg-[#0a0a0a]">Paused</option>
+              <option value="cancelled" className="bg-[#0a0a0a]">Cancelled</option>
+            </select>
+          </div>
+        </div>
+
+
+
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.images')}</label>
+          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.images')} <span className="text-red-400">*</span></label>
           <label className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group">
             <input type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload} />
             <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -382,6 +483,15 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               ))}
             </div>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-300">Prize Video URL</label>
+          <input 
+            type="url" name="prizeVideoUrl" value={formData.prizeVideoUrl} onChange={handleChange} placeholder="https://youtube.com/..."
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+          />
+          <p className="text-xs text-gray-500">Optional video showcasing the prize</p>
         </div>
 
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
@@ -641,18 +751,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.drawEndDate')} <span className="text-red-400">*</span></label>
-            <input 
-              type="date" name="drawEndDate" value={formData.drawEndDate} onChange={handleChange}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-            />
+            <label className="text-sm font-medium text-gray-300">Draw Date & Time <span className="text-red-400">*</span></label>
+            <div className="flex items-center gap-3">
+              <input 
+                type="date" name="drawEndDate" value={formData.drawEndDate} onChange={handleChange}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              />
+              <input 
+                type="time" name="drawEndTime" value={formData.drawEndTime} onChange={handleChange}
+                className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              />
+            </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.drawEndTime')} <span className="text-red-400">*</span></label>
-            <input 
-              type="time" name="drawEndTime" value={formData.drawEndTime} onChange={handleChange}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-            />
+            <label className="text-sm font-medium text-gray-300">Countdown End <span className="text-red-400">*</span></label>
+            <div className="flex items-center gap-3">
+              <input 
+                type="date" name="countdownEndDate" value={formData.countdownEndDate} onChange={handleChange}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              />
+              <input 
+                type="time" name="countdownEndTime" value={formData.countdownEndTime} onChange={handleChange}
+                className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              />
+            </div>
           </div>
         </div>
 
@@ -758,7 +880,9 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
             </div>
             <div className="grid grid-cols-2 gap-y-2 text-sm">
               <span className="text-gray-500">{t('competitions.form.step5.endDate')}</span>
-              <span className="text-white font-medium text-right">{formData.drawEndDate || '-'} {t('competitions.form.step5.atTime')} {formData.drawEndTime || '-'}</span>
+              <span className="text-white font-medium text-right">{formData.drawEndDate ? new Date(formData.drawEndDate).toLocaleString() : '-'}</span>
+              <span className="text-gray-500">Countdown End</span>
+              <span className="text-white font-medium text-right">{formData.countdownEnd ? new Date(formData.countdownEnd).toLocaleString() : '-'}</span>
               <span className="text-gray-500">{t('competitions.form.step5.autoEndLabel')}</span>
               <span className="text-white text-right">{formData.autoEndDraw ? t('common.yes') : t('common.no')}</span>
             </div>
@@ -795,7 +919,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               {formData.title || t('competitions.form.preview.titlePlaceholder')}
             </h4>
             <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-              {formData.shortDescription || t('competitions.form.preview.descPlaceholder')}
+              {formData.subTitle || t('competitions.form.preview.descPlaceholder')}
             </p>
           </div>
 

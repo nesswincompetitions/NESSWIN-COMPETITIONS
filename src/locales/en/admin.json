@@ -79,7 +79,8 @@
     "yes": "Yes",
     "no": "No",
     "live": "Live",
-    "sold": "sold"
+    "sold": "sold",
+    "extend": "Extend"
   },
   "dashboard": {
     "title": "Dashboard",

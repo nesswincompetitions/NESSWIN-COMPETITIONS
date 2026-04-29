@@ -1,15 +1,16 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Flame, Sparkles, Users, Ticket } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Badge from "../../../components/ui/Badge.jsx";
 import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
-import { competitions } from "../../../data/competitions.js";
 import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../../../utils/firebase";
 
 function CompetitionCard({ competition, onNavigate }) {
   const { t } = useTranslation();
-  const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, priceLabel, sold, total, endsAt } = competition;
+  const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt } = competition;
   const progress = Math.round((sold / total) * 100);
   const remaining = total - sold;
   const [hovered, setHovered] = useState(false);
@@ -58,7 +59,12 @@ function CompetitionCard({ competition, onNavigate }) {
       <div className="flex flex-col gap-3 p-5 flex-1">
         <div>
           <p className="text-[10px] text-muted-foreground uppercase tracking-[0.15em] mb-1">{category}</p>
-          <h3 className="font-serif text-xl font-bold leading-tight line-clamp-2 text-(--color-foreground)" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>{title}</h3>
+          <h3 className="font-serif text-xl font-bold leading-tight line-clamp-1 text-(--color-foreground)" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>{title}</h3>
+          {subTitle && (
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+              {subTitle}
+            </p>
+          )}
           <p className="text-primary font-semibold text-lg mt-1">{priceLabel}</p>
         </div>
 
@@ -73,10 +79,13 @@ function CompetitionCard({ competition, onNavigate }) {
               {remaining.toLocaleString()} {t("common.remaining")}
             </span>
           </div>
-          <div className="relative w-full h-1.5 rounded-full bg-primary/20 overflow-hidden">
+          <div className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden">
             <div
-              className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
+              className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
+              style={{ 
+                width: `${progress}%`,
+                boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
+              }}
             />
           </div>
         </div>
@@ -105,6 +114,46 @@ function CompetitionCard({ competition, onNavigate }) {
 export default function FeaturedCompetitions() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [featuredComps, setFeaturedComps] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        // Simple equality query to avoid index requirements for now
+        const q = query(collection(db, 'competition'), where('is_featured', '==', true));
+        const snapshot = await getDocs(q);
+        const fetched = snapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
+              images: data.image || [],
+              badgeType: 'hot',
+              badgeLabel: 'Featured',
+              ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+              category: data.category || 'Other',
+              title: data.title || 'Untitled',
+              subTitle: data.sub_title || '',
+              priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+              sold: data.sold_tickets || 0,
+              total: data.total_tickets || 1000,
+              endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+              status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status
+            };
+          })
+          .filter(comp => comp.status !== 'draft'); // Filter draft in memory
+
+        setFeaturedComps(fetched);
+      } catch (err) {
+        console.error("Error fetching featured competitions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeatured();
+  }, []);
 
   const handleNavigate = (compId) => {
     const path = `/competitions/${compId}`;
@@ -133,11 +182,17 @@ export default function FeaturedCompetitions() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {competitions.map((comp, index) => (
-            <Reveal key={comp.id} delay={index * 70}>
-              <CompetitionCard competition={comp} onNavigate={handleNavigate} />
-            </Reveal>
-          ))}
+          {loading ? (
+            <div className="col-span-full text-center py-10 text-primary">Loading featured prizes...</div>
+          ) : featuredComps.length > 0 ? (
+            featuredComps.map((comp, index) => (
+              <Reveal key={comp.id} delay={index * 70}>
+                <CompetitionCard competition={comp} onNavigate={handleNavigate} />
+              </Reveal>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-10 text-muted-foreground">No featured competitions at the moment.</div>
+          )}
         </div>
 
         <div className="text-center mt-12">

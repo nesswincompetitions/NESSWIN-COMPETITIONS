@@ -8,8 +8,11 @@ import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
 import {
   Plus, Search, Calendar, Download,
-  Eye, Edit, Trash2, ChevronLeft, ChevronRight
+  Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2
 } from 'lucide-react';
+import { collection, query, getDocs, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../../utils/firebase';
+import { toast } from 'react-hot-toast';
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -25,17 +28,69 @@ const CompetitionsList = () => {
     { key: 'Archived', label: t('common.archived') },
   ];
 
-  const competitions = [
-    { id: 1, name: t('competitionNames.iphone'), status: "Active", price: "£2.99", sold: 340, total: 500, revenue: "£1,016", drawDate: "12 May 2026" },
-    { id: 2, name: t('competitionNames.rangeRover'), status: "Active", price: "£10.00", sold: 1450, total: 5000, revenue: "£14,500", drawDate: "01 Jun 2026" },
-    { id: 3, name: t('competitionNames.rolex'), status: "Ended", price: "£5.00", sold: 2000, total: 2000, revenue: "£10,000", drawDate: "15 Apr 2026" },
-    { id: 4, name: t('competitionNames.gamingPC'), status: "Active", price: "£1.50", sold: 85, total: 200, revenue: "£127.50", drawDate: "20 May 2026" },
-    { id: 5, name: t('competitionNames.maldives'), status: "Archived", price: "£20.00", sold: 950, total: 1000, revenue: "£19,000", drawDate: "01 Jan 2026" },
-  ];
+  const [competitions, setCompetitions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCompetitions = async () => {
+    setLoading(true);
+    try {
+      const q = query(collection(db, 'competition'), orderBy('created_at', 'desc'));
+      const snapshot = await getDocs(q);
+      const list = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const sold = data.sold_tickets || 0;
+        const total = data.total_tickets || 1000;
+        const price = data.ticket_price || 0;
+        const revenue = sold * price;
+        const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
+        
+        return {
+          id: doc.id,
+          name: data.title || 'Untitled',
+          subTitle: data.sub_title || '',
+          status: data.status || 'draft',
+          price: `£${price}`,
+          sold,
+          total,
+          revenue: `£${revenue.toLocaleString()}`,
+          drawDate,
+          image: data.image?.[0] || null
+        };
+      });
+      setCompetitions(list);
+    } catch (err) {
+      console.error('Error fetching competitions:', err);
+      toast.error('Failed to load competitions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchCompetitions();
+  }, []);
+
+  const handleDelete = async () => {
+    if (!competitionToDelete) return;
+    try {
+      await deleteDoc(doc(db, 'competition', competitionToDelete.id));
+      toast.success('Competition deleted successfully');
+      setCompetitions(prev => prev.filter(c => c.id !== competitionToDelete.id));
+      setDeleteModalOpen(false);
+    } catch (err) {
+      console.error('Error deleting:', err);
+      toast.error('Failed to delete competition');
+    }
+  };
 
   const filteredCompetitions = activeTab === 'All'
     ? competitions
-    : competitions.filter(c => c.status === activeTab);
+    : competitions.filter(c => {
+        if (activeTab === 'Active') return c.status === 'active';
+        if (activeTab === 'Ended') return c.status === 'end';
+        if (activeTab === 'Archived') return c.status === 'cancelled' || c.status === 'paused';
+        return true;
+      });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in">
@@ -45,10 +100,16 @@ const CompetitionsList = () => {
           <h1 className="text-3xl font-serif font-bold">{t('competitions.title')}</h1>
           <p className="text-gray-400 mt-1">{t('competitions.subtitle')}</p>
         </div>
-        <Button variant="primary" className="flex items-center gap-2" onClick={() => navigate('/admin/competitions/create')}>
-          <Plus size={18} />
-          {t('competitions.createNew')}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="flex items-center gap-2" onClick={() => navigate('/admin/competitions/drafts')}>
+            <FileEdit size={16} />
+            View Drafts
+          </Button>
+          <Button variant="primary" className="flex items-center gap-2" onClick={() => navigate('/admin/competitions/create')}>
+            <Plus size={18} />
+            {t('competitions.createNew')}
+          </Button>
+        </div>
       </header>
 
       <Card>
@@ -111,37 +172,54 @@ const CompetitionsList = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCompetitions.map((comp) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-20">
+                    <Loader2 size={32} className="animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-gray-400">Loading competitions...</p>
+                  </TableCell>
+                </TableRow>
+              ) : filteredCompetitions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-20 text-gray-500">
+                    No competitions found.
+                  </TableCell>
+                </TableRow>
+              ) : filteredCompetitions.map((comp) => (
                 <TableRow key={comp.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 border border-white/5">
-                        <span className="text-xs text-gray-500 font-medium">IMG</span>
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 border border-white/5 overflow-hidden">
+                        {comp.image ? (
+                          <img src={comp.image} alt={comp.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs text-gray-500 font-medium uppercase tracking-tighter">No IMG</span>
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-white">{comp.name}</p>
-                        <p className="text-xs text-gray-500">ID: #{comp.id}</p>
+                        <p className="text-xs text-gray-500 line-clamp-1">{comp.subTitle}</p>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={
-                      comp.status === 'Active' ? 'success' :
-                        comp.status === 'Ended' ? 'neutral' : 'warning'
+                      comp.status === 'active' ? 'success' :
+                        comp.status === 'end' ? 'neutral' : 'warning'
                     }>
-                      {comp.status === 'Active' ? t('common.active') :
-                        comp.status === 'Ended' ? t('common.ended') :
-                          comp.status === 'Archived' ? t('common.archived') : comp.status}
+                      {comp.status === 'active' ? t('common.active') :
+                        comp.status === 'end' ? t('common.ended') :
+                          comp.status === 'draft' ? 'Draft' : comp.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{comp.price}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1 w-24">
                       <span className="text-xs text-gray-400">{comp.sold} / {comp.total}</span>
-                      <div className="w-full bg-white/10 rounded-full h-1.5">
+                      <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
                         <div
-                          className={`h-1.5 rounded-full ${comp.sold === comp.total ? 'bg-emerald-400' : 'bg-primary'}`}
-                          style={{ width: `${(comp.sold / comp.total) * 100}%` }}
+                          className={`h-1.5 rounded-full ${comp.sold >= comp.total ? 'bg-emerald-400' : 'bg-primary'}`}
+                          style={{ width: `${Math.min(100, (comp.sold / comp.total) * 100)}%` }}
                         ></div>
                       </div>
                     </div>
@@ -202,9 +280,7 @@ const CompetitionsList = () => {
         actions={
           <>
             <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>{t('common.cancel')}</Button>
-            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={() => {
-              setDeleteModalOpen(false);
-            }}>
+            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={handleDelete}>
               {t('common.delete')}
             </Button>
           </>
@@ -212,12 +288,16 @@ const CompetitionsList = () => {
       >
         {competitionToDelete && (
           <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-              <span className="text-xs text-gray-500 font-medium">IMG</span>
+            <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+              {competitionToDelete.image ? (
+                <img src={competitionToDelete.image} alt={competitionToDelete.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xs text-gray-500 font-medium">IMG</span>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-white">{competitionToDelete.name}</p>
-              <p className="text-xs text-gray-500">ID: #{competitionToDelete.id}</p>
+              <p className="text-xs text-gray-500">{competitionToDelete.subTitle}</p>
             </div>
           </div>
         )}
