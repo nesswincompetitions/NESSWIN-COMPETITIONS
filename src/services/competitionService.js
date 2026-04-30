@@ -35,3 +35,36 @@ export const createCompetition = async (payload) => {
     throw error;
   }
 };
+
+/**
+ * Phase 1 — Skill Gate: Verifies the user's skill answer
+ * @param {{ competitionId: string, questionId: string, selectedOptionId: string|number }} payload
+ * @returns {Promise<{ success: boolean }>}
+ */
+export const verifySkillAnswer = async (payload) => {
+  const fn = httpsCallable(functions, "verifySkillAnswer");
+  try {
+    const result = await fn(payload);
+    return result.data;
+  } catch (error) {
+    console.error("Error verifying skill answer:", error);
+    throw error;
+  }
+};
+
+/**
+ * Phase 2 — Order Engine: Processes the mock checkout atomically
+ * @param {{ competitionId: string, quantity: number, questionId: string, selectedOptionId: string|number }} payload
+ * @returns {Promise<{ success: boolean, orderId: string, tickets: Array, totalAmount: number }>}
+ */
+export const processMockCheckout = async (payload) => {
+  const fn = httpsCallable(functions, "processMockCheckout");
+  try {
+    const result = await fn(payload);
+    return result.data;
+  } catch (error) {
+    console.error("Error processing checkout:", error);
+    throw error;
+  }
+};
+

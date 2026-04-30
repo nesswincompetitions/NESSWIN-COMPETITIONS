@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
@@ -7,27 +7,50 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import {
   Search, Calendar, Download, Eye,
-  ChevronDown, RefreshCcw, ShoppingBag
+  ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
+import { fetchOrdersList } from '../../../services/adminService';
+import { toast } from 'react-hot-toast';
 
 const OrdersList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
+  
+  // -- State --
   const [activeStatus, setActiveStatus] = useState('all');
   const [selectedComp, setSelectedComp] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
-  const compDropdownRef = React.useRef(null);
+  const compDropdownRef = useRef(null);
 
-  const competitions = [
-    { value: 'all', label: t('common.all') },
-    { value: t('competitionNames.iphone'), label: t('competitionNames.iphone') },
-    { value: t('competitionNames.rolex'), label: t('competitionNames.rolex') },
-    { value: t('competitionNames.rangeRover'), label: t('competitionNames.rangeRover') },
-  ];
+  const [orders, setOrders] = useState([]);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const selectedCompLabel = competitions.find(c => c.value === selectedComp)?.label || t('common.all');
+  const itemsPerPage = 20;
 
-  React.useEffect(() => {
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchOrdersList();
+      setOrders(data.orders || []);
+      setTotalOrders(data.totalOrders || 0);
+      setTotalRevenue(data.totalRevenue || 0);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      toast.error('Failed to load orders dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     const handleClickOutside = (e) => {
       if (compDropdownRef.current && !compDropdownRef.current.contains(e.target)) {
         setIsCompDropdownOpen(false);
@@ -37,49 +60,63 @@ const OrdersList = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Dummy Orders Data
-  const orders = [
-    {
-      id: "ORD-1023", userName: "John Doe", userEmail: "john@example.com",
-      competition: t('competitionNames.iphone'), tickets: 5, amount: 14.95,
-      date: "12 May 2026", status: "Paid"
-    },
-    {
-      id: "ORD-1024", userName: "Sarah Smith", userEmail: "sarah@example.com",
-      competition: t('competitionNames.rolex'), tickets: 2, amount: 30.00,
-      date: "12 May 2026", status: "Paid"
-    },
-    {
-      id: "ORD-1025", userName: "Mike Johnson", userEmail: "mike@example.com",
-      competition: t('competitionNames.rangeRover'), tickets: 1, amount: 10.00,
-      date: "11 May 2026", status: "Pending"
-    },
-    {
-      id: "ORD-1026", userName: "Emma Wilson", userEmail: "emma@example.com",
-      competition: t('competitionNames.iphone'), tickets: 10, amount: 29.90,
-      date: "10 May 2026", status: "Failed"
-    },
-    {
-      id: "ORD-1027", userName: "Tom Brown", userEmail: "tom@example.com",
-      competition: "Rolex Submariner", tickets: 1, amount: 15.00,
-      date: "09 May 2026", status: "Refunded"
-    },
-  ];
-
-  const filteredOrders = orders.filter(o =>
-    (activeStatus === 'all' || o.status.toLowerCase() === activeStatus) &&
-    (selectedComp === 'all' || o.competition === selectedComp)
-  );
+  const formatDate = (ts) => {
+    if (!ts) return '—';
+    const date = ts.toMillis ? new Date(ts.toMillis()) : new Date(ts);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const renderStatusBadge = (status) => {
-    switch (status) {
-      case 'Paid': return <Badge variant="success">{t('common.paid')}</Badge>;
-      case 'Pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
-      case 'Failed': return <Badge variant="danger">{t('common.failed')}</Badge>;
-      case 'Refunded': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">{t('common.refunded')}</Badge>;
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case 'paid': return <Badge variant="success">{t('common.paid')}</Badge>;
+      case 'pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
+      case 'failed': return <Badge variant="danger">{t('common.failed')}</Badge>;
+      case 'refunded': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">{t('common.refunded')}</Badge>;
       default: return <Badge variant="neutral">{status}</Badge>;
     }
   };
+
+  // Extract unique competitions for the dropdown
+  const uniqueCompetitions = useMemo(() => {
+    const comps = new Set();
+    orders.forEach(o => {
+      if (o.competition_title) comps.add(o.competition_title);
+    });
+    return Array.from(comps);
+  }, [orders]);
+
+  // -- Computed Data --
+  const { currentOrders, totalPages, totalFiltered } = useMemo(() => {
+    // 1. Filter
+    const filtered = orders.filter(o => {
+      const orderStatus = (o.status || '').toLowerCase();
+      const matchesStatus = activeStatus === 'all' || orderStatus === activeStatus;
+      
+      const compTitle = o.competition_title || '';
+      const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
+
+      const search = searchTerm.toLowerCase();
+      const orderId = (o.order_sequence_id || o.id || '').toLowerCase();
+      const userName = (o.user_name || '').toLowerCase();
+      const userEmail = (o.user_email || '').toLowerCase();
+      
+      const matchesSearch = orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
+      
+      return matchesStatus && matchesComp && matchesSearch;
+    });
+
+    // 2. Paginate
+    const start = (currentPage - 1) * itemsPerPage;
+    const paginated = filtered.slice(start, start + itemsPerPage);
+    const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
+
+    return { 
+      currentOrders: paginated, 
+      totalPages: pages, 
+      totalFiltered: filtered.length 
+    };
+  }, [orders, activeStatus, selectedComp, searchTerm, currentPage]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -92,14 +129,14 @@ const OrdersList = () => {
         <div className="flex flex-wrap items-center gap-3">
           <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
             <div>
-              <p className="text-xs text-gray-500">{t('common.of')} {t('orders.title')}</p>
-              <p className="text-lg font-bold text-white">1,420</p>
+              <p className="text-xs text-gray-500">No. of orders</p>
+              <p className="text-lg font-bold text-white">{totalOrders.toLocaleString()}</p>
             </div>
           </Card>
           <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
             <div>
               <p className="text-xs text-gray-500">{t('dashboard.kpi.totalRevenue')}</p>
-              <p className="text-lg font-bold text-emerald-400">£12,450.00</p>
+              <p className="text-lg font-bold text-emerald-400">£{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
           <Button variant="outline" className="flex items-center gap-2 h-[52px]">
@@ -125,7 +162,7 @@ const OrdersList = () => {
               ].map((status) => (
                 <button
                   key={status.key}
-                  onClick={() => setActiveStatus(status.key)}
+                  onClick={() => { setActiveStatus(status.key); setCurrentPage(1); }}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -144,32 +181,35 @@ const OrdersList = () => {
                   type="text"
                   placeholder={t('orders.searchPlaceholder')}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
+                  value={searchTerm}
+                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 />
               </div>
 
-              <div className="relative flex-1 sm:flex-none sm:w-48">
+              <div className="relative flex-1 sm:flex-none sm:w-48" ref={compDropdownRef}>
                 <select
                   className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={selectedComp}
-                  onChange={(e) => setSelectedComp(e.target.value)}
+                  onChange={(e) => { setSelectedComp(e.target.value); setCurrentPage(1); }}
                 >
-                  <option value="all" className="bg-[#121212]">{t('orders.allCompetitions')}</option>
-                  <option value={t('competitionNames.iphone')} className="bg-[#121212]">{t('competitionNames.iphone')}</option>
-                  <option value={t('competitionNames.rolex')} className="bg-[#121212]">{t('competitionNames.rolex')}</option>
-                  <option value={t('competitionNames.rangeRover')} className="bg-[#121212]">{t('competitionNames.rangeRover')}</option>
+                  <option value="all" className="bg-[#121212]">{t('orders.filters.allCompetitions') || 'All Competitions'}</option>
+                  {uniqueCompetitions.map((comp, idx) => (
+                    <option key={idx} value={comp} className="bg-[#121212]">{comp}</option>
+                  ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
-
-              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
-                <Calendar size={16} className="text-gray-400" />
-              </Button>
             </div>
           </div>
 
           {/* Table Area */}
-          <div className="overflow-x-auto">
-            {filteredOrders.length > 0 ? (
+          <div className="overflow-x-auto min-h-[400px]">
+            {loading ? (
+              <div className="p-20 flex flex-col items-center justify-center">
+                <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
+                <p className="text-gray-400 text-sm font-medium">{t('common.loading')}...</p>
+              </div>
+            ) : currentOrders.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -184,19 +224,21 @@ const OrdersList = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((order) => (
+                  {currentOrders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell className="font-mono text-gray-400">{order.id}</TableCell>
+                      <TableCell className="font-mono text-gray-400 text-sm">
+                        {order.order_sequence_id || `#${order.id.slice(-8).toUpperCase()}`}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-white">{order.userName}</span>
-                          <span className="text-xs text-gray-500">{order.userEmail}</span>
+                          <span className="font-medium text-white">{order.user_name || 'Unknown User'}</span>
+                          <span className="text-xs text-gray-500">{order.user_email || 'No email'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-white font-medium">{order.competition}</TableCell>
-                      <TableCell className="text-center text-gray-300">{order.tickets}</TableCell>
-                      <TableCell className="font-bold text-emerald-400">£{order.amount.toFixed(2)}</TableCell>
-                      <TableCell className="text-gray-400 whitespace-nowrap">{order.date}</TableCell>
+                      <TableCell className="text-white font-medium">{order.competition_title || 'Unknown Competition'}</TableCell>
+                      <TableCell className="text-center text-gray-300">{order.total_ticket || 0}</TableCell>
+                      <TableCell className="font-bold text-emerald-400">£{(order.total_amount || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(order.created_at)}</TableCell>
                       <TableCell>{renderStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -206,7 +248,7 @@ const OrdersList = () => {
                           >
                             <Eye size={16} />
                           </button>
-                          {order.status === 'Paid' && (
+                          {(order.status || '').toLowerCase() === 'paid' && (
                             <button className="cursor-pointer p-2 hover:bg-gray-500/10 rounded-md text-gray-400 hover:text-white transition-colors" title={t('orders.tooltips.refundOrder')}>
                               <RefreshCcw size={16} />
                             </button>
@@ -234,16 +276,28 @@ const OrdersList = () => {
           </div>
 
           {/* Pagination */}
-          {filteredOrders.length > 0 && (
+          {!loading && totalFiltered > itemsPerPage && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">{filteredOrders.length}</span> {t('common.of')} <span className="font-medium text-white">{filteredOrders.length}</span>
+              <p className="text-xs text-gray-400">
+                {t('common.showing')} {(currentPage - 1) * itemsPerPage + 1}-
+                {Math.min(currentPage * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
                   {t('common.previous')}
                 </Button>
-                <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
+                <div className="flex gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <button
+                      key={i + 1}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`w-8 h-8 rounded-md text-xs transition-colors ${currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'}`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
                   {t('common.next')}
                 </Button>
               </div>

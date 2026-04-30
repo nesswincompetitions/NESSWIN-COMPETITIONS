@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
@@ -21,6 +21,7 @@ const CompetitionDetail = () => {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useTranslation('admin');
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -94,33 +95,58 @@ const CompetitionDetail = () => {
     }
     setLoadingParticipants(true);
     try {
+      // 1. Fetch all tickets for this competition using multiple parallel queries
+      // Because older databases might contain a mix of plain strings and Reference objects!
+      const compRef = doc(db, 'competition', id);
+      
+      const [ticketsSnapString, ticketsSnapRef] = await Promise.all([
+        getDocs(query(collection(db, 'ticket'), where('competition_id', '==', id))),
+        getDocs(query(collection(db, 'ticket'), where('competition_id', '==', compRef)))
+      ]);
+      
+      // Merge results
+      const allTicketDocs = [...ticketsSnapString.docs, ...ticketsSnapRef.docs];
+      
+      // 2. Group tickets by user for instant lookup
+      const ticketMap = {};
+      allTicketDocs.forEach(docSnap => {
+        const data = docSnap.data();
+        // Check ALL common user field names
+        const rawUid = data.user_id || data.user_ref || data.uid || data.user;
+        const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+        
+        if (uid) {
+          if (!ticketMap[uid]) ticketMap[uid] = [];
+          // Support ticket_sequence, ticket_number, or even just 'ticket'
+          const tNum = data.ticket_sequence ?? data.ticket_number ?? data.ticket;
+          if (tNum) ticketMap[uid].push(tNum);
+        }
+      });
+
+      // 3. Resolve user details
       const uids = competition.participants;
       const participantsList = [];
 
-      for (const uid of uids) {
-        const userDoc = await getDoc(doc(db, 'users', uid));
-        const userData = userDoc.exists() ? userDoc.data() : { display_name: 'Unknown User', email: 'N/A', is_active: false };
+      for (const rawUid of uids) {
+        const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+        if (!uid) continue;
 
-        const ticketsQuery = query(
-          collection(db, 'tickets'),
-          where('uid', '==', uid),
-          where('competition_id', '==', id)
-        );
-        const ticketsSnapshot = await getDocs(ticketsQuery);
-        const ticketNumbers = ticketsSnapshot.docs.map(d => d.data().ticket_number);
+        const userDoc = await getDoc(doc(db, 'user', uid));
+        const userData = userDoc.exists() ? userDoc.data() : { display_name: 'Unknown User', email: 'N/A', is_active: false };
 
         participantsList.push({
           id: uid,
-          name: userData.display_name || 'Anonymous',
+          name: userData.display_name,
           email: userData.email,
-          tickets: ticketNumbers,
-          status: userData.is_active ? 'Active' : 'Inactive'
+          tickets: ticketMap[uid] || [], // Instant lookup from our map
+          status: userData.is_active ? 'Active' : 'Inactive',
+          joinedDate: userData.created_at?.toMillis ? new Date(userData.created_at.toMillis()).toLocaleDateString() : 'N/A'
         });
       }
+
       setParticipantsData(participantsList);
-    } catch (err) {
-      console.error('Error fetching participants:', err);
-      toast.error('Failed to load participants');
+    } catch (error) {
+      console.error('Error fetching participants:', error);
     } finally {
       setLoadingParticipants(false);
     }
@@ -438,13 +464,19 @@ const CompetitionDetail = () => {
                 <TableCell className="font-medium text-white">{p.name}</TableCell>
                 <TableCell className="text-gray-400">{p.email}</TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-[300px]">
-                    {p.tickets.length > 0 ? (
-                      p.tickets.map(tk => (
-                        <span key={tk} className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-mono text-primary">#{tk}</span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-gray-600 italic">No tickets found</span>
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {p.tickets.slice(0, 3).map((ticket, idx) => (
+                      <span key={idx} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-primary font-mono">
+                        #{ticket}
+                      </span>
+                    ))}
+                    {p.tickets.length > 3 && (
+                      <span className="px-2 py-0.5 text-[10px] text-gray-500 italic">
+                        +{p.tickets.length - 3} more
+                      </span>
+                    )}
+                    {p.tickets.length === 0 && (
+                      <span className="text-gray-600 text-[10px]">No tickets</span>
                     )}
                   </div>
                 </TableCell>
@@ -658,11 +690,17 @@ const CompetitionDetail = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 fade-in">
       <button
-        onClick={() => navigate('/admin/competitions')}
+        onClick={() => {
+          if (location.state?.fromDashboard) {
+            navigate(-1);
+          } else {
+            navigate('/admin/competitions');
+          }
+        }}
         className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm w-fit"
       >
         <ArrowLeft size={16} />
-        {t('competitions.detail.backToCompetitions')}
+        {location.state?.fromDashboard ? t('common.back') : t('competitions.detail.backToCompetitions')}
       </button>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

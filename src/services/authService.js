@@ -230,11 +230,15 @@ export const completeOnboarding = async (username, referralCodeInput) => {
       };
       
       transaction.set(newReferralRef, referralDocData);
-      
-      // Note: We DO NOT increment the referrer's referral_count here.
-      // The backend cloud function (referralController.js) listens for the 
-      // creation of this referral document and handles all increments securely.
     }
+
+    // ── Update Global Metrics ────────────────────────────────────────────────
+    const globalStatsRef = doc(db, "system_metrics", "global_stats");
+    transaction.set(
+      globalStatsRef,
+      { total_registered_users: increment(1) },
+      { merge: true }
+    );
   });
 
   // After successful transaction, clean up stored referral code

@@ -34,17 +34,17 @@ export const TableRow = ({ children, className = '' }) => {
   );
 };
 
-export const TableHead = ({ children, className = '' }) => {
+export const TableHead = ({ children, className = '', ...props }) => {
   return (
-    <th className={`px-6 py-4 font-medium whitespace-nowrap ${className}`}>
+    <th className={`px-6 py-4 font-medium whitespace-nowrap ${className}`} {...props}>
       {children}
     </th>
   );
 };
 
-export const TableCell = ({ children, className = '' }) => {
+export const TableCell = ({ children, className = '', ...props }) => {
   return (
-    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-300 ${className}`}>
+    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-300 ${className}`} {...props}>
       {children}
     </td>
   );

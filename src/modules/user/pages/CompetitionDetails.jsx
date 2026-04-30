@@ -10,12 +10,20 @@ import {
   ShieldCheck,
   Ticket,
   Sparkles,
+  Plus,
+  Minus,
+  ShoppingCart,
+  CheckCircle,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "react-hot-toast";
 import { useAuth } from "../../../context/AuthContext";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import Modal from "../../../components/ui/Modal";
+import { verifySkillAnswer, processMockCheckout } from "../../../services/competitionService";
 
 
 
@@ -57,11 +65,10 @@ function ImageGallery({ images, title, status }) {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
-        <span className={`absolute top-4 left-4 inline-flex items-center justify-center rounded-md border border-transparent px-2 py-0.5 text-xs font-medium tracking-wider uppercase ${
-          status === 'end' 
-            ? 'bg-red-500 text-white' 
+        <span className={`absolute top-4 left-4 inline-flex items-center justify-center rounded-md border border-transparent px-2 py-0.5 text-xs font-medium tracking-wider uppercase ${status === 'end'
+            ? 'bg-red-500 text-white'
             : 'bg-primary text-(--color-primary-foreground)'
-        }`}>
+          }`}>
           {status === 'end' ? 'Closed' : t("competitionDetails.ongoing")}
         </span>
       </div>
@@ -72,11 +79,10 @@ function ImageGallery({ images, title, status }) {
           <button
             key={i}
             onClick={() => setActive(i)}
-            className={`shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
-              active === i
+            className={`shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${active === i
                 ? "border-primary shadow-[0_0_10px_oklch(0.78_0.14_78/0.4)]"
                 : "border-transparent opacity-60 hover:opacity-100"
-            }`}
+              }`}
           >
             <img src={src} alt="" className="w-full h-full object-cover" />
           </button>
@@ -108,7 +114,55 @@ function WhatsIncluded({ items }) {
   );
 }
 
-function TicketPurchaseCard({ competition }) {
+function PrizeVideo({ url }) {
+  if (!url) return null;
+
+  const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
+  const isVimeo = url.includes('vimeo.com');
+
+  let embedUrl = url;
+  if (isYoutube) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      embedUrl = `https://www.youtube.com/embed/${match[2]}`;
+    }
+  } else if (isVimeo) {
+    const vimeoId = url.split('/').pop();
+    embedUrl = `https://player.vimeo.com/video/${vimeoId}`;
+  }
+
+  return (
+    <div className="space-y-4 mt-8">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+          <Video className="w-4 h-4 text-primary" />
+        </div>
+        <h3 className="font-serif font-bold text-xl text-(--color-foreground)">Watch Prize Video</h3>
+      </div>
+      <div className="relative aspect-video rounded-3xl overflow-hidden border border-border/40 bg-card shadow-2xl group">
+        {isYoutube || isVimeo ? (
+          <iframe
+            src={embedUrl}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Prize Video"
+          />
+        ) : (
+          <video
+            src={url}
+            controls
+            className="w-full h-full object-cover"
+          />
+        )}
+        <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-3xl" />
+      </div>
+    </div>
+  );
+}
+
+function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, onBuyTickets, isProcessing, orderResult, checkoutError }) {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const {
@@ -168,7 +222,7 @@ function TicketPurchaseCard({ competition }) {
             </div>
 
             {/* Sign in button */}
-            <Link 
+            <Link
               to="/signin"
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-medium h-9 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
             >
@@ -176,7 +230,108 @@ function TicketPurchaseCard({ competition }) {
               {t("competitionDetails.signIn")}
             </Link>
           </>
+        ) : orderResult ? (
+          /* ── SUCCESS STATE ── */
+          <div className="text-center space-y-4 py-2">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(16,185,129,0.2)]">
+              <CheckCircle className="w-7 h-7 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-lg text-(--color-foreground)">Tickets Purchased!</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {orderResult.tickets.length} ticket{orderResult.tickets.length > 1 ? 's' : ''} confirmed
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 mt-3">
+              {orderResult.tickets.map((tk) => (
+                <span key={tk.ticketId} className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs font-mono font-bold text-primary">
+                  {tk.ticketSequence}
+                </span>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground pt-2 border-t border-border/40 mt-3">
+              Total: <span className="font-bold text-primary">{orderResult.totalAmount} €</span> · Order #{orderResult.orderId.slice(0, 8)}
+            </div>
+          </div>
+        ) : skillPassed ? (
+          /* ── TICKET SELECTION UI (Phase 2) ── */
+          <div className="space-y-4 py-1">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mx-auto">
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Skill Verified</span>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm font-semibold text-(--color-foreground)">Select Tickets</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Max 100 per order</p>
+            </div>
+
+            {/* Quantity Selector */}
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
+                disabled={ticketQuantity <= 1 || isProcessing}
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <div className="w-20 text-center">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={ticketQuantity}
+                  onChange={(e) => {
+                    const v = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
+                    setTicketQuantity(v);
+                  }}
+                  disabled={isProcessing}
+                  className="w-full text-center bg-transparent text-2xl font-bold text-(--color-foreground) outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+              <button
+                onClick={() => setTicketQuantity(Math.min(100, ticketQuantity + 1))}
+                disabled={ticketQuantity >= 100 || isProcessing}
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Price Summary */}
+            <div className="bg-muted/30 border border-border/40 rounded-xl p-3 space-y-1.5 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>{ticketQuantity} × {ticketPrice} €</span>
+                <span className="text-(--color-foreground) font-semibold">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between font-bold text-(--color-foreground) pt-1.5 border-t border-border/30">
+                <span>Total</span>
+                <span className="text-primary">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
+              </div>
+            </div>
+
+            {checkoutError && (
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                {checkoutError}
+              </div>
+            )}
+
+            <button
+              onClick={onBuyTickets}
+              disabled={isProcessing}
+              className="inline-flex items-center justify-center gap-2 w-full rounded-xl text-sm font-bold h-12 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-all cursor-pointer shadow-[0_4px_20px_oklch(0.78_0.14_78/0.3)]"
+            >
+              {isProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-4 h-4" />
+              )}
+              {isProcessing ? 'Processing...' : `Buy ${ticketQuantity} Ticket${ticketQuantity > 1 ? 's' : ''}`}
+            </button>
+          </div>
         ) : (
+          /* ── DEFAULT: PARTICIPATE BUTTON (Phase 1 trigger) ── */
           <div className="text-center py-2">
             {competition.status === 'cancelled' && (
               <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
@@ -193,7 +348,7 @@ function TicketPurchaseCard({ competition }) {
                 This competition has ended.
               </div>
             )}
-            <button 
+            <button
               onClick={competition.onParticipate}
               disabled={competition.status === 'cancelled' || competition.status === 'paused' || competition.status === 'end'}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
@@ -233,7 +388,7 @@ function TicketPurchaseCard({ competition }) {
             >
               <div
                 className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
-                style={{ 
+                style={{
                   width: `${progress}%`,
                   boxShadow: progress > 0 ? '0 0 15px oklch(0.78 0.14 78 / 0.5)' : 'none'
                 }}
@@ -404,27 +559,41 @@ function ParticipantsSection({ participants }) {
 export default function CompetitionDetails() {
   const { id } = useParams();
   const { t } = useTranslation();
+  const { currentUser } = useAuth();
   const [c, setC] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOptions, setSelectedOptions] = useState({}); // { questionId: optionIndex }
-  
+
+  // Phase 1 — Skill Gate state
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
+  const [skillPassed, setSkillPassed] = useState(false);
+  const [verifiedQuestionId, setVerifiedQuestionId] = useState(null);
+  const [verifiedOptionId, setVerifiedOptionId] = useState(null);
+
+  // Phase 2 — Order Engine state
+  const [ticketQuantity, setTicketQuantity] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [orderResult, setOrderResult] = useState(null);
+
   // Real-time status update for expired competitions
   useEffect(() => {
     if (!c || !c.endsAt || c.status === 'end') return;
-    
+
     const interval = setInterval(() => {
       if (Date.now() >= c.endsAt) {
         setC(prev => ({ ...prev, status: 'end' }));
         clearInterval(interval);
       }
     }, 1000);
-    
+
     return () => clearInterval(interval);
   }, [c?.endsAt, c?.status]);
 
@@ -434,8 +603,10 @@ export default function CompetitionDetails() {
         const compDoc = await getDoc(doc(db, 'competition', id));
         if (compDoc.exists()) {
           const data = compDoc.data();
-          const drawDateObj = data.draw_date ? data.draw_date.toDate() : null;
-          
+          // Use countdown_end as the primary "real time" for the draw display as requested
+          const rawDate = data.countdown_end || data.draw_date;
+          const drawDateObj = rawDate?.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
+
           const participantRefs = data.participants || [];
           const resolvedParticipants = await Promise.all(
             participantRefs.slice(0, 15).map(async (ref) => {
@@ -446,7 +617,7 @@ export default function CompetitionDetails() {
                   const userData = userSnap.data();
                   return {
                     name: userData.display_name || userData.name || 'Anonymous User',
-                    tickets: 1, 
+                    tickets: 1,
                   };
                 }
               } catch (e) {
@@ -475,6 +646,7 @@ export default function CompetitionDetails() {
             drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
             description: data.description || '',
             included: data.included_things || [],
+            prizeVideoUrl: data.prize_video_url || '',
             status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status,
             docRef: compDoc.ref,
             participants: resolvedParticipants.filter(p => p !== null)
@@ -489,9 +661,54 @@ export default function CompetitionDetails() {
     if (id) fetchCompetition();
   }, [id]);
 
+  // Persistent Skill Gate: Check if user already passed this competition's CURRENT skill check
+  useEffect(() => {
+    const checkPreviousSkillPass = async () => {
+      if (!currentUser || !id || !c?.docRef) return;
+      try {
+        // 1. Fetch the CURRENT questions for this competition
+        const qQuery = query(collection(db, 'questions'), where('competition_id', '==', c.docRef));
+        const qSnapshot = await getDocs(qQuery);
+        const currentQuestionIds = qSnapshot.docs.map(doc => doc.id);
+
+        if (currentQuestionIds.length === 0) return;
+
+        // 2. Check for a passed attempt matching any of the CURRENT questions
+        const q = query(
+          collection(db, 'skill_attempts'),
+          where('user_id', '==', currentUser.uid),
+          where('competition_id', '==', id),
+          where('passed', '==', true)
+        );
+        const snapshot = await getDocs(q);
+
+        // Find if any passed attempt matches a current question ID
+        const validAttempt = snapshot.docs.find(doc =>
+          currentQuestionIds.includes(doc.data().question_id)
+        );
+
+        if (validAttempt) {
+          const attempt = validAttempt.data();
+          setSkillPassed(true);
+          setVerifiedQuestionId(attempt.question_id);
+          setVerifiedOptionId(attempt.selected_option_id || attempt.answer_given);
+        } else {
+          // If no pass found for current questions, make sure skillPassed is false
+          // (e.g. if they passed an old question that was since deleted/changed)
+          setSkillPassed(false);
+        }
+      } catch (err) {
+        console.error("Error checking previous skill attempts:", err);
+      }
+    };
+    checkPreviousSkillPass();
+  }, [currentUser, id, c?.docRef]);
+
   const handleParticipateClick = async () => {
     setIsModalOpen(true);
     setCurrentQuestionIndex(0);
+    setVerifyError('');
+    setSelectedOptions({});
     if (questions.length === 0) {
       setLoadingQuestions(true);
       try {
@@ -504,6 +721,79 @@ export default function CompetitionDetails() {
       } finally {
         setLoadingQuestions(false);
       }
+    }
+  };
+
+  // Phase 1 — verify the selected answer via Cloud Function
+  const handleVerifyAnswer = async () => {
+    const currentQ = questions[currentQuestionIndex];
+    if (!currentQ) return;
+    const selectedOptIndex = selectedOptions[currentQ.id];
+    if (selectedOptIndex === undefined) {
+      setVerifyError('Please select an answer before continuing.');
+      return;
+    }
+    const selectedOpt = currentQ.option?.[selectedOptIndex];
+    if (!selectedOpt) {
+      setVerifyError('Invalid option selected.');
+      return;
+    }
+
+    setIsVerifying(true);
+    setVerifyError('');
+    try {
+      const result = await verifySkillAnswer({
+        competitionId: c.id,
+        questionId: currentQ.id,
+        selectedOptionId: selectedOpt.option_id,
+      });
+      if (result.success) {
+        setVerifiedQuestionId(currentQ.id);
+        setVerifiedOptionId(selectedOpt.option_id);
+        setSkillPassed(true);
+        setIsModalOpen(false);
+        toast.success('Skill verified! Now select your tickets.');
+      } else {
+        setVerifyError('Incorrect answer. Please try again.');
+      }
+    } catch (err) {
+      const msg = err?.message || 'Verification failed. Please try again.';
+      setVerifyError(msg);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Phase 2 — process the atomic checkout via Cloud Function
+  const handleBuyTickets = async () => {
+    if (!verifiedQuestionId || verifiedOptionId === null) {
+      toast.error('Please complete the skill gate first.');
+      return;
+    }
+    setIsProcessing(true);
+    setCheckoutError('');
+    try {
+      const result = await processMockCheckout({
+        competitionId: c.id,
+        quantity: ticketQuantity,
+        questionId: verifiedQuestionId,
+        selectedOptionId: verifiedOptionId,
+      });
+      if (result.success) {
+        setOrderResult(result);
+        // Update local sold/stock counts for immediate UI feedback
+        setC(prev => ({
+          ...prev,
+          sold: prev.sold + ticketQuantity,
+          total: prev.total,
+        }));
+        toast.success(`${ticketQuantity} ticket${ticketQuantity > 1 ? 's' : ''} purchased successfully!`);
+      }
+    } catch (err) {
+      const msg = err?.details || err?.message || 'Purchase failed. Please try again.';
+      setCheckoutError(msg);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -524,10 +814,15 @@ export default function CompetitionDetails() {
           {/* ── Two-column layout ── */}
           <div className="grid lg:grid-cols-2 gap-10 xl:gap-16">
 
-            {/* LEFT — Gallery + included */}
+            {/* LEFT — Gallery + Desktop-only info */}
             <div className="space-y-4">
               <ImageGallery images={c.images} title={c.title} status={c.status} />
-              <WhatsIncluded items={c.included} />
+
+              {/* Desktop-only: Included & Video in left column */}
+              <div className="hidden lg:block space-y-4">
+                <WhatsIncluded items={c.included} />
+                <PrizeVideo url={c.prizeVideoUrl} />
+              </div>
             </div>
 
             {/* RIGHT — Info + purchase card */}
@@ -559,7 +854,16 @@ export default function CompetitionDetails() {
               <hr className="border-0 h-px bg-border" />
 
               {/* Ticket purchase card */}
-              <TicketPurchaseCard competition={{ ...c, onParticipate: handleParticipateClick }} />
+              <TicketPurchaseCard
+                competition={{ ...c, onParticipate: handleParticipateClick }}
+                skillPassed={skillPassed}
+                ticketQuantity={ticketQuantity}
+                setTicketQuantity={setTicketQuantity}
+                onBuyTickets={handleBuyTickets}
+                isProcessing={isProcessing}
+                orderResult={orderResult}
+                checkoutError={checkoutError}
+              />
             </div>
           </div>
 
@@ -570,6 +874,12 @@ export default function CompetitionDetails() {
             sold={c.sold}
             priceLabel={c.priceLabel}
           />
+
+          {/* MOBILE-ONLY: Included & Video (positioned below stats on mobile) */}
+          <div className="lg:hidden mt-8 space-y-8">
+            <WhatsIncluded items={c.included} />
+            <PrizeVideo url={c.prizeVideoUrl} />
+          </div>
 
           {/* ── Participants ── */}
           <ParticipantsSection participants={c.participants} />
@@ -606,11 +916,10 @@ export default function CompetitionDetails() {
                 </div>
                 <div className="flex gap-1.5 items-center">
                   {questions.map((_, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        idx === currentQuestionIndex ? 'w-8 bg-primary' : 'w-3 bg-white/10'
-                      }`} 
+                    <div
+                      key={idx}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentQuestionIndex ? 'w-8 bg-primary' : 'w-3 bg-white/10'
+                        }`}
                     />
                   ))}
                 </div>
@@ -622,42 +931,39 @@ export default function CompetitionDetails() {
                 <div className="relative bg-[#0A0A0A] border border-white/10 rounded-2xl overflow-hidden">
                   {questions[currentQuestionIndex]?.images?.[0] && (
                     <div className="relative h-48 sm:h-56">
-                      <img 
-                        src={questions[currentQuestionIndex].images[0]} 
-                        alt="Reference" 
+                      <img
+                        src={questions[currentQuestionIndex].images[0]}
+                        alt="Reference"
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-linear-to-t from-[#0A0A0A] via-transparent to-transparent" />
                     </div>
                   )}
-                  
+
                   <div className="p-5 sm:p-6 space-y-5">
                     <h4 className="text-lg sm:text-xl font-serif font-bold text-white leading-tight">
                       {questions[currentQuestionIndex]?.question}
                     </h4>
-                    
+
                     <div className="grid gap-3">
                       {questions[currentQuestionIndex]?.option?.map((opt, idx) => {
                         const isSelected = selectedOptions[questions[currentQuestionIndex].id] === idx;
                         return (
-                          <button 
+                          <button
                             key={idx}
                             onClick={() => setSelectedOptions(prev => ({ ...prev, [questions[currentQuestionIndex].id]: idx }))}
-                            className={`group/opt relative w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 cursor-pointer ${
-                              isSelected 
-                                ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]' 
+                            className={`group/opt relative w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 cursor-pointer ${isSelected
+                                ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
                                 : 'bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between">
-                              <span className={`text-sm font-medium transition-colors ${
-                                isSelected ? 'text-primary' : 'text-gray-300 group-hover/opt:text-white'
-                              }`}>
+                              <span className={`text-sm font-medium transition-colors ${isSelected ? 'text-primary' : 'text-gray-300 group-hover/opt:text-white'
+                                }`}>
                                 {opt.option}
                               </span>
-                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                                isSelected ? 'bg-primary border-primary' : 'border-white/20 group-hover/opt:border-white/40'
-                              }`}>
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary' : 'border-white/20 group-hover/opt:border-white/40'
+                                }`}>
                                 {isSelected && <div className="w-2 h-2 bg-black rounded-full" />}
                               </div>
                             </div>
@@ -669,44 +975,51 @@ export default function CompetitionDetails() {
                 </div>
               </div>
 
+              {/* Error message */}
+              {verifyError && (
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {verifyError}
+                </div>
+              )}
+
               {/* Navigation Controls */}
               <div className="flex items-center gap-3 pt-2">
                 {currentQuestionIndex > 0 ? (
                   <button
-                    onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-white hover:bg-white/5 transition-all active:scale-95 cursor-pointer"
+                    onClick={() => { setCurrentQuestionIndex(prev => prev - 1); setVerifyError(''); }}
+                    disabled={isVerifying}
+                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-white hover:bg-white/5 disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
                   >
                     Back
                   </button>
                 ) : (
-                   <button
+                  <button
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-gray-400 hover:bg-white/5 transition-all cursor-pointer"
+                    disabled={isVerifying}
+                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-gray-400 hover:bg-white/5 disabled:opacity-50 transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
                 )}
-                
+
                 {currentQuestionIndex === questions.length - 1 ? (
                   <button
-                    onClick={() => {
-                      const allAnswered = questions.every(q => selectedOptions[q.id] !== undefined);
-                      if (allAnswered) {
-                        console.log("Proceeding with answers:", selectedOptions);
-                        // Implement checkout/entry logic here
-                        setIsModalOpen(false);
-                      } else {
-                        // Toast or alert to answer all questions
-                      }
-                    }}
-                    className="flex-[1.5] px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 transition-all active:scale-95 cursor-pointer"
+                    onClick={handleVerifyAnswer}
+                    disabled={selectedOptions[questions[currentQuestionIndex]?.id] === undefined || isVerifying}
+                    className="flex-[1.5] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
                   >
-                    Finish & Enter
+                    {isVerifying ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="w-4 h-4" />
+                    )}
+                    {isVerifying ? 'Verifying...' : 'Continue'}
                   </button>
                 ) : (
                   <button
-                    onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                    disabled={selectedOptions[questions[currentQuestionIndex].id] === undefined}
+                    onClick={() => { setCurrentQuestionIndex(prev => prev + 1); setVerifyError(''); }}
+                    disabled={selectedOptions[questions[currentQuestionIndex]?.id] === undefined || isVerifying}
                     className="flex-[1.5] px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
                   >
                     Next Question

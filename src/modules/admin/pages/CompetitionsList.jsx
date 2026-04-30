@@ -43,7 +43,7 @@ const CompetitionsList = () => {
         const price = data.ticket_price || 0;
         const revenue = sold * price;
         const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
-        
+
         return {
           id: doc.id,
           name: data.title || 'Untitled',
@@ -86,11 +86,11 @@ const CompetitionsList = () => {
   const filteredCompetitions = activeTab === 'All'
     ? competitions
     : competitions.filter(c => {
-        if (activeTab === 'Active') return c.status === 'active';
-        if (activeTab === 'Ended') return c.status === 'end';
-        if (activeTab === 'Archived') return c.status === 'cancelled' || c.status === 'paused';
-        return true;
-      });
+      if (activeTab === 'Active') return c.status === 'active';
+      if (activeTab === 'Ended') return c.status === 'end';
+      if (activeTab === 'Archived') return c.status === 'cancelled' || c.status === 'paused';
+      return true;
+    });
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in">

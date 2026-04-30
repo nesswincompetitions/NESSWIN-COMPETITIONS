@@ -19,8 +19,8 @@ function StatusBadge({ type, label }) {
   return (
     <div
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] ${isHot
-          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-          : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+        : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
         }`}
     >
       {isHot ? (
@@ -180,8 +180,8 @@ function FilterBar({ activeStatusKey, setActiveStatusKey, activeCategoryKey, set
               key={key}
               onClick={() => setActiveStatusKey(key)}
               className={`px-4 py-2 rounded-full text-xs font-semibold tracking-[0.12em] uppercase transition-all duration-200 border cursor-pointer ${isActive
-                  ? "bg-primary text-(--color-primary-foreground) border-primary shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
-                  : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-(--color-foreground)"
+                ? "bg-primary text-(--color-primary-foreground) border-primary shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
+                : "bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-(--color-foreground)"
                 }`}
             >
               {label}
@@ -199,8 +199,8 @@ function FilterBar({ activeStatusKey, setActiveStatusKey, activeCategoryKey, set
               key={key}
               onClick={() => setActiveCategoryKey(key)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all duration-200 border cursor-pointer ${isActive
-                  ? "bg-primary/15 text-primary border-primary/40"
-                  : "bg-transparent border-border/50 text-muted-foreground hover:border-primary/30 hover:text-(--color-foreground)"
+                ? "bg-primary/15 text-primary border-primary/40"
+                : "bg-transparent border-border/50 text-muted-foreground hover:border-primary/30 hover:text-(--color-foreground)"
                 }`}
             >
               {label}
@@ -326,7 +326,12 @@ export default function CompetitionsPage() {
           </div>
 
           {/* ── Cards grid ── */}
-          {filtered.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 space-y-4">
+              <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+              <p className="text-muted-foreground animate-pulse font-medium">Loading competitions...</p>
+            </div>
+          ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((comp, index) => (
                 <Reveal key={comp.id} delay={index * 65}>
