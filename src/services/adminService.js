@@ -9,7 +9,8 @@ import {
   orderBy,
   limit
 } from "firebase/firestore";
-import { db } from "../utils/firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../utils/firebase";
 
 /**
  * Fetches all 6 KPI stats for the Admin Dashboard.
@@ -235,27 +236,67 @@ export async function fetchUsersList() {
 export async function fetchUserDetail(uid) {
   try {
     // 1. Fetch core user profile
-    const userDoc = await getDoc(doc(db, "user", uid));
+    const userRef = doc(db, "user", uid);
+    const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) throw new Error("User not found");
     const userData = { id: uid, ...userDoc.data() };
 
-    // 2. Fetch all orders and tickets in parallel (removed server-side orderBy to avoid index requirement)
-    const [ordersSnap, ticketsSnap] = await Promise.all([
-      getDocs(query(collection(db, "order"), where("user_ref", "==", uid))),
-      getDocs(query(collection(db, "ticket"), where("user_id", "==", uid)))
+    // 2. Fetch all related data in parallel
+    const [ordersSnap, ticketsSnap, referralsSnap, bonusLogsSnap] = await Promise.all([
+      getDocs(query(collection(db, "order"), where("user_ref", "in", [uid, userRef, `/user/${uid}`]))),
+      getDocs(query(collection(db, "ticket"), where("user_id", "in", [uid, userRef, `/user/${uid}`]))),
+      getDocs(query(collection(db, "referrals"), where("referrer_id", "in", [uid, userRef, `/user/${uid}`]))),
+      getDocs(query(collection(db, "free_ticket_log"), where("user_id", "in", [uid, userRef, `/user/${uid}`])))
     ]);
 
-    // Sort in memory to avoid "Query requires an index" error
+    // Helper: Sort in memory to avoid "Query requires an index" error
     const sortDesc = (a, b) => {
-      const timeA = (a.created_at?.toMillis ? a.created_at.toMillis() : (a.created_at ? new Date(a.created_at).getTime() : 0));
-      const timeB = (b.created_at?.toMillis ? b.created_at.toMillis() : (b.created_at ? new Date(b.created_at).getTime() : 0));
+      const timeA = (a.created_at?.toMillis ? a.created_at.toMillis() : (a.created_at ? new Date(a.created_at).getTime() : (a.createdAt?.toMillis ? a.createdAt.toMillis() : 0)));
+      const timeB = (b.created_at?.toMillis ? b.created_at.toMillis() : (b.created_at ? new Date(b.created_at).getTime() : (b.createdAt?.toMillis ? b.createdAt.toMillis() : 0)));
       return timeB - timeA;
     };
 
     const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortDesc);
     const tickets = ticketsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortDesc);
 
-    // 3. Resolve Competition names for the orders (for better UI)
+    // 3. Resolve Referral User Names
+    const referrals = await Promise.all(referralsSnap.docs.map(async d => {
+      const refData = d.data();
+      let referredName = "Unknown User";
+      let referredEmail = "N/A";
+      if (refData.referred_user_id) {
+        try {
+          const uSnap = await getDoc(refData.referred_user_id);
+          if (uSnap.exists()) {
+            referredName = uSnap.data().display_name || uSnap.data().name || "Unknown";
+            referredEmail = uSnap.data().email || "N/A";
+          }
+        } catch (e) { /* ignore */ }
+      }
+      return { id: d.id, ...refData, referredName, referredEmail };
+    }));
+
+    // 4. Resolve Bonus Log Competition Titles
+    const bonusLogs = await Promise.all(bonusLogsSnap.docs.map(async d => {
+      const logData = d.data();
+      let compTitle = "N/A";
+      if (logData.competition_id) {
+        try {
+          const cRef = typeof logData.competition_id === 'string' 
+            ? doc(db, "competition", logData.competition_id)
+            : logData.competition_id;
+          const cSnap = await getDoc(cRef);
+          if (cSnap.exists()) compTitle = cSnap.data().title;
+        } catch (e) { /* ignore */ }
+      }
+      return { id: d.id, ...logData, competitionTitle: compTitle };
+    }));
+
+    // Sort referrals and logs newest first
+    referrals.sort(sortDesc);
+    bonusLogs.sort(sortDesc);
+
+    // 5. Resolve Competition names for the orders
     const resolvedOrders = await Promise.all(orders.map(async (order) => {
       let compTitle = "Unknown Competition";
       const cId = order.competition_id;
@@ -268,7 +309,7 @@ export async function fetchUserDetail(uid) {
       return { ...order, competitionName: compTitle };
     }));
 
-    // 4. Group tickets by competition to show "Competitions Entered"
+    // 6. Group tickets by competition
     const compMap = {};
     tickets.forEach(tk => {
       const cId = tk.competition_id;
@@ -276,7 +317,6 @@ export async function fetchUserDetail(uid) {
       compMap[cId].tickets.push(tk);
     });
 
-    // Resolve titles for those competitions too
     const resolvedComps = await Promise.all(Object.values(compMap).map(async (item) => {
       let title = "Unknown Competition";
       let status = "Ended";
@@ -294,7 +334,9 @@ export async function fetchUserDetail(uid) {
       profile: userData,
       orders: resolvedOrders,
       tickets: tickets,
-      competitions: resolvedComps
+      competitions: resolvedComps,
+      referralsList: referrals,
+      bonusLogs: bonusLogs
     };
   } catch (error) {
     console.error(`[AdminService] Error fetching user detail for ${uid}:`, error);
@@ -394,6 +436,21 @@ export async function fetchReferralsList() {
     };
   } catch (error) {
     console.error("[AdminService] Error fetching referrals list:", error);
+    throw error;
+  }
+}
+
+/**
+ * Calls the backend Cloud Function to soft delete a user.
+ * @param {string} userId The UID of the user to delete
+ */
+export async function softDeleteUser(userId) {
+  try {
+    const softDeleteFn = httpsCallable(functions, 'softDeleteUser');
+    const result = await softDeleteFn({ userId });
+    return result.data;
+  } catch (error) {
+    console.error("[AdminService] Error calling softDeleteUser:", error);
     throw error;
   }
 }

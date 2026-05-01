@@ -10,7 +10,14 @@
     "sold": "vendus",
     "remaining": "restants",
     "beforeDraw": "avant tirage",
-    "participate": "Participer"
+    "participate": "Participer",
+    "subtotal": "Sous-total",
+    "discount": "Réduction",
+    "total": "Total",
+    "free": "Gratuit",
+    "processing": "Traitement...",
+    "popular": "Populaire",
+    "tickets": "Tickets"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
@@ -165,7 +172,12 @@
     "participantsSubtitle": "Chaque achat de ticket est listé ici. Transparence totale sur tous les participants.",
     "participants": "participant(s)",
     "ticketCount": "ticket(s)",
-    "transparencyNote": "Cette liste est mise à jour en temps réel. Chaque participant est affiché avec son nom public ou réel. Les tirages sont supervisés par un notaire certifié et filmés en direct."
+    "transparencyNote": "Cette liste est mise à jour en temps réel. Chaque participant est affiché avec son nom public ou réel. Les tirages sont supervisés par un notaire certifié et filmés en direct.",
+    "buy10Get1Free": "🎁 1 ticket GRATUIT pour chaque tranche de 10 tickets achetés",
+    "individualTickets": "Tickets Individuels",
+    "advantageousPacks": "Packs Avantageux",
+    "bonusTickets": "Tickets bonus offerts",
+    "proceedToPayment": "Valider ma commande"
   },
   "winnersPage": {
     "hallOfFame": "Hall of Fame",

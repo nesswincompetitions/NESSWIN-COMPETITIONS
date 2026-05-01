@@ -10,7 +10,14 @@
     "sold": "sold",
     "remaining": "remaining",
     "beforeDraw": "before draw",
-    "participate": "Participate"
+    "participate": "Participate",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "total": "Total",
+    "free": "Free",
+    "processing": "Processing...",
+    "popular": "Popular",
+    "tickets": "Tickets"
   },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",
@@ -165,7 +172,12 @@
     "participantsSubtitle": "Every ticket purchase is listed here. Full transparency on all participants.",
     "participants": "participant(s)",
     "ticketCount": "ticket(s)",
-    "transparencyNote": "This list is updated in real time. Every participant is listed by their public username or real name. Draws are supervised by a certified notary and filmed live."
+    "transparencyNote": "This list is updated in real time. Every participant is listed by their public username or real name. Draws are supervised by a certified notary and filmed live.",
+    "buy10Get1Free": "🎁 1 FREE ticket for every 10 tickets purchased",
+    "individualTickets": "Individual Tickets",
+    "advantageousPacks": "Advantageous Packs",
+    "bonusTickets": "Bonus Tickets",
+    "proceedToPayment": "Proceed to Payment"
   },
   "winnersPage": {
     "hallOfFame": "Hall of Fame",

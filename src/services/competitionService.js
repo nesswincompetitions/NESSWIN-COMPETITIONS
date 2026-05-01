@@ -57,8 +57,8 @@ export const verifySkillAnswer = async (payload) => {
  * @param {{ competitionId: string, quantity: number, questionId: string, selectedOptionId: string|number }} payload
  * @returns {Promise<{ success: boolean, orderId: string, tickets: Array, totalAmount: number }>}
  */
-export const processMockCheckout = async (payload) => {
-  const fn = httpsCallable(functions, "processMockCheckout");
+export const processOrder = async (payload) => {
+  const fn = httpsCallable(functions, "processOrder");
   try {
     const result = await fn(payload);
     return result.data;
@@ -67,4 +67,3 @@ export const processMockCheckout = async (payload) => {
     throw error;
   }
 };
-

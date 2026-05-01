@@ -61,8 +61,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       maxTickets: baseData.maxTickets || '',
       sellOutBehavior: baseData.sellOutBehavior || 'auto_end',
       questions: questions,
-      drawEndDate: baseData.drawEndDate || '',
-      drawEndTime: baseData.drawEndTime || '',
+      drawEndDate: baseData.drawEndDate || (isEditMode ? '' : new Date().toISOString().split('T')[0]),
+      drawEndTime: baseData.drawEndTime || (isEditMode ? '' : new Date(Date.now() + 60 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
       countdownEndDate: baseData.countdownEndDate || '',
       countdownEndTime: baseData.countdownEndTime || '',
       autoEndDraw: baseData.autoEndDraw !== undefined ? baseData.autoEndDraw : true,
@@ -1003,7 +1003,9 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               {currentStep === 0 ? t('competitions.form.buttons.cancel') : t('common.back')}
             </Button>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
-              {!isEditMode && <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>{t('competitions.form.buttons.saveDraft')}</Button>}
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>
+                {isEditMode ? 'Update Draft' : t('competitions.form.buttons.saveDraft')}
+              </Button>
               {currentStep === steps.length - 1 ? (
                 <Button variant="primary" className="w-full sm:w-auto" onClick={() => onSubmit && onSubmit(formData)}>
                   {isEditMode ? t('competitions.form.buttons.saveChanges') : t('competitions.form.buttons.publishCompetition')}

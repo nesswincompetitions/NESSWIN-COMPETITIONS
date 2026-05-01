@@ -8,16 +8,23 @@ import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
 import {
   Plus, Search, Calendar, Download,
-  Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2
+  Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X
 } from 'lucide-react';
-import { collection, query, getDocs, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../../../utils/firebase';
+import { collection, query, getDocs, orderBy, doc, where } from 'firebase/firestore';
+import { db, functions } from '../../../utils/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { toast } from 'react-hot-toast';
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [dateModalOpen, setDateModalOpen] = useState(false);
   const [competitionToDelete, setCompetitionToDelete] = useState(null);
+  
+  // Date filter state
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
 
@@ -25,6 +32,7 @@ const CompetitionsList = () => {
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
     { key: 'Ended', label: t('common.ended') },
+    { key: 'Drafts', label: 'Drafts' },
     { key: 'Archived', label: t('common.archived') },
   ];
 
@@ -34,7 +42,12 @@ const CompetitionsList = () => {
   const fetchCompetitions = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'competition'), orderBy('created_at', 'desc'));
+      const q = query(
+        collection(db, 'competition'), 
+        where('status', '!=', 'deleted'),
+        orderBy('status'), 
+        orderBy('created_at', 'desc')
+      );
       const snapshot = await getDocs(q);
       const list = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -54,7 +67,8 @@ const CompetitionsList = () => {
           total,
           revenue: `£${revenue.toLocaleString()}`,
           drawDate,
-          image: data.image?.[0] || null
+          image: data.image?.[0] || null,
+          createdAt: data.created_at?.toDate() || new Date(),
         };
       });
       setCompetitions(list);
@@ -72,25 +86,53 @@ const CompetitionsList = () => {
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
+    setLoading(true);
     try {
-      await deleteDoc(doc(db, 'competition', competitionToDelete.id));
+      const softDelete = httpsCallable(functions, 'softDeleteCompetition');
+      await softDelete({ id: competitionToDelete.id });
+      
       toast.success('Competition deleted successfully');
       setCompetitions(prev => prev.filter(c => c.id !== competitionToDelete.id));
       setDeleteModalOpen(false);
     } catch (err) {
       console.error('Error deleting:', err);
       toast.error('Failed to delete competition');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredCompetitions = activeTab === 'All'
-    ? competitions
-    : competitions.filter(c => {
-      if (activeTab === 'Active') return c.status === 'active';
-      if (activeTab === 'Ended') return c.status === 'end';
-      if (activeTab === 'Archived') return c.status === 'cancelled' || c.status === 'paused';
-      return true;
-    });
+  const filteredCompetitions = competitions.filter(c => {
+    // 1. Status Filter
+    let statusMatch = true;
+    if (activeTab === 'Active') statusMatch = c.status === 'active';
+    else if (activeTab === 'Ended') statusMatch = c.status === 'end';
+    else if (activeTab === 'Drafts') statusMatch = c.status === 'draft';
+    else if (activeTab === 'Archived') statusMatch = c.status === 'cancelled' || c.status === 'paused';
+
+    // 2. Search Filter
+    const searchMatch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                        c.subTitle.toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 3. Date Filter
+    let dateMatch = true;
+    if (dateRange.start) {
+      const start = new Date(dateRange.start);
+      start.setHours(0, 0, 0, 0);
+      dateMatch = dateMatch && c.createdAt >= start;
+    }
+    if (dateRange.end) {
+      const end = new Date(dateRange.end);
+      end.setHours(23, 59, 59, 999);
+      dateMatch = dateMatch && c.createdAt <= end;
+    }
+
+    return statusMatch && searchMatch && dateMatch;
+  });
+
+  const clearDateFilter = () => {
+    setDateRange({ start: '', end: '' });
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in">
@@ -140,14 +182,25 @@ const CompetitionsList = () => {
                 <input
                   type="text"
                   placeholder={t('competitions.searchPlaceholder')}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                 />
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
-                  <Calendar size={16} className="text-gray-400" />
-                  <span className="text-sm">{t('common.filterDates')}</span>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setDateModalOpen(true)}
+                  className={`flex items-center gap-2 h-10 px-3 border-white/10 flex-1 sm:flex-none justify-center transition-colors ${
+                    dateRange.start || dateRange.end ? 'bg-primary/20 border-primary/50 text-primary' : 'bg-white/5 text-white'
+                  }`}
+                >
+                  <Calendar size={16} className={dateRange.start || dateRange.end ? 'text-primary' : 'text-gray-400'} />
+                  <span className="text-sm">
+                    {dateRange.start || dateRange.end ? 'Filtered' : t('common.filterDates')}
+                  </span>
                 </Button>
 
                 <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
@@ -182,7 +235,7 @@ const CompetitionsList = () => {
               ) : filteredCompetitions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-20 text-gray-500">
-                    No competitions found.
+                    No competitions found matching your criteria.
                   </TableCell>
                 </TableRow>
               ) : filteredCompetitions.map((comp) => (
@@ -253,25 +306,51 @@ const CompetitionsList = () => {
             </TableBody>
           </Table>
 
-          {/* Pagination */}
+          {/* Pagination (Static for now) */}
           <div className="p-4 border-t border-white/10 flex items-center justify-between">
             <p className="text-sm text-gray-400">
-              {t('common.showing')} <span className="font-medium text-white">1</span>-<span className="font-medium text-white">5</span> {t('common.of')} <span className="font-medium text-white">12</span>
+              Showing <span className="font-medium text-white">{filteredCompetitions.length}</span> competitions
             </p>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10" disabled>
-                <ChevronLeft size={14} className="mr-1" />
-                {t('common.previous')}
-              </Button>
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs bg-white/5 border-white/10">
-                {t('common.next')}
-                <ChevronRight size={14} className="ml-1" />
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Date Filter Modal */}
+      <Modal
+        isOpen={dateModalOpen}
+        onClose={() => setDateModalOpen(false)}
+        title="Filter by Creation Date"
+        description="Select a date range to filter competitions by when they were created."
+        actions={
+          <>
+            <Button variant="outline" onClick={clearDateFilter}>Clear Filter</Button>
+            <Button variant="primary" onClick={() => setDateModalOpen(false)}>Apply Filter</Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400">Start Date</label>
+            <input 
+              type="date" 
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400">End Date</label>
+            <input 
+              type="date" 
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
@@ -280,8 +359,8 @@ const CompetitionsList = () => {
         actions={
           <>
             <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>{t('common.cancel')}</Button>
-            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={handleDelete}>
-              {t('common.delete')}
+            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={handleDelete} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.delete')}
             </Button>
           </>
         }

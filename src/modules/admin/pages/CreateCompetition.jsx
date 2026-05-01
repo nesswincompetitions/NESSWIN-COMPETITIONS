@@ -106,7 +106,7 @@ const CreateCompetition = () => {
         prize_value: parseFloat(formData.prizeValue) || 0,
         prize_name: formData.prizeName || '',
         image: imageUrls,
-        status: isDraft ? 'draft' : (formData.status || 'active'),
+        status: isDraft ? 'draft' : (formData.status === 'draft' ? 'active' : (formData.status || 'active')),
         draw_date: drawDateTimestamp,
         countdown_end: countdownEndTimestamp,
         instagram_live_url: formData.instagramLiveLink || '',

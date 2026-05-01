@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../../../utils/firebase';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { db, functions } from '../../../utils/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { Card, CardContent } from '../../../components/ui/Card';
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
@@ -39,7 +40,9 @@ const CompetitionDrafts = () => {
     if (!deleteModal.draft) return;
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, 'competition', deleteModal.draft.id));
+      const softDelete = httpsCallable(functions, 'softDeleteCompetition');
+      await softDelete({ id: deleteModal.draft.id });
+      
       setDrafts(prev => prev.filter(d => d.id !== deleteModal.draft.id));
       toast.success('Draft deleted.');
       setDeleteModal({ open: false, draft: null });

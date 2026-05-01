@@ -227,7 +227,7 @@ export default function CompetitionsPage() {
   useEffect(() => {
     const fetchCompetitions = async () => {
       try {
-        const q = query(collection(db, 'competition'), where('status', '!=', 'draft'));
+        const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
         const snapshot = await getDocs(q);
         const fetchedComps = snapshot.docs.map(doc => {
           const data = doc.data();

@@ -6,11 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import {
-  Search, Calendar, Download, Eye, AlertTriangle,
-  Ban, ChevronDown, Users as UsersIcon, Loader2, CheckCircle2
+  Search, Calendar, Download, Eye,
+  ChevronDown, Users as UsersIcon, Loader2, CheckCircle2,
+  Trash2
 } from 'lucide-react';
-import { fetchUsersList } from '../../../services/adminService';
+import { fetchUsersList, softDeleteUser } from '../../../services/adminService';
 import { toast } from 'react-hot-toast';
+import Modal from '../../../components/ui/Modal';
 
 const UsersList = () => {
   const navigate = useNavigate();
@@ -23,6 +25,11 @@ const UsersList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // -- Delete Modal State --
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const itemsPerPage = 20;
 
@@ -47,6 +54,28 @@ const UsersList = () => {
     if (!ts) return '—';
     const date = ts.toMillis ? new Date(ts.toMillis()) : new Date(ts);
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      await softDeleteUser(userToDelete.id);
+      toast.success('User deleted successfully');
+      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      setDeleteModalOpen(false);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Failed to delete user');
+    } finally {
+      setIsDeleting(false);
+      setUserToDelete(null);
+    }
   };
 
   const renderStatusBadge = (status) => {
@@ -201,11 +230,12 @@ const UsersList = () => {
                           <button onClick={() => navigate(`/admin/users/${user.id}`)} className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white" title="View Profile">
                             <Eye size={16} />
                           </button>
-                          <button className="p-2 hover:bg-yellow-500/10 rounded-md text-gray-400 hover:text-yellow-500" title="Suspend">
-                            <AlertTriangle size={16} />
-                          </button>
-                          <button className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500" title="Ban">
-                            <Ban size={16} />
+                          <button 
+                            onClick={() => handleDeleteClick(user)} 
+                            className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500" 
+                            title="Delete User"
+                          >
+                            <Trash2 size={16} />
                           </button>
                         </div>
                       </TableCell>
@@ -247,6 +277,32 @@ const UsersList = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => !isDeleting && setDeleteModalOpen(false)}
+        title="Permanently Delete User?"
+        description={`Are you sure you want to permanently delete ${userToDelete?.display_name || userToDelete?.name || 'this user'}? This action cannot be undone.`}
+        actions={
+          <>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white border-none"
+              onClick={confirmDelete}
+              loading={isDeleting}
+            >
+              Confirm Delete
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 };

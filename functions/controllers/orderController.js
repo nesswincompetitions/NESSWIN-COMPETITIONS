@@ -1,30 +1,25 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { validateAuth, validateQuestionAnswer } from "../services/validationService.js";
 
 /**
- * Phase 2 — Order Engine (Atomic Transaction)
+ * Phase 2 — Order Engine (Zero-Trust Transaction)
  *
- * Re-validates the skill answer, then atomically:
- *   1. Updates competition stock/sold counts
- *   2. Creates an order document
- *   3. Creates individual ticket documents
- *   4. Updates the user's aggregate stats
- *
- * Input:  { competitionId, quantity, questionId, selectedOptionId }
- * Output: { success, orderId, tickets: [{ ticketId, ticketSequence }] }
+ * Input:  { competitionId, ticketQuantity, questionId, selectedOptionId }
+ * Output: { success, orderId, tickets: [...] }
  */
-export const processMockCheckout = onCall(async (request) => {
+export const processOrder = onCall({ cors: true }, async (request) => {
   const uid = validateAuth(request);
 
-  const { competitionId, quantity, questionId, selectedOptionId } = request.data;
+  const { competitionId, ticketQuantity, questionId, selectedOptionId } = request.data;
 
   // ── Input validation ─────────────────────────────────────────────────────────
-  if (!competitionId || !questionId || selectedOptionId === undefined || selectedOptionId === null) {
-    throw new HttpsError("invalid-argument", "competitionId, questionId, and selectedOptionId are required.");
+  if (!competitionId || !questionId) {
+    throw new HttpsError("invalid-argument", "competitionId and questionId are required.");
   }
 
-  const qty = Number(quantity);
+  const qty = Number(ticketQuantity);
   if (!Number.isInteger(qty) || qty <= 0) {
     throw new HttpsError("invalid-argument", "Quantity must be a positive integer.");
   }
@@ -32,104 +27,133 @@ export const processMockCheckout = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "Maximum 100 tickets per order.");
   }
 
-  // ── 1. Fetch & Validate Question ───────────────────────────────────────────
-  const { passed: isCorrectAnswer, questionData } = await validateQuestionAnswer(db, questionId, selectedOptionId);
-
-  // SECURITY: Ensure the question actually belongs to this competition
-  // Handles both string ID and DocumentReference formats
-  const questionCompId = typeof questionData.competition_id === "string" 
-    ? questionData.competition_id 
-    : questionData.competition_id?.id;
-
-  if (questionCompId !== competitionId) {
-    throw new HttpsError("permission-denied", "This question does not belong to the selected competition.");
-  }
-
-  // ── 2. Check for a previously "passed" attempt for this specific question ──
-  // This handles persistence after refresh and ensures that if the admin changes
-  // the question, the user's old pass won't work (since question_id won't match).
-  const previousPass = await db
-    .collection("skill_attempts")
-    .where("user_id", "==", uid)
-    .where("competition_id", "==", competitionId)
-    .where("question_id", "==", questionId)
-    .where("passed", "==", true)
-    .limit(1)
-    .get();
-
-  const hasAlreadyPassed = !previousPass.empty;
-
-  if (!hasAlreadyPassed && !isCorrectAnswer) {
-    throw new HttpsError("permission-denied", "Incorrect answer. You must pass the skill gate first.");
-  }
-
   // ── Refs ──────────────────────────────────────────────────────────────────────
-  const competitionRef = db.collection("competition").doc(competitionId);
   const userRef = db.collection("user").doc(uid);
+  const competitionRef = db.collection("competition").doc(competitionId);
+  const questionRef = db.collection("questions").doc(questionId);
   const orderRef = db.collection("order").doc(); // auto-id
 
   // ── Transaction ──────────────────────────────────────────────────────────────
   const result = await db.runTransaction(async (transaction) => {
-    // Read competition
-    const compSnap = await transaction.get(competitionRef);
+    // ── 2A: The Reads & Validation ───────────────────────────────────────────
+    const [userSnap, compSnap, questionSnap] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(competitionRef),
+      transaction.get(questionRef)
+    ]);
+
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    const userData = userSnap.data();
+
+    if (userData.status === "deleted" || userData.status === "suspended") {
+      throw new HttpsError("permission-denied", "Your account is not allowed to make purchases.");
+    }
+
     if (!compSnap.exists) {
       throw new HttpsError("not-found", "Competition not found.");
     }
-    const comp = compSnap.data();
+    const compData = compSnap.data();
 
-    // Read user
-    const userSnap = await transaction.get(userRef);
-    const userData = userSnap.exists ? userSnap.data() : {};
-
-    // ── Pre-condition checks ─────────────────────────────────────────────────
-    if (comp.status !== "active") {
-      throw new HttpsError("failed-precondition", `Competition is not active (status: ${comp.status}).`);
+    if (compData.status !== "active") {
+      throw new HttpsError("failed-precondition", "This competition is not active.");
     }
 
-    const currentStock = Number(comp.stock_quantity || 0);
-    if (currentStock < qty) {
-      throw new HttpsError(
-        "resource-exhausted",
-        currentStock === 0
-          ? "This competition is sold out."
-          : `Only ${currentStock} ticket(s) remaining.`
-      );
+    if (!questionSnap.exists) {
+      throw new HttpsError("not-found", "Question not found.");
+    }
+    const questionData = questionSnap.data();
+
+    // ── 2A: Skill Check & History ────────────────────────────────────────────
+    
+    // 1. Did they already pass this exact question?
+    const pastAttemptsQuery = db.collection("skill_attempts")
+      .where("user_id", "==", uid)
+      .where("question_id", "==", questionId)
+      .where("passed", "==", true)
+      .limit(1);
+      
+    const pastAttemptsSnap = await transaction.get(pastAttemptsQuery);
+    const hasAlreadyPassed = !pastAttemptsSnap.empty;
+
+    let skillPassed = false;
+    let correctOptionId = questionData.answer?.option_id;
+
+    if (hasAlreadyPassed) {
+      // User already passed! Bypass the test.
+      skillPassed = true;
+    } else {
+      // User hasn't passed. They MUST provide an answer right now.
+      if (selectedOptionId === undefined || selectedOptionId === null) {
+        throw new HttpsError("invalid-argument", "You must answer the skill question.");
+      }
+
+      // Grade the answer
+      // eslint-disable-next-line eqeqeq
+      skillPassed = (selectedOptionId == correctOptionId);
+
+      // Log this new attempt
+      const attemptRef = db.collection("skill_attempts").doc();
+      transaction.set(attemptRef, {
+        user_id: uid,
+        competition_id: competitionId,
+        question_id: questionId,
+        selected_option_id: selectedOptionId,
+        passed: skillPassed,
+        created_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      if (!skillPassed) {
+        // Return early to commit the failed attempt to the database without crashing
+        return { success: false, reason: "skill_check_failed" };
+      }
     }
 
-    // ── Compute values ───────────────────────────────────────────────────────
-    const ticketPrice = Number(comp.ticket_price || 0);
-    const subtotal = ticketPrice * qty;
-    const totalAmount = subtotal; // no tax in mock checkout
+    // ── 2B: The Server-Side Math Engine ──────────────────────────────────────
+    let discount = 0;
+    let freeTickets = 0;
+    let packType = "Manual";
 
-    const currentSequence = Number(comp.last_ticket_sequence || 0);
-    const newStock = currentStock - qty;
-    const newSold = Number(comp.sold_tickets || 0) + qty;
-    const newSequence = currentSequence + qty;
-
-    // Build participants array — append uid if not already present
-    const participants = Array.isArray(comp.participants) ? [...comp.participants] : [];
-    if (!participants.includes(uid)) {
-      participants.push(uid);
+    if (qty === 15) {
+      discount = 0.10;
+      freeTickets = 1;
+      packType = "Pack Prestige";
+    } else if (qty === 20) {
+      discount = 0.15;
+      freeTickets = 2;
+      packType = "Pack Elite";
+    } else if (qty === 25) {
+      discount = 0.20;
+      freeTickets = 2;
+      packType = "Pack Gold";
+    } else if (qty === 50) {
+      discount = 0.25;
+      freeTickets = 5;
+      packType = "Pack Diamond";
+    } else {
+      discount = 0;
+      freeTickets = Math.floor(qty / 10);
+      packType = "Manual";
     }
 
-    // ── 1. Update competition ────────────────────────────────────────────────
-    const compUpdate = {
-      sold_tickets: newSold,
-      stock_quantity: newStock,
-      last_ticket_sequence: newSequence,
-      participants,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    if (newStock === 0) {
-      compUpdate.status = "sold_out";
-    }
-    transaction.update(competitionRef, compUpdate);
+    const ticketPrice = Number(compData.ticket_price || 0);
+    const subtotal = qty * ticketPrice;
+    const discountAmount = subtotal * discount;
+    const totalAmount = subtotal - discountAmount;
+    const totalTicketsToGenerate = qty + freeTickets;
 
-    // ── 2. Create order ──────────────────────────────────────────────────────
-    // Build the question_answer map for the order receipt
+    const currentStock = Number(compData.stock_quantity || 0);
+    if (currentStock < totalTicketsToGenerate) {
+      throw new HttpsError("resource-exhausted", `Out of stock. Only ${currentStock} ticket(s) remaining.`);
+    }
+
+    // ── 2C: The Writes ───────────────────────────────────────────────────────
+    
+    // Order Receipt
     const correctOption = questionData.option?.find(
       // eslint-disable-next-line eqeqeq
-      (opt) => opt.option_id == questionData.answer?.option_id
+      (opt) => opt.option_id == correctOptionId
     );
 
     const orderSequenceId = `ORD-${orderRef.id.substring(0, 8).toUpperCase()}`;
@@ -137,81 +161,155 @@ export const processMockCheckout = onCall(async (request) => {
     const orderData = {
       order_sequence_id: orderSequenceId,
       competition_id: competitionId,
-      competition_title: comp.title || "Unknown Competition",
       user_ref: uid,
-      user_name: userData.display_name || userData.name || "Unknown User",
-      user_email: userData.email || "Unknown Email",
       total_ticket: qty,
+      free_ticket: freeTickets,
+      pack_type: packType,
       subtotal,
+      discount_amount: discountAmount,
       total_amount: totalAmount,
-      status: "Paid",
+      status: "Paid", // Mocking stripe for now
       question_answer: {
         question_id: questionId,
         question: questionData.question || "",
         correct_answer: correctOption?.option || "",
-        correct_option_id: questionData.answer?.option_id || null,
+        correct_option_id: correctOptionId || null,
       },
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       paid_at: admin.firestore.FieldValue.serverTimestamp(),
     };
     transaction.set(orderRef, orderData);
 
-    // ── 3. Create tickets ────────────────────────────────────────────────────
-    const tickets = [];
-    for (let i = 0; i < qty; i++) {
-      const seq = currentSequence + i + 1;
-      const ticketRef = db.collection("ticket").doc();
-      const ticketSequence = `TKT-${String(seq).padStart(5, "0")}`;
+    // Ticket Loop
+    const currentSequenceRaw = String(compData.last_ticket_sequence || "TKT-00000");
+    const prefixMatch = currentSequenceRaw.match(/^([A-Za-z]+-)/);
+    const prefix = prefixMatch ? prefixMatch[1] : "TKT-";
+    let currentSequenceNum = parseInt(currentSequenceRaw.replace(prefix, ""), 10) || 0;
 
-      const ticketData = {
+    const tickets = [];
+    for (let i = 0; i < totalTicketsToGenerate; i++) {
+      currentSequenceNum += 1;
+      const ticketRef = db.collection("ticket").doc();
+      const ticketSequence = `${prefix}${String(currentSequenceNum).padStart(5, "0")}`;
+
+      transaction.set(ticketRef, {
         competition_id: competitionId,
         user_id: uid,
         order_id: orderRef.id,
-        ticket_number: seq,
+        ticket_number: currentSequenceNum,
         ticket_sequence: ticketSequence,
         status: "active",
         is_winner: false,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
-      };
-      transaction.set(ticketRef, ticketData);
+      });
+
       tickets.push({ ticketId: ticketRef.id, ticketSequence });
     }
 
-    // ── 4. Update user ───────────────────────────────────────────────────────
+    // Free Ticket Log
+    if (freeTickets > 0) {
+      const freeTicketLogRef = db.collection("free_ticket_log").doc();
+      transaction.set(freeTicketLogRef, {
+        user_id: uid,
+        order_id: orderRef.id,
+        competition_id: competitionId,
+        quantity: freeTickets,
+        reason: `${packType} Bonus`,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Competition Update
+    const newStock = currentStock - totalTicketsToGenerate;
+    const newSequenceStr = `${prefix}${String(currentSequenceNum).padStart(5, "0")}`;
+
+    const compUpdate = {
+      stock_quantity: admin.firestore.FieldValue.increment(-totalTicketsToGenerate),
+      sold_tickets: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
+      last_ticket_sequence: newSequenceStr,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (newStock === 0) {
+      compUpdate.status = "sold_out";
+    }
+    
+    // Add user to participants if not already there
+    const participants = Array.isArray(compData.participants) ? [...compData.participants] : [];
+    if (!participants.includes(uid)) {
+      participants.push(uid);
+      compUpdate.participants = participants;
+    }
+    
+    transaction.update(competitionRef, compUpdate);
+
+    // User Update
     transaction.update(userRef, {
-      total_tickets_bought: (Number(userData.total_tickets_bought) || 0) + qty,
-      total_spent: (Number(userData.total_spent) || 0) + totalAmount,
+      // Only increment by the quantity they actually PAID for
+      total_tickets_bought: admin.firestore.FieldValue.increment(qty), 
+      
+      // NEW: Increment the free ticket counters by the bonus amount
+      free_tickets: admin.firestore.FieldValue.increment(freeTickets),
+      total_free_tickets: admin.firestore.FieldValue.increment(freeTickets),
+      
+      total_spent: admin.firestore.FieldValue.increment(totalAmount),
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // ── 5. Update Metrics ────────────────────────────────────────────────────
-    const globalStatsRef = db.collection("system_metrics").doc("global_stats");
-    const todayStr = new Date().toISOString().split("T")[0];
-    const dailyMetricsRef = db.collection("daily_metrics").doc(todayStr);
-
-    transaction.set(
-      globalStatsRef,
-      { total_revenue: admin.firestore.FieldValue.increment(totalAmount) },
-      { merge: true }
-    );
-
-    transaction.set(
-      dailyMetricsRef,
-      {
-        tickets_sold: admin.firestore.FieldValue.increment(qty),
-        revenue: admin.firestore.FieldValue.increment(totalAmount),
-        date: todayStr,
-      },
-      { merge: true }
-    );
-
-    return { orderId: orderRef.id, tickets, totalAmount };
+    return { success: true, orderId: orderRef.id, tickets, totalAmount, packType, freeTickets };
   });
+
+  if (!result.success && result.reason === "skill_check_failed") {
+    throw new HttpsError("permission-denied", "Incorrect answer. You must pass the skill gate first.");
+  }
 
   return {
     success: true,
     orderId: result.orderId,
     tickets: result.tickets,
     totalAmount: result.totalAmount,
+    packType: result.packType,
+    freeTickets: result.freeTickets
   };
+});
+
+
+/**
+ * Trigger: aggregateOrderMetrics
+ * Listen for changes to the order/{orderId} collection.
+ * If the order status is 'Paid' (and wasn't previously paid), increment metrics.
+ */
+export const aggregateOrderMetrics = onDocumentWritten("order/{orderId}", async (event) => {
+  const beforeData = event.data.before?.data() || {};
+  const afterData = event.data.after?.data() || {};
+
+  // Check if order transitioned to 'Paid'
+  const wasPaid = beforeData.status === "Paid";
+  const isPaid = afterData.status === "Paid";
+
+  if (!wasPaid && isPaid) {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const totalAmount = Number(afterData.total_amount || 0);
+    const totalTickets = Number(afterData.total_ticket || 0) + Number(afterData.free_ticket || 0);
+
+    console.log(`Aggregating metrics for order ${event.params.orderId}: Amount=${totalAmount}, Tickets=${totalTickets}`);
+
+    const batch = db.batch();
+    
+    // Daily Metrics
+    const dailyRef = db.collection("daily_metrics").doc(todayStr);
+    batch.set(dailyRef, {
+      daily_revenue: admin.firestore.FieldValue.increment(totalAmount),
+      daily_tickets_sold: admin.firestore.FieldValue.increment(totalTickets),
+      date: todayStr
+    }, { merge: true });
+
+    // Global Metrics
+    const globalRef = db.collection("system_metrics").doc("global_stats");
+    batch.set(globalRef, {
+      total_revenue: admin.firestore.FieldValue.increment(totalAmount),
+      total_tickets_sold: admin.firestore.FieldValue.increment(totalTickets)
+    }, { merge: true });
+
+    await batch.commit();
+  }
 });

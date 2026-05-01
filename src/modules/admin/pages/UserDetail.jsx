@@ -69,7 +69,14 @@ const UserDetail = () => {
     );
   }
 
-  const { profile, orders, tickets, competitions } = data;
+  const { 
+    profile = {}, 
+    orders = [], 
+    tickets = [], 
+    competitions = [], 
+    referralsList = [], 
+    bonusLogs = [] 
+  } = data || {};
 
   const tabs = [
     { id: 'overview', label: t('users.detail.tabs.overview'), icon: LayoutDashboard },
@@ -183,17 +190,49 @@ const UserDetail = () => {
 
   const renderReferrals = () => (
     <Card className="fade-in">
-      <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
-        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-          <UsersIcon className="text-gray-500" size={32} />
-        </div>
-        <div>
-          <p className="text-white font-medium text-lg">{t('users.detail.referralsTab.title')}</p>
-          <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-            {t('users.detail.referralsTab.desc', { count: profile.referral_count || 0 })}
-          </p>
-        </div>
-      </div>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Referred User</TableHead>
+              <TableHead>Reward</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {referralsList.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="py-12 text-center text-gray-500 italic">No users referred yet</TableCell>
+              </TableRow>
+            ) : referralsList.map(ref => (
+              <TableRow key={ref.id}>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-white">{ref.referredName}</span>
+                    <span className="text-xs text-gray-500">{ref.referredEmail}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="success" className="bg-emerald-500/10 text-emerald-400">+{ref.reward_value || 0} Ticket</Badge>
+                </TableCell>
+                <TableCell>
+                  {ref.reward_issued ? (
+                    <Badge variant="success" className="bg-emerald-500/10 text-emerald-400 flex items-center gap-1 w-fit">
+                      <CheckCircle2 size={10} /> Issued
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" className="w-fit">Pending</Badge>
+                  )}
+                </TableCell>
+                <TableCell className="text-gray-400">
+                  {formatDate(ref.created_at)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
     </Card>
   );
 
@@ -215,7 +254,43 @@ const UserDetail = () => {
             {t('users.detail.bonusTab.assignBonus')}
           </Button>
         </div>
-        <Card className="p-8 text-center text-gray-500 italic">Bonus history coming soon...</Card>
+        
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Quantity</TableHead>
+                  <TableHead>Competition</TableHead>
+                  <TableHead>Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bonusLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-12 text-center text-gray-500 italic">No bonus history found</TableCell>
+                  </TableRow>
+                ) : bonusLogs.map(log => (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      <span className="font-medium text-white capitalize">{log.reason || 'Bonus'}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-emerald-400 font-bold">+{log.quantity}</span>
+                    </TableCell>
+                    <TableCell className="text-gray-400">
+                      {log.competitionTitle}
+                    </TableCell>
+                    <TableCell className="text-gray-400 text-sm">
+                      {formatDate(log.created_at || log.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </div>
     );
   };

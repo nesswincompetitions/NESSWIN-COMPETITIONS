@@ -1,9 +1,12 @@
+import { Loader2 } from 'lucide-react';
+
 export default function Button({
   children,
   variant = "primary",
   size = "md",
   className = "",
   onClick,
+  loading = false,
   ...props
 }) {
   const base =
@@ -26,8 +29,10 @@ export default function Button({
     <button
       className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
       onClick={onClick}
+      disabled={loading || props.disabled}
       {...props}
     >
+      {loading && <Loader2 className="animate-spin" size={16} />}
       {children}
     </button>
   );

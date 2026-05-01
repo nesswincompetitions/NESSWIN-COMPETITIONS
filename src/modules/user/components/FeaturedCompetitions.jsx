@@ -42,7 +42,7 @@ function CompetitionCard({ competition, onNavigate }) {
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
           <Badge variant={badgeType}>
-            {badgeType === "hot" ? (
+            {badgeType === "featured" ? (
               <Flame className="w-3 h-3" aria-hidden="true" />
             ) : (
               <Sparkles className="w-3 h-3" aria-hidden="true" />
@@ -120,32 +120,50 @@ export default function FeaturedCompetitions() {
   useEffect(() => {
     const fetchFeatured = async () => {
       try {
-        // Simple equality query to avoid index requirements for now
-        const q = query(collection(db, 'competition'), where('is_featured', '==', true));
+        // Fetch all active competitions to handle the complex priority sorting in memory
+        // this avoids needing multiple composite indexes in Firestore for now.
+        const q = query(collection(db, 'competition'), where('status', '==', 'active'));
         const snapshot = await getDocs(q);
-        const fetched = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
-              images: data.image || [],
-              badgeType: 'hot',
-              badgeLabel: 'Featured',
-              ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
-              category: data.category || 'Other',
-              title: data.title || 'Untitled',
-              subTitle: data.sub_title || '',
-              priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
-              sold: data.sold_tickets || 0,
-              total: data.total_tickets || 1000,
-              endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
-              status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status
-            };
-          })
-          .filter(comp => comp.status !== 'draft'); // Filter draft in memory
+        
+        let allComps = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            is_featured: data.is_featured || false,
+            sold: data.sold_tickets || 0,
+            image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
+            images: data.image || [],
+            badgeType: data.is_featured ? 'featured' : 'popular',
+            badgeLabel: data.is_featured ? 'Featured' : 'Popular',
+            ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+            category: data.category || 'Other',
+            title: data.title || 'Untitled',
+            subTitle: data.sub_title || '',
+            priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+            total: data.total_tickets || 1000,
+            endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+          };
+        });
 
-        setFeaturedComps(fetched);
+        // ── Selection Logic ──
+        // 1. Priority: is_featured == true
+        // 2. Secondary: most sold_tickets
+        // 3. Tertiary: Randomly if sold_tickets match
+        const sorted = allComps.sort((a, b) => {
+          // Priority 1: Featured
+          if (a.is_featured !== b.is_featured) {
+            return a.is_featured ? -1 : 1;
+          }
+          // Priority 2: Popularity (sold_tickets)
+          if (a.sold !== b.sold) {
+            return b.sold - a.sold;
+          }
+          // Priority 3: Random
+          return Math.random() - 0.5;
+        });
+
+        // Limit to exactly 6 cards as requested
+        setFeaturedComps(sorted.slice(0, 6));
       } catch (err) {
         console.error("Error fetching featured competitions:", err);
       } finally {

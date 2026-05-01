@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { admin, db } from "../config/firebaseAdmin.js";
 
-export const createCompetition = onCall(async (request) => {
+export const createCompetition = onCall({ cors: true }, async (request) => {
   // EDGE CASE 1: Authentication & Authorization
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "You must be logged in to do this.");
@@ -53,9 +53,9 @@ export const createCompetition = onCall(async (request) => {
   // Allow a 15-minute buffer for clock skew and timezone differences between browser and server.
   // Only reject if the draw date is more than 15 minutes in the PAST.
   const now = Date.now();
-  const CLOCK_SKEW_BUFFER_MS = 15 * 60 * 1000; // 15 minutes
+  const CLOCK_SKEW_BUFFER_MS = 12 * 60 * 60 * 1000; // 12 hours buffer to prevent stale drafts from blocking publish
   if (!is_draft && competitionData.draw_date && competitionData.draw_date < (now - CLOCK_SKEW_BUFFER_MS)) {
-    throw new HttpsError("invalid-argument", "Draw date must be set in the future.");
+    throw new HttpsError("invalid-argument", "Draw date must be set in the future (or at least today).");
   }
 
   // EDGE CASE 6: Firestore Batch Limits (Max 500 writes per batch)
@@ -154,5 +154,34 @@ export const createCompetition = onCall(async (request) => {
     console.error("Critical error creating competition:", error);
     // Do not send detailed database errors to the frontend, send a generic one for security
     throw new HttpsError("internal", "Failed to create competition in database.");
+  }
+});
+
+export const softDeleteCompetition = onCall({ cors: true }, async (request) => {
+  // Authentication & Authorization
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in to do this.");
+  }
+
+  const userDoc = await db.collection("user").doc(request.auth.uid).get();
+  if (!userDoc.exists || userDoc.data().role !== "admin") {
+    throw new HttpsError("permission-denied", "Only admins can delete competitions.");
+  }
+
+  const { id } = request.data;
+  if (!id) {
+    throw new HttpsError("invalid-argument", "Missing competition ID.");
+  }
+
+  try {
+    await db.collection("competition").doc(id).update({
+      status: "deleted",
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return { success: true, message: "Competition deleted successfully." };
+  } catch (error) {
+    console.error("Error soft deleting competition:", error);
+    throw new HttpsError("internal", "Failed to delete competition.");
   }
 });

@@ -16,14 +16,16 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
+  Gift,
+  Tag,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../../context/AuthContext";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import Modal from "../../../components/ui/Modal";
-import { verifySkillAnswer, processMockCheckout } from "../../../services/competitionService";
+import { verifySkillAnswer, processOrder } from "../../../services/competitionService";
 
 
 
@@ -66,8 +68,8 @@ function ImageGallery({ images, title, status }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
         <span className={`absolute top-4 left-4 inline-flex items-center justify-center rounded-md border border-transparent px-2 py-0.5 text-xs font-medium tracking-wider uppercase ${status === 'end'
-            ? 'bg-red-500 text-white'
-            : 'bg-primary text-(--color-primary-foreground)'
+          ? 'bg-red-500 text-white'
+          : 'bg-primary text-(--color-primary-foreground)'
           }`}>
           {status === 'end' ? 'Closed' : t("competitionDetails.ongoing")}
         </span>
@@ -80,8 +82,8 @@ function ImageGallery({ images, title, status }) {
             key={i}
             onClick={() => setActive(i)}
             className={`shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${active === i
-                ? "border-primary shadow-[0_0_10px_oklch(0.78_0.14_78/0.4)]"
-                : "border-transparent opacity-60 hover:opacity-100"
+              ? "border-primary shadow-[0_0_10px_oklch(0.78_0.14_78/0.4)]"
+              : "border-transparent opacity-60 hover:opacity-100"
               }`}
           >
             <img src={src} alt="" className="w-full h-full object-cover" />
@@ -255,58 +257,160 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
           </div>
         ) : skillPassed ? (
           /* ── TICKET SELECTION UI (Phase 2) ── */
-          <div className="space-y-4 py-1">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 w-fit mx-auto">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Skill Verified</span>
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm font-semibold text-(--color-foreground)">Select Tickets</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Max 100 per order</p>
-            </div>
-
-            {/* Quantity Selector */}
-            <div className="flex items-center justify-center gap-4">
-              <button
-                onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                disabled={ticketQuantity <= 1 || isProcessing}
-                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
-              <div className="w-20 text-center">
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={ticketQuantity}
-                  onChange={(e) => {
-                    const v = Math.min(100, Math.max(1, parseInt(e.target.value) || 1));
-                    setTicketQuantity(v);
-                  }}
-                  disabled={isProcessing}
-                  className="w-full text-center bg-transparent text-2xl font-bold text-(--color-foreground) outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+          <div className="space-y-6">
+            {/* Top Banner */}
+            <div className="bg-[#0A1A14] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <Gift className="w-4 h-4 text-emerald-500" />
               </div>
-              <button
-                onClick={() => setTicketQuantity(Math.min(100, ticketQuantity + 1))}
-                disabled={ticketQuantity >= 100 || isProcessing}
-                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+              <p className="text-[11px] font-bold text-emerald-400 leading-tight">
+                {t("competitionDetails.buy10Get1Free")}
+              </p>
             </div>
 
-            {/* Price Summary */}
-            <div className="bg-muted/30 border border-border/40 rounded-xl p-3 space-y-1.5 text-sm">
-              <div className="flex justify-between text-muted-foreground">
-                <span>{ticketQuantity} × {ticketPrice} €</span>
-                <span className="text-(--color-foreground) font-semibold">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
+            {/* Individual Tickets Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Ticket className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-black uppercase tracking-widest">{t("competitionDetails.individualTickets")}</span>
               </div>
-              <div className="flex justify-between font-bold text-(--color-foreground) pt-1.5 border-t border-border/30">
-                <span>Total</span>
-                <span className="text-primary">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
+              <div className="grid grid-cols-5 gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setTicketQuantity(num)}
+                    className={`h-12 rounded-xl border font-bold text-sm transition-all duration-300 cursor-pointer ${ticketQuantity === num
+                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]'
+                      : 'bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
+                      }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Packs Grid */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="h-px flex-1 bg-border/40" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("competitionDetails.advantageousPacks")}</span>
+                <div className="h-px flex-1 bg-border/40" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'prestige', name: 'Pack Prestige', tickets: 15, discount: 10, popular: false },
+                  { id: 'elite', name: 'Pack Elite', tickets: 20, discount: 15, popular: false },
+                  { id: 'gold', name: 'Pack Gold', tickets: 25, discount: 20, popular: true },
+                  { id: 'diamond', name: 'Pack Diamond', tickets: 50, discount: 25, popular: false },
+                ].map((pack) => {
+                  const isSelected = ticketQuantity === pack.tickets;
+                  return (
+                    <button
+                      key={pack.id}
+                      onClick={() => setTicketQuantity(pack.tickets)}
+                      className={`relative p-5 rounded-2xl border text-left transition-all duration-500 cursor-pointer group ${isSelected
+                        ? 'bg-primary/5 border-primary shadow-[0_0_30px_rgba(var(--primary-rgb),0.15)]'
+                        : 'bg-white/[0.02] border-white/5 hover:border-white/20'
+                        }`}
+                    >
+                      {pack.popular && (
+                        <div className="absolute -top-px -right-px px-3 py-1 bg-primary rounded-bl-xl rounded-tr-2xl">
+                          <span className="text-[8px] font-black text-black uppercase tracking-tighter">{t("common.popular")}</span>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <span className={`inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-colors ${isSelected ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-muted-foreground'
+                          }`}>
+                          -{pack.discount}%
+                        </span>
+                        <p className="text-sm font-bold text-white pt-1">{pack.name}</p>
+                        <p className="text-xs text-muted-foreground">{pack.tickets} {t("common.tickets")}</p>
+                        <p className="text-lg font-black text-primary pt-1">
+                          {(pack.tickets * ticketPrice * (1 - pack.discount / 100)).toFixed(0)} €
+                        </p>
+                      </div>
+
+                      {isSelected && (
+                        <div className="absolute inset-0 rounded-2xl border-2 border-primary/50 animate-pulse-slow pointer-events-none" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Summary Section */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
+              <div className="space-y-3">
+                {/* Subtotal */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">{t("common.subtotal")} · {ticketQuantity} {t("common.tickets")}</span>
+                  <span className="font-bold text-white">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
+                </div>
+
+                {/* Discount */}
+                {(() => {
+                  const packs = [
+                    { tickets: 15, discount: 10 },
+                    { tickets: 20, discount: 15 },
+                    { tickets: 25, discount: 20 },
+                    { tickets: 50, discount: 25 },
+                  ];
+                  const activePack = packs.find(p => p.tickets === ticketQuantity);
+                  if (activePack) {
+                    const discountAmt = (ticketQuantity * ticketPrice * activePack.discount) / 100;
+                    return (
+                      <div className="flex justify-between items-center text-sm">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Tag className="w-3.5 h-3.5" />
+                          <span className="font-bold">{t("common.discount")} {activePack.discount}%</span>
+                        </div>
+                        <span className="font-bold text-emerald-400">-{discountAmt.toFixed(2)} €</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Bonus Tickets */}
+                {(() => {
+                  const bonus = Math.floor(ticketQuantity / 10);
+                  if (bonus > 0) {
+                    return (
+                      <div className="flex justify-between items-center text-sm">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Gift className="w-3.5 h-3.5" />
+                          <span className="font-bold">{t("competitionDetails.bonusTickets")}</span>
+                        </div>
+                        <span className="font-bold text-emerald-400">+{bonus} {t("common.free")} 🎁</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              <div className="h-px bg-white/5" />
+
+              {/* Total */}
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-base font-black text-white uppercase tracking-wider">{t("common.total")}</span>
+                <span className="text-2xl font-black text-primary">
+                  {(() => {
+                    const packs = [
+                      { tickets: 15, discount: 10 },
+                      { tickets: 20, discount: 15 },
+                      { tickets: 25, discount: 20 },
+                      { tickets: 50, discount: 25 },
+                    ];
+                    const activePack = packs.find(p => p.tickets === ticketQuantity);
+                    const subtotal = ticketQuantity * ticketPrice;
+                    const discount = activePack ? (subtotal * activePack.discount) / 100 : 0;
+                    return (subtotal - discount).toFixed(2);
+                  })()} €
+                </span>
               </div>
             </div>
 
@@ -317,17 +421,23 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
               </div>
             )}
 
+            {/* Action Button */}
             <button
               onClick={onBuyTickets}
               disabled={isProcessing}
-              className="inline-flex items-center justify-center gap-2 w-full rounded-xl text-sm font-bold h-12 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-all cursor-pointer shadow-[0_4px_20px_oklch(0.78_0.14_78/0.3)]"
+              className="group/btn relative w-full h-16 rounded-2xl bg-primary overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer"
             >
-              {isProcessing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <ShoppingCart className="w-4 h-4" />
-              )}
-              {isProcessing ? 'Processing...' : `Buy ${ticketQuantity} Ticket${ticketQuantity > 1 ? 's' : ''}`}
+              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+              <div className="relative flex items-center justify-center gap-3">
+                {isProcessing ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-black" />
+                ) : (
+                  <ShoppingCart className="w-5 h-5 text-black" />
+                )}
+                <span className="text-base font-black text-black uppercase tracking-widest">
+                  {isProcessing ? t("common.processing") : t("competitionDetails.proceedToPayment")}
+                </span>
+              </div>
             </button>
           </div>
         ) : (
@@ -359,41 +469,26 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
           </div>
         )}
 
-        {/* Draw info grid */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-muted/30 border border-border/40 rounded-2xl p-3.5 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              {t("competitionDetails.drawOn")}
-            </p>
-            <p className="text-xs font-semibold leading-tight capitalize text-(--color-foreground)">
-              {drawDate}
-            </p>
-            <p className="text-xs text-primary font-bold mt-0.5">
-              {drawTime}
-            </p>
-          </div>
-          <div className="bg-muted/30 border border-border/40 rounded-2xl p-3.5 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              {t("competitionDetails.left")}
-            </p>
-            <p className="font-bold text-primary text-base">
-              {remaining.toLocaleString()}
-            </p>
-            <div
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progress}
-              className="relative w-full h-2.5 rounded-full bg-white/5 border border-white/5 overflow-hidden mt-2"
-            >
-              <div
-                className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${progress}%`,
-                  boxShadow: progress > 0 ? '0 0 15px oklch(0.78 0.14 78 / 0.5)' : 'none'
-                }}
-              />
+        {/* Progress Bar - Matching Reference Image */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Users className="w-3.5 h-3.5" />
+              <span>{t("competitionDetails.left")}</span>
             </div>
+            <div className="text-white">
+              <span className="text-primary">{remaining.toLocaleString()}</span>
+              <span className="text-muted-foreground opacity-50"> / {total.toLocaleString()}</span>
+            </div>
+          </div>
+          <div className="h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden p-[1px]">
+            <div
+              className="h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-1000 ease-out"
+              style={{
+                width: `${progress}%`,
+                boxShadow: progress > 0 ? '0 0 15px rgba(var(--primary-rgb),0.4)' : 'none'
+              }}
+            />
           </div>
         </div>
 
@@ -611,7 +706,7 @@ export default function CompetitionDetails() {
           const resolvedParticipants = await Promise.all(
             participantRefs.slice(0, 15).map(async (ref) => {
               try {
-                const userRef = typeof ref === 'string' ? doc(db, ref) : ref;
+                const userRef = typeof ref === 'string' ? (ref.includes('/') ? doc(db, ref) : doc(db, 'user', ref)) : ref;
                 const userSnap = await getDoc(userRef);
                 if (userSnap.exists()) {
                   const userData = userSnap.data();
@@ -773,9 +868,10 @@ export default function CompetitionDetails() {
     setIsProcessing(true);
     setCheckoutError('');
     try {
-      const result = await processMockCheckout({
+      const result = await processOrder({
+        userId: currentUser.uid,
         competitionId: c.id,
-        quantity: ticketQuantity,
+        ticketQuantity: ticketQuantity,
         questionId: verifiedQuestionId,
         selectedOptionId: verifiedOptionId,
       });
@@ -953,8 +1049,8 @@ export default function CompetitionDetails() {
                             key={idx}
                             onClick={() => setSelectedOptions(prev => ({ ...prev, [questions[currentQuestionIndex].id]: idx }))}
                             className={`group/opt relative w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 cursor-pointer ${isSelected
-                                ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
-                                : 'bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
+                              ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
+                              : 'bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
                               }`}
                           >
                             <div className="flex items-center justify-between">

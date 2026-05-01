@@ -1,6 +1,8 @@
 export default function Badge({ children, variant = "hot" }) {
   const variants = {
     hot: "bg-red-500/20 text-red-400 border-red-500/30",
+    featured: "bg-red-600/25 text-red-400 border-red-500/40",
+    popular: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     new: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     success: "bg-green-500/20 text-green-400 border-green-500/30",
     warning: "bg-orange-500/20 text-orange-400 border-orange-500/30",

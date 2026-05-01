@@ -40,7 +40,10 @@ export const verifySkillAnswer = onCall(async (request) => {
   const answerGivenText = selectedOption ? selectedOption.option : String(selectedOptionId);
 
   // ── Record the attempt ───────────────────────────────────────────────────────
-  await db.collection("skill_attempts").add({
+  const attemptRef = db.collection("skill_attempts").doc();
+  const batch = db.batch();
+
+  batch.set(attemptRef, {
     user_id: uid,
     competition_id: competitionId,
     question_id: questionId,
@@ -50,6 +53,8 @@ export const verifySkillAnswer = onCall(async (request) => {
     attempt_number: attemptNumber,
     attempted_at: admin.firestore.FieldValue.serverTimestamp(),
   });
+
+  await batch.commit();
 
   return { success: passed };
 });
