@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/Table';
@@ -6,13 +6,18 @@ import Button from '../../../components/ui/Button';
 import Badge from '../../../components/ui/Badge';
 import Modal from '../../../components/ui/Modal';
 import {
-  Search, Plus, Upload, Settings, Ticket, HelpCircle
+  Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2
 } from 'lucide-react';
+import { fetchBonusTicketsList } from '../../../services/adminService';
+import { toast } from 'react-hot-toast';
 
 const BonusTickets = () => {
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [tickets, setTickets] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Form State
   const [assignUser, setAssignUser] = useState('');
@@ -20,49 +25,55 @@ const BonusTickets = () => {
   const [assignReason, setAssignReason] = useState('');
   const [assignExpiry, setAssignExpiry] = useState('');
 
-  // Dummy Ledger Data
-  const tickets = [
-    {
-      id: 1, userName: "John Doe", amount: "+5", reason: "Referral reward",
-      assignedBy: "Admin", dateAssigned: "12 May 2026", expiryDate: "30 May 2026", status: "Active"
-    },
-    {
-      id: 2, userName: "Sarah Smith", amount: "-1", reason: "Used on iPhone Giveaway",
-      assignedBy: "System", dateAssigned: "10 May 2026", expiryDate: "-", status: "Used"
-    },
-    {
-      id: 3, userName: "Mike Johnson", amount: "+2", reason: "Customer service compensation",
-      assignedBy: "Admin", dateAssigned: "05 May 2026", expiryDate: "No Expiry", status: "Active"
-    },
-    {
-      id: 4, userName: "Emma Wilson", amount: "+10", reason: "Welcome Bonus",
-      assignedBy: "System", dateAssigned: "01 Jan 2026", expiryDate: "01 Feb 2026", status: "Expired"
-    },
-  ];
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const filteredTickets = activeStatus === 'all'
-    ? tickets
-    : tickets.filter(t => t.status.toLowerCase() === activeStatus);
-
-  const renderStatusBadge = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active': return <Badge variant="success">{t('common.active')}</Badge>;
-      case 'used': return <Badge variant="neutral" className="bg-gray-500/20 text-gray-400 border-gray-500/30">{t('common.used')}</Badge>;
-      case 'expired': return <Badge variant="danger">{t('common.expired')}</Badge>;
-      default: return <Badge variant="neutral">{status}</Badge>;
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchBonusTicketsList();
+      setTickets(data);
+    } catch (error) {
+      console.error('Error loading bonus tickets:', error);
+      toast.error('Failed to load bonus tickets log');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const filteredTickets = tickets.filter(ticket => {
+    // 1. Search Filter (User Name or Reason)
+    const matchesSearch = 
+      ticket.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.competitionTitle || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    // 2. Status Filter (Since we don't have a status field in log, we might assume 'Active' or handle based on reason)
+    // For now, if activeStatus is 'all', show everything.
+    if (activeStatus === 'all') return matchesSearch;
+    
+    // Logic for used/active/expired could be added here if fields were available
+    return matchesSearch;
+  });
+
+  const formatDate = (ts) => {
+    if (!ts) return '—';
+    const date = ts.toMillis ? new Date(ts.toMillis()) : new Date(ts);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const handleAssignSubmit = (e) => {
     e.preventDefault();
-    // Simulate API call
-    console.log("Assigning tickets:", { assignUser, assignAmount, assignReason, assignExpiry });
+    // In a real app, you'd call a Cloud Function here
+    toast.error('Direct ticket assignment is coming soon');
     setIsAssignModalOpen(false);
-    // Reset form
-    setAssignUser('');
-    setAssignAmount(1);
-    setAssignReason('');
-    setAssignExpiry('');
   };
 
   return (
@@ -78,8 +89,10 @@ const BonusTickets = () => {
           <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3 h-[52px]">
             <Ticket className="text-primary opacity-70" size={20} />
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">{t('common.circulation')}</p>
-              <p className="text-lg font-bold text-white leading-none mt-0.5">1,245</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Total Issued</p>
+              <p className="text-lg font-bold text-white leading-none mt-0.5">
+                {tickets.reduce((acc, curr) => acc + (curr.quantity || 0), 0).toLocaleString()}
+              </p>
             </div>
           </Card>
         </div>
@@ -129,6 +142,8 @@ const BonusTickets = () => {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t('bonusTickets.searchPlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
               />
@@ -137,14 +152,19 @@ const BonusTickets = () => {
 
           {/* 5. Ledger Table */}
           <div className="overflow-x-auto">
-            {filteredTickets.length > 0 ? (
+            {loading ? (
+              <div className="p-20 text-center">
+                <Loader2 size={32} className="animate-spin text-primary mx-auto mb-4" />
+                <p className="text-gray-400">Loading bonus ticket logs...</p>
+              </div>
+            ) : filteredTickets.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('bonusTickets.table.user')}</TableHead>
                     <TableHead className="text-center">{t('bonusTickets.table.tickets')}</TableHead>
                     <TableHead>{t('bonusTickets.table.reason')}</TableHead>
-                    <TableHead>{t('bonusTickets.table.issuedBy')}</TableHead>
+                    <TableHead>Competition</TableHead>
                     <TableHead>{t('bonusTickets.table.date')}</TableHead>
                     <TableHead>{t('common.expiryDate')}</TableHead>
                     <TableHead className="text-right">{t('common.status')}</TableHead>
@@ -155,11 +175,8 @@ const BonusTickets = () => {
                     <TableRow key={ticket.id}>
                       <TableCell className="font-medium text-white">{ticket.userName}</TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-bold font-mono px-2 py-1 rounded-md ${ticket.amount.startsWith('+')
-                          ? 'text-emerald-400 bg-emerald-400/10'
-                          : 'text-red-400 bg-red-400/10'
-                          }`}>
-                          {ticket.amount}
+                        <span className={`font-bold font-mono px-2 py-1 rounded-md text-emerald-400 bg-emerald-400/10`}>
+                          +{ticket.quantity}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -168,14 +185,18 @@ const BonusTickets = () => {
                           <HelpCircle size={14} className="text-gray-500 cursor-help" title={ticket.reason} />
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-400">{ticket.assignedBy}</TableCell>
-                      <TableCell className="text-gray-400 whitespace-nowrap">{ticket.dateAssigned}</TableCell>
-                      <TableCell>
-                        <span className={`text-sm ${ticket.expiryDate === 'No Expiry' ? 'text-gray-500 italic' : 'text-gray-300'}`}>
-                          {ticket.expiryDate}
+                      <TableCell className="text-gray-400">
+                        <span className="truncate max-w-[150px] block" title={ticket.competitionTitle}>
+                          {ticket.competitionTitle}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">{renderStatusBadge(ticket.status)}</TableCell>
+                      <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
+                      <TableCell>
+                        <span className="text-gray-500 italic">—</span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="success">Granted</Badge>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
