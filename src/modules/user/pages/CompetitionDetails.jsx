@@ -25,7 +25,7 @@ import { useAuth } from "../../../context/AuthContext";
 import { doc, getDoc, collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "../../../utils/firebase";
 import Modal from "../../../components/ui/Modal";
-import { verifySkillAnswer, processOrder } from "../../../services/competitionService";
+import { verifySkillAnswer, processOrder, getSkillGateStatus } from "../../../services/competitionService";
 
 
 
@@ -53,9 +53,11 @@ function Breadcrumb({ title }) {
   );
 }
 
-function ImageGallery({ images, title, status }) {
+function ImageGallery({ images, title, status, endsAt }) {
   const { t } = useTranslation();
   const [active, setActive] = useState(0);
+  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
+  const isEnded = status === 'end';
 
   return (
     <div className="space-y-3">
@@ -67,11 +69,11 @@ function ImageGallery({ images, title, status }) {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
-        <span className={`absolute top-4 left-4 inline-flex items-center justify-center rounded-md border border-transparent px-2 py-0.5 text-xs font-medium tracking-wider uppercase ${status === 'end'
+        <span className={`absolute top-4 left-4 inline-flex items-center justify-center rounded-md border border-transparent px-2 py-0.5 text-xs font-medium tracking-wider uppercase ${(isClosed || isEnded)
           ? 'bg-red-500 text-white'
           : 'bg-primary text-(--color-primary-foreground)'
           }`}>
-          {status === 'end' ? 'Closed' : t("competitionDetails.ongoing")}
+          {isEnded ? t("common.ended") : isClosed ? t("common.closed") : t("competitionDetails.ongoing")}
         </span>
       </div>
 
@@ -168,15 +170,17 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
   const { t } = useTranslation();
   const { currentUser } = useAuth();
   const {
-    title,
-    images,
-    ticketPrice,
-    drawDate,
-    drawTime,
     sold,
     total,
+    status,
+    endsAt,
+    title,
+    images,
+    ticketPrice
   } = competition;
 
+  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
+  const isEnded = status === 'end';
   const remaining = total - sold;
   const progress = Math.min(100, Math.round((sold / total) * 100));
 
@@ -255,7 +259,7 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
               Total: <span className="font-bold text-primary">{orderResult.totalAmount} €</span> · Order #{orderResult.orderId.slice(0, 8)}
             </div>
           </div>
-        ) : skillPassed ? (
+        ) : (skillPassed && !isClosed && !isEnded) ? (
           /* ── TICKET SELECTION UI (Phase 2) ── */
           <div className="space-y-6">
             {/* Top Banner */}
@@ -441,30 +445,54 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
             </button>
           </div>
         ) : (
-          /* ── DEFAULT: PARTICIPATE BUTTON (Phase 1 trigger) ── */
+          /* ── DEFAULT: PARTICIPATE BUTTON ── */
           <div className="text-center py-2">
-            {competition.status === 'cancelled' && (
-              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
-                This competition has been cancelled.
-              </div>
-            )}
-            {competition.status === 'paused' && (
+            {isClosed && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
-                For now its paused check back soon.
+                {t("common.competitionClosed")}
               </div>
             )}
-            {competition.status === 'end' && (
+            {isEnded && (
               <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
                 This competition has ended.
               </div>
             )}
+            {competition.gateStatus === 'locked' && (
+              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
+                You answered all skill questions incorrectly. You are not eligible to participate.
+              </div>
+            )}
             <button
               onClick={competition.onParticipate}
-              disabled={competition.status === 'cancelled' || competition.status === 'paused' || competition.status === 'end'}
+              disabled={competition.status === 'cancelled' || competition.status === 'paused' || isClosed || isEnded || competition.gateStatus === 'locked' || competition.gateStatus === 'loading'}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <Ticket className="w-4 h-4" aria-hidden="true" />
-              {t("common.participate")}
+              {competition.gateStatus === 'loading' ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  Checking eligibility...
+                </>
+              ) : isClosed ? (
+                <>
+                  <Lock className="w-4 h-4" aria-hidden="true" />
+                  {t("common.drawPending")}
+                </>
+              ) : isEnded ? (
+                <>
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  {t("common.ended")}
+                </>
+              ) : competition.gateStatus === 'locked' ? (
+                <>
+                  <Lock className="w-4 h-4" aria-hidden="true" />
+                  Not Eligible
+                </>
+              ) : (
+                <>
+                  <Ticket className="w-4 h-4" aria-hidden="true" />
+                  {t("common.participate")}
+                </>
+              )}
             </button>
           </div>
         )}
@@ -493,14 +521,25 @@ function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicke
         </div>
 
         {/* Live draw note */}
-        <div className="flex items-start gap-2 bg-muted/20 rounded-xl p-3">
-          <Video
-            className="w-4 h-4 text-primary shrink-0 mt-0.5"
-            aria-hidden="true"
-          />
-          <p className="text-[11px] text-muted-foreground leading-relaxed">
-            {t("competitionDetails.liveNote")}
-          </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start gap-2 bg-muted/20 rounded-xl p-3">
+            <Video
+              className="w-4 h-4 text-primary shrink-0 mt-0.5"
+              aria-hidden="true"
+            />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {t("competitionDetails.liveNote")}
+            </p>
+          </div>
+
+          {competition.drawDate && (
+            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl p-3 text-primary">
+              <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <p className="text-[11px] font-medium leading-relaxed">
+                Expected Draw Date: <span className="font-bold">{competition.drawDate} at {competition.drawTime}</span>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Free Postal Entry note */}
@@ -660,10 +699,10 @@ export default function CompetitionDetails() {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [questions, setQuestions] = useState([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOptions, setSelectedOptions] = useState({}); // { questionId: optionIndex }
+  const [activeQuestion, setActiveQuestion] = useState(null);
+  const [selectedOptionId, setSelectedOptionId] = useState(null);
+  const [gateStatus, setGateStatus] = useState('loading'); // 'loading' | 'eligible' | 'locked' | 'needs_attempt'
+  const [remainingCount, setRemainingCount] = useState(0);
 
   // Phase 1 — Skill Gate state
   const [isVerifying, setIsVerifying] = useState(false);
@@ -726,8 +765,8 @@ export default function CompetitionDetails() {
             id: compDoc.id,
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image && data.image.length > 0 ? data.image : ['https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080'],
-            badgeType: data.is_featured ? 'hot' : 'new',
-            badgeLabel: data.status === 'active' ? 'Active' : data.status,
+            badgeType: data.status === 'active' ? 'new' : 'ended',
+            badgeLabel: data.is_featured ? 'Featured' : (data.status === 'active' ? 'Active' : data.status),
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
@@ -742,7 +781,7 @@ export default function CompetitionDetails() {
             description: data.description || '',
             included: data.included_things || [],
             prizeVideoUrl: data.prize_video_url || '',
-            status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status,
+            status: data.status,
             docRef: compDoc.ref,
             participants: resolvedParticipants.filter(p => p !== null)
           });
@@ -756,81 +795,56 @@ export default function CompetitionDetails() {
     if (id) fetchCompetition();
   }, [id]);
 
-  // Persistent Skill Gate: Check if user already passed this competition's CURRENT skill check
-  useEffect(() => {
-    const checkPreviousSkillPass = async () => {
-      if (!currentUser || !id || !c?.docRef) return;
-      try {
-        // 1. Fetch the CURRENT questions for this competition
-        const qQuery = query(collection(db, 'questions'), where('competition_id', '==', c.docRef));
-        const qSnapshot = await getDocs(qQuery);
-        const currentQuestionIds = qSnapshot.docs.map(doc => doc.id);
+  // Server-Driven Skill Gate: Check status securely
+  const loadSkillGateStatus = async () => {
+    if (!currentUser || !id) return;
+    setGateStatus('loading');
+    try {
+      const response = await getSkillGateStatus({ competitionId: id });
 
-        if (currentQuestionIds.length === 0) return;
+      setGateStatus(response.status);
 
-        // 2. Check for a passed attempt matching any of the CURRENT questions
-        const q = query(
-          collection(db, 'skill_attempts'),
-          where('user_id', '==', currentUser.uid),
-          where('competition_id', '==', id),
-          where('passed', '==', true)
-        );
-        const snapshot = await getDocs(q);
-
-        // Find if any passed attempt matches a current question ID
-        const validAttempt = snapshot.docs.find(doc =>
-          currentQuestionIds.includes(doc.data().question_id)
-        );
-
-        if (validAttempt) {
-          const attempt = validAttempt.data();
-          setSkillPassed(true);
-          setVerifiedQuestionId(attempt.question_id);
-          setVerifiedOptionId(attempt.selected_option_id || attempt.answer_given);
-        } else {
-          // If no pass found for current questions, make sure skillPassed is false
-          // (e.g. if they passed an old question that was since deleted/changed)
-          setSkillPassed(false);
+      if (response.status === 'eligible') {
+        setSkillPassed(true);
+        if (response.passedQuestionId) {
+          setVerifiedQuestionId(response.passedQuestionId);
+          setVerifiedOptionId(response.passedOptionId);
         }
-      } catch (err) {
-        console.error("Error checking previous skill attempts:", err);
+      } else if (response.status === 'needs_attempt') {
+        setActiveQuestion(response.question);
+        setRemainingCount(response.remainingCount);
+        setSkillPassed(false);
+      } else if (response.status === 'locked') {
+        setSkillPassed(false);
+        setActiveQuestion(null);
       }
-    };
-    checkPreviousSkillPass();
-  }, [currentUser, id, c?.docRef]);
+    } catch (err) {
+      console.error("Error fetching skill gate status:", err);
+      // Fallback to error state instead of exposing questions
+      setGateStatus('loading');
+    }
+  };
+
+  useEffect(() => {
+    loadSkillGateStatus();
+  }, [currentUser, id]);
 
   const handleParticipateClick = async () => {
-    setIsModalOpen(true);
-    setCurrentQuestionIndex(0);
-    setVerifyError('');
-    setSelectedOptions({});
-    if (questions.length === 0) {
-      setLoadingQuestions(true);
-      try {
-        const qQuery = query(collection(db, 'questions'), where('competition_id', '==', c.docRef));
-        const qSnapshot = await getDocs(qQuery);
-        const qList = qSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setQuestions(qList);
-      } catch (err) {
-        console.error("Error fetching questions:", err);
-      } finally {
-        setLoadingQuestions(false);
-      }
+    if (gateStatus === 'needs_attempt' && activeQuestion) {
+      setIsModalOpen(true);
+      setVerifyError('');
+      setSelectedOptionId(null);
+    } else if (gateStatus === 'eligible') {
+      // Just visually proceed to checkout section
+      document.getElementById('ticket-purchase-card')?.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
   // Phase 1 — verify the selected answer via Cloud Function
   const handleVerifyAnswer = async () => {
-    const currentQ = questions[currentQuestionIndex];
-    if (!currentQ) return;
-    const selectedOptIndex = selectedOptions[currentQ.id];
-    if (selectedOptIndex === undefined) {
+    if (!activeQuestion) return;
+    if (selectedOptionId === null || selectedOptionId === undefined) {
       setVerifyError('Please select an answer before continuing.');
-      return;
-    }
-    const selectedOpt = currentQ.option?.[selectedOptIndex];
-    if (!selectedOpt) {
-      setVerifyError('Invalid option selected.');
       return;
     }
 
@@ -839,17 +853,25 @@ export default function CompetitionDetails() {
     try {
       const result = await verifySkillAnswer({
         competitionId: c.id,
-        questionId: currentQ.id,
-        selectedOptionId: selectedOpt.option_id,
+        questionId: activeQuestion.id,
+        selectedOptionId: selectedOptionId,
       });
+
       if (result.success) {
-        setVerifiedQuestionId(currentQ.id);
-        setVerifiedOptionId(selectedOpt.option_id);
+        setVerifiedQuestionId(activeQuestion.id);
+        setVerifiedOptionId(selectedOptionId);
         setSkillPassed(true);
+        setGateStatus('eligible');
         setIsModalOpen(false);
         toast.success('Skill verified! Now select your tickets.');
       } else {
-        setVerifyError('Incorrect answer. Please try again.');
+        // Answer was wrong, hit the server again to get the next state
+        toast.error('Incorrect answer. Let\'s see if you get another try...');
+        await loadSkillGateStatus();
+        setSelectedOptionId(null);
+
+        // If the new status is locked, close modal
+        // (Status updates automatically via loadSkillGateStatus)
       }
     } catch (err) {
       const msg = err?.message || 'Verification failed. Please try again.';
@@ -858,6 +880,14 @@ export default function CompetitionDetails() {
       setIsVerifying(false);
     }
   };
+
+  // Close modal automatically if they get locked out while trying
+  useEffect(() => {
+    if (gateStatus === 'locked' && isModalOpen) {
+      setIsModalOpen(false);
+      toast.error('You answered all available questions incorrectly. You are no longer eligible.');
+    }
+  }, [gateStatus, isModalOpen]);
 
   // Phase 2 — process the atomic checkout via Cloud Function
   const handleBuyTickets = async () => {
@@ -912,7 +942,7 @@ export default function CompetitionDetails() {
 
             {/* LEFT — Gallery + Desktop-only info */}
             <div className="space-y-4">
-              <ImageGallery images={c.images} title={c.title} status={c.status} />
+              <ImageGallery images={c.images} title={c.title} status={c.status} endsAt={c.endsAt} />
 
               {/* Desktop-only: Included & Video in left column */}
               <div className="hidden lg:block space-y-4">
@@ -950,16 +980,18 @@ export default function CompetitionDetails() {
               <hr className="border-0 h-px bg-border" />
 
               {/* Ticket purchase card */}
-              <TicketPurchaseCard
-                competition={{ ...c, onParticipate: handleParticipateClick }}
-                skillPassed={skillPassed}
-                ticketQuantity={ticketQuantity}
-                setTicketQuantity={setTicketQuantity}
-                onBuyTickets={handleBuyTickets}
-                isProcessing={isProcessing}
-                orderResult={orderResult}
-                checkoutError={checkoutError}
-              />
+              <div id="ticket-purchase-card">
+                <TicketPurchaseCard
+                  competition={{ ...c, onParticipate: handleParticipateClick, gateStatus }}
+                  skillPassed={skillPassed}
+                  ticketQuantity={ticketQuantity}
+                  setTicketQuantity={setTicketQuantity}
+                  onBuyTickets={handleBuyTickets}
+                  isProcessing={isProcessing}
+                  orderResult={orderResult}
+                  checkoutError={checkoutError}
+                />
+              </div>
             </div>
           </div>
 
@@ -993,31 +1025,25 @@ export default function CompetitionDetails() {
         description="Verify your skill to enter the draw."
       >
         <div className="max-w-md mx-auto w-full">
-          {loadingQuestions ? (
+          {gateStatus === 'loading' || isVerifying ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
               <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-muted-foreground font-medium animate-pulse">
-                Fetching skill questions...
+                {isVerifying ? 'Checking your answer...' : 'Loading secure challenge...'}
               </p>
             </div>
-          ) : questions.length > 0 ? (
+          ) : activeQuestion ? (
             <div className="space-y-6">
               {/* Question Header & Progress */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
                   <span className="text-[10px] font-bold text-primary uppercase tracking-wider">
-                    Question {currentQuestionIndex + 1} of {questions.length}
+                    Skill Question
                   </span>
                 </div>
-                <div className="flex gap-1.5 items-center">
-                  {questions.map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentQuestionIndex ? 'w-8 bg-primary' : 'w-3 bg-white/10'
-                        }`}
-                    />
-                  ))}
+                <div className="text-xs text-muted-foreground">
+                  {remainingCount - 1} chance{remainingCount - 1 !== 1 ? 's' : ''} remaining
                 </div>
               </div>
 
@@ -1025,10 +1051,10 @@ export default function CompetitionDetails() {
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-linear-to-r from-primary/20 to-primary/5 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500" />
                 <div className="relative bg-[#0A0A0A] border border-white/10 rounded-2xl overflow-hidden">
-                  {questions[currentQuestionIndex]?.images?.[0] && (
+                  {activeQuestion.images?.[0] && (
                     <div className="relative h-48 sm:h-56">
                       <img
-                        src={questions[currentQuestionIndex].images[0]}
+                        src={activeQuestion.images[0]}
                         alt="Reference"
                         className="w-full h-full object-cover"
                       />
@@ -1038,16 +1064,16 @@ export default function CompetitionDetails() {
 
                   <div className="p-5 sm:p-6 space-y-5">
                     <h4 className="text-lg sm:text-xl font-serif font-bold text-white leading-tight">
-                      {questions[currentQuestionIndex]?.question}
+                      {activeQuestion.question}
                     </h4>
 
                     <div className="grid gap-3">
-                      {questions[currentQuestionIndex]?.option?.map((opt, idx) => {
-                        const isSelected = selectedOptions[questions[currentQuestionIndex].id] === idx;
+                      {activeQuestion.option?.map((opt, idx) => {
+                        const isSelected = selectedOptionId === opt.option_id;
                         return (
                           <button
-                            key={idx}
-                            onClick={() => setSelectedOptions(prev => ({ ...prev, [questions[currentQuestionIndex].id]: idx }))}
+                            key={opt.option_id || idx}
+                            onClick={() => setSelectedOptionId(opt.option_id)}
                             className={`group/opt relative w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 cursor-pointer ${isSelected
                               ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
                               : 'bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
@@ -1081,62 +1107,41 @@ export default function CompetitionDetails() {
 
               {/* Navigation Controls */}
               <div className="flex items-center gap-3 pt-2">
-                {currentQuestionIndex > 0 ? (
-                  <button
-                    onClick={() => { setCurrentQuestionIndex(prev => prev - 1); setVerifyError(''); }}
-                    disabled={isVerifying}
-                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-white hover:bg-white/5 disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
-                  >
-                    Back
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    disabled={isVerifying}
-                    className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-gray-400 hover:bg-white/5 disabled:opacity-50 transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                )}
-
-                {currentQuestionIndex === questions.length - 1 ? (
-                  <button
-                    onClick={handleVerifyAnswer}
-                    disabled={selectedOptions[questions[currentQuestionIndex]?.id] === undefined || isVerifying}
-                    className="flex-[1.5] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
-                  >
-                    {isVerifying ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ShieldCheck className="w-4 h-4" />
-                    )}
-                    {isVerifying ? 'Verifying...' : 'Continue'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setCurrentQuestionIndex(prev => prev + 1); setVerifyError(''); }}
-                    disabled={selectedOptions[questions[currentQuestionIndex]?.id] === undefined || isVerifying}
-                    className="flex-[1.5] px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
-                  >
-                    Next Question
-                  </button>
-                )}
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={isVerifying}
+                  className="flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-gray-400 hover:bg-white/5 disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleVerifyAnswer}
+                  disabled={selectedOptionId === null || isVerifying}
+                  className="flex-[1.5] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
+                >
+                  {isVerifying ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-4 h-4" />
+                  )}
+                  {isVerifying ? 'Verifying...' : 'Submit Answer'}
+                </button>
               </div>
             </div>
           ) : (
             <div className="py-12 text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-white/5 border border-dashed border-white/10 flex items-center justify-center mx-auto">
-                <Ticket className="w-8 h-8 text-gray-600" />
+              <div className="w-16 h-16 rounded-full bg-red-500/10 border border-dashed border-red-500/20 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-8 h-8 text-red-500" />
               </div>
               <div className="space-y-1">
-                <p className="text-white font-bold">No Questions Needed</p>
-                <p className="text-xs text-muted-foreground">You can proceed directly to participation.</p>
+                <p className="text-white font-bold">Skill Check Failed</p>
+                <p className="text-xs text-muted-foreground">You are not eligible to participate.</p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="mt-4 px-8 py-3 rounded-xl bg-primary text-black text-sm font-bold hover:opacity-90 transition-all cursor-pointer"
               >
-                Continue
+                Close
               </button>
             </div>
           )}

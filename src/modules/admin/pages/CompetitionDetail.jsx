@@ -394,7 +394,15 @@ const CompetitionDetail = () => {
               {(() => {
                 if (!competition.countdown_end) return <p className="text-sm text-gray-500">No deadline set</p>;
                 const diff = competition.countdown_end.toMillis() - Date.now();
-                if (diff <= 0) return <p className="text-sm text-red-400 font-bold">COMPLETED</p>;
+                const isStatusEnded = competition.status === 'end' || competition.status === 'completed';
+
+                if (diff <= 0) {
+                  return isStatusEnded ? (
+                    <p className="text-sm text-emerald-400 font-bold uppercase tracking-wider">COMPLETED</p>
+                  ) : (
+                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">READY FOR DRAW</p>
+                  );
+                }
 
                 const days = Math.floor(diff / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -627,22 +635,45 @@ const CompetitionDetail = () => {
 
             <div className="p-6 bg-white/5 border border-white/10 rounded-2xl inline-block w-full">
               <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">{t('competitions.detail.draw.timeUntilDraw')}</p>
-              <div className="flex justify-center gap-3 sm:gap-6">
-                <div className="flex flex-col items-center">
-                  <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">05</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.days')}</span>
-                </div>
-                <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">12</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.hours')}</span>
-                </div>
-                <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
-                <div className="flex flex-col items-center">
-                  <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">45</span>
-                  <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.mins')}</span>
-                </div>
-              </div>
+              {(() => {
+                const diff = (competition.countdown_end?.toMillis() || 0) - Date.now();
+                const isStatusEnded = competition.status === 'end' || competition.status === 'completed';
+
+                if (diff <= 0) {
+                  return isStatusEnded ? (
+                    <div className="py-4">
+                      <p className="text-3xl font-bold text-emerald-400 uppercase tracking-widest">COMPLETED</p>
+                    </div>
+                  ) : (
+                    <div className="py-4">
+                      <p className="text-3xl font-bold text-yellow-500 uppercase tracking-widest">READY FOR DRAW</p>
+                    </div>
+                  );
+                }
+
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                return (
+                  <div className="flex justify-center gap-3 sm:gap-6">
+                    <div className="flex flex-col items-center">
+                      <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(days).padStart(2, '0')}</span>
+                      <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.days')}</span>
+                    </div>
+                    <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(hours).padStart(2, '0')}</span>
+                      <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.hours')}</span>
+                    </div>
+                    <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(mins).padStart(2, '0')}</span>
+                      <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.mins')}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="pt-4 space-y-4">
@@ -707,9 +738,20 @@ const CompetitionDetail = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-3xl font-serif font-bold text-white">{competition.title}</h1>
-            <Badge variant={competition.status === 'active' ? 'success' : competition.status === 'draft' ? 'warning' : 'neutral'}>
-              {competition.status}
-            </Badge>
+            {(() => {
+              const now = new Date();
+              const isTimeUp = competition.status === 'active' && competition.countdown_end && competition.countdown_end.toMillis() <= now.getTime();
+              
+              if (isTimeUp) {
+                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready for Draw</Badge>;
+              }
+              
+              return (
+                <Badge variant={competition.status === 'active' ? 'success' : competition.status === 'draft' ? 'warning' : 'neutral'}>
+                  {competition.status}
+                </Badge>
+              );
+            })()}
           </div>
           <p className="text-gray-400 font-medium">{competition.sub_title}</p>
           <p className="text-xs text-gray-500 mt-1">ID: #{competition.id}</p>

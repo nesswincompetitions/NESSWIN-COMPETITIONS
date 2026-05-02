@@ -37,6 +37,23 @@ export const createCompetition = async (payload) => {
 };
 
 /**
+ * Phase 1 — Skill Gate Status Check
+ * Evaluates user's eligibility securely on the backend
+ * @param {{ competitionId: string }} payload
+ * @returns {Promise<{ status: string, question?: object, message?: string, remainingCount?: number, passedQuestionId?: string, passedOptionId?: string }>}
+ */
+export const getSkillGateStatus = async (payload) => {
+  const fn = httpsCallable(functions, "getSkillGateStatus");
+  try {
+    const result = await fn(payload);
+    return result.data;
+  } catch (error) {
+    console.error("Error getting skill gate status:", error);
+    throw error;
+  }
+};
+
+/**
  * Phase 1 — Skill Gate: Verifies the user's skill answer
  * @param {{ competitionId: string, questionId: string, selectedOptionId: string|number }} payload
  * @returns {Promise<{ success: boolean }>}

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { 
-  LayoutDashboard, 
-  Trophy, 
-  Award, 
-  Users, 
-  ShoppingCart, 
-  Share2, 
-  Ticket, 
+import {
+  LayoutDashboard,
+  Trophy,
+  Award,
+  Users,
+  ShoppingCart,
+  Share2,
+  Ticket,
   Settings,
   Menu,
   X
@@ -52,10 +52,9 @@ const Sidebar = () => {
             to={item.path}
             onClick={() => setIsMobileOpen(false)} // Close on mobile after click
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                isActive
-                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--color-primary),0.15)]'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(var(--color-primary),0.15)]'
+                : 'text-gray-400 hover:bg-white/5 hover:text-white'
               }`
             }
           >
@@ -98,7 +97,7 @@ const Sidebar = () => {
       {/* Mobile Sidebar (Overlay) */}
       <div className={`cursor-pointer md:hidden fixed inset-0 z-50 transition-opacity duration-300 ${isMobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         {/* Backdrop */}
-        <div 
+        <div
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={toggleSidebar}
         />

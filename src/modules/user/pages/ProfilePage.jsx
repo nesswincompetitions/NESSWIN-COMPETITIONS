@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { logout } from "../../../services/authService";
+import { uploadImages } from "../../../services/competitionService";
+import { db } from "../../../utils/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import {
   User,
@@ -15,6 +18,8 @@ import {
   Check,
   LogOut,
   ArrowLeft,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -23,6 +28,36 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleProfilePicUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const urls = await uploadImages([file], 'users');
+      if (urls && urls.length > 0) {
+        const photoUrl = urls[0];
+        await updateDoc(doc(db, "user", currentUser.uid), { photo_url: photoUrl });
+        toast.success("Profile picture updated!");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const handleCopyReferral = () => {
     if (userData?.referral_code) {
@@ -94,21 +129,46 @@ export default function ProfilePage() {
 
           {/* Banner Gradient */}
           <div className="h-28 bg-gradient-to-br from-[var(--color-primary)]/20 via-[var(--color-primary)]/5 to-transparent relative">
-            <div className="absolute -bottom-12 left-6">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[var(--color-card)] shadow-[0_4px_20px_rgba(0,0,0,0.3)]">
-                {userData?.photo_url ? (
-                  <img
-                    src={userData.photo_url}
-                    alt="Profile"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-[var(--color-primary)]/15 text-2xl font-bold text-[var(--color-primary)]">
-                    {getInitials()}
+            <div className="absolute -bottom-12 left-6 group">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-[var(--color-card)] shadow-[0_4px_20px_rgba(0,0,0,0.3)] cursor-pointer group-hover:border-[var(--color-primary)] transition-colors"
+              >
+                {isUploading ? (
+                  <div className="w-full h-full bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
                   </div>
+                ) : (
+                  <>
+                    {userData?.photo_url ? (
+                      <img
+                        src={userData.photo_url}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-[var(--color-primary)]/15 text-2xl font-bold text-[var(--color-primary)]">
+                        {getInitials()}
+                      </div>
+                    )}
+                    
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Camera className="w-6 h-6 text-white mb-1" />
+                      <span className="text-[10px] text-white font-medium uppercase tracking-wider">Upload</span>
+                    </div>
+                  </>
                 )}
-              </div>
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleProfilePicUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
             </div>
           </div>
 

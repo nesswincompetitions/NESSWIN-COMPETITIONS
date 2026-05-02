@@ -11,6 +11,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { fetchUsersList, softDeleteUser } from '../../../services/adminService';
+import { useAdminQuery } from '../hooks/useAdminQuery';
 import { toast } from 'react-hot-toast';
 import Modal from '../../../components/ui/Modal';
 
@@ -23,32 +24,15 @@ const UsersList = () => {
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
+  const { data: usersData, setData: setUsers, loading, invalidate } = useAdminQuery('users_list', fetchUsersList);
+  const users = usersData || [];
+
   // -- Delete Modal State --
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const itemsPerPage = 20;
-
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchUsersList();
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      toast.error('Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -67,7 +51,10 @@ const UsersList = () => {
     try {
       await softDeleteUser(userToDelete.id);
       toast.success('User deleted successfully');
+      // Optimistically update UI
       setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+      // Invalidate cache so it fetches fresh data next time
+      invalidate();
       setDeleteModalOpen(false);
     } catch (error) {
       console.error('Error deleting user:', error);

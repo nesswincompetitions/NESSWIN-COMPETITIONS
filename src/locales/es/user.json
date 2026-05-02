@@ -10,7 +10,9 @@
     "sold": "vendidos",
     "remaining": "restantes",
     "beforeDraw": "antes del sorteo",
-    "participate": "Participar"
+    "participate": "Participar",
+    "ended": "Finalizado",
+    "closed": "Cerrado"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",

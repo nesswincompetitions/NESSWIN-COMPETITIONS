@@ -17,7 +17,12 @@
     "free": "Free",
     "processing": "Processing...",
     "popular": "Popular",
-    "tickets": "Tickets"
+    "tickets": "Tickets",
+    "ended": "Ended",
+    "closed": "Closed",
+    "competitionClosed": "This competition is closed.",
+    "drawPending": "Draw Pending",
+    "viewResults": "View Results"
   },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",

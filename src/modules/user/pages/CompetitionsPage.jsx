@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Flame, Sparkles, Tag, Users, Ticket } from "lucide-react";
+import { Flame, Sparkles, Tag, Users, Ticket, Lock } from "lucide-react";
 import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
 import Reveal from "../../../components/ui/Reveal.jsx";
 import { useTranslation } from "react-i18next";
@@ -16,14 +16,22 @@ const CATEGORY_FILTER_KEYS = ["allCategories", "cars", "watches", "travel", "rea
 
 function StatusBadge({ type, label }) {
   const isHot = type === "hot";
+  const isEnded = type === "ended";
+
+  let colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
+  if (type === "hot" || type === "featured") {
+    colorClasses = "bg-orange-600/35 text-white border-orange-500/50 shadow-[0_0_12px_rgba(234,88,12,0.3)]";
+  } else if (isEnded) {
+    colorClasses = "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale";
+  }
+
   return (
     <div
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] ${isHot
-        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-        : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-        }`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] backdrop-blur-md ${colorClasses}`}
     >
-      {isHot ? (
+      {isEnded ? (
+        <Lock className="w-3 h-3" aria-hidden="true" />
+      ) : isHot ? (
         <Flame className="w-3 h-3" aria-hidden="true" />
       ) : (
         <Sparkles className="w-3 h-3" aria-hidden="true" />
@@ -48,8 +56,11 @@ function CompetitionCard({ competition }) {
     sold,
     total,
     endsAt,
+    status,
   } = competition;
 
+  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
+  const isEnded = status === 'end';
   const remaining = total - sold;
   const progress = Math.min(100, Math.round((sold / total) * 100));
 
@@ -83,7 +94,10 @@ function CompetitionCard({ competition }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
-          <StatusBadge type={badgeType} label={badgeLabel} />
+          <StatusBadge 
+            type={(isClosed || isEnded) ? "ended" : badgeType} 
+            label={isEnded ? t("common.ended") : isClosed ? t("common.closed") : badgeLabel} 
+          />
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary flex items-center gap-1">
           <Tag className="w-3 h-3" aria-hidden="true" />
@@ -153,13 +167,35 @@ function CompetitionCard({ competition }) {
           </div>
 
           {/* CTA */}
-          <Link
-            to={`/competitions/${id}`}
-            className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
-          >
-            <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
-            {t("common.participate")}
-          </Link>
+          {isClosed ? (
+            <div
+              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
+            >
+              <Lock className="w-4 h-4 mr-2" aria-hidden="true" />
+              {t("common.drawPending")}
+            </div>
+          ) : (
+            <Link
+              to={`/competitions/${id}`}
+              className={`inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 transition-all cursor-pointer ${
+                isEnded 
+                  ? "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10" 
+                  : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
+              }`}
+            >
+              {isEnded ? (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+                  {t("common.viewResults")}
+                </>
+              ) : (
+                <>
+                  <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
+                  {t("common.participate")}
+                </>
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </article>
@@ -236,7 +272,7 @@ export default function CompetitionsPage() {
             id: doc.id,
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
-            badgeType: data.is_featured ? 'hot' : 'new',
+            badgeType: data.status === 'active' ? 'new' : 'ended',
             badgeLabel: data.status === 'active' ? 'Active' : data.status,
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
@@ -247,14 +283,25 @@ export default function CompetitionsPage() {
             sold: data.sold_tickets || 0,
             total: data.total_tickets || 1000,
             endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+            created_at: data.created_at?.toMillis() || 0,
             drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
             drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
             description: data.description || '',
             included: data.included_things || [],
-            status: (data.countdown_end && data.countdown_end.toMillis() < Date.now()) ? 'end' : data.status
+            status: data.status,
+            is_featured: data.is_featured || false
           };
         });
-        setLiveCompetitions(fetchedComps);
+
+        // Sorting Logic: Newest Featured first, then Newest Standard
+        const sorted = fetchedComps.sort((a, b) => {
+          if (a.is_featured !== b.is_featured) {
+            return a.is_featured ? -1 : 1;
+          }
+          return b.created_at - a.created_at;
+        });
+
+        setLiveCompetitions(sorted);
       } catch (err) {
         console.error("Error fetching competitions:", err);
       } finally {
@@ -273,16 +320,18 @@ export default function CompetitionsPage() {
       (activeStatusKey === "completed" && c.sold === c.total && c.badgeLabel !== "Draw Soon");
 
     const categoryMap = {
-      cars: ["Luxury Car"],
-      watches: ["Luxury Watch"],
-      travel: ["Dream Travel"],
-      tech: ["High-Tech"],
+      cars: ["Cars", "Luxury Car"],
+      watches: ["Watches", "Luxury Watch", "Jewellery"],
+      travel: ["Travel", "Dream Travel", "Experiences"],
+      tech: ["Tech", "High-Tech", "Fashion"],
       allCategories: null,
     };
     const mapped = categoryMap[activeCategoryKey];
     const categoryMatch =
       activeCategoryKey === "allCategories" ||
-      (mapped ? mapped.includes(c.category) : c.category.toLowerCase().includes(activeCategoryKey.toLowerCase()));
+      (mapped 
+        ? mapped.some(m => c.category?.toLowerCase() === m.toLowerCase()) 
+        : c.category?.toLowerCase().includes(activeCategoryKey.toLowerCase()));
 
     return statusMatch && categoryMatch;
   });

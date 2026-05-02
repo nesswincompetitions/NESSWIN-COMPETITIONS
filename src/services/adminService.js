@@ -320,14 +320,17 @@ export async function fetchUserDetail(uid) {
     const resolvedComps = await Promise.all(Object.values(compMap).map(async (item) => {
       let title = "Unknown Competition";
       let status = "Ended";
+      let drawDate = null;
       try {
         const cSnap = await getDoc(doc(db, "competition", item.id));
         if (cSnap.exists()) {
-          title = cSnap.data().title;
-          status = cSnap.data().status;
+          const cData = cSnap.data();
+          title = cData.title;
+          status = cData.status;
+          drawDate = cData.draw_date;
         }
       } catch (e) { /* ignore */ }
-      return { ...item, title, status };
+      return { ...item, title, status, drawDate };
     }));
 
     return {
@@ -348,32 +351,44 @@ export async function fetchUserDetail(uid) {
  * Fetches the list of all orders utilizing denormalized fields to prevent N+1 query problems.
  * Also retrieves instant aggregate metrics for the dashboard header.
  */
-export async function fetchOrdersList() {
+/**
+ * Fetches instant aggregate metrics for the orders dashboard header.
+ */
+export async function fetchOrdersStats() {
   try {
-    // 1. Fetch all orders (no orderBy needed server-side, we sort locally to avoid index reqs)
+    const [countSnap, globalSnap] = await Promise.all([
+      getCountFromServer(collection(db, "order")),
+      getDoc(doc(db, "system_metrics", "global_stats"))
+    ]);
+
+    return {
+      totalOrders: countSnap.data().count,
+      totalRevenue: globalSnap.exists() ? (globalSnap.data().total_revenue || 0) : 0
+    };
+  } catch (error) {
+    console.error("[AdminService] Error fetching orders stats:", error);
+    throw error;
+  }
+}
+
+/**
+ * DEPRECATED: Use useOrders hook instead for high-performance paginated fetching.
+ */
+export async function fetchOrdersList() {
+  // ... existing implementation kept for backward compatibility if needed, 
+  // but we should encourage using the hook.
+  try {
     const ordersSnap = await getDocs(collection(db, "order"));
-    
-    // Sort Newest First in memory
     const sortDesc = (a, b) => {
       const timeA = (a.created_at?.toMillis ? a.created_at.toMillis() : (a.created_at ? new Date(a.created_at).getTime() : 0));
       const timeB = (b.created_at?.toMillis ? b.created_at.toMillis() : (b.created_at ? new Date(b.created_at).getTime() : 0));
       return timeB - timeA;
     };
-
     const ordersList = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortDesc);
-
-    // 2. Fetch total order count directly via server aggregation
-    const countSnap = await getCountFromServer(collection(db, "order"));
-    const totalOrders = countSnap.data().count;
-
-    // 3. Fetch global revenue instantly
-    const globalSnap = await getDoc(doc(db, "system_metrics", "global_stats"));
-    const totalRevenue = globalSnap.exists() ? (globalSnap.data().total_revenue || 0) : 0;
-
+    const stats = await fetchOrdersStats();
     return {
       orders: ordersList,
-      totalOrders,
-      totalRevenue
+      ...stats
     };
   } catch (error) {
     console.error("[AdminService] Error fetching orders list:", error);
@@ -399,8 +414,36 @@ export async function fetchOrderDetail(orderId) {
       .map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
 
+    // Resolve User and Competition details
+    let userName = 'Unknown User';
+    let userEmail = 'N/A';
+    let competitionTitle = 'Unknown Competition';
+
+    try {
+      const uId = orderData.user_ref?.id || (typeof orderData.user_ref === 'string' ? orderData.user_ref : null);
+      const cId = orderData.competition_id?.id || (typeof orderData.competition_id === 'string' ? orderData.competition_id : null);
+      
+      const [uSnap, cSnap] = await Promise.all([
+        uId ? getDoc(doc(db, "user", uId)) : Promise.resolve(null),
+        cId ? getDoc(doc(db, "competition", cId)) : Promise.resolve(null)
+      ]);
+      
+      if (uSnap?.exists()) {
+        userName = uSnap.data().display_name || uSnap.data().name || 'Unknown User';
+        userEmail = uSnap.data().email || 'N/A';
+      }
+      if (cSnap?.exists()) {
+        competitionTitle = cSnap.data().title || 'Unknown Competition';
+      }
+    } catch (e) {
+      console.warn('[AdminService] Could not resolve order refs:', e.message);
+    }
+
     return {
       ...orderData,
+      user_name: userName,
+      user_email: userEmail,
+      competition_title: competitionTitle,
       ticketsList: tickets
     };
   } catch (error) {

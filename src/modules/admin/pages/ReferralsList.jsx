@@ -9,6 +9,7 @@ import {
   Search, Calendar, Download, Eye, ChevronDown, Users as UsersIcon, Loader2, Award, UserCheck
 } from 'lucide-react';
 import { fetchReferralsList } from '../../../services/adminService';
+import { useAdminQuery } from '../hooks/useAdminQuery';
 import { toast } from 'react-hot-toast';
 
 const ReferralsList = () => {
@@ -19,27 +20,10 @@ const ReferralsList = () => {
   const [sortBy, setSortBy] = useState('mostReferrals');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({ referrals: [], stats: {} });
+  const { data: refData, loading } = useAdminQuery('referrals_list', fetchReferralsList);
+  const data = refData || { referrals: [], stats: {} };
 
   const itemsPerPage = 20;
-
-  useEffect(() => {
-    loadReferrals();
-  }, []);
-
-  const loadReferrals = async () => {
-    setLoading(true);
-    try {
-      const result = await fetchReferralsList();
-      setData(result);
-    } catch (error) {
-      console.error('Error loading referrals:', error);
-      toast.error('Failed to load referrals dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatDate = (ts) => {
     if (!ts) return '—';

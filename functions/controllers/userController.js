@@ -76,7 +76,7 @@ export const aggregateUserMetrics = onDocumentUpdated("user/{userId}", async (ev
   const isVerified = afterData.is_verified === true;
 
   if (!wasVerified && isVerified) {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
     console.log(`Aggregating metrics for newly verified user ${event.params.userId}`);
 
     const batch = db.batch();

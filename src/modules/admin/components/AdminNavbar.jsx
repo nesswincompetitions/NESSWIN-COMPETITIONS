@@ -121,9 +121,9 @@ const AdminNavbar = () => {
           </div>
           <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold shadow-[0_0_15px_rgba(var(--color-primary),0.1)]">
             {userData?.photo_url ? (
-              <img 
-                src={userData.photo_url} 
-                alt="Profile" 
+              <img
+                src={userData.photo_url}
+                alt="Profile"
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (

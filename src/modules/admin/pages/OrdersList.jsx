@@ -9,7 +9,8 @@ import {
   Search, Calendar, Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
-import { fetchOrdersList } from '../../../services/adminService';
+import { fetchOrdersStats } from '../../../services/adminService';
+import { usePaginatedData } from '../hooks/usePaginatedData';
 import { toast } from 'react-hot-toast';
 
 const OrdersList = () => {
@@ -20,33 +21,52 @@ const OrdersList = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
   const compDropdownRef = useRef(null);
 
-  const [orders, setOrders] = useState([]);
+  const itemsPerPage = 20;
+  const { 
+    data: orders, 
+    loading, 
+    currentPage,
+    nextPage,
+    prevPage,
+    goToPage,
+    hasPageCursor,
+    setFilters,
+    resolveRelation
+  } = usePaginatedData({
+    collectionName: 'order',
+    pageSize: itemsPerPage,
+    initialFilters: { status: 'all' },
+    relations: [
+      { collection: 'user', key: 'user_ref' },
+      { collection: 'competition', key: 'competition_id' }
+    ]
+  });
+
   const [totalOrders, setTotalOrders] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  const itemsPerPage = 20;
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
-    loadOrders();
+    loadStats();
+    // No need to manually trigger loadMore, fetchPage('first') is handled internally on mount or refresh if we wanted, 
+    // actually we need to trigger it if the hook doesn't auto-fetch.
+    // Wait, the hook doesn't auto-fetch on mount. Let's trigger goToPage(1).
+    goToPage(1);
   }, []);
 
-  const loadOrders = async () => {
-    setLoading(true);
+  const loadStats = async () => {
+    setStatsLoading(true);
     try {
-      const data = await fetchOrdersList();
-      setOrders(data.orders || []);
+      const data = await fetchOrdersStats();
       setTotalOrders(data.totalOrders || 0);
       setTotalRevenue(data.totalRevenue || 0);
     } catch (error) {
-      console.error('Error loading orders:', error);
-      toast.error('Failed to load orders dashboard');
+      console.error('Error loading order stats:', error);
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
   };
 
@@ -81,42 +101,38 @@ const OrdersList = () => {
   const uniqueCompetitions = useMemo(() => {
     const comps = new Set();
     orders.forEach(o => {
-      if (o.competition_title) comps.add(o.competition_title);
+      const comp = resolveRelation('competition', o.competition_id);
+      if (comp && comp.title) comps.add(comp.title);
     });
     return Array.from(comps);
-  }, [orders]);
+  }, [orders, resolveRelation]);
 
   // -- Computed Data --
-  const { currentOrders, totalPages, totalFiltered } = useMemo(() => {
+  const { currentOrders, totalFiltered, totalPages } = useMemo(() => {
     // 1. Filter
     const filtered = orders.filter(o => {
-      const orderStatus = (o.status || '').toLowerCase();
-      const matchesStatus = activeStatus === 'all' || orderStatus === activeStatus;
+      const comp = resolveRelation('competition', o.competition_id);
+      const user = resolveRelation('user', o.user_ref);
       
-      const compTitle = o.competition_title || '';
+      const compTitle = comp?.title || '';
       const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
 
       const search = searchTerm.toLowerCase();
       const orderId = (o.order_sequence_id || o.id || '').toLowerCase();
-      const userName = (o.user_name || '').toLowerCase();
-      const userEmail = (o.user_email || '').toLowerCase();
+      const userName = (user?.display_name || user?.name || '').toLowerCase();
+      const userEmail = (user?.email || '').toLowerCase();
       
       const matchesSearch = orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
       
-      return matchesStatus && matchesComp && matchesSearch;
+      return matchesComp && matchesSearch;
     });
 
-    // 2. Paginate
-    const start = (currentPage - 1) * itemsPerPage;
-    const paginated = filtered.slice(start, start + itemsPerPage);
-    const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
-
     return { 
-      currentOrders: paginated, 
-      totalPages: pages, 
-      totalFiltered: filtered.length 
+      currentOrders: filtered, 
+      totalFiltered: filtered.length,
+      totalPages: Math.ceil(totalOrders / itemsPerPage) || 1
     };
-  }, [orders, activeStatus, selectedComp, searchTerm, currentPage]);
+  }, [orders, selectedComp, searchTerm, resolveRelation, totalOrders, itemsPerPage]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -162,7 +178,10 @@ const OrdersList = () => {
               ].map((status) => (
                 <button
                   key={status.key}
-                  onClick={() => { setActiveStatus(status.key); setCurrentPage(1); }}
+                  onClick={() => { 
+                    setActiveStatus(status.key); 
+                    setFilters({ status: status.key });
+                  }}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -182,7 +201,7 @@ const OrdersList = () => {
                   placeholder={t('orders.searchPlaceholder')}
                   className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
                   value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  onChange={(e) => { setSearchTerm(e.target.value); }}
                 />
               </div>
 
@@ -190,7 +209,7 @@ const OrdersList = () => {
                 <select
                   className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={selectedComp}
-                  onChange={(e) => { setSelectedComp(e.target.value); setCurrentPage(1); }}
+                  onChange={(e) => { setSelectedComp(e.target.value); }}
                 >
                   <option value="all" className="bg-[#121212]">{t('orders.filters.allCompetitions') || 'All Competitions'}</option>
                   {uniqueCompetitions.map((comp, idx) => (
@@ -231,11 +250,17 @@ const OrdersList = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span className="font-medium text-white">{order.user_name || 'Unknown User'}</span>
-                          <span className="text-xs text-gray-500">{order.user_email || 'No email'}</span>
+                          <span className="font-medium text-white">
+                            {resolveRelation('user', order.user_ref)?.display_name || resolveRelation('user', order.user_ref)?.name || 'Unknown User'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {resolveRelation('user', order.user_ref)?.email || 'No email'}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-white font-medium">{order.competition_title || 'Unknown Competition'}</TableCell>
+                      <TableCell className="text-white font-medium">
+                        {resolveRelation('competition', order.competition_id)?.title || 'Unknown Competition'}
+                      </TableCell>
                       <TableCell className="text-center text-gray-300">{order.total_ticket || 0}</TableCell>
                       <TableCell className="font-bold text-emerald-400">£{(order.total_amount || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(order.created_at)}</TableCell>
@@ -276,28 +301,45 @@ const OrdersList = () => {
           </div>
 
           {/* Pagination */}
-          {!loading && totalFiltered > itemsPerPage && (
+          {!loading && currentOrders.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                {t('common.showing')} {(currentPage - 1) * itemsPerPage + 1}-
-                {Math.min(currentPage * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}
+                {t('common.showing')} Page {currentPage}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={currentPage === 1} 
+                  onClick={prevPage}
+                >
                   {t('common.previous')}
                 </Button>
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => (
+                
+                <div className="flex gap-1 overflow-x-auto max-w-[200px] hide-scrollbar">
+                  {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => (
                     <button
                       key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`w-8 h-8 rounded-md text-xs transition-colors ${currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'}`}
+                      onClick={() => goToPage(i + 1)}
+                      disabled={i + 1 > currentPage && !hasPageCursor(i + 1)}
+                      className={`w-8 h-8 rounded-md text-xs shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+                        currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'
+                      }`}
                     >
                       {i + 1}
                     </button>
                   ))}
+                  {totalPages > 10 && <span className="text-gray-500 self-center">...</span>}
                 </div>
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={orders.length < itemsPerPage} 
+                  onClick={nextPage}
+                >
                   {t('common.next')}
                 </Button>
               </div>

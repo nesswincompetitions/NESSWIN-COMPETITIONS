@@ -80,7 +80,8 @@
     "no": "No",
     "live": "Live",
     "sold": "sold",
-    "extend": "Extend"
+    "extend": "Extend",
+    "loadMore": "Load More"
   },
   "dashboard": {
     "title": "Dashboard",

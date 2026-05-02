@@ -1,17 +1,18 @@
 export default function Badge({ children, variant = "hot" }) {
   const variants = {
-    hot: "bg-red-500/20 text-red-400 border-red-500/30",
-    featured: "bg-red-600/25 text-red-400 border-red-500/40",
-    popular: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-    new: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-    success: "bg-green-500/20 text-green-400 border-green-500/30",
-    warning: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-    neutral: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+    hot: "bg-red-500/30 text-red-100 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]",
+    featured: "bg-orange-600/35 text-white border-orange-500/50 shadow-[0_0_12px_rgba(234,88,12,0.3)]",
+    popular: "bg-amber-500/30 text-white border-amber-400/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]",
+    new: "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]",
+    success: "bg-green-600/35 text-white border-green-400/50 shadow-[0_0_12px_rgba(22,163,74,0.3)]",
+    warning: "bg-orange-500/30 text-white border-orange-400/50",
+    neutral: "bg-gray-600/40 text-gray-100 border-gray-500/50",
+    ended: "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale",
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] uppercase ${variants[variant] || variants.neutral}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] uppercase backdrop-blur-md ${variants[variant] || variants.neutral}`}
     >
       {children}
     </span>

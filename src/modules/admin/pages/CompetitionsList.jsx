@@ -14,6 +14,40 @@ import { collection, query, getDocs, orderBy, doc, where } from 'firebase/firest
 import { db, functions } from '../../../utils/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { toast } from 'react-hot-toast';
+import { useAdminQuery } from '../hooks/useAdminQuery';
+
+const fetchCompetitionsList = async () => {
+  const q = query(
+    collection(db, 'competition'), 
+    where('status', '!=', 'deleted'),
+    orderBy('status'), 
+    orderBy('created_at', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    const sold = data.sold_tickets || 0;
+    const total = data.total_tickets || 1000;
+    const price = data.ticket_price || 0;
+    const revenue = sold * price;
+    const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
+
+    return {
+      id: doc.id,
+      name: data.title || 'Untitled',
+      subTitle: data.sub_title || '',
+      status: data.status || 'draft',
+      price: `£${price}`,
+      sold,
+      total,
+      revenue: `£${revenue.toLocaleString()}`,
+      drawDate,
+      image: data.image?.[0] || null,
+      createdAt: data.created_at?.toDate() || new Date(),
+      countdownEnd: data.countdown_end?.toDate() || null,
+    };
+  });
+};
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -31,58 +65,14 @@ const CompetitionsList = () => {
   const tabs = [
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
+    { key: 'Ready', label: 'Ready for Draw' },
     { key: 'Ended', label: t('common.ended') },
     { key: 'Drafts', label: 'Drafts' },
     { key: 'Archived', label: t('common.archived') },
   ];
 
-  const [competitions, setCompetitions] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchCompetitions = async () => {
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'competition'), 
-        where('status', '!=', 'deleted'),
-        orderBy('status'), 
-        orderBy('created_at', 'desc')
-      );
-      const snapshot = await getDocs(q);
-      const list = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const sold = data.sold_tickets || 0;
-        const total = data.total_tickets || 1000;
-        const price = data.ticket_price || 0;
-        const revenue = sold * price;
-        const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
-
-        return {
-          id: doc.id,
-          name: data.title || 'Untitled',
-          subTitle: data.sub_title || '',
-          status: data.status || 'draft',
-          price: `£${price}`,
-          sold,
-          total,
-          revenue: `£${revenue.toLocaleString()}`,
-          drawDate,
-          image: data.image?.[0] || null,
-          createdAt: data.created_at?.toDate() || new Date(),
-        };
-      });
-      setCompetitions(list);
-    } catch (err) {
-      console.error('Error fetching competitions:', err);
-      toast.error('Failed to load competitions');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchCompetitions();
-  }, []);
+  const { data: competitionsData, setData: setCompetitions, loading, invalidate } = useAdminQuery('competitions_list', fetchCompetitionsList);
+  const competitions = competitionsData || [];
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
@@ -92,20 +82,27 @@ const CompetitionsList = () => {
       await softDelete({ id: competitionToDelete.id });
       
       toast.success('Competition deleted successfully');
+      // Optimistically update UI
       setCompetitions(prev => prev.filter(c => c.id !== competitionToDelete.id));
+      // Invalidate cache
+      invalidate();
       setDeleteModalOpen(false);
     } catch (err) {
       console.error('Error deleting:', err);
       toast.error('Failed to delete competition');
     } finally {
-      setLoading(false);
+      setCompetitionToDelete(null);
     }
   };
 
   const filteredCompetitions = competitions.filter(c => {
+    const now = new Date();
+    const isTimeUp = c.status === 'active' && c.countdownEnd && c.countdownEnd <= now;
+
     // 1. Status Filter
     let statusMatch = true;
-    if (activeTab === 'Active') statusMatch = c.status === 'active';
+    if (activeTab === 'Active') statusMatch = c.status === 'active' && !isTimeUp;
+    else if (activeTab === 'Ready') statusMatch = isTimeUp;
     else if (activeTab === 'Ended') statusMatch = c.status === 'end';
     else if (activeTab === 'Drafts') statusMatch = c.status === 'draft';
     else if (activeTab === 'Archived') statusMatch = c.status === 'cancelled' || c.status === 'paused';
@@ -256,14 +253,25 @@ const CompetitionsList = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={
-                      comp.status === 'active' ? 'success' :
-                        comp.status === 'end' ? 'neutral' : 'warning'
-                    }>
-                      {comp.status === 'active' ? t('common.active') :
-                        comp.status === 'end' ? t('common.ended') :
-                          comp.status === 'draft' ? 'Draft' : comp.status}
-                    </Badge>
+                    {(() => {
+                      const now = new Date();
+                      const isTimeUp = comp.status === 'active' && comp.countdownEnd && comp.countdownEnd <= now;
+                      
+                      if (isTimeUp) {
+                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready for Draw</Badge>;
+                      }
+                      
+                      return (
+                        <Badge variant={
+                          comp.status === 'active' ? 'success' :
+                            comp.status === 'end' ? 'neutral' : 'warning'
+                        }>
+                          {comp.status === 'active' ? t('common.active') :
+                            comp.status === 'end' ? t('common.ended') :
+                              comp.status === 'draft' ? 'Draft' : comp.status}
+                        </Badge>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell>{comp.price}</TableCell>
                   <TableCell>

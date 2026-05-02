@@ -180,17 +180,35 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     };
     transaction.set(orderRef, orderData);
 
-    // Ticket Loop
-    const currentSequenceRaw = String(compData.last_ticket_sequence || "TKT-00000");
-    const prefixMatch = currentSequenceRaw.match(/^([A-Za-z]+-)/);
-    const prefix = prefixMatch ? prefixMatch[1] : "TKT-";
-    let currentSequenceNum = parseInt(currentSequenceRaw.replace(prefix, ""), 10) || 0;
+    // ── 2C: Ticket Sequence Logic ───────────────────────────────────────────
+    // 1. Generate Prefix from Competition Title (e.g., "Mega Car Giveaway" -> "MCG")
+    const title = compData.title || "TKT";
+    const prefix = title
+      .split(/\s+/)
+      .filter(word => word.length > 0)
+      .map(word => word[0].toUpperCase())
+      .join("") || "TKT";
+
+    // 2. Read last_ticket_sequence (Now a string like "MCG002")
+    let currentSequenceNum = 0;
+    if (compData.last_ticket_sequence) {
+      const seqStr = String(compData.last_ticket_sequence);
+      if (seqStr.startsWith(prefix)) {
+        currentSequenceNum = Number(seqStr.substring(prefix.length)) || 0;
+      } else {
+        // Fallback for old integer format
+        currentSequenceNum = Number(seqStr.replace(/\D/g, '')) || Number(seqStr) || 0;
+      }
+    }
 
     const tickets = [];
+    let finalTicketSequence = "";
     for (let i = 0; i < totalTicketsToGenerate; i++) {
       currentSequenceNum += 1;
       const ticketRef = db.collection("ticket").doc();
-      const ticketSequence = `${prefix}${String(currentSequenceNum).padStart(5, "0")}`;
+      // Format: PREFIX + 3-digit padded number (or more if sequence > 999)
+      const ticketSequence = `${prefix}${String(currentSequenceNum).padStart(3, "0")}`;
+      finalTicketSequence = ticketSequence;
 
       transaction.set(ticketRef, {
         competition_id: competitionId,
@@ -221,12 +239,11 @@ export const processOrder = onCall({ cors: true }, async (request) => {
 
     // Competition Update
     const newStock = currentStock - totalTicketsToGenerate;
-    const newSequenceStr = `${prefix}${String(currentSequenceNum).padStart(5, "0")}`;
 
     const compUpdate = {
       stock_quantity: admin.firestore.FieldValue.increment(-totalTicketsToGenerate),
       sold_tickets: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
-      last_ticket_sequence: newSequenceStr,
+      last_ticket_sequence: finalTicketSequence || String(currentSequenceNum), // Store as string
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     };
     if (newStock === 0) {
@@ -287,7 +304,7 @@ export const aggregateOrderMetrics = onDocumentWritten("order/{orderId}", async 
   const isPaid = afterData.status === "Paid";
 
   if (!wasPaid && isPaid) {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
     const totalAmount = Number(afterData.total_amount || 0);
     const totalTickets = Number(afterData.total_ticket || 0) + Number(afterData.free_ticket || 0);
 

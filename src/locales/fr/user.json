@@ -17,7 +17,9 @@
     "free": "Gratuit",
     "processing": "Traitement...",
     "popular": "Populaire",
-    "tickets": "Tickets"
+    "tickets": "Tickets",
+    "ended": "Terminé",
+    "closed": "Fermé"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",

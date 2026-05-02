@@ -11,12 +11,15 @@ import {
 } from 'lucide-react';
 
 import { fetchDashboardStats } from '../../../services/adminService';
+import { useAdminQuery } from '../hooks/useAdminQuery';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation('admin');
-  const [stats, setStats] = React.useState({
+  const { data: statsData, loading: loadingStats } = useAdminQuery('dashboard_stats', fetchDashboardStats);
+
+  const stats = statsData || {
     totalRevenue: 0,
     totalRegisteredUsers: 0,
     ticketsSoldToday: 0,
@@ -26,22 +29,7 @@ const Dashboard = () => {
     activeCompetitionsList: [],
     upcomingDrawsList: [],
     recentOrdersList: []
-  });
-  const [loadingStats, setLoadingStats] = React.useState(true);
-
-  React.useEffect(() => {
-    const getStats = async () => {
-      try {
-        const data = await fetchDashboardStats();
-        setStats(data);
-      } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-    getStats();
-  }, []);
+  };
 
   const kpiData = [
     { title: t('dashboard.kpi.activeCompetitions'), value: stats.activeCompetitions.toLocaleString(), icon: Trophy, color: 'text-primary' },

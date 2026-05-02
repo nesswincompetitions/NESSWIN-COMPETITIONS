@@ -9,14 +9,15 @@ import {
   Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2
 } from 'lucide-react';
 import { fetchBonusTicketsList } from '../../../services/adminService';
+import { useAdminQuery } from '../hooks/useAdminQuery';
 import { toast } from 'react-hot-toast';
 
 const BonusTickets = () => {
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [tickets, setTickets] = useState([]);
+  const { data: ticketsData, loading } = useAdminQuery('bonus_tickets_list', fetchBonusTicketsList);
+  const tickets = ticketsData || [];
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Form State
@@ -24,23 +25,6 @@ const BonusTickets = () => {
   const [assignAmount, setAssignAmount] = useState(1);
   const [assignReason, setAssignReason] = useState('');
   const [assignExpiry, setAssignExpiry] = useState('');
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchBonusTicketsList();
-      setTickets(data);
-    } catch (error) {
-      console.error('Error loading bonus tickets:', error);
-      toast.error('Failed to load bonus tickets log');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -106,9 +90,6 @@ const BonusTickets = () => {
         <Button variant="outline" className="flex items-center gap-2">
           <Upload size={16} /> {t('bonusTickets.bulkAssign')}
         </Button>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Settings size={16} /> {t('bonusTickets.setExpiryRules')}
-        </Button>
       </div>
 
       <Card>
@@ -166,7 +147,6 @@ const BonusTickets = () => {
                     <TableHead>{t('bonusTickets.table.reason')}</TableHead>
                     <TableHead>Competition</TableHead>
                     <TableHead>{t('bonusTickets.table.date')}</TableHead>
-                    <TableHead>{t('common.expiryDate')}</TableHead>
                     <TableHead className="text-right">{t('common.status')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -191,9 +171,6 @@ const BonusTickets = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
-                      <TableCell>
-                        <span className="text-gray-500 italic">—</span>
-                      </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="success">Granted</Badge>
                       </TableCell>
@@ -241,7 +218,7 @@ const BonusTickets = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.numberOfTickets')}</label>
               <input
@@ -250,15 +227,6 @@ const BonusTickets = () => {
                 min="1"
                 value={assignAmount}
                 onChange={(e) => setAssignAmount(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.expiryDateOptional')}</label>
-              <input
-                type="date"
-                value={assignExpiry}
-                onChange={(e) => setAssignExpiry(e.target.value)}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
               />
             </div>

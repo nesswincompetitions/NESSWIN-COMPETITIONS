@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Flame, Sparkles, Users, Ticket } from "lucide-react";
+import { Flame, Sparkles, Users, Ticket, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
 import Badge from "../../../components/ui/Badge.jsx";
 import CountdownTimer from "../../../components/ui/CountdownTimer.jsx";
@@ -10,7 +10,9 @@ import { db } from "../../../utils/firebase";
 
 function CompetitionCard({ competition, onNavigate }) {
   const { t } = useTranslation();
-  const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt } = competition;
+  const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt, status } = competition;
+  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
+  const isEnded = status === 'end';
   const progress = Math.round((sold / total) * 100);
   const remaining = total - sold;
   const [hovered, setHovered] = useState(false);
@@ -41,13 +43,15 @@ function CompetitionCard({ competition, onNavigate }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
-          <Badge variant={badgeType}>
-            {badgeType === "featured" ? (
+          <Badge variant={(isClosed || isEnded) ? "ended" : badgeType}>
+            {isClosed || isEnded ? (
+              <Lock className="w-3 h-3" aria-hidden="true" />
+            ) : badgeType === "featured" ? (
               <Flame className="w-3 h-3" aria-hidden="true" />
             ) : (
               <Sparkles className="w-3 h-3" aria-hidden="true" />
             )}
-            {badgeLabel.toUpperCase()}
+            {isEnded ? t("common.ended").toUpperCase() : isClosed ? t("common.closed").toUpperCase() : badgeLabel.toUpperCase()}
           </Badge>
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary">
@@ -100,11 +104,29 @@ function CompetitionCard({ competition, onNavigate }) {
 
         {/* CTA */}
         <button
-          onClick={() => onNavigate(id)}
-          className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
+          onClick={() => !isClosed && onNavigate(id)}
+          className={`mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 transition-all ${
+            isClosed || isEnded 
+              ? "bg-white/5 border border-white/10 text-muted-foreground" 
+              : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
+          } ${isClosed ? "cursor-default" : "cursor-pointer"}`}
         >
-          <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
-          {t("common.participate")}
+          {isClosed ? (
+            <>
+              <Lock className="w-4 h-4 mr-2" aria-hidden="true" />
+              {t("common.drawPending")}
+            </>
+          ) : isEnded ? (
+            <>
+              <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+              {t("common.viewResults")}
+            </>
+          ) : (
+            <>
+              <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
+              {t("common.participate")}
+            </>
+          )}
         </button>
       </div>
     </article>
@@ -122,7 +144,7 @@ export default function FeaturedCompetitions() {
       try {
         // Fetch all active competitions to handle the complex priority sorting in memory
         // this avoids needing multiple composite indexes in Firestore for now.
-        const q = query(collection(db, 'competition'), where('status', '==', 'active'));
+        const q = query(collection(db, 'competition'), where('status', 'in', ['active', 'end']));
         const snapshot = await getDocs(q);
         
         let allComps = snapshot.docs.map(doc => {
@@ -133,8 +155,9 @@ export default function FeaturedCompetitions() {
             sold: data.sold_tickets || 0,
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
-            badgeType: data.is_featured ? 'featured' : 'popular',
-            badgeLabel: data.is_featured ? 'Featured' : 'Popular',
+            created_at: data.created_at?.toMillis() || 0,
+            badgeType: data.is_featured ? 'featured' : 'new',
+            badgeLabel: data.is_featured ? 'Featured' : 'Active',
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
             title: data.title || 'Untitled',
@@ -142,24 +165,20 @@ export default function FeaturedCompetitions() {
             priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
             total: data.total_tickets || 1000,
             endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+            status: data.status,
           };
         });
 
         // ── Selection Logic ──
         // 1. Priority: is_featured == true
-        // 2. Secondary: most sold_tickets
-        // 3. Tertiary: Randomly if sold_tickets match
+        // 2. Secondary: Newest first (created_at)
         const sorted = allComps.sort((a, b) => {
           // Priority 1: Featured
           if (a.is_featured !== b.is_featured) {
             return a.is_featured ? -1 : 1;
           }
-          // Priority 2: Popularity (sold_tickets)
-          if (a.sold !== b.sold) {
-            return b.sold - a.sold;
-          }
-          // Priority 3: Random
-          return Math.random() - 0.5;
+          // Priority 2: Newest (created_at)
+          return b.created_at - a.created_at;
         });
 
         // Limit to exactly 6 cards as requested

@@ -15,7 +15,7 @@ const CreateCompetition = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(false);
-  
+
   const draftId = searchParams.get('id');
 
   useEffect(() => {
@@ -25,7 +25,7 @@ const CreateCompetition = () => {
         const compDoc = await getDoc(doc(db, 'competition', draftId));
         if (compDoc.exists()) {
           const compData = compDoc.data();
-          
+
           // Fetch questions
           const qQuery = query(collection(db, 'questions'), where('competition_id', '==', doc(db, 'competition', draftId)));
           const qSnapshot = await getDocs(qQuery);
@@ -86,13 +86,13 @@ const CreateCompetition = () => {
       const imageUrls = await uploadImages(formData.images, 'competitions');
 
       // 2. Prepare competition data payload matching the schema
-      const drawDateTimeStr = formData.drawEndDate && formData.drawEndTime 
-        ? `${formData.drawEndDate}T${formData.drawEndTime}` 
+      const drawDateTimeStr = formData.drawEndDate && formData.drawEndTime
+        ? `${formData.drawEndDate}T${formData.drawEndTime}`
         : (formData.drawEndDate ? `${formData.drawEndDate}T00:00` : null);
       const drawDateTimestamp = drawDateTimeStr ? new Date(drawDateTimeStr).getTime() : Date.now();
 
-      const countdownDateTimeStr = formData.countdownEndDate && formData.countdownEndTime 
-        ? `${formData.countdownEndDate}T${formData.countdownEndTime}` 
+      const countdownDateTimeStr = formData.countdownEndDate && formData.countdownEndTime
+        ? `${formData.countdownEndDate}T${formData.countdownEndTime}`
         : (formData.countdownEndDate ? `${formData.countdownEndDate}T00:00` : null);
       const countdownEndTimestamp = countdownDateTimeStr ? new Date(countdownDateTimeStr).getTime() : drawDateTimestamp;
 
@@ -135,11 +135,11 @@ const CreateCompetition = () => {
       }
 
       // 4. Call Cloud Function
-      await createCompetition({ 
+      await createCompetition({
         id: draftId, // Pass the existing ID if it's a resume/update
-        competitionData, 
-        questionsList, 
-        is_draft: isDraft 
+        competitionData,
+        questionsList,
+        is_draft: isDraft
       });
 
       toast.success(isDraft ? 'Draft saved successfully!' : 'Competition created successfully!', { id: loadingToast });
@@ -164,7 +164,7 @@ const CreateCompetition = () => {
   return (
     <div className="max-w-7xl mx-auto pb-20">
       <div className="mb-8 fade-in">
-        <button 
+        <button
           onClick={() => navigate('/admin/competitions')}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm mb-4 w-fit"
         >
