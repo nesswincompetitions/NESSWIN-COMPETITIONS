@@ -1,0 +1,145 @@
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  updateDoc, 
+  addDoc,
+  deleteDoc,
+  orderBy,
+  serverTimestamp 
+} from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import { callFunction } from '@/shared/services/functionClient';
+
+export const fetchAdminCompetitionDetail = async (id) => {
+  const compDoc = await getDoc(doc(db, 'competition', id));
+  if (!compDoc.exists()) return null;
+  
+  const questionsQuery = query(collection(db, 'questions'), where('competition_id', '==', doc(db, 'competition', id)));
+  const questionsSnap = await getDocs(questionsQuery);
+  const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  return { 
+    id: compDoc.id, 
+    ...compDoc.data(),
+    questions 
+  };
+};
+
+export const updateCompetition = async (id, data) => {
+  const compRef = doc(db, 'competition', id);
+  await updateDoc(compRef, data);
+};
+
+export const deleteCompetition = async (id) => {
+  await deleteDoc(doc(db, 'competition', id));
+};
+
+export const syncCompetitionQuestions = async (competitionId, questions) => {
+  const batch = questions.map(async (q) => {
+    if (q.id) {
+      const qRef = doc(db, 'questions', q.id);
+      await updateDoc(qRef, q);
+    } else {
+      await addDoc(collection(db, 'questions'), {
+        ...q,
+        competition_id: doc(db, 'competition', competitionId),
+        created_at: serverTimestamp()
+      });
+    }
+  });
+  await Promise.all(batch);
+};
+
+export const createCompetition = async (payload) => {
+  return callFunction("createCompetition", payload, "Failed to create competition.");
+};
+
+export const fetchCompetitionDrafts = async () => {
+  const q = query(collection(db, 'competition'), where('status', '==', 'draft'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const fetchAdminCompetitionsList = async () => {
+  const q = query(
+    collection(db, 'competition'), 
+    where('status', '!=', 'deleted'),
+    orderBy('status'), 
+    orderBy('created_at', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    const sold = data.sold_tickets || 0;
+    const total = data.total_tickets || 1000;
+    const price = data.ticket_price || 0;
+    const revenue = sold * price;
+    const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
+
+    return {
+      id: doc.id,
+      name: data.title || 'Untitled',
+      subTitle: data.sub_title || '',
+      status: data.status || 'draft',
+      price: `£${price}`,
+      sold,
+      total,
+      revenue: `£${revenue.toLocaleString()}`,
+      drawDate,
+      image: data.image?.[0] || null,
+      createdAt: data.created_at?.toDate() || new Date(),
+      countdownEnd: data.countdown_end?.toDate() || null,
+    };
+  });
+};
+
+export const fetchCompetitionParticipants = async (competitionId, participantUids) => {
+  if (!participantUids || participantUids.length === 0) return [];
+
+  const compRef = doc(db, 'competition', competitionId);
+  
+  const [ticketsSnapString, ticketsSnapRef] = await Promise.all([
+    getDocs(query(collection(db, 'ticket'), where('competition_id', '==', competitionId))),
+    getDocs(query(collection(db, 'ticket'), where('competition_id', '==', compRef)))
+  ]);
+  
+  const allTicketDocs = [...ticketsSnapString.docs, ...ticketsSnapRef.docs];
+  
+  const ticketMap = {};
+  allTicketDocs.forEach(docSnap => {
+    const data = docSnap.data();
+    const rawUid = data.user_id || data.user_ref || data.uid || data.user;
+    const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+    
+    if (uid) {
+      if (!ticketMap[uid]) ticketMap[uid] = [];
+      const tNum = data.ticket_sequence ?? data.ticket_number ?? data.ticket;
+      if (tNum) ticketMap[uid].push(tNum);
+    }
+  });
+
+  const participantsList = [];
+
+  for (const rawUid of participantUids) {
+    const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+    if (!uid) continue;
+
+    const userDoc = await getDoc(doc(db, 'user', uid));
+    const userData = userDoc.exists() ? userDoc.data() : { display_name: 'Unknown User', email: 'N/A', is_active: false };
+
+    participantsList.push({
+      id: uid,
+      name: userData.display_name,
+      email: userData.email,
+      tickets: ticketMap[uid] || [],
+      status: userData.is_active ? 'Active' : 'Inactive',
+      joinedDate: userData.created_at?.toMillis ? new Date(userData.created_at.toMillis()).toLocaleDateString() : 'N/A'
+    });
+  }
+
+  return participantsList;
+};

@@ -1,14 +1,46 @@
 import { HttpsError } from "firebase-functions/v2/https";
+import { assertAuthenticated } from "./functionGuards.js";
 
 /**
  * Validates that the request is authenticated.
  * @returns {string} The authenticated user's UID.
  */
 export function validateAuth(request) {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "You must be logged in.");
+  return assertAuthenticated(request);
+}
+
+function matchesCompetition(questionCompetitionRef, competitionId) {
+  if (!questionCompetitionRef || !competitionId) {
+    return false;
   }
-  return request.auth.uid;
+
+  if (typeof questionCompetitionRef === "string") {
+    return questionCompetitionRef === competitionId || questionCompetitionRef.endsWith(`/${competitionId}`);
+  }
+
+  return questionCompetitionRef.id === competitionId;
+}
+
+export async function getValidatedQuestion(db, competitionId, questionId) {
+  if (!competitionId || !questionId) {
+    throw new HttpsError("invalid-argument", "competitionId and questionId are required.");
+  }
+
+  const questionRef = db.collection("questions").doc(questionId);
+  const questionSnap = await questionRef.get();
+
+  if (!questionSnap.exists) {
+    throw new HttpsError("not-found", "Question not found.");
+  }
+
+  const questionData = questionSnap.data();
+  const linkedCompetition = questionData.competition_id;
+
+  if (!matchesCompetition(linkedCompetition, competitionId)) {
+    throw new HttpsError("failed-precondition", "Question does not belong to this competition.");
+  }
+
+  return { questionRef, questionData };
 }
 
 /**
@@ -44,9 +76,7 @@ export async function validateQuestionAnswer(db, questionId, selectedOptionId) {
     throw new HttpsError("internal", "Question has no correct answer configured.");
   }
 
-  // Loose comparison to handle number vs string option_id formats
-  // eslint-disable-next-line eqeqeq
-  const passed = selectedOptionId == correctOptionId;
+  const passed = String(selectedOptionId) === String(correctOptionId);
 
   return { passed, questionData };
 }

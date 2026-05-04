@@ -1,7 +1,20 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { admin, db } from "../config/firebaseAdmin.js";
-import { validateAuth, validateQuestionAnswer } from "../services/validationService.js";
+import { getOrderPricing } from "../services/orderPricingService.js";
+import { validateAuth } from "../services/validationService.js";
+
+function questionBelongsToCompetition(questionCompetitionRef, competitionId) {
+  if (!questionCompetitionRef || !competitionId) {
+    return false;
+  }
+
+  if (typeof questionCompetitionRef === "string") {
+    return questionCompetitionRef === competitionId || questionCompetitionRef.endsWith(`/${competitionId}`);
+  }
+
+  return questionCompetitionRef.id === competitionId;
+}
 
 /**
  * Phase 2 — Order Engine (Zero-Trust Transaction)
@@ -12,7 +25,7 @@ import { validateAuth, validateQuestionAnswer } from "../services/validationServ
 export const processOrder = onCall({ cors: true }, async (request) => {
   const uid = validateAuth(request);
 
-  const { competitionId, ticketQuantity, questionId, selectedOptionId } = request.data;
+  const { competitionId, ticketQuantity, questionId, selectedOptionId } = request.data || {};
 
   // ── Input validation ─────────────────────────────────────────────────────────
   if (!competitionId || !questionId) {
@@ -30,7 +43,6 @@ export const processOrder = onCall({ cors: true }, async (request) => {
   // ── Refs ──────────────────────────────────────────────────────────────────────
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
-  const questionRef = db.collection("questions").doc(questionId);
   const orderRef = db.collection("order").doc(); // auto-id
 
   // ── Transaction ──────────────────────────────────────────────────────────────
@@ -39,7 +51,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     const [userSnap, compSnap, questionSnap] = await Promise.all([
       transaction.get(userRef),
       transaction.get(competitionRef),
-      transaction.get(questionRef)
+      transaction.get(db.collection("questions").doc(questionId))
     ]);
 
     if (!userSnap.exists) {
@@ -64,6 +76,9 @@ export const processOrder = onCall({ cors: true }, async (request) => {
       throw new HttpsError("not-found", "Question not found.");
     }
     const questionData = questionSnap.data();
+    if (!questionBelongsToCompetition(questionData.competition_id, competitionId)) {
+      throw new HttpsError("failed-precondition", "Question does not belong to this competition.");
+    }
 
     // ── 2A: Skill Check & History ────────────────────────────────────────────
     
@@ -111,31 +126,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     }
 
     // ── 2B: The Server-Side Math Engine ──────────────────────────────────────
-    let discount = 0;
-    let freeTickets = 0;
-    let packType = "Manual";
-
-    if (qty === 15) {
-      discount = 0.10;
-      freeTickets = 1;
-      packType = "Pack Prestige";
-    } else if (qty === 20) {
-      discount = 0.15;
-      freeTickets = 2;
-      packType = "Pack Elite";
-    } else if (qty === 25) {
-      discount = 0.20;
-      freeTickets = 2;
-      packType = "Pack Gold";
-    } else if (qty === 50) {
-      discount = 0.25;
-      freeTickets = 5;
-      packType = "Pack Diamond";
-    } else {
-      discount = 0;
-      freeTickets = Math.floor(qty / 10);
-      packType = "Manual";
-    }
+    const { discount, freeTickets, packType } = getOrderPricing(qty);
 
     const ticketPrice = Number(compData.ticket_price || 0);
     const subtotal = qty * ticketPrice;
@@ -152,8 +143,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     
     // Order Receipt
     const correctOption = questionData.option?.find(
-      // eslint-disable-next-line eqeqeq
-      (opt) => opt.option_id == correctOptionId
+      (opt) => String(opt.option_id) === String(correctOptionId)
     );
 
     const orderSequenceId = `ORD-${orderRef.id.substring(0, 8).toUpperCase()}`;

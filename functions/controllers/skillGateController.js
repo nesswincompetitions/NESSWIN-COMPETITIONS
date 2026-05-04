@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { admin, db } from "../config/firebaseAdmin.js";
-import { validateAuth, validateQuestionAnswer } from "../services/validationService.js";
+import { toHttpsError } from "../services/functionGuards.js";
+import { getValidatedQuestion, validateAuth, validateQuestionAnswer } from "../services/validationService.js";
 
 /**
  * Phase 1 — Skill Gate
@@ -13,13 +14,14 @@ import { validateAuth, validateQuestionAnswer } from "../services/validationServ
 export const verifySkillAnswer = onCall(async (request) => {
   const uid = validateAuth(request);
 
-  const { competitionId, questionId, selectedOptionId } = request.data;
+  const { competitionId, questionId, selectedOptionId } = request.data || {};
 
   if (!competitionId || !questionId || selectedOptionId === undefined || selectedOptionId === null) {
     throw new HttpsError("invalid-argument", "competitionId, questionId, and selectedOptionId are required.");
   }
 
-  // ── Validate the answer ──────────────────────────────────────────────────────
+  await getValidatedQuestion(db, competitionId, questionId);
+
   const { passed, questionData } = await validateQuestionAnswer(db, questionId, selectedOptionId);
 
   // ── Determine attempt number ─────────────────────────────────────────────────
@@ -34,8 +36,7 @@ export const verifySkillAnswer = onCall(async (request) => {
 
   // ── Find option text ────────────────────────────────────────────────────────
   const selectedOption = questionData.option?.find(
-    // eslint-disable-next-line eqeqeq
-    (opt) => opt.option_id == selectedOptionId
+    (opt) => String(opt.option_id) === String(selectedOptionId)
   );
   const answerGivenText = selectedOption ? selectedOption.option : String(selectedOptionId);
 
@@ -68,7 +69,7 @@ export const verifySkillAnswer = onCall(async (request) => {
 export const getSkillGateStatus = onCall(async (request) => {
   try {
     const uid = validateAuth(request);
-    const { competitionId } = request.data;
+    const { competitionId } = request.data || {};
 
     if (!competitionId) {
       throw new HttpsError("invalid-argument", "competitionId is required.");
@@ -150,7 +151,6 @@ export const getSkillGateStatus = onCall(async (request) => {
     };
   } catch (error) {
     console.error("Error in getSkillGateStatus:", error);
-    if (error instanceof HttpsError) throw error;
-    throw new HttpsError("internal", error.message || "Unknown internal error");
+    throw toHttpsError(error, "Failed to load skill gate status.");
   }
 });

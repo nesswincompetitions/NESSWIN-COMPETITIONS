@@ -1,22 +1,26 @@
 import React from 'react';
 import { Route, Navigate } from 'react-router-dom';
-import AdminLayout from '../layouts/AdminLayout';
-import { ProtectedRoute } from '../components/common/ProtectedRoute';
-import Dashboard from '../modules/admin/pages/Dashboard';
-import CompetitionsList from '../modules/admin/pages/CompetitionsList';
-import CreateCompetition from '../modules/admin/pages/CreateCompetition';
-import CompetitionDetail from '../modules/admin/pages/CompetitionDetail';
-import WinnersList from '../modules/admin/pages/WinnersList';
-import WinnerDetail from '../modules/admin/pages/WinnerDetail';
-import UsersList from '../modules/admin/pages/UsersList';
-import UserDetail from '../modules/admin/pages/UserDetail';
-import OrdersList from '../modules/admin/pages/OrdersList';
-import OrderDetail from '../modules/admin/pages/OrderDetail';
-import ReferralsList from '../modules/admin/pages/ReferralsList';
-import ReferralDetail from '../modules/admin/pages/ReferralDetail';
-import BonusTickets from '../modules/admin/pages/BonusTickets';
-import CompetitionDrafts from '../modules/admin/pages/CompetitionDrafts';
-import Settings from '../modules/admin/pages/Settings';
+import AdminLayout from '@/shared/layouts/AdminLayout';
+import { ProtectedRoute } from '@/routes/ProtectedRoute';
+
+import Dashboard from '@/modules/admin/dashboard/pages/Dashboard';
+import BonusTickets from '@/modules/admin/bonus/pages/BonusTickets';
+import Settings from '@/modules/admin/settings/pages/Settings';
+
+import CompetitionsList from '@/modules/admin/competitions/pages/CompetitionsList';
+import CreateCompetition from '@/modules/admin/competitions/pages/CreateCompetition';
+import CompetitionDrafts from '@/modules/admin/competitions/pages/CompetitionDrafts';
+import CompetitionDetail from '@/modules/admin/competitions/pages/CompetitionDetail';
+
+import WinnersList from '@/modules/admin/winners/pages/WinnersList';
+import WinnerDetail from '@/modules/admin/winners/pages/WinnerDetail';
+import OrdersList from '@/modules/admin/orders/pages/OrdersList';
+import OrderDetail from '@/modules/admin/orders/pages/OrderDetail';
+import ReferralsList from '@/modules/admin/referrals/pages/ReferralsList';
+import ReferralDetail from '@/modules/admin/referrals/pages/ReferralDetail';
+
+import UsersList from '@/modules/admin/users/pages/UsersList';
+import UserDetail from '@/modules/admin/users/pages/UserDetail';
 
 export const AdminRoutes = (
   <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute>}>

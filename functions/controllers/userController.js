@@ -1,44 +1,28 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { admin, db } from "../config/firebaseAdmin.js";
+import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 
 /**
  * Soft deletes a user by disabling their auth account, revoking sessions,
  * and marking their Firestore document as DELETED.
  */
 export const softDeleteUser = onCall({ cors: true }, async (request) => {
-  // 1. Authentication & Authorization Check
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "You must be logged in to perform this action.");
-  }
+  await assertAdmin(request);
 
-  // Verify admin role
-  try {
-    const adminDoc = await db.collection("user").doc(request.auth.uid).get();
-    if (!adminDoc.exists || adminDoc.data().role !== "admin") {
-      throw new HttpsError("permission-denied", "Only administrators can delete users.");
-    }
-  } catch (err) {
-    console.error("Error checking admin role:", err);
-    throw new HttpsError("internal", "Failed to verify administrative permissions.");
-  }
-
-  const { userId } = request.data;
+  const { userId } = request.data || {};
 
   if (!userId) {
     throw new HttpsError("invalid-argument", "The function must be called with a valid userId.");
   }
 
   try {
-    // 2. Auth Lockout: Permanently prevent the user from logging in
     console.log(`Disabling user: ${userId}`);
     await admin.auth().updateUser(userId, { disabled: true });
 
-    // 3. Session Revocation: Kick them out immediately
     console.log(`Revoking tokens for user: ${userId}`);
     await admin.auth().revokeRefreshTokens(userId);
 
-    // 4. Firestore Soft Delete: Update status and timestamp
     console.log(`Updating Firestore for user: ${userId}`);
     const userRef = db.collection("user").doc(userId);
     await userRef.update({
@@ -52,13 +36,12 @@ export const softDeleteUser = onCall({ cors: true }, async (request) => {
     };
   } catch (error) {
     console.error("Error in softDeleteUser:", error);
-    
-    // Handle specific Auth errors
+
     if (error.code === 'auth/user-not-found') {
       throw new HttpsError("not-found", "The specified user was not found in Firebase Authentication.");
     }
 
-    throw new HttpsError("internal", error.message || "An error occurred while attempting to soft delete the user.");
+    throw toHttpsError(error, "An error occurred while attempting to soft delete the user.");
   }
 });
 

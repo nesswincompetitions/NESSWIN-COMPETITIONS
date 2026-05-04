@@ -1,15 +1,15 @@
-import i18n from "i18next";
-import { initReactI18next } from "react-i18next";
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
 
 // ─── User Panel Translations ─────────────────────────────────────────────────
-import enUser from "./locales/en/user.json";
-import frUser from "./locales/fr/user.json";
-import esUser from "./locales/es/user.json";
+import enUser from '@/locales/en/user.json';
+import frUser from '@/locales/fr/user.json';
+import esUser from '@/locales/es/user.json';
 
 // ─── Admin Panel Translations ────────────────────────────────────────────────
-import enAdmin from "./locales/en/admin.json";
-import frAdmin from "./locales/fr/admin.json";
-import esAdmin from "./locales/es/admin.json";
+import enAdmin from '@/locales/en/admin.json';
+import frAdmin from '@/locales/fr/admin.json';
+import esAdmin from '@/locales/es/admin.json';
 
 // ─── Resources ───────────────────────────────────────────────────────────────
 const resources = {

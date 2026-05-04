@@ -1,20 +1,23 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
-import Home from '../modules/user/pages/Home';
-import SignupPage from '../modules/user/pages/SignupPage';
-import OnboardingPage from '../modules/user/pages/OnboardingPage';
-import ForgotPasswordPage from '../modules/user/pages/ForgotPasswordPage';
-import ProfilePage from '../modules/user/pages/ProfilePage';
-import CompetitionsPage from '../modules/user/pages/CompetitionsPage';
-import CompetitionDetails from '../modules/user/pages/CompetitionDetails';
-import WinnersPage from '../modules/user/pages/WinnersPage';
-import TermsConditions from '../modules/user/pages/legal/TermsConditions';
-import PrivacyPolicy from '../modules/user/pages/legal/PrivacyPolicy';
-import FreePostalEntry from '../modules/user/pages/legal/FreePostalEntry';
-import ResponsiblePlay from '../modules/user/pages/legal/ResponsiblePlay';
-import CompetitionRules from '../modules/user/pages/legal/CompetitionRules';
-import UserLayout from '../layouts/UserLayout';
-import { ProtectedRoute, AuthRoute } from '../components/common/ProtectedRoute';
+import { ProtectedRoute, AuthRoute } from '@/routes/ProtectedRoute';
+import UserLayout from '@/shared/layouts/UserLayout';
+
+import Home from '@/modules/user/home/pages/Home';
+import SignupPage from '@/modules/user/auth/pages/SignupPage';
+import ForgotPasswordPage from '@/modules/user/auth/pages/ForgotPasswordPage';
+import OnboardingPage from '@/modules/user/profile/pages/OnboardingPage';
+import ProfilePage from '@/modules/user/profile/pages/ProfilePage';
+
+import CompetitionsPage from '@/modules/user/competitions/pages/CompetitionsPage';
+import CompetitionDetails from '@/modules/user/competitions/pages/CompetitionDetails';
+import WinnersPage from '@/modules/user/competitions/pages/WinnersPage';
+
+import TermsConditions from '@/modules/user/legal/pages/TermsConditions';
+import PrivacyPolicy from '@/modules/user/legal/pages/PrivacyPolicy';
+import FreePostalEntry from '@/modules/user/legal/pages/FreePostalEntry';
+import ResponsiblePlay from '@/modules/user/legal/pages/ResponsiblePlay';
+import CompetitionRules from '@/modules/user/legal/pages/CompetitionRules';
 
 export const UserRoutes = (
   <Route element={<UserLayout />}>

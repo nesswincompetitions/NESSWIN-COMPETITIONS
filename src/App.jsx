@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { UserRoutes } from './routes/userRoutes';
-import { AdminRoutes } from './routes/adminRoutes';
-import { AuthProvider } from './context/AuthContext';
+import { UserRoutes, AdminRoutes } from '@/routes';
+import { AuthProvider } from '@/shared/state/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 const App = () => {
