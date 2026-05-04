@@ -189,17 +189,9 @@ export const processOrder = onCall({ cors: true }, async (request) => {
       .map(word => word[0].toUpperCase())
       .join("") || "TKT";
 
-    // 2. Read last_ticket_sequence (Now a string like "MCG002")
-    let currentSequenceNum = 0;
-    if (compData.last_ticket_sequence) {
-      const seqStr = String(compData.last_ticket_sequence);
-      if (seqStr.startsWith(prefix)) {
-        currentSequenceNum = Number(seqStr.substring(prefix.length)) || 0;
-      } else {
-        // Fallback for old integer format
-        currentSequenceNum = Number(seqStr.replace(/\D/g, '')) || Number(seqStr) || 0;
-      }
-    }
+    // 2. Read last_ticket_sequence (Now stored as an integer)
+    let currentSequenceNum = Number(compData.last_ticket_sequence) || 0;
+
 
     const tickets = [];
     let finalTicketSequence = "";
@@ -243,7 +235,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     const compUpdate = {
       stock_quantity: admin.firestore.FieldValue.increment(-totalTicketsToGenerate),
       sold_tickets: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
-      last_ticket_sequence: finalTicketSequence || String(currentSequenceNum), // Store as string
+      last_ticket_sequence: currentSequenceNum, // Store as integer
       updated_at: admin.firestore.FieldValue.serverTimestamp(),
     };
     if (newStock === 0) {
