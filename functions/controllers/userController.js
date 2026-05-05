@@ -26,8 +26,8 @@ export const softDeleteUser = onCall({ cors: true }, async (request) => {
     console.log(`Updating Firestore for user: ${userId}`);
     const userRef = db.collection("user").doc(userId);
     await userRef.update({
-      status: "deleted",
-      deleted_at: admin.firestore.FieldValue.serverTimestamp()
+      is_active: false,
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
     });
 
     return {

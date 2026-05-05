@@ -118,7 +118,7 @@ const OrdersList = () => {
       const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
 
       const search = searchTerm.toLowerCase();
-      const orderId = (o.order_sequence_id || o.id || '').toLowerCase();
+      const orderId = (o.id || '').toLowerCase();
       const userName = (user?.display_name || user?.name || '').toLowerCase();
       const userEmail = (user?.email || '').toLowerCase();
       
@@ -246,7 +246,7 @@ const OrdersList = () => {
                   {currentOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell className="font-mono text-gray-400 text-sm">
-                        {order.order_sequence_id || `#${order.id.slice(-8).toUpperCase()}`}
+                        {`#${order.id.slice(-8).toUpperCase()}`}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">

@@ -141,8 +141,8 @@ export async function fetchUserDetail(uid) {
 /**
  * Updates the status of a user document.
  */
-export async function updateUserStatus(uid, newStatus) {
-  await updateDoc(doc(db, 'user', uid), { status: newStatus });
+export async function updateUserStatus(uid, isActive) {
+  await updateDoc(doc(db, 'user', uid), { is_active: isActive });
 }
 
 /**

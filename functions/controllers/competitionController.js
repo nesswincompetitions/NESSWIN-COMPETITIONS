@@ -89,7 +89,7 @@ export const createCompetition = onCall({ cors: true }, async (request) => {
       stock_quantity: existingData?.stock_quantity ?? totalTickets,
       sold_tickets: existingData?.sold_tickets ?? 0,
 
-      status: isDraft ? "draft" : (competitionData.status || "active"),
+      status: isDraft ? "draft" : (competitionData.status || existingData?.status || "active"),
       participants: existingData?.participants ?? [],
       last_ticket_sequence: existingData?.last_ticket_sequence ?? 0,
 

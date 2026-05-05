@@ -20,19 +20,31 @@ export const verifySkillAnswer = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "competitionId, questionId, and selectedOptionId are required.");
   }
 
+  // Build DocumentRefs first — skill_attempts stores these as references, not raw strings
+  const userDocRef = db.collection("user").doc(uid);
+  const compDocRef = db.collection("competition").doc(competitionId);
+  const questionDocRef = db.collection("questions").doc(questionId);
+
   await getValidatedQuestion(db, competitionId, questionId);
 
   const { passed, questionData } = await validateQuestionAnswer(db, questionId, selectedOptionId);
 
   // ── Determine attempt number ─────────────────────────────────────────────────
-  const existingAttempts = await db
+  // Query only by user_id to avoid requiring a composite index, then filter in memory
+  const existingAttemptsSnap = await db
     .collection("skill_attempts")
-    .where("user_id", "==", uid)
-    .where("competition_id", "==", competitionId)
-    .where("question_id", "==", questionId)
+    .where("user_id", "==", userDocRef)
     .get();
 
-  const attemptNumber = existingAttempts.size + 1;
+  let attemptCount = 0;
+  existingAttemptsSnap.forEach(doc => {
+    const data = doc.data();
+    if (data.competition_id?.id === competitionId && data.question_id?.id === questionId) {
+      attemptCount++;
+    }
+  });
+
+  const attemptNumber = attemptCount + 1;
 
   // ── Find option text ────────────────────────────────────────────────────────
   const selectedOption = questionData.option?.find(
@@ -45,10 +57,9 @@ export const verifySkillAnswer = onCall(async (request) => {
   const batch = db.batch();
 
   batch.set(attemptRef, {
-    user_id: uid,
-    competition_id: competitionId,
-    question_id: questionId,
-    selected_option_id: selectedOptionId, // Store the ID for refresh persistence
+    user_id: userDocRef,
+    competition_id: compDocRef,
+    question_id: questionDocRef,
     answer_given: answerGivenText,
     passed,
     attempt_number: attemptNumber,
@@ -97,32 +108,35 @@ export const getSkillGateStatus = onCall(async (request) => {
       currentQuestions.push({ id: doc.id, ...doc.data() });
     });
 
-    // 2. Fetch past attempts for this user and competition
+    // 2. Fetch past attempts for this user and competition using DocumentRefs
+    const userRef = db.collection("user").doc(uid);
     const attemptsSnap = await db.collection("skill_attempts")
-      .where("user_id", "==", uid)
-      .where("competition_id", "==", competitionId)
+      .where("user_id", "==", userRef)
+      .where("competition_id", "==", competitionRef)
       .get();
 
     const attempts = [];
     attemptsSnap.forEach(doc => attempts.push(doc.data()));
 
     // 3. Check for a passing attempt matching any CURRENT question
+    // question_id is stored as a DocumentReference, so extract .id for comparison
     const currentQuestionIds = currentQuestions.map(q => q.id);
     const passedAttempt = attempts.find(a => 
-      a.passed === true && currentQuestionIds.includes(a.question_id)
+      a.passed === true && currentQuestionIds.includes(a.question_id?.id || a.question_id)
     );
 
     if (passedAttempt) {
+      const passedQId = passedAttempt.question_id?.id || passedAttempt.question_id;
       return { 
         status: 'eligible', 
-        passedQuestionId: passedAttempt.question_id,
-        passedOptionId: passedAttempt.selected_option_id || passedAttempt.answer_given
+        passedQuestionId: passedQId,
+        passedOptionId: passedAttempt.answer_given
       };
     }
 
-    // 4. Identify failed question IDs
+    // 4. Identify failed question IDs (extract .id from DocumentRef)
     const failedQuestionIds = new Set(
-      attempts.filter(a => a.passed === false).map(a => a.question_id)
+      attempts.filter(a => a.passed === false).map(a => a.question_id?.id || a.question_id)
     );
 
     // 5. Filter unattempted questions
@@ -142,6 +156,7 @@ export const getSkillGateStatus = onCall(async (request) => {
 
     // 8. Sanitize the question (REMOVE THE CORRECT ANSWER)
     // Destructure to omit 'answer' and internal fields
+    // eslint-disable-next-line no-unused-vars
     const { answer, created_at, updated_at, competition_id, ...sanitizedQuestion } = selectedQuestion;
 
     return { 

@@ -41,7 +41,7 @@ const UserDetail = () => {
   const handleStatusUpdate = async (newStatus) => {
     try {
       await updateUserStatus(id, newStatus);
-      toast.success(`User status updated to ${newStatus}`);
+      toast.success(`User state updated to ${newStatus ? 'ACTIVE' : 'INACTIVE'}`);
       loadUser(); // Refresh data
     } catch (error) {
       toast.error('Failed to update status');
@@ -85,14 +85,10 @@ const UserDetail = () => {
     { id: 'notes', label: t('users.detail.tabs.notes'), icon: FileText },
   ];
 
-  const renderStatusBadge = (status) => {
-    const s = (status || 'ACTIVE').toUpperCase();
-    switch(s) {
-      case 'ACTIVE': return <Badge variant="success">{t('common.active')}</Badge>;
-      case 'SUSPENDED': return <Badge variant="warning">{t('common.suspended')}</Badge>;
-      case 'BANNED': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">{t('common.banned')}</Badge>;
-      default: return <Badge variant="neutral">{status}</Badge>;
-    }
+  const renderStatusBadge = (isActive) => {
+    return isActive !== false
+      ? <Badge variant="success">{t('common.active')}</Badge>
+      : <Badge variant="danger">{t('common.inactive')}</Badge>;
   };
 
   const renderOverview = () => (
@@ -141,7 +137,7 @@ const UserDetail = () => {
                 <TableCell className="font-bold text-emerald-400">£{(order.total_amount || 0).toFixed(2)}</TableCell>
                 <TableCell>{formatDate(order.created_at)}</TableCell>
                 <TableCell>
-                  <Badge variant={order.status === 'Paid' ? 'success' : 'warning'}>{order.status}</Badge>
+                  <Badge variant={order.status === 'paid' ? 'success' : 'warning'}>{order.status}</Badge>
                 </TableCell>
               </TableRow>
             ))}
@@ -342,7 +338,7 @@ const UserDetail = () => {
               <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white relative">
                 {(profile.display_name || profile.name || '?').charAt(0)}
                 <div className="absolute -bottom-1 -right-1">
-                  {renderStatusBadge(profile.status)}
+                  {renderStatusBadge(profile.is_active)}
                 </div>
               </div>
               <div className="space-y-1">
@@ -357,22 +353,15 @@ const UserDetail = () => {
             <div className="flex flex-wrap items-center gap-2">
               <Button 
                 variant="outline" 
-                className="flex items-center gap-2 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500/10"
-                onClick={() => handleStatusUpdate('SUSPENDED')}
-              >
-                <AlertTriangle size={16} /> {t('users.detail.suspend')}
-              </Button>
-              <Button 
-                variant="outline" 
                 className="flex items-center gap-2 text-red-500 border-red-500/20 hover:bg-red-500/10"
-                onClick={() => handleStatusUpdate('BANNED')}
+                onClick={() => handleStatusUpdate(false)}
               >
-                <Ban size={16} /> {t('users.detail.ban')}
+                <Ban size={16} /> {t('common.inactive')}
               </Button>
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10"
-                onClick={() => handleStatusUpdate('ACTIVE')}
+                onClick={() => handleStatusUpdate(true)}
               >
                 <CheckCircle2 size={16} /> {t('common.active')}
               </Button>

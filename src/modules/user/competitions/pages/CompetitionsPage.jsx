@@ -266,7 +266,7 @@ export default function CompetitionsPage() {
         const fetchedComps = comps.map(data => {
           const drawDateObj = data.draw_date ? data.draw_date.toDate() : null;
           return {
-            id: doc.id,
+            id: data.id,
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
             badgeType: data.status === 'active' ? 'new' : 'ended',

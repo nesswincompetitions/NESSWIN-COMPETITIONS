@@ -44,6 +44,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
   const orderRef = db.collection("order").doc(); // auto-id
+  const questionRef = db.collection("questions").doc(questionId);
 
   // ── Transaction ──────────────────────────────────────────────────────────────
   const result = await db.runTransaction(async (transaction) => {
@@ -51,7 +52,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     const [userSnap, compSnap, questionSnap] = await Promise.all([
       transaction.get(userRef),
       transaction.get(competitionRef),
-      transaction.get(db.collection("questions").doc(questionId))
+      transaction.get(questionRef)
     ]);
 
     if (!userSnap.exists) {
@@ -59,7 +60,7 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     }
     const userData = userSnap.data();
 
-    if (userData.status === "deleted" || userData.status === "suspended") {
+    if (userData.is_active === false) {
       throw new HttpsError("permission-denied", "Your account is not allowed to make purchases.");
     }
 
@@ -83,14 +84,24 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     // ── 2A: Skill Check & History ────────────────────────────────────────────
     
     // 1. Did they already pass this exact question?
-    const pastAttemptsQuery = db.collection("skill_attempts")
-      .where("user_id", "==", uid)
-      .where("question_id", "==", questionId)
-      .where("passed", "==", true)
-      .limit(1);
-      
-    const pastAttemptsSnap = await transaction.get(pastAttemptsQuery);
-    const hasAlreadyPassed = !pastAttemptsSnap.empty;
+    // Query by user_id only to avoid composite index requirement
+    const userAttemptsQuery = db.collection("skill_attempts").where("user_id", "==", userRef);
+    const userAttemptsSnap = await transaction.get(userAttemptsQuery);
+    
+    let hasAlreadyPassed = false;
+    let attemptNumber = 1;
+
+    userAttemptsSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.question_id?.id === questionId) {
+        if (data.passed === true) {
+          hasAlreadyPassed = true;
+        }
+        if (data.competition_id?.id === competitionId) {
+          attemptNumber++;
+        }
+      }
+    });
 
     let skillPassed = false;
     let correctOptionId = questionData.answer?.option_id;
@@ -110,13 +121,20 @@ export const processOrder = onCall({ cors: true }, async (request) => {
 
       // Log this new attempt
       const attemptRef = db.collection("skill_attempts").doc();
+      
+      const selectedOption = questionData.option?.find(
+        (opt) => String(opt.option_id) === String(selectedOptionId)
+      );
+      const answerGivenText = selectedOption ? selectedOption.option : String(selectedOptionId);
+
       transaction.set(attemptRef, {
-        user_id: uid,
-        competition_id: competitionId,
-        question_id: questionId,
-        selected_option_id: selectedOptionId,
+        user_id: userRef,
+        competition_id: competitionRef,
+        question_id: questionRef,
+        answer_given: answerGivenText,
         passed: skillPassed,
-        created_at: admin.firestore.FieldValue.serverTimestamp()
+        attempt_number: attemptNumber,
+        attempted_at: admin.firestore.FieldValue.serverTimestamp()
       });
 
       if (!skillPassed) {
@@ -142,28 +160,29 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     // ── 2C: The Writes ───────────────────────────────────────────────────────
     
     // Order Receipt
-    const correctOption = questionData.option?.find(
-      (opt) => String(opt.option_id) === String(correctOptionId)
-    );
 
-    const orderSequenceId = `ORD-${orderRef.id.substring(0, 8).toUpperCase()}`;
 
     const orderData = {
-      order_sequence_id: orderSequenceId,
-      competition_id: competitionId,
-      user_ref: uid,
+      competition_id: competitionRef,
+      user_ref: userRef,
       total_ticket: qty,
       free_ticket: freeTickets,
       pack_type: packType,
+      discount_percent: Math.round(discount * 100),
       subtotal,
       discount_amount: discountAmount,
       total_amount: totalAmount,
-      status: "Paid", // Mocking stripe for now
+      currency: "GBP",
+      status: "paid", // Mocking stripe for now
+      is_winner: false,
+      stripe_payment_intent_id: "",
+      stripe_status: "mock",
       question_answer: {
         question_id: questionId,
         question: questionData.question || "",
-        correct_answer: correctOption?.option || "",
-        correct_option_id: correctOptionId || null,
+        option: questionData.option || [],
+        answer: questionData.answer || {},
+        image: questionData.images || [],
       },
       created_at: admin.firestore.FieldValue.serverTimestamp(),
       paid_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -184,18 +203,16 @@ export const processOrder = onCall({ cors: true }, async (request) => {
 
 
     const tickets = [];
-    let finalTicketSequence = "";
     for (let i = 0; i < totalTicketsToGenerate; i++) {
       currentSequenceNum += 1;
       const ticketRef = db.collection("ticket").doc();
       // Format: PREFIX + 3-digit padded number (or more if sequence > 999)
       const ticketSequence = `${prefix}${String(currentSequenceNum).padStart(3, "0")}`;
-      finalTicketSequence = ticketSequence;
 
       transaction.set(ticketRef, {
-        competition_id: competitionId,
-        user_id: uid,
-        order_id: orderRef.id,
+        competition_id: competitionRef,
+        user_id: userRef,
+        order_id: orderRef,
         ticket_number: currentSequenceNum,
         ticket_sequence: ticketSequence,
         status: "active",
@@ -210,9 +227,9 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     if (freeTickets > 0) {
       const freeTicketLogRef = db.collection("free_ticket_log").doc();
       transaction.set(freeTicketLogRef, {
-        user_id: uid,
-        order_id: orderRef.id,
-        competition_id: competitionId,
+        user_id: userRef,
+        order_id: orderRef,
+        competition_id: competitionRef,
         quantity: freeTickets,
         reason: `${packType} Bonus`,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -234,8 +251,9 @@ export const processOrder = onCall({ cors: true }, async (request) => {
     
     // Add user to participants if not already there
     const participants = Array.isArray(compData.participants) ? [...compData.participants] : [];
-    if (!participants.includes(uid)) {
-      participants.push(uid);
+    // Check if the userRef path already exists in the array
+    if (!participants.some(p => p.path === userRef.path)) {
+      participants.push(userRef);
       compUpdate.participants = participants;
     }
     
@@ -282,8 +300,8 @@ export const aggregateOrderMetrics = onDocumentWritten("order/{orderId}", async 
   const afterData = event.data.after?.data() || {};
 
   // Check if order transitioned to 'Paid'
-  const wasPaid = beforeData.status === "Paid";
-  const isPaid = afterData.status === "Paid";
+  const wasPaid = beforeData.status === "paid";
+  const isPaid = afterData.status === "paid";
 
   if (!wasPaid && isPaid) {
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });

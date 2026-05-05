@@ -65,22 +65,20 @@ const UsersList = () => {
     }
   };
 
-  const renderStatusBadge = (status) => {
-    const s = (status || 'ACTIVE').toUpperCase();
-    switch (s) {
-      case 'ACTIVE': return <Badge variant="success">{t('common.active')}</Badge>;
-      case 'SUSPENDED': return <Badge variant="warning">{t('common.suspended')}</Badge>;
-      case 'BANNED': return <Badge variant="danger" className="bg-red-500/20 text-red-500 border-red-500/30">{t('common.banned')}</Badge>;
-      default: return <Badge variant="neutral">{status}</Badge>;
-    }
+  const renderStatusBadge = (isActive) => {
+    return isActive !== false
+      ? <Badge variant="success">{t('common.active')}</Badge>
+      : <Badge variant="danger">{t('common.inactive')}</Badge>;
   };
 
   // -- Computed Data --
   const { currentUsers, totalPages, totalFiltered } = useMemo(() => {
     // 1. Filter
     const filtered = users.filter(u => {
-      const userStatus = (u.status || 'ACTIVE').toUpperCase();
-      const matchesStatus = activeStatus === 'All' || userStatus === activeStatus.toUpperCase();
+      const isActiveUser = u.is_active !== false;
+      const matchesStatus = activeStatus === 'All' 
+        || (activeStatus === 'ACTIVE' && isActiveUser)
+        || (activeStatus === 'INACTIVE' && !isActiveUser);
       
       const search = searchTerm.toLowerCase();
       const nameMatch = (u.display_name || u.name || '').toLowerCase().includes(search);
@@ -131,7 +129,7 @@ const UsersList = () => {
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex bg-white/5 p-1 rounded-lg overflow-x-auto hide-scrollbar">
-              {['All', 'ACTIVE', 'SUSPENDED', 'BANNED'].map((key) => (
+              {['All', 'ACTIVE', 'INACTIVE'].map((key) => (
                 <button
                   key={key}
                   onClick={() => { setActiveStatus(key); setCurrentPage(1); }}
@@ -211,7 +209,7 @@ const UsersList = () => {
                       <TableCell className="text-center">
                         <Badge variant="hot" className="px-2 py-0.5 min-w-[2rem]">{user.free_tickets || 0}</Badge>
                       </TableCell>
-                      <TableCell>{renderStatusBadge(user.status)}</TableCell>
+                      <TableCell>{renderStatusBadge(user.is_active)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => navigate(`/admin/users/${user.id}`)} className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white" title="View Profile">

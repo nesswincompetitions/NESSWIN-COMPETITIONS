@@ -75,7 +75,7 @@ const OrderDetail = () => {
     );
   }
 
-  const orderId = order.order_sequence_id || `#${order.id.substring(0,8).toUpperCase()}`;
+  const orderId = `#${order.id.substring(0,8).toUpperCase()}`;
   const tickets = order.ticketsList || [];
   const questionAnswer = order.question_answer || {};
 
@@ -160,7 +160,7 @@ const OrderDetail = () => {
                     <p className="text-sm font-medium text-emerald-400">{t('orders.detail.skillQuestion')}</p>
                     <p className="text-xs text-emerald-500/70 mt-1 mb-2">{questionAnswer.question}</p>
                     <div className="bg-[#121212] border border-emerald-500/10 p-2 rounded text-xs text-emerald-400 font-mono">
-                      Answered: {questionAnswer.correct_answer}
+                      Answered: {questionAnswer.answer?.option || questionAnswer.correct_answer || 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -180,10 +180,10 @@ const OrderDetail = () => {
                   <span>{t('orders.detail.subtotal')}</span>
                   <span>£{(order.subtotal || order.total_amount || 0).toFixed(2)}</span>
                 </div>
-                {order.discount > 0 && (
+                {(order.discount_amount > 0 || order.discount > 0) && (
                   <div className="flex justify-between text-sm text-emerald-400">
-                    <span>{t('orders.detail.discount')}</span>
-                    <span>-£{order.discount.toFixed(2)}</span>
+                    <span>{t('orders.detail.discount')} {order.discount_percent ? `(${order.discount_percent}%)` : ''}</span>
+                    <span>-£{(order.discount_amount || order.discount || 0).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="mt-6 p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-between">
