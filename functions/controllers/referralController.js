@@ -38,10 +38,6 @@ export const processReferralReward = onDocumentCreated("referrals/{referralId}",
       referral_count: admin.firestore.FieldValue.increment(1)
     });
 
-    batch.update(referralDocRef, {
-      reward_issued: true,
-      reward_issued_at: admin.firestore.FieldValue.serverTimestamp()
-    });
 
     await batch.commit();
 
