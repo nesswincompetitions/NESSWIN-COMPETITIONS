@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
+import Select from '@/shared/components/ui/Select';
+import TimeSelect from '@/shared/components/ui/TimeSelect';
 import { useTranslation } from 'react-i18next';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
@@ -49,8 +51,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
     return {
       title: baseData.title || '',
-      subTitle: baseData.subTitle || '',
       description: baseData.description || '',
+      tag: baseData.tag || '',
       prizeName: baseData.prizeName || '',
       prizeValue: baseData.prizeValue || '',
       category: baseData.category || 'Tech',
@@ -59,15 +61,10 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       imagePreviews: baseData.imagePreviews || [],
       ticketPrice: baseData.ticketPrice || '',
       maxTickets: baseData.maxTickets || '',
-      sellOutBehavior: baseData.sellOutBehavior || 'auto_end',
       questions: questions,
       drawEndDate: baseData.drawEndDate || (isEditMode ? '' : new Date().toISOString().split('T')[0]),
       drawEndTime: baseData.drawEndTime || (isEditMode ? '' : new Date(Date.now() + 60 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
-      countdownEndDate: baseData.countdownEndDate || '',
-      countdownEndTime: baseData.countdownEndTime || '',
-      autoEndDraw: baseData.autoEndDraw !== undefined ? baseData.autoEndDraw : true,
       instagramLiveLink: baseData.instagramLiveLink || '',
-      status: baseData.status || 'active',
       includedThings: baseData.includedThings || [],
       prizeVideoUrl: baseData.prizeVideoUrl || '',
     };
@@ -83,9 +80,30 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = type === 'checkbox' ? checked : value;
+    
+    // Prevent negative numbers for specific numeric fields
+    if (type === 'number' && (name === 'prizeValue' || name === 'ticketPrice' || name === 'maxTickets')) {
+      if (parseFloat(value) < 0) finalValue = '0';
+    }
+
+    // Restriction: Draw date/time must be in the future
+    if (name === 'drawEndDate' || name === 'drawEndTime') {
+      const datePart = name === 'drawEndDate' ? value : formData.drawEndDate;
+      const timePart = name === 'drawEndTime' ? value : formData.drawEndTime;
+      
+      if (datePart && timePart) {
+        const selectedDateTime = new Date(`${datePart}T${timePart}`);
+        if (selectedDateTime < new Date()) {
+          toast.error("Draw date and time must be in the future");
+          return; // Prevent state update for past dates
+        }
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: finalValue
     }));
   };
 
@@ -289,6 +307,10 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         toast.error("Competition description is required");
         return;
       }
+      if (!formData.tag.trim()) {
+        toast.error("Tag is required");
+        return;
+      }
       if (!formData.prizeName.trim()) {
         toast.error("Prize name is required");
         return;
@@ -299,6 +321,18 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
       }
       if (!formData.imagePreviews || formData.imagePreviews.length === 0) {
         toast.error("At least one competition image is required");
+        return;
+      }
+    }
+
+    // Validation for Step 2: Pricing
+    if (currentStep === 1) {
+      if (!formData.ticketPrice || Number(formData.ticketPrice) <= 0) {
+        toast.error("Valid ticket price is required");
+        return;
+      }
+      if (!formData.maxTickets || Number(formData.maxTickets) <= 0) {
+        toast.error("Total tickets must be at least 1");
         return;
       }
     }
@@ -338,18 +372,6 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
         toast.error("Draw Date & Time is required");
         return;
       }
-      if (!formData.countdownEndDate || !formData.countdownEndTime) {
-        toast.error("Countdown End is required");
-        return;
-      }
-
-      const drawDateObj = new Date(`${formData.drawEndDate}T${formData.drawEndTime}`);
-      const countdownDateObj = new Date(`${formData.countdownEndDate}T${formData.countdownEndTime}`);
-
-      if (drawDateObj < countdownDateObj) {
-        toast.error("Draw Date & Time must be after the Countdown End");
-        return;
-      }
     }
 
     if (currentStep < steps.length - 1) setCurrentStep(prev => prev + 1);
@@ -381,13 +403,6 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           <div className="text-xs text-gray-500 text-right">{formData.title.length}/120</div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Sub Title</label>
-          <input
-            type="text" name="subTitle" value={formData.subTitle} onChange={handleChange} placeholder="A short catchy subtitle" maxLength={200}
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
-          />
-        </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-300">Description <span className="text-red-400">*</span></label>
@@ -396,6 +411,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors resize-none"
           />
         </div>
+
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
@@ -411,11 +427,13 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input
                 type="number" name="prizeValue" value={formData.prizeValue} onChange={handleChange} placeholder={t('competitions.form.step1.estimatedValuePlaceholder')}
+                min="0"
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
           </div>
         </div>
+
 
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -446,29 +464,26 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('competitions.form.step1.category')}</label>
-            <select
-              name="category" value={formData.category} onChange={handleChange}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
-            >
-              <option value="Tech" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.tech')}</option>
-              <option value="Jewellery" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.jewellery')}</option>
-              <option value="Fashion" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.fashion')}</option>
-              <option value="Cars" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.cars')}</option>
-              <option value="Experiences" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.experiences')}</option>
-              <option value="Other" className="bg-[#0a0a0a]">{t('competitions.form.step1.categories.other')}</option>
-            </select>
+            <label className="text-sm font-medium text-gray-300">Tag <span className="text-red-400">*</span></label>
+            <input
+              type="text" name="tag" value={formData.tag} onChange={handleChange} placeholder="e.g. Supercar, Luxury, Tech"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
+            />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Status</label>
-            <select
-              name="status" value={formData.status} onChange={handleChange}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors appearance-none"
-            >
-              <option value="active" className="bg-[#0a0a0a]">Active</option>
-              <option value="paused" className="bg-[#0a0a0a]">Paused</option>
-              <option value="cancelled" className="bg-[#0a0a0a]">Cancelled</option>
-            </select>
+            <Select
+              label={t('competitions.form.step1.category')}
+              value={formData.category}
+              onChange={(e) => handleChange({ target: { name: 'category', value: e.target.value } })}
+              options={[
+                { value: 'Tech', label: t('competitions.form.step1.categories.tech') },
+                { value: 'Jewellery', label: t('competitions.form.step1.categories.jewellery') },
+                { value: 'Fashion', label: t('competitions.form.step1.categories.fashion') },
+                { value: 'Cars', label: t('competitions.form.step1.categories.cars') },
+                { value: 'Experiences', label: t('competitions.form.step1.categories.experiences') },
+                { value: 'Other', label: t('competitions.form.step1.categories.other') }
+              ]}
+            />
           </div>
         </div>
 
@@ -543,6 +558,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">£</span>
               <input
                 type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} placeholder={t('competitions.form.step2.ticketPricePlaceholder')}
+                min="0"
                 className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
@@ -551,6 +567,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
             <label className="text-sm font-medium text-gray-300">{t('competitions.form.step2.maxTickets')} <span className="text-red-400">*</span></label>
             <input
               type="number" name="maxTickets" value={formData.maxTickets} onChange={handleChange} placeholder={t('competitions.form.step2.maxTicketsPlaceholder')}
+              min="1"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
@@ -564,29 +581,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label className="text-sm font-medium text-gray-300">{t('competitions.form.step2.sellOutBehaviour')}</label>
 
-          <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${formData.sellOutBehavior === 'auto_end' ? 'border-primary bg-primary/5' : 'border-white/10 bg-white/5'}`}>
-            <div className="flex items-center h-5">
-              <input type="radio" name="sellOutBehavior" value="auto_end" checked={formData.sellOutBehavior === 'auto_end'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-white">{t('competitions.form.step2.autoEnd')}</p>
-              <p className="text-xs text-gray-400 mt-1">{t('competitions.form.step2.autoEndDesc')}</p>
-            </div>
-          </label>
-
-          <label className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${formData.sellOutBehavior === 'keep_running' ? 'border-primary bg-primary/5' : 'border-white/10 bg-white/5'}`}>
-            <div className="flex items-center h-5">
-              <input type="radio" name="sellOutBehavior" value="keep_running" checked={formData.sellOutBehavior === 'keep_running'} onChange={handleChange} className="w-4 h-4 text-primary bg-white/10 border-white/20 focus:ring-primary focus:ring-2" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-white">{t('competitions.form.step2.keepRunning')}</p>
-              <p className="text-xs text-gray-400 mt-1">{t('competitions.form.step2.keepRunningDesc')}</p>
-            </div>
-          </label>
-        </div>
 
       </CardContent>
     </Card>
@@ -616,8 +611,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
                   type="button"
                   onClick={() => setActiveQuestionIndex(idx)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${activeQuestionIndex === idx
-                      ? 'bg-primary text-black font-bold'
-                      : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                    ? 'bg-primary text-black font-bold'
+                    : 'bg-white/5 text-gray-300 hover:bg-white/10'
                     }`}
                 >
                   Question {idx + 1}
@@ -773,40 +768,17 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
             <div className="flex items-center gap-3">
               <input
                 type="date" name="drawEndDate" value={formData.drawEndDate} onChange={handleChange}
+                min={new Date().toISOString().split('T')[0]}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
               />
-              <input
-                type="time" name="drawEndTime" value={formData.drawEndTime} onChange={handleChange}
-                className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Countdown End <span className="text-red-400">*</span></label>
-            <div className="flex items-center gap-3">
-              <input
-                type="date" name="countdownEndDate" value={formData.countdownEndDate} onChange={handleChange}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-              />
-              <input
-                type="time" name="countdownEndTime" value={formData.countdownEndTime} onChange={handleChange}
-                className="w-full sm:w-32 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              <TimeSelect
+                value={formData.drawEndTime}
+                onChange={handleChange}
+                className="w-full sm:w-36"
               />
             </div>
           </div>
         </div>
-
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
-          <div>
-            <p className="text-sm font-medium text-white">{t('competitions.form.step4.autoEndDraw')}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{t('competitions.form.step4.autoEndDrawDesc')}</p>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" name="autoEndDraw" checked={formData.autoEndDraw} onChange={handleChange} className="sr-only peer" />
-            <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-          </label>
-        </div>
-
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-300">{t('competitions.form.step4.instagramLink')}</label>
           <input
@@ -853,6 +825,8 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <span className="text-white text-right">£{formData.prizeValue || '0'}</span>
               <span className="text-gray-500">{t('competitions.form.step5.category')}</span>
               <span className="text-white text-right">{formData.category}</span>
+              <span className="text-gray-500">Tag</span>
+              <span className="text-white text-right">{formData.tag || '-'}</span>
             </div>
           </div>
 
@@ -867,8 +841,6 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               <span className="text-white font-medium text-right">£{formData.ticketPrice || '0'}</span>
               <span className="text-gray-500">{t('competitions.form.step5.maxTickets')}</span>
               <span className="text-white text-right">{formData.maxTickets || '0'}</span>
-              <span className="text-gray-500">{t('competitions.form.step5.sellOut')}</span>
-              <span className="text-white text-right">{formData.sellOutBehavior === 'auto_end' ? t('competitions.form.step5.autoEnd') : t('competitions.form.step5.keepRunning')}</span>
             </div>
           </div>
 
@@ -899,18 +871,10 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
             <div className="grid grid-cols-2 gap-y-2 text-sm">
               <span className="text-gray-500">{t('competitions.form.step5.endDate')}</span>
               <span className="text-white font-medium text-right">
-                {formData.drawEndDate && formData.drawEndTime 
+                {formData.drawEndDate && formData.drawEndTime
                   ? `${formData.drawEndDate} at ${formData.drawEndTime}`
                   : formData.drawEndDate || '-'}
               </span>
-              <span className="text-gray-500">Countdown End</span>
-              <span className="text-white font-medium text-right">
-                {formData.countdownEndDate && formData.countdownEndTime 
-                  ? `${formData.countdownEndDate} at ${formData.countdownEndTime}`
-                  : formData.countdownEndDate || '-'}
-              </span>
-              <span className="text-gray-500">{t('competitions.form.step5.autoEndLabel')}</span>
-              <span className="text-white text-right">{formData.autoEndDraw ? t('common.yes') : t('common.no')}</span>
             </div>
           </div>
         </div>
@@ -945,7 +909,7 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               {formData.title || t('competitions.form.preview.titlePlaceholder')}
             </h4>
             <p className="text-sm text-gray-400 mt-2 line-clamp-2">
-              {formData.subTitle || t('competitions.form.preview.descPlaceholder')}
+              {formData.description || t('competitions.form.preview.descPlaceholder')}
             </p>
           </div>
 
@@ -997,10 +961,10 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
                   onClick={() => index < currentStep && setCurrentStep(index)}
                   disabled={index > currentStep}
                   className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium border-2 transition-colors shrink-0 ${isActive
-                      ? 'border-primary bg-primary text-black'
-                      : isCompleted
-                        ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400 cursor-pointer hover:bg-emerald-400/20'
-                        : 'border-white/20 bg-[#0a0a0a] text-gray-400'
+                    ? 'border-primary bg-primary text-black'
+                    : isCompleted
+                      ? 'border-emerald-400 bg-emerald-400/10 text-emerald-400 cursor-pointer hover:bg-emerald-400/20'
+                      : 'border-white/20 bg-[#0a0a0a] text-gray-400'
                     }`}>
                   {isCompleted ? <CheckCircle2 size={16} className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : index + 1}
                 </button>

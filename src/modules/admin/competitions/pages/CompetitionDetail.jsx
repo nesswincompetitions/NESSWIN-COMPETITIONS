@@ -40,9 +40,6 @@ const CompetitionDetail = () => {
   const [participantsData, setParticipantsData] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   
-  const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
-  const [extendData, setExtendData] = useState({ date: '', time: '' });
-  const [isExtending, setIsExtending] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -142,9 +139,8 @@ const CompetitionDetail = () => {
         prize_value: parseFloat(formData.prizeValue) || 0,
         prize_name: formData.prizeName || '',
         image: imageUrls,
-        status: isDraft ? 'draft' : formData.status,
+        status: isDraft ? 'draft' : (competition.status === 'draft' ? 'active' : competition.status),
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
-        countdown_end: Timestamp.fromMillis(countdownEndTimestamp),
         instagram_live_url: formData.instagramLiveLink || '',
         prize_video_url: formData.prizeVideoUrl || '',
         included_things: formData.includedThings.filter(thing => thing.trim() !== ''),
@@ -171,8 +167,7 @@ const CompetitionDetail = () => {
       setCompetition(prev => ({
         ...prev,
         ...updateData,
-        draw_date: Timestamp.fromMillis(drawDateTimestamp),
-        countdown_end: Timestamp.fromMillis(countdownEndTimestamp)
+        draw_date: Timestamp.fromMillis(drawDateTimestamp)
       }));
 
       toast.success(isDraft ? 'Draft updated!' : 'Changes saved!', { id: loadingToast });
@@ -185,45 +180,7 @@ const CompetitionDetail = () => {
     }
   };
 
-  const handleExtendDraw = async () => {
-    if (!extendData.date || !extendData.time) {
-      toast.error('Please select both date and time');
-      return;
-    }
 
-    setIsExtending(true);
-    const loadingToast = toast.loading('Extending competition...');
-    try {
-      const countdownTs = Timestamp.fromMillis(new Date(`${extendData.date}T${extendData.time}`).getTime());
-
-      await updateCompetition(id, {
-        countdown_end: countdownTs
-      });
-
-      setCompetition(prev => ({ 
-        ...prev, 
-        countdown_end: countdownTs
-      }));
-      setIsExtendModalOpen(false);
-      toast.success('Competition extended successfully!', { id: loadingToast });
-    } catch (err) {
-      console.error('Error extending:', err);
-      toast.error('Failed to extend competition', { id: loadingToast });
-    } finally {
-      setIsExtending(false);
-    }
-  };
-
-  const openExtendModal = () => {
-    if (competition?.countdown_end) {
-      const d = new Date(competition.countdown_end.toMillis());
-      setExtendData({
-        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-        time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-      });
-    }
-    setIsExtendModalOpen(true);
-  };
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -330,8 +287,8 @@ const CompetitionDetail = () => {
             <div className="pt-4 border-t border-white/10 text-center">
               <p className="text-xs text-gray-500 mb-2">{t('competitions.detail.drawEndsIn')}</p>
               {(() => {
-                if (!competition.countdown_end) return <p className="text-sm text-gray-500">No deadline set</p>;
-                const diff = competition.countdown_end.toMillis() - Date.now();
+                if (!competition.draw_date) return <p className="text-sm text-gray-500">No deadline set</p>;
+                const diff = competition.draw_date.toMillis() - Date.now();
                 const isStatusEnded = competition.status === 'end' || competition.status === 'completed';
 
                 if (diff <= 0) {
@@ -449,7 +406,6 @@ const CompetitionDetail = () => {
     };
 
     const drawInfo = getLocalInfo(competition.draw_date);
-    const countdownInfo = getLocalInfo(competition.countdown_end);
 
     return {
       title: competition.title || '',
@@ -463,13 +419,8 @@ const CompetitionDetail = () => {
       imagePreviews: competition.image || [],
       ticketPrice: competition.ticket_price || '',
       maxTickets: competition.total_tickets || '',
-      sellOutBehavior: competition.sellOutBehavior || 'auto_end',
-      status: competition.status || 'active',
       drawEndDate: drawInfo.date,
       drawEndTime: drawInfo.time,
-      countdownEndDate: countdownInfo.date,
-      countdownEndTime: countdownInfo.time,
-      autoEndDraw: competition.autoEndDraw !== undefined ? competition.autoEndDraw : true,
       instagramLiveLink: competition.instagram_live_url || '',
       includedThings: competition.included_things || [],
       prizeVideoUrl: competition.prize_video_url || '',
@@ -574,7 +525,7 @@ const CompetitionDetail = () => {
             <div className="p-6 bg-white/5 border border-white/10 rounded-2xl inline-block w-full">
               <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">{t('competitions.detail.draw.timeUntilDraw')}</p>
               {(() => {
-                const diff = (competition.countdown_end?.toMillis() || 0) - Date.now();
+                const diff = (competition.draw_date?.toMillis() || 0) - Date.now();
                 const isStatusEnded = competition.status === 'end' || competition.status === 'completed';
 
                 if (diff <= 0) {
@@ -678,7 +629,7 @@ const CompetitionDetail = () => {
             <h1 className="text-3xl font-serif font-bold text-white">{competition.title}</h1>
             {(() => {
               const now = new Date();
-              const isTimeUp = competition.status === 'active' && competition.countdown_end && competition.countdown_end.toMillis() <= now.getTime();
+              const isTimeUp = competition.status === 'active' && competition.draw_date && competition.draw_date.toMillis() <= now.getTime();
               
               if (isTimeUp) {
                 return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready for Draw</Badge>;
@@ -696,11 +647,7 @@ const CompetitionDetail = () => {
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 mt-4 md:mt-0 w-full md:w-auto">
-          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={openExtendModal}>
-            <CalendarPlus size={14} />
-            <span className="hidden sm:inline">{t('competitions.detail.extendDraw')}</span>
-            <span className="sm:hidden">{t('common.extend')}</span>
-          </Button>
+
           <Button variant="primary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleTabChange('edit')}>
             <Edit3 size={14} />
             {t('common.edit')}
@@ -746,62 +693,7 @@ const CompetitionDetail = () => {
         {activeTab === 'draw' && renderDraw()}
       </div>
 
-      {/* Extend Draw Modal */}
-      <Modal
-        isOpen={isExtendModalOpen}
-        onClose={() => setIsExtendModalOpen(false)}
-        title="Extend Competition"
-        description="Quickly adjust the countdown deadline without going through full edit steps."
-      >
-        <div className="space-y-6 py-2">
-          <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex gap-3 text-sm text-primary">
-            <Clock size={18} className="shrink-0 mt-0.5" />
-            <p>Adjust the <strong>Countdown End</strong>. This is when the competition will automatically close and entries will stop.</p>
-          </div>
 
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">New Deadline Date</label>
-              <input 
-                type="date" 
-                value={extendData.date}
-                onChange={(e) => setExtendData(prev => ({ ...prev, date: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">New Deadline Time</label>
-              <input 
-                type="time" 
-                value={extendData.time}
-                onChange={(e) => setExtendData(prev => ({ ...prev, time: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="px-6" 
-              onClick={() => setIsExtendModalOpen(false)}
-              disabled={isExtending}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="primary" 
-              size="sm"
-              className="px-6"
-              onClick={handleExtendDraw}
-              loading={isExtending}
-            >
-              Update Deadline
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

@@ -81,8 +81,9 @@ const UserDetail = () => {
     { id: 'orders', label: t('users.detail.tabs.orders'), icon: ShoppingCart },
     { id: 'competitions', label: t('users.detail.tabs.competitions'), icon: Trophy },
     { id: 'referrals', label: t('users.detail.tabs.referrals'), icon: UsersIcon },
+    { id: 'wins', label: 'Wins', icon: Trophy },
     { id: 'bonus', label: t('users.detail.tabs.bonus'), icon: Ticket },
-    { id: 'notes', label: t('users.detail.tabs.notes'), icon: FileText },
+    // { id: 'notes', label: t('users.detail.tabs.notes'), icon: FileText },
   ];
 
   const renderStatusBadge = (isActive) => {
@@ -288,6 +289,20 @@ const UserDetail = () => {
       </div>
     );
   };
+  
+  const renderWins = () => (
+    <Card className="fade-in">
+      <CardContent className="py-20 flex flex-col items-center text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+          <Trophy size={32} className="text-amber-500" />
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-white">No wins yet</p>
+          <p className="text-sm text-gray-400 mt-1">When this user wins a competition, the details will appear here.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const renderNotes = () => (
     <div className="space-y-6 fade-in">
@@ -351,23 +366,7 @@ const UserDetail = () => {
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2 text-red-500 border-red-500/20 hover:bg-red-500/10"
-                onClick={() => handleStatusUpdate(false)}
-              >
-                <Ban size={16} /> {t('common.inactive')}
-              </Button>
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10"
-                onClick={() => handleStatusUpdate(true)}
-              >
-                <CheckCircle2 size={16} /> {t('common.active')}
-              </Button>
-              <Button variant="outline" className="flex items-center gap-2 text-gray-400 hover:text-white border-white/10">
-                <Key size={16} /> {t('users.detail.resetPwd')}
-              </Button>
+              {/* Actions removed as per request */}
             </div>
           </div>
         </CardContent>
@@ -403,7 +402,8 @@ const UserDetail = () => {
         {activeTab === 'competitions' && renderCompetitions()}
         {activeTab === 'referrals' && renderReferrals()}
         {activeTab === 'bonus' && renderBonusTickets()}
-        {activeTab === 'notes' && renderNotes()}
+        {activeTab === 'wins' && renderWins()}
+        {/* {activeTab === 'notes' && renderNotes()} */}
       </div>
     </div>
   );

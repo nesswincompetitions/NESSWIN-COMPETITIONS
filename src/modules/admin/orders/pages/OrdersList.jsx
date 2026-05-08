@@ -5,12 +5,14 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import SearchInput from '@/shared/components/ui/SearchInput';
 import {
-  Search, Calendar, Download, Eye,
+  Calendar, Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
 import { fetchOrdersStats } from '@/modules/admin/orders/services/ordersService';
 import { usePaginatedData } from '@/modules/admin/shared/hooks/usePaginatedData';
+import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
 const OrdersList = () => {
@@ -79,6 +81,36 @@ const OrdersList = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+  
+  const handleExportCSV = () => {
+    if (!orders.length) return;
+    
+    const headers = [
+      { label: 'Order ID', key: 'id' },
+      { label: 'Customer', key: 'userName' },
+      { label: 'Email', key: 'userEmail' },
+      { label: 'Competition', key: 'competitionTitle' },
+      { label: 'Tickets', key: 'total_ticket' },
+      { label: 'Amount (£)', key: 'total_amount' },
+      { label: 'Date', key: 'created_at' },
+      { label: 'Status', key: 'status' }
+    ];
+
+    const exportData = orders.map(o => {
+      const user = resolveRelation('user', o.user_ref);
+      const comp = resolveRelation('competition', o.competition_id);
+      return {
+        ...o,
+        userName: user?.display_name || user?.name || 'N/A',
+        userEmail: user?.email || 'N/A',
+        competitionTitle: comp?.title || 'N/A',
+        created_at: o.created_at?.toMillis ? new Date(o.created_at.toMillis()).toISOString() : 'N/A'
+      };
+    });
+
+    exportToCSV(exportData, headers, `orders_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Orders list exported to CSV');
+  };
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -145,7 +177,7 @@ const OrdersList = () => {
         <div className="flex flex-wrap items-center gap-3">
           <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
             <div>
-              <p className="text-xs text-gray-500">No. of orders</p>
+              <p className="text-xs text-gray-500">{t('orders.stats.totalOrders')}</p>
               <p className="text-lg font-bold text-white">{totalOrders.toLocaleString()}</p>
             </div>
           </Card>
@@ -155,7 +187,12 @@ const OrdersList = () => {
               <p className="text-lg font-bold text-emerald-400">£{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
           </Card>
-          <Button variant="outline" className="flex items-center gap-2 h-[52px]">
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 h-[52px]"
+            onClick={handleExportCSV}
+            disabled={!orders.length}
+          >
             <Download size={16} />
             <span className="text-sm">{t('common.export')}</span>
           </Button>
@@ -194,16 +231,11 @@ const OrdersList = () => {
 
             {/* Search & Selects */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-              <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('orders.searchPlaceholder')}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); }}
-                />
-              </div>
+              <SearchInput
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); }}
+                placeholder={t('orders.searchPlaceholder')}
+              />
 
               <div className="relative flex-1 sm:flex-none sm:w-48" ref={compDropdownRef}>
                 <select
@@ -236,7 +268,7 @@ const OrdersList = () => {
                     <TableHead>{t('orders.table.user')}</TableHead>
                     <TableHead>{t('orders.table.competition')}</TableHead>
                     <TableHead className="text-center">{t('orders.table.tickets')}</TableHead>
-                    <TableHead>{t('orders.table.amount')}</TableHead>
+                    <TableHead>{t('orders.table.total')}</TableHead>
                     <TableHead>{t('orders.table.date')}</TableHead>
                     <TableHead>{t('orders.table.status')}</TableHead>
                     <TableHead className="text-right">{t('orders.table.actions')}</TableHead>

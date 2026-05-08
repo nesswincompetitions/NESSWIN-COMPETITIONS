@@ -80,7 +80,14 @@ export const checkAndCreateUserDocument = async (user, additionalData = {}) => {
     await setDoc(userRef, newUser);
     return newUser;
   }
-  return userSnap.data();
+  
+  const userData = userSnap.data();
+  if (userData.is_active === false) {
+    await signOut(auth);
+    throw new Error("Your account has been suspended. Please contact support.");
+  }
+  
+  return userData;
 };
 
 export const signUpWithEmail = async (email, password, name) => {
@@ -217,6 +224,13 @@ export const completeOnboarding = async (username, referralCodeInput) => {
       throw new Error("User document not found.");
     }
 
+    const currentUserData = currentUserDoc.data();
+
+    // EDGE CASE: Prevent duplicate referral usage on re-entry
+    if (referrerRef && currentUserData?.referred_by) {
+      throw new Error("Referral code already used.");
+    }
+
     // Write: Update current user (no user_name_lower field)
     const updateData = {
       user_name: cleanUsername,
@@ -240,6 +254,7 @@ export const completeOnboarding = async (username, referralCodeInput) => {
         reward_type: "free_ticket",
         reward_value: 1,
         reward_issued: false,
+        reward_issued_at: null,
         created_at: serverTimestamp()
       };
       

@@ -146,8 +146,16 @@ export async function updateUserStatus(uid, isActive) {
 }
 
 /**
- * Calls the backend Cloud Function to soft delete a user.
+ * Performs a client-side soft delete by setting is_active to false.
  */
 export async function softDeleteUser(userId) {
-  return callFunction("softDeleteUser", { userId }, "Failed to delete user.");
+  try {
+    await updateDoc(doc(db, 'user', userId), { 
+      is_active: false,
+      deleted_at: new Date().toISOString() // Audit trail
+    });
+  } catch (error) {
+    console.error("[UsersService] Error soft deleting user:", error);
+    throw error;
+  }
 }

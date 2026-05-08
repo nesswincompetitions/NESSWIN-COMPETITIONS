@@ -29,7 +29,7 @@ export const fetchCompetitionWithParticipants = async (id) => {
   if (!compDoc.exists()) return null;
 
   const data = compDoc.data();
-  const rawDate = data.countdown_end || data.draw_date;
+  const rawDate = data.draw_date;
   const drawDateObj = rawDate?.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
 
   const participantRefs = data.participants || [];
@@ -60,12 +60,13 @@ export const fetchCompetitionWithParticipants = async (id) => {
     ticketPrice: data.ticket_price || 0,
     ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
     category: data.category || 'Other',
+    tag: data.tag || '',
     title: data.title || 'Untitled',
     subTitle: data.sub_title || '',
     priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
     sold: Number(data.sold_tickets || 0),
     total: Number(data.total_tickets || 1000),
-    endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+    endsAt: data.draw_date ? data.draw_date.toMillis() : null,
     drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
     drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     description: data.description || '',
@@ -86,10 +87,6 @@ export const fetchLiveCompetitions = async () => {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-
-export const createCompetition = async (payload) => {
-  return callFunction("createCompetition", payload, "Failed to create competition.");
-};
 
 /**
  * Phase 1 — Skill Gate Status Check

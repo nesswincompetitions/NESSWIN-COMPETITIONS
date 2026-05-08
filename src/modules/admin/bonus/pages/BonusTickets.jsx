@@ -6,10 +6,11 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import Modal from '@/shared/components/ui/Modal';
 import {
-  Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2
+  Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2, Download
 } from 'lucide-react';
 import { fetchBonusTicketsList } from '@/modules/admin/bonus/services/bonusService';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
 const BonusTickets = () => {
@@ -53,6 +54,26 @@ const BonusTickets = () => {
     });
   };
 
+  const handleExportCSV = () => {
+    if (!tickets.length) return;
+    
+    const headers = [
+      { label: 'User', key: 'userName' },
+      { label: 'Quantity', key: 'quantity' },
+      { label: 'Reason', key: 'reason' },
+      { label: 'Competition', key: 'competitionTitle' },
+      { label: 'Date', key: 'created_at' }
+    ];
+
+    const exportData = tickets.map(t => ({
+      ...t,
+      created_at: t.created_at?.toMillis ? new Date(t.created_at.toMillis()).toISOString() : 'N/A'
+    }));
+
+    exportToCSV(exportData, headers, `bonus_tickets_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Bonus tickets list exported to CSV');
+  };
+
   const handleAssignSubmit = (e) => {
     e.preventDefault();
     // In a real app, you'd call a Cloud Function here
@@ -87,8 +108,8 @@ const BonusTickets = () => {
         <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsAssignModalOpen(true)}>
           <Plus size={16} /> {t('bonusTickets.issueTickets')}
         </Button>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Upload size={16} /> {t('bonusTickets.bulkAssign')}
+        <Button variant="outline" className="flex items-center gap-2" onClick={handleExportCSV} disabled={!tickets.length}>
+          <Download size={16} /> {t('common.exportCsv')}
         </Button>
       </div>
 

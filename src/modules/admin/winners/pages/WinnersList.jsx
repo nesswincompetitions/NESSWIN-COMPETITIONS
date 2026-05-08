@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import SearchInput from '@/shared/components/ui/SearchInput';
 import { Search, Calendar, Download, Eye, ExternalLink, Trophy } from 'lucide-react';
+import { exportToCSV } from '@/shared/utils/csvExport';
+import { toast } from 'react-hot-toast';
+import { useSearch } from '@/shared/hooks/useSearch';
 
 const WinnersList = () => {
   const navigate = useNavigate();
@@ -43,9 +47,36 @@ const WinnersList = () => {
     },
   ];
 
-  const filteredWinners = activeStatus === 'all'
-    ? winners
-    : winners.filter(w => w.status.toLowerCase() === activeStatus);
+  const handleExportCSV = () => {
+    if (!winners.length) return;
+    
+    const headers = [
+      { label: 'Winner', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Competition', key: 'competition' },
+      { label: 'Ticket', key: 'ticket' },
+      { label: 'Draw Date', key: 'drawDate' },
+      { label: 'Status', key: 'status' }
+    ];
+
+    exportToCSV(winners, headers, `winners_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Winners list exported to CSV');
+  };
+
+  // Setup search hook with debouncing
+  const { searchTerm, setSearchTerm, filteredItems: searchedWinners, clearSearch } = useSearch(
+    winners,
+    ['name', 'email', 'competition', 'ticket'],
+    { debounceDelay: 300 }
+  );
+
+  // Combine search and status filtering
+  const filteredWinners = useMemo(() => {
+    return searchedWinners.filter(w => {
+      if (activeStatus === 'all') return true;
+      return w.status.toLowerCase() === activeStatus;
+    });
+  }, [searchedWinners, activeStatus]);
 
   const renderStatusBadge = (status) => {
     switch (status.toLowerCase()) {
@@ -64,7 +95,12 @@ const WinnersList = () => {
           <h1 className="text-3xl font-serif font-bold text-white">{t('winners.title')}</h1>
           <p className="text-gray-400 mt-1">{t('winners.subtitle')}</p>
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+          onClick={handleExportCSV}
+          disabled={!winners.length}
+        >
           <Download size={16} />
           {t('common.exportCsv')}
         </Button>
@@ -98,14 +134,12 @@ const WinnersList = () => {
 
             {/* Search & Actions */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-              <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('winners.searchPlaceholder')}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
-                />
-              </div>
+              <SearchInput
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onClear={clearSearch}
+                placeholder={t('winners.searchPlaceholder')}
+              />
 
               <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
                 <Calendar size={16} className="text-gray-400" />

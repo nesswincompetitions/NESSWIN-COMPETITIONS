@@ -1,8 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/shared/state/AuthContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { uploadImages } from '@/shared/services/storageService';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
+import {
+  fetchPendingReferralRewards,
+  claimPendingReferralRewards,
+} from '@/modules/user/referrals/services/referralService';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -29,6 +33,32 @@ export default function ProfilePage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [isClaimingRewards, setIsClaimingRewards] = useState(false);
+
+  const loadPendingRewards = async () => {
+    if (!currentUser?.uid) {
+      setPendingRewards([]);
+      setPendingLoading(false);
+      return;
+    }
+
+    setPendingLoading(true);
+    try {
+      const pending = await fetchPendingReferralRewards(currentUser.uid);
+      setPendingRewards(pending);
+    } catch (error) {
+      console.warn('Failed to load pending rewards:', error);
+      setPendingRewards([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPendingRewards();
+  }, [currentUser?.uid]);
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -84,6 +114,22 @@ export default function ProfilePage() {
       navigate("/");
     } catch (error) {
       toast.error("Failed to sign out");
+    }
+  };
+
+  const handleClaimRewards = async () => {
+    if (!currentUser?.uid || pendingRewards.length === 0) return;
+
+    setIsClaimingRewards(true);
+    try {
+      const result = await claimPendingReferralRewards(currentUser.uid);
+      toast.success(`Claimed ${result.totalClaimed} free tickets`);
+      await loadPendingRewards();
+    } catch (error) {
+      toast.error(error.message || 'Failed to claim rewards');
+      await loadPendingRewards();
+    } finally {
+      setIsClaimingRewards(false);
     }
   };
 
@@ -295,6 +341,24 @@ export default function ProfilePage() {
                   </div>
                 </div>
               )}
+
+              <div className="rounded-xl border border-[var(--color-border)]/40 bg-[var(--color-muted)]/10 p-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">
+                    Pending Referral Rewards
+                  </p>
+                  <p className="text-sm text-[var(--color-foreground)] mt-1">
+                    {pendingLoading ? 'Loading...' : `You have ${pendingRewards.length} pending referral reward${pendingRewards.length === 1 ? '' : 's'}`}
+                  </p>
+                </div>
+                <button
+                  onClick={handleClaimRewards}
+                  disabled={pendingLoading || pendingRewards.length === 0 || isClaimingRewards}
+                  className="px-4 py-2 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-semibold tracking-wide hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isClaimingRewards ? 'Claiming...' : 'Claim Reward'}
+                </button>
+              </div>
 
               {/* Stats Row */}
               <div className="grid grid-cols-2 gap-3 pt-2">

@@ -104,7 +104,7 @@ export default function CompetitionDetails() {
 
             <div className="flex flex-col gap-6">
               <div>
-                <p className="text-xs font-bold text-primary tracking-[0.2em] uppercase mb-2">{c.category}</p>
+                <p className="text-xs font-bold text-primary tracking-[0.25em] uppercase mb-2">{c.tag}</p>
                 <h1 className="font-serif text-4xl font-bold leading-tight text-(--color-foreground)">{c.title}</h1>
                 {c.subTitle && <p className="text-lg text-muted-foreground mt-1">{c.subTitle}</p>}
                 <p className="text-3xl font-bold text-primary mt-2">{c.priceLabel}</p>

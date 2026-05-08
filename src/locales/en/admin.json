@@ -48,6 +48,7 @@
     "tickets": "Tickets",
     "all": "All",
     "active": "Active",
+    "inactive": "Inactive",
     "ended": "Ended",
     "archived": "Archived",
     "suspended": "Suspended",
@@ -428,10 +429,22 @@
       "competition": "Competition",
       "tickets": "Tickets",
       "amount": "Amount",
+      "total": "Total",
       "paymentMethod": "Payment Method",
       "date": "Date",
       "status": "Status",
       "actions": "Actions"
+    },
+    "stats": {
+      "totalOrders": "No. of orders",
+      "totalRevenue": "Total Revenue"
+    },
+    "tooltips": {
+      "viewOrder": "View Order Details",
+      "refundOrder": "Refund Order"
+    },
+    "filters": {
+      "allCompetitions": "All Competitions"
     },
     "empty": {
       "title": "No orders found",
@@ -440,6 +453,9 @@
     "detail": {
       "backToOrders": "Back to Orders",
       "refundOrder": "Refund Order",
+      "confirmRefund": "Are you sure you want to refund this order? This action cannot be undone.",
+      "refundSuccess": "Order refunded successfully",
+      "refundFailed": "Failed to refund order",
       "orderDetails": "Order Details",
       "competition": "Competition",
       "ticketNumbers": "Ticket Numbers",

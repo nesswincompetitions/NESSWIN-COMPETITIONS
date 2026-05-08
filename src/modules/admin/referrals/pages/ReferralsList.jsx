@@ -5,11 +5,13 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import SearchInput from '@/shared/components/ui/SearchInput';
 import {
-  Search, Calendar, Download, Eye, ChevronDown, Users as UsersIcon, Loader2, Award, UserCheck
+  Calendar, Download, Eye, ChevronDown, Users as UsersIcon, Loader2, Award, UserCheck
 } from 'lucide-react';
 import { fetchReferralsList } from '@/modules/admin/referrals/services/referralsService';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
 const ReferralsList = () => {
@@ -67,6 +69,28 @@ const ReferralsList = () => {
     };
   }, [data.referrals, sortBy, searchTerm, currentPage]);
 
+  const handleExportCSV = () => {
+    if (!data.referrals.length) return;
+    
+    const headers = [
+      { label: 'Name', key: 'display_name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Referral Code', key: 'referral_code' },
+      { label: 'Referral Count', key: 'referral_count' },
+      { label: 'Total Rewards', key: 'total_free_tickets' },
+      { label: 'Joined At', key: 'created_time' }
+    ];
+
+    const exportData = data.referrals.map(r => ({
+      ...r,
+      display_name: r.display_name || r.name || 'N/A',
+      created_time: (r.created_time || r.created_at)?.toMillis ? new Date((r.created_time || r.created_at).toMillis()).toISOString() : 'N/A'
+    }));
+
+    exportToCSV(exportData, headers, `referrals_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Referrals list exported to CSV');
+  };
+
   const { stats } = data;
 
   return (
@@ -97,7 +121,12 @@ const ReferralsList = () => {
               <p className="text-lg font-bold text-yellow-500">{stats.totalRewards || 0}</p>
             </div>
           </Card>
-          <Button variant="outline" className="flex items-center gap-2 h-[52px]">
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 h-[52px]"
+            onClick={handleExportCSV}
+            disabled={!data.referrals.length}
+          >
             <Download size={16} />
             {t('common.exportCsv')}
           </Button>
@@ -108,16 +137,12 @@ const ReferralsList = () => {
         <CardContent className="p-0">
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="relative w-full lg:w-80">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t('referrals.searchPlaceholder')}
-                className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
-                value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              />
-            </div>
+            <SearchInput
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              placeholder={t('referrals.searchPlaceholder')}
+              className="w-full lg:w-80"
+            />
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-48">

@@ -48,7 +48,7 @@ function CompetitionCard({ competition }) {
     badgeType,
     badgeLabel,
     ticketPrice,
-    category,
+    tag,
     title,
     subTitle,
     priceLabel,
@@ -104,7 +104,7 @@ function CompetitionCard({ competition }) {
         </div>
         <div className="absolute bottom-3 left-3">
           <span className="text-[9px] font-semibold tracking-[0.18em] uppercase text-white/70 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded">
-            {category}
+            {tag}
           </span>
         </div>
       </div>
@@ -274,12 +274,13 @@ export default function CompetitionsPage() {
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
+            tag: data.tag || '',
             title: data.title || 'Untitled',
             subTitle: data.sub_title || '',
             priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
             sold: data.sold_tickets || 0,
             total: data.total_tickets || 1000,
-            endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
+            endsAt: data.draw_date ? data.draw_date.toMillis() : null,
             created_at: data.created_at?.toMillis() || 0,
             drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
             drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',

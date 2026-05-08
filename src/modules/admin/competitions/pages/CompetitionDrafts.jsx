@@ -117,8 +117,8 @@ const CompetitionDrafts = () => {
               <CardContent className="p-4 flex flex-col gap-3 flex-1">
                 <div className="flex-1">
                   <p className="font-semibold text-white line-clamp-1">{draft.title || 'Untitled Draft'}</p>
-                  {draft.sub_title && (
-                    <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">{draft.sub_title}</p>
+                  {(draft.tag || draft.sub_title) && (
+                    <p className="text-sm text-gray-400 mt-0.5 line-clamp-2">{draft.tag || draft.sub_title}</p>
                   )}
                 </div>
 

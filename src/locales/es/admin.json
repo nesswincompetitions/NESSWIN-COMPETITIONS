@@ -50,6 +50,7 @@
     "tickets": "Entradas",
     "all": "Todos",
     "active": "Activo",
+    "inactive": "Inactivo",
     "ended": "Finalizado",
     "archived": "Archivado",
     "suspended": "Suspendido",

@@ -7,12 +7,11 @@ import {
   getDoc, 
   updateDoc, 
   addDoc,
-  deleteDoc,
+  writeBatch,
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { callFunction } from '@/shared/services/functionClient';
 
 export const fetchAdminCompetitionDetail = async (id) => {
   const compDoc = await getDoc(doc(db, 'competition', id));
@@ -35,7 +34,17 @@ export const updateCompetition = async (id, data) => {
 };
 
 export const deleteCompetition = async (id) => {
-  await deleteDoc(doc(db, 'competition', id));
+  const competitionRef = doc(db, 'competition', id);
+  const questionsQuery = query(collection(db, 'questions'), where('competition_id', '==', competitionRef));
+  const questionsSnap = await getDocs(questionsQuery);
+
+  const batch = writeBatch(db);
+  questionsSnap.forEach((questionDoc) => {
+    batch.delete(questionDoc.ref);
+  });
+  batch.delete(competitionRef);
+
+  await batch.commit();
 };
 
 export const syncCompetitionQuestions = async (competitionId, questions) => {
@@ -52,10 +61,6 @@ export const syncCompetitionQuestions = async (competitionId, questions) => {
     }
   });
   await Promise.all(batch);
-};
-
-export const createCompetition = async (payload) => {
-  return callFunction("createCompetition", payload, "Failed to create competition.");
 };
 
 export const fetchCompetitionDrafts = async () => {
@@ -83,7 +88,7 @@ export const fetchAdminCompetitionsList = async () => {
     return {
       id: doc.id,
       name: data.title || 'Untitled',
-      subTitle: data.sub_title || '',
+      subTitle: data.sub_title || data.tag || '',
       status: data.status || 'draft',
       price: `£${price}`,
       sold,
@@ -92,7 +97,6 @@ export const fetchAdminCompetitionsList = async () => {
       drawDate,
       image: data.image?.[0] || null,
       createdAt: data.created_at?.toDate() || new Date(),
-      countdownEnd: data.countdown_end?.toDate() || null,
     };
   });
 };

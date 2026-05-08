@@ -5,14 +5,16 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import SearchInput from '@/shared/components/ui/SearchInput';
 import Modal from '@/shared/components/ui/Modal';
 import {
-  Plus, Search, Calendar, Download,
+  Plus, Calendar, Download,
   Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
 import { fetchAdminCompetitionsList, deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
+import { exportToCSV } from '@/shared/utils/csvExport';
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -57,6 +59,29 @@ const CompetitionsList = () => {
     } finally {
       setCompetitionToDelete(null);
     }
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredCompetitions.length) return;
+    
+    const headers = [
+      { label: 'Competition Name', key: 'name' },
+      { label: 'Status', key: 'status' },
+      { label: 'Ticket Price', key: 'price' },
+      { label: 'Sold', key: 'sold' },
+      { label: 'Total Tickets', key: 'total' },
+      { label: 'Revenue', key: 'revenue' },
+      { label: 'Draw Date', key: 'drawDate' },
+      { label: 'Created At', key: 'createdAt' }
+    ];
+
+    const exportData = filteredCompetitions.map(c => ({
+      ...c,
+      createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : 'N/A'
+    }));
+
+    exportToCSV(exportData, headers, `competitions_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Competitions list exported to CSV');
   };
 
   const filteredCompetitions = competitions.filter(c => {
@@ -138,16 +163,11 @@ const CompetitionsList = () => {
 
             {/* Search & Actions */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-              <div className="relative flex-1">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('competitions.searchPlaceholder')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors h-10"
-                />
-              </div>
+              <SearchInput
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t('competitions.searchPlaceholder')}
+              />
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <Button 
@@ -164,7 +184,13 @@ const CompetitionsList = () => {
                   </span>
                 </Button>
 
-                <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 flex-1 sm:flex-none justify-center"
+                  onClick={handleExportCSV}
+                  disabled={!filteredCompetitions.length}
+                >
                   <Download size={16} className="text-gray-400" />
                   <span className="text-sm">{t('common.export')}</span>
                 </Button>

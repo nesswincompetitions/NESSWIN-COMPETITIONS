@@ -5,13 +5,15 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import SearchInput from '@/shared/components/ui/SearchInput';
 import {
-  Search, Calendar, Download, Eye,
+  Calendar, Download, Eye,
   ChevronDown, Users as UsersIcon, Loader2, CheckCircle2,
-  Trash2
+  Ban
 } from 'lucide-react';
-import { fetchUsersList, softDeleteUser } from '@/modules/admin/users/services/usersService';
+import { fetchUsersList, updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import Modal from '@/shared/components/ui/Modal';
 
@@ -27,10 +29,10 @@ const UsersList = () => {
   const { data: usersData, setData: setUsers, loading, invalidate } = useAdminQuery('users_list', fetchUsersList);
   const users = usersData || [];
 
-  // -- Delete Modal State --
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // -- Suspend Modal State --
+  const [suspendModalOpen, setSuspendModalOpen] = useState(false);
+  const [userToToggle, setUserToToggle] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const itemsPerPage = 20;
 
@@ -40,28 +42,53 @@ const UsersList = () => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const handleDeleteClick = (user) => {
-    setUserToDelete(user);
-    setDeleteModalOpen(true);
+  const handleExportCSV = () => {
+    if (!users.length) return;
+    
+    const headers = [
+      { label: 'Name', key: 'display_name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Registered At', key: 'created_time' },
+      { label: 'Total Spend (£)', key: 'total_spent' },
+      { label: 'Tickets Bought', key: 'total_tickets_bought' },
+      { label: 'Active', key: 'is_active' }
+    ];
+
+    const exportData = users.map(u => ({
+      ...u,
+      display_name: u.display_name || u.name || 'N/A',
+      created_time: u.created_time?.toMillis ? new Date(u.created_time.toMillis()).toISOString() : 'N/A',
+      is_active: u.is_active !== false ? 'Yes' : 'No'
+    }));
+
+    exportToCSV(exportData, headers, `users_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success('Users list exported to CSV');
   };
 
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
-    setIsDeleting(true);
+  const handleSuspendClick = (user) => {
+    setUserToToggle(user);
+    setSuspendModalOpen(true);
+  };
+
+  const confirmStatusToggle = async () => {
+    if (!userToToggle) return;
+    setIsUpdating(true);
+    const newStatus = userToToggle.is_active === false;
     try {
-      await softDeleteUser(userToDelete.id);
-      toast.success('User deleted successfully');
+      await updateUserStatus(userToToggle.id, newStatus);
+      toast.success(`User ${newStatus ? 'unsuspended' : 'suspended'} successfully`);
+      
       // Optimistically update UI
-      setUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-      // Invalidate cache so it fetches fresh data next time
+      setUsers(prev => prev.map(u => u.id === userToToggle.id ? { ...u, is_active: newStatus } : u));
+      
       invalidate();
-      setDeleteModalOpen(false);
+      setSuspendModalOpen(false);
     } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('Failed to delete user');
+      console.error('Error updating user status:', error);
+      toast.error('Failed to update user status');
     } finally {
-      setIsDeleting(false);
-      setUserToDelete(null);
+      setIsUpdating(false);
+      setUserToToggle(null);
     }
   };
 
@@ -118,10 +145,17 @@ const UsersList = () => {
           <h1 className="text-3xl font-serif font-bold text-white">{t('users.title')}</h1>
           <p className="text-gray-400 mt-1">{t('users.subtitle')}</p>
         </div>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Download size={16} />
-          {t('common.exportCsv')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2"
+            onClick={handleExportCSV}
+            disabled={!users.length}
+          >
+            <Download size={16} />
+            {t('common.exportCsv')}
+          </Button>
+        </div>
       </header>
 
       <Card>
@@ -143,16 +177,12 @@ const UsersList = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative flex-1 sm:w-64">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('users.searchPlaceholder')}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10"
-                  value={searchTerm}
-                  onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-                />
-              </div>
+              <SearchInput
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                placeholder={t('users.searchPlaceholder')}
+                className="flex-1 sm:w-64"
+              />
 
               <select
                 className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none h-10"
@@ -216,11 +246,11 @@ const UsersList = () => {
                             <Eye size={16} />
                           </button>
                           <button 
-                            onClick={() => handleDeleteClick(user)} 
-                            className="p-2 hover:bg-red-500/10 rounded-md text-gray-400 hover:text-red-500" 
-                            title="Delete User"
+                            onClick={() => handleSuspendClick(user)} 
+                            className={`p-2 rounded-md transition-colors ${user.is_active === false ? 'hover:bg-emerald-500/10 text-emerald-500' : 'hover:bg-red-500/10 text-gray-400 hover:text-red-500'}`} 
+                            title={user.is_active === false ? "Unsuspend User" : "Suspend User"}
                           >
-                            <Trash2 size={16} />
+                            <Ban size={16} />
                           </button>
                         </div>
                       </TableCell>
@@ -263,27 +293,27 @@ const UsersList = () => {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Modal */}
+      {/* Suspend Confirmation Modal */}
       <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => !isDeleting && setDeleteModalOpen(false)}
-        title="Permanently Delete User?"
-        description={`Are you sure you want to permanently delete ${userToDelete?.display_name || userToDelete?.name || 'this user'}? This action cannot be undone.`}
+        isOpen={suspendModalOpen}
+        onClose={() => !isUpdating && setSuspendModalOpen(false)}
+        title={userToToggle?.is_active === false ? "Unsuspend User?" : "Suspend User?"}
+        description={`Are you sure you want to ${userToToggle?.is_active === false ? 'unsuspend' : 'suspend'} ${userToToggle?.display_name || userToToggle?.name || 'this user'}?`}
         actions={
           <>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteModalOpen(false)}
-              disabled={isDeleting}
+            <button 
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+              onClick={() => setSuspendModalOpen(false)}
+              disabled={isUpdating}
             >
               Cancel
-            </Button>
+            </button>
             <Button 
-              className="bg-red-600 hover:bg-red-700 text-white border-none"
-              onClick={confirmDelete}
-              loading={isDeleting}
+              className={`${userToToggle?.is_active === false ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white border-none`}
+              onClick={confirmStatusToggle}
+              loading={isUpdating}
             >
-              Confirm Delete
+              Confirm {userToToggle?.is_active === false ? 'Unsuspend' : 'Suspend'}
             </Button>
           </>
         }

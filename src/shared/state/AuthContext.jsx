@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/config/firebase';
 
@@ -30,7 +30,14 @@ export const AuthProvider = ({ children }) => {
           userRef,
           (docSnap) => {
             if (docSnap.exists()) {
-              setUserData(docSnap.data());
+              const data = docSnap.data();
+              if (data.is_active === false) {
+                signOut(auth);
+                setUserData(null);
+                setLoading(false);
+                return;
+              }
+              setUserData(data);
             } else {
               setUserData(null);
             }
