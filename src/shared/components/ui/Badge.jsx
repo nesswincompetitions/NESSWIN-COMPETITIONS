@@ -7,6 +7,7 @@ export default function Badge({ children, variant = "hot" }) {
     success: "bg-green-600/35 text-white border-green-400/50 shadow-[0_0_12px_rgba(22,163,74,0.3)]",
     warning: "bg-orange-500/30 text-white border-orange-400/50",
     neutral: "bg-gray-600/40 text-gray-100 border-gray-500/50",
+    danger: "bg-red-600/35 text-white border-red-400/50 shadow-[0_0_12px_rgba(220,38,38,0.3)]",
     ended: "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale",
   };
 

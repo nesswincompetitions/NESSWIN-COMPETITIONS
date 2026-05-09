@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
     let unsubscribeDoc = null;
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }) => {
                 signOut(auth);
                 setUserData(null);
                 setLoading(false);
+                setInitialLoading(false);
                 return;
               }
               setUserData(data);
@@ -42,17 +44,20 @@ export const AuthProvider = ({ children }) => {
               setUserData(null);
             }
             setLoading(false);
+            setInitialLoading(false);
           },
           (error) => {
             // Gracefully handle permission errors — don't freeze the app
             console.warn('Firestore snapshot error:', error.code, error.message);
             setUserData(null);
             setLoading(false);
+            setInitialLoading(false);
           }
         );
       } else {
         setUserData(null);
         setLoading(false);
+        setInitialLoading(false);
       }
     });
 
@@ -65,12 +70,13 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userData,
-    loading
+    loading,
+    initialLoading
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

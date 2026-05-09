@@ -108,6 +108,7 @@ export const claimPendingReferralRewards = async (uid) => {
   batch.update(userRef, {
     free_tickets: increment(totalRewardValue),
     total_free_tickets: increment(totalRewardValue),
+    referral_count: increment(pendingReferrals.length),
   });
 
   try {
@@ -123,4 +124,101 @@ export const claimPendingReferralRewards = async (uid) => {
     }
     throw error;
   }
+};
+
+/**
+ * Fetch all referrals for a user (both pending and claimed) and resolve referred user details.
+ * @param {string} uid
+ * @returns {Promise<Array<any>>}
+ */
+export const fetchAllReferrals = async (uid) => {
+  if (!uid) throw new Error('Missing user id.');
+
+  const referrerRef = doc(db, USERS_COLLECTION, uid);
+  const q = query(
+    collection(db, REFERRALS_COLLECTION),
+    where('referrer_id', '==', referrerRef)
+  );
+
+  const snap = await getDocs(q);
+  if (snap.empty) return [];
+
+  const referrals = await Promise.all(
+    snap.docs.map(async (d) => {
+      const data = d.data();
+      let referredUser = { display_name: 'Unknown User' };
+
+      if (data.referred_user_id) {
+        try {
+          const uSnap = await getDoc(data.referred_user_id);
+          if (uSnap.exists()) {
+            referredUser = uSnap.data();
+          }
+        } catch (err) {
+          console.error('Failed to fetch referred user:', err);
+        }
+      }
+
+      return {
+        id: d.id,
+        updateTime: d.updateTime,
+        ...data,
+        referredUser,
+      };
+    })
+  );
+
+  return referrals.sort((a, b) => b.created_at?.toMillis() - a.created_at?.toMillis());
+};
+
+/**
+ * Claim a single referral reward.
+ * @param {string} uid
+ * @param {string} referralId
+ * @returns {Promise<void>}
+ */
+export const claimSingleReferralReward = async (uid, referralId) => {
+  if (!uid || !referralId) throw new Error('Missing user id or referral id.');
+
+  const userRef = doc(db, USERS_COLLECTION, uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    throw new Error('User profile not found.');
+  }
+
+  const referralRef = doc(db, REFERRALS_COLLECTION, referralId);
+  const referralSnap = await getDoc(referralRef);
+
+  if (!referralSnap.exists()) {
+    throw new Error('Referral not found.');
+  }
+
+  const referral = referralSnap.data();
+
+  if (referral.reward_issued || referral.reward_type !== 'free_ticket') {
+    throw new Error('Referral reward is not claimable.');
+  }
+  if (!referral.referrer_id || referral.referrer_id.id !== uid) {
+    throw new Error('Referral reward does not belong to this user.');
+  }
+
+  const batch = writeBatch(db);
+  
+  batch.update(
+    referralRef,
+    {
+      reward_issued: true,
+      reward_issued_at: serverTimestamp(),
+    },
+    { lastUpdateTime: referralSnap.updateTime }
+  );
+
+  batch.update(userRef, {
+    free_tickets: increment(referral.reward_value),
+    total_free_tickets: increment(referral.reward_value),
+    referral_count: increment(1),
+  });
+
+  await batch.commit();
 };

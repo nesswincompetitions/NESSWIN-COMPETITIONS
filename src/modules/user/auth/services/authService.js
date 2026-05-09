@@ -247,18 +247,35 @@ export const completeOnboarding = async (username, referralCodeInput) => {
     // Write: Update referrer and create referral document if applicable
     if (referrerRef) {
       const newReferralRef = doc(collection(db, "referrals"));
-      const referralDocData = {
+      // Auto-issue the reward immediately — no manual claim needed
+      transaction.set(newReferralRef, {
         referrer_id: referrerRef,
         referred_user_id: currentUserRef,
         referral_code: referralCodeInput.trim().toUpperCase(),
         reward_type: "free_ticket",
         reward_value: 1,
-        reward_issued: false,
-        reward_issued_at: null,
-        created_at: serverTimestamp()
-      };
-      
-      transaction.set(newReferralRef, referralDocData);
+        reward_issued: true,
+        reward_issued_at: serverTimestamp(),
+        created_at: serverTimestamp(),
+      });
+
+      // Atomically credit 1 free ticket + increment referral_count for the referrer
+      transaction.update(referrerRef, {
+        free_tickets: increment(1),
+        total_free_tickets: increment(1),
+        referral_count: increment(1),
+      });
+
+      // Audit log for the auto-issued referral reward
+      const logRef = doc(collection(db, "free_ticket_log"));
+      transaction.set(logRef, {
+        user_id: referrerRef,
+        competition_id: null,
+        order_id: null,
+        quantity: 1,
+        reason: "referral_auto_reward",
+        created_at: serverTimestamp(),
+      });
     }
 
     // ── Update Global Metrics ────────────────────────────────────────────────

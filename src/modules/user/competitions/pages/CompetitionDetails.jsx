@@ -19,7 +19,7 @@ import { useCompetitionCheckout } from '@/modules/user/competitions/hooks/useCom
 export default function CompetitionDetails() {
   const { id } = useParams();
   const { t } = useTranslation();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [c, setC] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,7 +30,6 @@ export default function CompetitionDetails() {
     selectedOptionId,
     setSelectedOptionId,
     gateStatus,
-    remainingCount,
     isVerifying,
     verifyError,
     skillPassed,
@@ -39,11 +38,15 @@ export default function CompetitionDetails() {
     isProcessing,
     checkoutError,
     orderResult,
+    pendingReferralCount,
+    useFreeTickets,
+    setUseFreeTickets,
     handleParticipateClick,
     handleVerifyAnswer,
     handleBuyTickets,
   } = useCompetitionCheckout({
     currentUser,
+    userData,
     competitionId: id,
     competition: c,
     setCompetition: setC,
@@ -65,10 +68,10 @@ export default function CompetitionDetails() {
   useEffect(() => {
     const fetchCompetition = async () => {
       try {
-      const competition = await fetchCompetitionWithParticipants(id);
-      if (competition) {
-        setC(competition);
-      }
+        const competition = await fetchCompetitionWithParticipants(id);
+        if (competition) {
+          setC(competition);
+        }
       } catch (err) {
         console.error("Error fetching competition details:", err);
       } finally {
@@ -120,6 +123,9 @@ export default function CompetitionDetails() {
                   skillPassed={skillPassed}
                   ticketQuantity={ticketQuantity}
                   setTicketQuantity={setTicketQuantity}
+                  pendingReferralCount={pendingReferralCount}
+                  useFreeTickets={useFreeTickets}
+                  setUseFreeTickets={setUseFreeTickets}
                   onBuyTickets={handleBuyTickets}
                   isProcessing={isProcessing}
                   orderResult={orderResult}
@@ -153,7 +159,6 @@ export default function CompetitionDetails() {
             gateStatus={gateStatus}
             isVerifying={isVerifying}
             activeQuestion={activeQuestion}
-            remainingCount={remainingCount}
             selectedOptionId={selectedOptionId}
             setSelectedOptionId={setSelectedOptionId}
             verifyError={verifyError}

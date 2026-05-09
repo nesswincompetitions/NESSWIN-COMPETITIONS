@@ -4,11 +4,12 @@ import { logout } from '@/modules/user/auth/services/authService';
 import { uploadImages } from '@/shared/services/storageService';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
 import {
-  fetchPendingReferralRewards,
-  claimPendingReferralRewards,
+  fetchAllReferrals,
 } from '@/modules/user/referrals/services/referralService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
+  Users,
+  ShoppingBag,
   User,
   Mail,
   Phone,
@@ -23,6 +24,8 @@ import {
   ArrowLeft,
   Camera,
   Loader2,
+  Pencil,
+  X as XIcon,
 } from "lucide-react";
 import { toast } from 'react-hot-toast';
 
@@ -33,32 +36,75 @@ export default function ProfilePage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [pendingRewards, setPendingRewards] = useState([]);
-  const [pendingLoading, setPendingLoading] = useState(true);
-  const [isClaimingRewards, setIsClaimingRewards] = useState(false);
+  const [referrals, setReferrals] = useState([]);
+  const [referralsLoading, setReferralsLoading] = useState(true);
 
-  const loadPendingRewards = async () => {
+  // Inline edit state
+  const [editingField, setEditingField] = useState(null); // 'display_name' | 'user_name'
+  const [editValue, setEditValue] = useState('');
+  const [isSavingField, setIsSavingField] = useState(false);
+
+  const loadReferrals = async () => {
     if (!currentUser?.uid) {
-      setPendingRewards([]);
-      setPendingLoading(false);
+      setReferrals([]);
+      setReferralsLoading(false);
       return;
     }
-
-    setPendingLoading(true);
+    setReferralsLoading(true);
     try {
-      const pending = await fetchPendingReferralRewards(currentUser.uid);
-      setPendingRewards(pending);
+      const allReferrals = await fetchAllReferrals(currentUser.uid);
+      setReferrals(allReferrals);
     } catch (error) {
-      console.warn('Failed to load pending rewards:', error);
-      setPendingRewards([]);
+      console.warn('Failed to load referrals:', error);
+      setReferrals([]);
     } finally {
-      setPendingLoading(false);
+      setReferralsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPendingRewards();
+    loadReferrals();
+    if (window.location.hash === '#referrals') {
+      setTimeout(() => {
+        document.getElementById('referrals-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 500);
+    }
   }, [currentUser?.uid]);
+
+  const handleStartEdit = (field) => {
+    setEditingField(field);
+    setEditValue(field === 'display_name' ? (userData?.display_name ?? '') : (userData?.user_name ?? ''));
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleSaveField = async () => {
+    if (!currentUser?.uid || !editingField) return;
+    const trimmed = editValue.trim();
+    if (!trimmed) { toast.error('Field cannot be empty.'); return; }
+    if (editingField === 'user_name' && (trimmed.length < 3 || trimmed.length > 20)) {
+      toast.error('Username must be 3–20 characters.'); return;
+    }
+    if (editingField === 'user_name' && !/^[a-z0-9_]+$/.test(trimmed.toLowerCase())) {
+      toast.error('Username can only contain letters, numbers, and underscores.'); return;
+    }
+    setIsSavingField(true);
+    try {
+      const payload = editingField === 'user_name'
+        ? { user_name: trimmed.toLowerCase() }
+        : { display_name: trimmed };
+      await updateProfile(currentUser.uid, payload);
+      toast.success('Updated successfully!');
+      setEditingField(null);
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to update.');
+    } finally {
+      setIsSavingField(false);
+    }
+  };
 
   const handleProfilePicUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -117,19 +163,17 @@ export default function ProfilePage() {
     }
   };
 
-  const handleClaimRewards = async () => {
-    if (!currentUser?.uid || pendingRewards.length === 0) return;
-
-    setIsClaimingRewards(true);
+  const handleSingleClaim = async (referralId) => {
+    if (!currentUser?.uid) return;
+    setClaimingId(referralId);
     try {
-      const result = await claimPendingReferralRewards(currentUser.uid);
-      toast.success(`Claimed ${result.totalClaimed} free tickets`);
-      await loadPendingRewards();
+      await claimSingleReferralReward(currentUser.uid, referralId);
+      toast.success('Successfully claimed 1 free ticket!');
+      await loadReferrals();
     } catch (error) {
-      toast.error(error.message || 'Failed to claim rewards');
-      await loadPendingRewards();
+      toast.error(error.message || 'Failed to claim reward');
     } finally {
-      setIsClaimingRewards(false);
+      setClaimingId(null);
     }
   };
 
@@ -219,14 +263,67 @@ export default function ProfilePage() {
 
           {/* User Info */}
           <div className="pt-16 pb-6 px-6">
-            <h1 className="text-xl font-bold text-[var(--color-foreground)]">
-              {userData?.display_name || "User"}
-            </h1>
-            {userData?.user_name && (
-              <p className="text-sm text-[var(--color-primary)] font-medium mt-0.5">
-                @{userData.user_name}
-              </p>
+            {/* Display Name */}
+            {editingField === 'display_name' ? (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveField(); if (e.key === 'Escape') handleCancelEdit(); }}
+                  className="flex-1 bg-[var(--color-muted)]/20 border border-[var(--color-primary)]/50 rounded-lg px-3 py-1 text-lg font-bold text-[var(--color-foreground)] outline-none"
+                />
+                <button onClick={handleSaveField} disabled={isSavingField} className="p-1.5 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                  {isSavingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={handleCancelEdit} className="p-1.5 rounded-lg bg-[var(--color-muted)]/30 hover:bg-[var(--color-muted)]/50 transition cursor-pointer">
+                  <XIcon className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-[var(--color-foreground)]">{userData?.display_name || 'User'}</h1>
+                <button
+                  onClick={() => handleStartEdit('display_name')}
+                  className="p-1 rounded-md hover:bg-[var(--color-muted)]/30 transition-all cursor-pointer"
+                  aria-label="Edit display name"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
+                </button>
+              </div>
             )}
+
+            {/* Username */}
+            {editingField === 'user_name' ? (
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-sm text-[var(--color-primary)] font-medium">@</span>
+                <input
+                  autoFocus
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveField(); if (e.key === 'Escape') handleCancelEdit(); }}
+                  className="flex-1 bg-[var(--color-muted)]/20 border border-[var(--color-primary)]/50 rounded-lg px-3 py-1 text-sm font-medium text-[var(--color-primary)] outline-none"
+                />
+                <button onClick={handleSaveField} disabled={isSavingField} className="p-1.5 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-90 transition cursor-pointer disabled:opacity-50">
+                  {isSavingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={handleCancelEdit} className="p-1.5 rounded-lg bg-[var(--color-muted)]/30 hover:bg-[var(--color-muted)]/50 transition cursor-pointer">
+                  <XIcon className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-sm text-[var(--color-primary)] font-medium">@{userData?.user_name}</p>
+                <button
+                  onClick={() => handleStartEdit('user_name')}
+                  className="p-1 rounded-md hover:bg-[var(--color-muted)]/30 transition-all cursor-pointer"
+                  aria-label="Edit username"
+                >
+                  <Pencil className="w-3 h-3 text-[var(--color-muted-foreground)]" />
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 mt-3">
               {userData?.role && (
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase ${userData.role === "admin"
@@ -342,22 +439,43 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <div className="rounded-xl border border-[var(--color-border)]/40 bg-[var(--color-muted)]/10 p-4 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">
-                    Pending Referral Rewards
-                  </p>
-                  <p className="text-sm text-[var(--color-foreground)] mt-1">
-                    {pendingLoading ? 'Loading...' : `You have ${pendingRewards.length} pending referral reward${pendingRewards.length === 1 ? '' : 's'}`}
-                  </p>
-                </div>
-                <button
-                  onClick={handleClaimRewards}
-                  disabled={pendingLoading || pendingRewards.length === 0 || isClaimingRewards}
-                  className="px-4 py-2 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-semibold tracking-wide hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {isClaimingRewards ? 'Claiming...' : 'Claim Reward'}
-                </button>
+              {/* Detailed Referrals List */}
+              <div id="referrals-section" className="mt-8 space-y-3">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--color-muted-foreground)] mb-3 flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5" /> Your Referrals
+                </h3>
+                
+                {referralsLoading ? (
+                  <div className="flex items-center justify-center p-6 text-[var(--color-primary)]">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                ) : referrals.length > 0 ? (
+                  <div className="space-y-3">
+                    {referrals.map((ref) => (
+                      <div key={ref.id} className="rounded-xl border border-[var(--color-border)]/40 bg-[var(--color-muted)]/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[var(--color-muted)]/20 flex items-center justify-center font-bold text-[10px] text-[var(--color-foreground)] shrink-0">
+                            {ref.referredUser?.display_name ? ref.referredUser.display_name.slice(0,2).toUpperCase() : 'U'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--color-foreground)]">{ref.referredUser?.display_name || 'Anonymous User'}</p>
+                            <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">{formatDate(ref.created_at)}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400">
+                            Rewarded
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-6 border border-[var(--color-border)]/40 border-dashed rounded-xl">
+                    <p className="text-sm text-[var(--color-muted-foreground)]">No referrals yet. Share your link to earn free tickets!</p>
+                  </div>
+                )}
               </div>
 
               {/* Stats Row */}
@@ -385,6 +503,29 @@ export default function ProfilePage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4">
+            <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-3">Quick Actions</h2>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { to: '/profile/tickets', icon: Ticket,      label: 'My Tickets'     },
+                { to: '/profile/orders',  icon: ShoppingBag, label: 'Order History'  },
+                { to: '/profile/edit',    icon: Pencil,      label: 'Edit Profile'   },
+              ].map(({ to, icon: Icon, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all group cursor-pointer"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-[var(--color-muted)]/20 group-hover:bg-[var(--color-primary)]/10 flex items-center justify-center transition-colors">
+                    <Icon className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">{label}</span>
+                </Link>
+              ))}
             </div>
           </div>
 

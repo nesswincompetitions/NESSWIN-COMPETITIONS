@@ -35,16 +35,10 @@ export const updateCompetition = async (id, data) => {
 
 export const deleteCompetition = async (id) => {
   const competitionRef = doc(db, 'competition', id);
-  const questionsQuery = query(collection(db, 'questions'), where('competition_id', '==', competitionRef));
-  const questionsSnap = await getDocs(questionsQuery);
-
-  const batch = writeBatch(db);
-  questionsSnap.forEach((questionDoc) => {
-    batch.delete(questionDoc.ref);
+  await updateDoc(competitionRef, {
+    status: 'deleted',
+    updated_at: serverTimestamp()
   });
-  batch.delete(competitionRef);
-
-  await batch.commit();
 };
 
 export const syncCompetitionQuestions = async (competitionId, questions) => {

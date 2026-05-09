@@ -8,6 +8,10 @@ import SignupPage from '@/modules/user/auth/pages/SignupPage';
 import ForgotPasswordPage from '@/modules/user/auth/pages/ForgotPasswordPage';
 import OnboardingPage from '@/modules/user/profile/pages/OnboardingPage';
 import ProfilePage from '@/modules/user/profile/pages/ProfilePage';
+import MyTicketsPage from '@/modules/user/profile/pages/MyTicketsPage';
+import OrderHistoryPage from '@/modules/user/profile/pages/OrderHistoryPage';
+import EditProfilePage from '@/modules/user/profile/pages/EditProfilePage';
+import DeleteAccountPage from '@/modules/user/profile/pages/DeleteAccountPage';
 
 import CompetitionsPage from '@/modules/user/competitions/pages/CompetitionsPage';
 import CompetitionDetails from '@/modules/user/competitions/pages/CompetitionDetails';
@@ -26,6 +30,10 @@ export const UserRoutes = (
     <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    <Route path="/profile/tickets" element={<ProtectedRoute><MyTicketsPage /></ProtectedRoute>} />
+    <Route path="/profile/orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
+    <Route path="/profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+    <Route path="/profile/delete" element={<ProtectedRoute><DeleteAccountPage /></ProtectedRoute>} />
     <Route path="/competitions" element={<CompetitionsPage />} />
     <Route path="/how-it-works" element={<Home scrollTargetId="how-it-works" />} />
     <Route path="/winner-component" element={<Home scrollTargetId="winners" />} />

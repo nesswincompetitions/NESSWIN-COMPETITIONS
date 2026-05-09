@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield } from 'lucide-react';
+import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { toast } from 'react-hot-toast';
+import { Gift } from 'lucide-react';
 
 const LANGUAGE_OPTIONS = [
   { code: "en", short: "GB", flag: "🇬🇧", label: "English", secondary: "English" },
@@ -62,6 +63,8 @@ export default function Navbar() {
     }, 80);
     return () => window.clearTimeout(timer);
   }, []);
+
+
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -156,30 +159,38 @@ export default function Navbar() {
   );
 
   const renderProfileDropdown = () => (
-    <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-[999] overflow-hidden">
+    <div className="absolute right-0 top-full mt-2 w-60 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] shadow-[0_8px_30px_rgba(0,0,0,0.4)] z-[999] overflow-hidden">
+      {/* User info header */}
       <div className="px-4 py-3 border-b border-[var(--color-border)]/40">
         <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">
-          {userData?.display_name || userData?.user_name || "User"}
+          {userData?.display_name || userData?.user_name || 'User'}
         </p>
-        <p className="text-[11px] text-[var(--color-muted-foreground)] truncate mt-0.5">
-          {currentUser?.email}
-        </p>
+        <p className="text-[11px] text-[var(--color-muted-foreground)] truncate mt-0.5">{currentUser?.email}</p>
         {userData?.user_name && (
-          <p className="text-[10px] text-[var(--color-primary)] font-medium mt-1">
-            @{userData.user_name}
-          </p>
+          <p className="text-[10px] text-[var(--color-primary)] font-medium mt-1">@{userData.user_name}</p>
         )}
       </div>
+
+      {/* Main links */}
       <div className="py-1">
-        <Link
-          to="/profile"
-          onClick={() => setProfileOpen(false)}
-          className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
-        >
-          <User className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-          My Profile
-        </Link>
-        {userData?.role === "admin" && (
+        {[
+          { to: '/profile',         icon: User,        label: 'My Profile' },
+          { to: '/profile/tickets', icon: Ticket,      label: 'My Tickets' },
+          { to: '/profile/orders',  icon: ShoppingBag, label: 'Order History' },
+          { to: '/profile/edit',    icon: Pencil,      label: 'Edit Profile' },
+        ].map(({ to, icon: Icon, label }) => (
+          <Link
+            key={to}
+            to={to}
+            onClick={() => setProfileOpen(false)}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
+          >
+            <Icon className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+            {label}
+          </Link>
+        ))}
+
+        {userData?.role === 'admin' && (
           <Link
             to="/admin"
             onClick={() => setProfileOpen(false)}
@@ -190,6 +201,8 @@ export default function Navbar() {
           </Link>
         )}
       </div>
+
+      {/* Destructive actions */}
       <div className="border-t border-[var(--color-border)]/40 py-1">
         <button
           type="button"
@@ -199,6 +212,14 @@ export default function Navbar() {
           <LogOut className="w-4 h-4" />
           Sign Out
         </button>
+        <Link
+          to="/profile/delete"
+          onClick={() => setProfileOpen(false)}
+          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Account
+        </Link>
       </div>
     </div>
   );
@@ -243,7 +264,8 @@ export default function Navbar() {
             ))}
           </nav>
 
-          <div className="hidden lg:flex items-center gap-2 justify-end w-[180px] lg:w-[200px]">
+          <div className="hidden lg:flex items-center gap-2 justify-end w-[240px]">
+
             <div className="relative" ref={desktopLanguageMenuRef}>
               <button
                 type="button"
@@ -279,6 +301,7 @@ export default function Navbar() {
           </div>
 
           <div className="lg:hidden flex items-center gap-1">
+
             <div className="relative" ref={mobileLanguageMenuRef}>
               <button
                 type="button"

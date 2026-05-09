@@ -36,7 +36,7 @@ export default function HowItWorks() {
   ];
 
   return (
-    <section id="how-it-works" className="py-24 px-6 bg-card/30">
+    <section id="how-it-works" className="py-24 px-6 bg-card/30 scroll-mt-24">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <Reveal delay={20}>

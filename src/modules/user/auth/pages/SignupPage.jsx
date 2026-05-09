@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -137,7 +137,6 @@ function SignUpForm({ onSwitch }) {
       toast.success("Account created successfully!");
     } catch (error) {
       toast.error(error.message || "Failed to create account");
-    } finally {
       setLoading(false);
     }
   };
@@ -185,7 +184,6 @@ function SignInForm({ onSwitch }) {
       toast.success("Signed in successfully!");
     } catch (error) {
       toast.error(error.message || "Failed to sign in");
-    } finally {
       setLoading(false);
     }
   };
@@ -216,6 +214,14 @@ function SignInForm({ onSwitch }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SignupPage() {
   const [mode, setMode] = useState("signup");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('nesswin_referral_code', ref.toUpperCase());
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex flex-col pt-24 pb-12">

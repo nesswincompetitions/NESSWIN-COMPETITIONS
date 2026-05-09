@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowRight,
   CircleCheck,
   Lock,
   LogIn,
@@ -81,6 +82,11 @@ export function ImageGallery({ images, title, status, endsAt }) {
 
 export function WhatsIncluded({ items }) {
   const { t } = useTranslation();
+
+  if (!items || items.length === 0) {
+    return null;
+  }
+
   return (
     <div className="bg-card border border-border/60 rounded-2xl p-5">
       <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-3">
@@ -142,9 +148,9 @@ export function PrizeVideo({ url }) {
   );
 }
 
-export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, onBuyTickets, isProcessing, orderResult, checkoutError }) {
+export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, pendingReferralCount, useFreeTickets, setUseFreeTickets, onBuyTickets, isProcessing, orderResult, checkoutError }) {
   const { t } = useTranslation();
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const {
     sold,
     total,
@@ -204,6 +210,25 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
               {t("competitionDetails.signIn")}
             </Link>
           </>
+        ) : (currentUser && userData && !userData.is_verified) ? (
+          <div className="text-center space-y-4 py-2">
+            <div className="w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(245,158,11,0.2)]">
+              <AlertTriangle className="w-5 h-5 text-amber-500" aria-hidden="true" />
+            </div>
+            <h3 className="font-serif font-bold text-lg text-(--color-foreground)">
+              Verification Required
+            </h3>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
+              Please complete your account setup and phone verification to participate.
+            </p>
+            <Link
+              to="/onboarding"
+              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer"
+            >
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              Complete Verification
+            </Link>
+          </div>
         ) : orderResult ? (
           <div className="text-center space-y-4 py-2">
             <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(16,185,129,0.2)]">
@@ -376,6 +401,21 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
               </div>
             </div>
 
+            {pendingReferralCount > 0 && (
+              <label className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/10 cursor-pointer hover:bg-primary/20 transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 rounded border-primary text-primary focus:ring-primary bg-transparent"
+                  checked={useFreeTickets}
+                  onChange={(e) => setUseFreeTickets(e.target.checked)}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-primary">You have {pendingReferralCount} Referral Ticket{pendingReferralCount > 1 ? 's' : ''} to use!</p>
+                  <p className="text-xs text-primary/70">Apply to this order to receive them for free</p>
+                </div>
+              </label>
+            )}
+
             {checkoutError && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
@@ -413,14 +453,10 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 This competition has ended.
               </div>
             )}
-            {competition.gateStatus === "locked" && (
-              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
-                You answered all skill questions incorrectly. You are not eligible to participate.
-              </div>
-            )}
+
             <button
               onClick={competition.onParticipate}
-              disabled={competition.status === "cancelled" || competition.status === "paused" || isClosed || isEnded || competition.gateStatus === "locked" || competition.gateStatus === "loading"}
+              disabled={competition.status === "cancelled" || competition.status === "paused" || isClosed || isEnded || competition.gateStatus === "loading"}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
             >
               {competition.gateStatus === "loading" ? (
@@ -437,11 +473,6 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 <>
                   <Sparkles className="w-4 h-4" aria-hidden="true" />
                   {t("common.ended")}
-                </>
-              ) : competition.gateStatus === "locked" ? (
-                <>
-                  <Lock className="w-4 h-4" aria-hidden="true" />
-                  Not Eligible
                 </>
               ) : (
                 <>

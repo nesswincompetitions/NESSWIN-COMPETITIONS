@@ -72,9 +72,25 @@ export default function UsernameReferral() {
       return toast.error('Still checking username — please wait a moment');
     }
 
+    // Extract code from URL if the user pasted a full link
+    let finalReferralCode = referralCode;
+    try {
+      if (finalReferralCode.includes('http') || finalReferralCode.includes('nesswin.com')) {
+        const url = new URL(finalReferralCode.startsWith('http') ? finalReferralCode : `https://${finalReferralCode}`);
+        const refParam = url.searchParams.get('ref');
+        if (refParam) {
+          finalReferralCode = refParam;
+        } else {
+          const parts = finalReferralCode.split(/[\/=]/);
+          finalReferralCode = parts[parts.length - 1];
+        }
+      }
+    } catch (err) {}
+    finalReferralCode = finalReferralCode.toUpperCase().trim();
+
     setLoading(true);
     try {
-      await completeOnboarding(username, referralCode);
+      await completeOnboarding(username, finalReferralCode);
       toast.success('Welcome to Nesswin!');
     } catch (error) {
       toast.error(error.message || 'Failed to complete setup');
@@ -180,10 +196,10 @@ export default function UsernameReferral() {
               <Gift className="w-4 h-4 shrink-0 text-[var(--color-muted-foreground)]" />
               <input
                 type="text"
-                placeholder="NESSWIN-YASH1234"
+                placeholder="NESSWIN-YASH1234 or paste link"
                 value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/30 uppercase tracking-wider"
+                onChange={(e) => setReferralCode(e.target.value)}
+                className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/30 tracking-wider"
               />
             </div>
           </div>

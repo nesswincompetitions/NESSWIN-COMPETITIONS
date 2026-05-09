@@ -118,7 +118,7 @@ function WinnerCard({ winner }) {
 export default function WinnersShowcase() {
   const { t } = useTranslation();
   return (
-    <section id="winners" className="py-24 px-6 bg-(--color-background)">
+    <section id="winners" className="py-24 px-6 bg-(--color-background) scroll-mt-24">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-14">
           <Reveal delay={20}>

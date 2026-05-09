@@ -89,7 +89,7 @@ const UserDetail = () => {
   const renderStatusBadge = (isActive) => {
     return isActive !== false
       ? <Badge variant="success">{t('common.active')}</Badge>
-      : <Badge variant="danger">{t('common.inactive')}</Badge>;
+      : <Badge variant="danger">{t('common.suspended')}</Badge>;
   };
 
   const renderOverview = () => (

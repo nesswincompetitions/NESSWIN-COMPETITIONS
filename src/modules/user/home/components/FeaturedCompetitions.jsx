@@ -132,7 +132,7 @@ function CompetitionCard({ competition, onNavigate }) {
   );
 }
 
-export default function FeaturedCompetitions() {
+export default function FeaturedCompetitions({ onLoadComplete }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [featuredComps, setFeaturedComps] = useState([]);
@@ -183,6 +183,7 @@ export default function FeaturedCompetitions() {
         console.error("Error fetching featured competitions:", err);
       } finally {
         setLoading(false);
+        if (onLoadComplete) onLoadComplete();
       }
     };
     fetchFeatured();
@@ -194,7 +195,7 @@ export default function FeaturedCompetitions() {
   };
 
   return (
-    <section id="competitions" className="py-24 px-6 bg-(--color-background)">
+    <section id="competitions" className="py-24 px-6 bg-(--color-background) scroll-mt-24">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-14">
           <Reveal delay={30}>

@@ -95,7 +95,7 @@ const UsersList = () => {
   const renderStatusBadge = (isActive) => {
     return isActive !== false
       ? <Badge variant="success">{t('common.active')}</Badge>
-      : <Badge variant="danger">{t('common.inactive')}</Badge>;
+      : <Badge variant="danger">{t('common.suspended')}</Badge>;
   };
 
   // -- Computed Data --
@@ -105,7 +105,7 @@ const UsersList = () => {
       const isActiveUser = u.is_active !== false;
       const matchesStatus = activeStatus === 'All' 
         || (activeStatus === 'ACTIVE' && isActiveUser)
-        || (activeStatus === 'INACTIVE' && !isActiveUser);
+        || (activeStatus === 'SUSPENDED' && !isActiveUser);
       
       const search = searchTerm.toLowerCase();
       const nameMatch = (u.display_name || u.name || '').toLowerCase().includes(search);
@@ -163,7 +163,7 @@ const UsersList = () => {
           {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex bg-white/5 p-1 rounded-lg overflow-x-auto hide-scrollbar">
-              {['All', 'ACTIVE', 'INACTIVE'].map((key) => (
+              {['All', 'ACTIVE', 'SUSPENDED'].map((key) => (
                 <button
                   key={key}
                   onClick={() => { setActiveStatus(key); setCurrentPage(1); }}
