@@ -139,7 +139,7 @@ export default function UsernameReferral() {
               <AtSign className="w-4 h-4 shrink-0 text-[var(--color-muted-foreground)]" />
               <input
                 type="text"
-                placeholder="yash123"
+                placeholder="Enter unique username"
                 value={username}
                 maxLength={20}
                 onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
@@ -196,7 +196,7 @@ export default function UsernameReferral() {
               <Gift className="w-4 h-4 shrink-0 text-[var(--color-muted-foreground)]" />
               <input
                 type="text"
-                placeholder="NESSWIN-YASH1234 or paste link"
+                placeholder="Enter referral code"
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value)}
                 className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/30 tracking-wider"

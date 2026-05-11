@@ -36,7 +36,7 @@ export default function DeleteAccountPage() {
     setLoading(true);
     try {
       await reauthenticate(password);
-      await deleteAccount(currentUser.uid);
+      await deleteAccount();
       toast.success('Your account has been permanently deleted.');
       navigate('/');
     } catch (err) {

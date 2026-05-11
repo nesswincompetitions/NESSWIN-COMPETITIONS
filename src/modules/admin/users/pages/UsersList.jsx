@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -15,7 +15,7 @@ import { fetchUsersList, updateUserStatus } from '@/modules/admin/users/services
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
-import Modal from '@/shared/components/ui/Modal';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 
 const UsersList = () => {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ const UsersList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const { data: usersData, setData: setUsers, loading, invalidate } = useAdminQuery('users_list', fetchUsersList);
-  const users = usersData || [];
+  const users = useMemo(() => usersData || [], [usersData]);
 
   // -- Suspend Modal State --
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
@@ -92,25 +92,33 @@ const UsersList = () => {
     }
   };
 
-  const renderStatusBadge = (isActive) => {
-    return isActive !== false
-      ? <Badge variant="success">{t('common.active')}</Badge>
-      : <Badge variant="danger">{t('common.suspended')}</Badge>;
+  const renderStatusBadge = (user) => {
+    // If user is suspended (is_active is false) and not deleted
+    if (user.is_active === false) {
+      return <Badge variant="danger">{t('common.suspended')}</Badge>;
+    }
+    return <Badge variant="success">{t('common.active')}</Badge>;
   };
 
-  // -- Computed Data --
-  const { currentUsers, totalPages, totalFiltered } = useMemo(() => {
+  const {
+    currentUsers,
+    totalPages,
+    totalFiltered,
+  } = useMemo(() => {
     // 1. Filter
-    const filtered = users.filter(u => {
+    const filtered = users.filter((u) => {
+      // Filter out deleted users completely from the admin view
+      if (u.is_deleted === true) return false;
+
       const isActiveUser = u.is_active !== false;
-      const matchesStatus = activeStatus === 'All' 
+      const matchesStatus = activeStatus === 'All'
         || (activeStatus === 'ACTIVE' && isActiveUser)
         || (activeStatus === 'SUSPENDED' && !isActiveUser);
-      
+
       const search = searchTerm.toLowerCase();
       const nameMatch = (u.display_name || u.name || '').toLowerCase().includes(search);
       const emailMatch = (u.email || '').toLowerCase().includes(search);
-      
+
       return matchesStatus && (nameMatch || emailMatch);
     });
 
@@ -131,10 +139,10 @@ const UsersList = () => {
     const paginated = filtered.slice(start, start + itemsPerPage);
     const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
 
-    return { 
-      currentUsers: paginated, 
-      totalPages: pages, 
-      totalFiltered: filtered.length 
+    return {
+      currentUsers: paginated,
+      totalPages: pages,
+      totalFiltered: filtered.length,
     };
   }, [users, activeStatus, sortBy, searchTerm, currentPage]);
 
@@ -239,7 +247,7 @@ const UsersList = () => {
                       <TableCell className="text-center">
                         <Badge variant="hot" className="px-2 py-0.5 min-w-[2rem]">{user.free_tickets || 0}</Badge>
                       </TableCell>
-                      <TableCell>{renderStatusBadge(user.is_active)}</TableCell>
+                      <TableCell>{renderStatusBadge(user)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => navigate(`/admin/users/${user.id}`)} className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white" title="View Profile">
@@ -294,29 +302,16 @@ const UsersList = () => {
       </Card>
 
       {/* Suspend Confirmation Modal */}
-      <Modal
+      <ConfirmationModal
         isOpen={suspendModalOpen}
         onClose={() => !isUpdating && setSuspendModalOpen(false)}
+        onConfirm={confirmStatusToggle}
         title={userToToggle?.is_active === false ? "Unsuspend User?" : "Suspend User?"}
         description={`Are you sure you want to ${userToToggle?.is_active === false ? 'unsuspend' : 'suspend'} ${userToToggle?.display_name || userToToggle?.name || 'this user'}?`}
-        actions={
-          <>
-            <button 
-              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
-              onClick={() => setSuspendModalOpen(false)}
-              disabled={isUpdating}
-            >
-              Cancel
-            </button>
-            <Button 
-              className={`${userToToggle?.is_active === false ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'} text-white border-none`}
-              onClick={confirmStatusToggle}
-              loading={isUpdating}
-            >
-              Confirm {userToToggle?.is_active === false ? 'Unsuspend' : 'Suspend'}
-            </Button>
-          </>
-        }
+        confirmLabel={userToToggle?.is_active === false ? 'Unsuspend' : 'Suspend'}
+        variant={userToToggle?.is_active === false ? 'primary' : 'danger'}
+        loading={isUpdating}
+        icon={Ban}
       />
     </div>
   );

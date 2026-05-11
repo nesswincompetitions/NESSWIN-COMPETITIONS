@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2 } from 'lucide-react';
+import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2, LifeBuoy, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { logout } from '@/modules/user/auth/services/authService';
+import { deleteAccount } from '@/modules/user/profile/services/profileService';
+import { createSupportChat } from '@/shared/services/supportChatService';
 import { toast } from 'react-hot-toast';
 import { Gift } from 'lucide-react';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
+import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+import NotificationBell from './NotificationBell';
 
 const LANGUAGE_OPTIONS = [
   { code: "en", short: "GB", flag: "🇬🇧", label: "English", secondary: "English" },
@@ -22,6 +28,10 @@ export default function Navbar() {
   const [loaded, setLoaded] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreatingSupportChat, setIsCreatingSupportChat] = useState(false);
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   const desktopLanguageMenuRef = useRef(null);
   const mobileLanguageMenuRef = useRef(null);
@@ -56,6 +66,44 @@ export default function Navbar() {
       console.error("Logout error:", error);
     }
   };
+  
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      toast.loading("Deleting account...", { id: 'delete-acc' });
+      await deleteAccount();
+      toast.success("Account deleted successfully", { id: 'delete-acc' });
+      setDeleteModalOpen(false);
+      setProfileOpen(false);
+      setMenuOpen(false);
+      navigate("/");
+    } catch (error) {
+      toast.error(error.message || "Failed to delete account", { id: 'delete-acc' });
+      console.error("Delete account error:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleContactSupport = async () => {
+    if (!currentUser?.uid) return;
+
+    setIsCreatingSupportChat(true);
+    try {
+      const chatId = await createSupportChat(currentUser.uid);
+      setProfileOpen(false);
+      setMenuOpen(false);
+      navigate(`/profile/support/${chatId}`);
+    } catch (error) {
+      console.error("Support chat error:", error);
+      if (error.message?.includes("index")) {
+        console.error("MISSING INDEX LINK:", error.message);
+      }
+      toast.error(error.message || 'No support agents are online right now.');
+    } finally {
+      setIsCreatingSupportChat(false);
+    }
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -63,6 +111,28 @@ export default function Navbar() {
     }, 80);
     return () => window.clearTimeout(timer);
   }, []);
+
+  // Listen for unread support messages for this user
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setUnreadSupportCount(0);
+      return undefined;
+    }
+    const userRef = doc(db, 'user', currentUser.uid);
+    const q = query(
+      collection(db, 'chats'),
+      where('chat_type', '==', 'support'),
+      where('sender_id', '==', userRef),
+      where('status', '==', 'active')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().unread_sender_count ?? 0), 0);
+      setUnreadSupportCount(total);
+    }, () => {
+      setUnreadSupportCount(0);
+    });
+    return unsub;
+  }, [currentUser?.uid]);
 
 
 
@@ -142,18 +212,25 @@ export default function Navbar() {
   );
 
   const renderProfileAvatar = (size = "w-9 h-9", textSize = "text-xs") => (
-    <div className={`${size} rounded-full overflow-hidden border-2 border-[var(--color-primary)]/40 hover:border-[var(--color-primary)] transition-all cursor-pointer shadow-[0_0_12px_rgba(var(--color-primary-rgb),0.15)]`}>
-      {userData?.photo_url ? (
-        <img
-          src={userData.photo_url}
-          alt="Profile"
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className={`w-full h-full flex items-center justify-center bg-[var(--color-primary)]/15 ${textSize} font-bold text-[var(--color-primary)]`}>
-          {getInitials()}
-        </div>
+    <div className="relative">
+      <div className={`${size} rounded-full overflow-hidden border-2 border-[var(--color-primary)]/40 hover:border-[var(--color-primary)] transition-all cursor-pointer shadow-[0_0_12px_rgba(var(--color-primary-rgb),0.15)]`}>
+        {userData?.photo_url ? (
+          <img
+            src={userData.photo_url}
+            alt="Profile"
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className={`w-full h-full flex items-center justify-center bg-[var(--color-primary)]/15 ${textSize} font-bold text-[var(--color-primary)]`}>
+            {getInitials()}
+          </div>
+        )}
+      </div>
+      {unreadSupportCount > 0 && (
+        <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-md ring-2 ring-[var(--color-background)]">
+          {unreadSupportCount > 9 ? '9+' : unreadSupportCount}
+        </span>
       )}
     </div>
   );
@@ -190,6 +267,20 @@ export default function Navbar() {
           </Link>
         ))}
 
+        <button
+          type="button"
+          onClick={handleContactSupport}
+          disabled={isCreatingSupportChat}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer disabled:opacity-60"
+        >
+          {isCreatingSupportChat ? (
+            <Loader2 className="w-4 h-4 text-[var(--color-primary)] animate-spin" />
+          ) : (
+            <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+          )}
+          Contact Support
+        </button>
+
         {userData?.role === 'admin' && (
           <Link
             to="/admin"
@@ -212,14 +303,14 @@ export default function Navbar() {
           <LogOut className="w-4 h-4" />
           Sign Out
         </button>
-        <Link
-          to="/profile/delete"
-          onClick={() => setProfileOpen(false)}
-          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
+        <button
+          type="button"
+          onClick={() => { setProfileOpen(false); setDeleteModalOpen(true); }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
         >
           <Trash2 className="w-4 h-4" />
           Delete Account
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -278,6 +369,12 @@ export default function Navbar() {
               {languageOpen && renderLanguageDropdown("w-44")}
             </div>
 
+            {currentUser && (
+              <div className="mr-1">
+                <NotificationBell />
+              </div>
+            )}
+
             {currentUser ? (
               <div className="relative z-[60]" ref={desktopProfileMenuRef}>
                 <button
@@ -313,6 +410,12 @@ export default function Navbar() {
               </button>
               {languageOpen && renderLanguageDropdown("w-44")}
             </div>
+
+            {currentUser && (
+              <div className="scale-90 origin-right mr-[-4px]">
+                <NotificationBell />
+              </div>
+            )}
 
             {currentUser && (
               <div className="relative z-[60]" ref={mobileProfileMenuRef}>
@@ -362,6 +465,17 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => !isDeleting && setDeleteModalOpen(false)}
+        onConfirm={handleDeleteAccount}
+        title="Delete Account?"
+        description="Are you sure you want to permanently delete your account? All your data, tickets, and rewards will be lost forever."
+        confirmLabel="Yes, Delete My Account"
+        loading={isDeleting}
+        variant="danger"
+      />
     </header>
   );
 }

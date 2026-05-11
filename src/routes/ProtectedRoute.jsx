@@ -29,14 +29,14 @@ export const ProtectedRoute = ({ children, requireAdmin = false }) => {
   }
 
   // Logged in but not verified -> force onboarding
-  if (!userData.is_verified) {
+  if (!userData.is_verified || !userData.user_name) {
     if (location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;
     }
   }
 
   // If verified and trying to access onboarding, redirect them away
-  if (userData.is_verified && location.pathname === '/onboarding') {
+  if (userData.is_verified && userData.user_name && location.pathname === '/onboarding') {
     return <Navigate to={userData.role === 'admin' ? '/admin' : '/'} replace />;
   }
 
@@ -66,7 +66,7 @@ export const AuthRoute = ({ children }) => {
   }
 
   if (currentUser && userData) {
-    if (!userData.is_verified) {
+    if (!userData.is_verified || !userData.user_name) {
       return <Navigate to="/onboarding" replace />;
     } else {
       return <Navigate to={userData.role === 'admin' ? '/admin' : '/'} replace />;

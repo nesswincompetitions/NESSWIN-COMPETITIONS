@@ -16,7 +16,8 @@ import {
   updateEmail,
   updatePassword,
 } from 'firebase/auth';
-import { auth, db } from '@/config/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from '@/config/firebase';
 
 // ─── Basic Profile Update ────────────────────────────────────────────────────
 
@@ -70,10 +71,10 @@ export const saveEditedProfile = async (uid, { displayName, newEmail, newPasswor
  * Deletes the Firestore user document and the Firebase Auth account.
  * Requires fresh re-authentication before calling.
  */
-export const deleteAccount = async (uid) => {
-  const userRef = doc(db, 'user', uid);
-  await deleteDoc(userRef);
-  await deleteUser(auth.currentUser);
+export const deleteAccount = async () => {
+  const softDeleteUser = httpsCallable(functions, 'softDeleteUser');
+  const result = await softDeleteUser();
+  return result.data;
 };
 
 // ─── My Tickets ──────────────────────────────────────────────────────────────

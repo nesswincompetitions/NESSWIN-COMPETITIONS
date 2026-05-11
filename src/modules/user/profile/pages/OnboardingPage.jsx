@@ -9,7 +9,7 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && userData?.is_verified) {
+    if (!loading && userData?.is_verified && userData?.user_name) {
       navigate(userData.role === 'admin' ? '/admin' : '/');
     }
   }, [userData, loading, navigate]);

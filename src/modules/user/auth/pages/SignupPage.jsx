@@ -8,6 +8,7 @@ import {
   EyeOff,
   ArrowRight,
   LogIn,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from 'react-hot-toast';
 import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple } from '@/modules/user/auth/services/authService';
@@ -118,23 +119,36 @@ function SocialLogin({ loading }) {
 
 // ─── Sign Up Form ─────────────────────────────────────────────────────────────
 function SignUpForm({ onSwitch }) {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", date_of_birth: "" });
   const [focused, setFocused] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.password) {
+    if (!form.name || !form.email || !form.password || !form.date_of_birth) {
       toast.error("Please fill in all fields");
       return;
     }
+
+    const dob = new Date(form.date_of_birth);
+    const ageDiffMs = Date.now() - dob.getTime();
+    const ageDate = new Date(ageDiffMs); 
+    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    
+    if (age < 18) {
+      toast.error("You must be 18 or older to register.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await signUpWithEmail(form.email, form.password, form.name);
+      await signUpWithEmail(form.email, form.password, form.name, form.date_of_birth);
       toast.success("Account created successfully!");
+      navigate('/onboarding');
     } catch (error) {
       toast.error(error.message || "Failed to create account");
       setLoading(false);
@@ -147,6 +161,7 @@ function SignUpForm({ onSwitch }) {
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <InputField id="signup-name" name="name" type="text" label="Full Name" placeholder="Enter your full name" value={form.name} onChange={handleChange} focused={focused === "name"} onFocus={() => setFocused("name")} onBlur={() => setFocused("")} icon={User} />
         <InputField id="signup-email" name="email" type="email" label="Email Address" placeholder="Enter your email" value={form.email} onChange={handleChange} focused={focused === "email"} onFocus={() => setFocused("email")} onBlur={() => setFocused("")} icon={Mail} />
+        <InputField id="signup-dob" name="date_of_birth" type="date" label="Date of Birth" placeholder="Select date of birth" value={form.date_of_birth} onChange={handleChange} focused={focused === "date_of_birth"} onFocus={() => setFocused("date_of_birth")} onBlur={() => setFocused("")} icon={CalendarDays} />
         <div className="space-y-1.5 pb-2">
           <InputField id="signup-password" name="password" type={showPassword ? "text" : "password"} label="Password" placeholder="Enter your password (Min. 8 characters)" value={form.password} onChange={handleChange} focused={focused === "password"} onFocus={() => setFocused("password")} onBlur={() => setFocused("")} icon={Lock} rightSlot={<button type="button" onClick={() => setShowPassword((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer shrink-0" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
           <PasswordStrength password={form.password} />

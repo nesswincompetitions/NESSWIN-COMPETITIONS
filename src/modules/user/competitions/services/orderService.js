@@ -10,6 +10,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { createAppNotification } from '@/shared/services/notificationService';
 
 // ─── Pricing Helper (mirrors backend orderPricingService) ─────────────────────
 
@@ -103,6 +104,13 @@ export const processOrder = async ({
 
     if (compData.status !== 'active') {
       throw new Error('This competition is no longer active.');
+    }
+
+    // Safety check: Reject order if current time has passed the draw date
+    // even if the status is still "active"
+    const now = new Date();
+    if (compData.draw_date && compData.draw_date.toDate() <= now) {
+      throw new Error('This competition has already closed for entries.');
     }
 
     // Read user doc to verify user exists and to update stats later
@@ -263,10 +271,6 @@ export const processOrder = async ({
       updated_at: serverTimestamp(),
     });
 
-    // Write 7 — Push notification (commented out — will implement after order flow is tested)
-    // const pushRef = doc(collection(db, 'ff_user_push_notifications'));
-    // transaction.set(pushRef, { ... });
-
     return {
       orderId: orderRef.id,
       tickets: ticketResults,
@@ -274,6 +278,17 @@ export const processOrder = async ({
       packType,
       freeTickets: packBonusTickets + clampedReferralTickets,
     };
+  });
+
+  // ── Step 2: Fire push notification (non-blocking) ─────────────────────────
+  // Called OUTSIDE the transaction so a notification failure can never roll
+  // back the order. createAppNotification swallows its own errors internally.
+  // The doc triggers FlutterFlow's sendUserPushNotificationsTrigger CF for FCM delivery.
+  createAppNotification({
+    currentUserRef: userRef,
+    competitionRef,
+    orderRef,
+    competitionTitle: competitionTitle || '',
   });
 
   return result;

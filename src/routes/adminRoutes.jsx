@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import Dashboard from '@/modules/admin/dashboard/pages/Dashboard';
 import BonusTickets from '@/modules/admin/bonus/pages/BonusTickets';
 import Settings from '@/modules/admin/settings/pages/Settings';
+import SupportInboxPage from '@/modules/admin/support/pages/SupportInboxPage';
 
 import CompetitionsList from '@/modules/admin/competitions/pages/CompetitionsList';
 import CreateCompetition from '@/modules/admin/competitions/pages/CreateCompetition';
@@ -39,6 +40,7 @@ export const AdminRoutes = (
     <Route path="referrals" element={<ReferralsList />} />
     <Route path="referrals/:id" element={<ReferralDetail />} />
     <Route path="bonus-tickets" element={<BonusTickets />} />
+    <Route path="support-inbox" element={<SupportInboxPage />} />
     <Route path="settings" element={<Settings />} />
     {/* Catch-all for undefined admin routes */}
     <Route path="*" element={<Dashboard />} /> 

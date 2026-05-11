@@ -6,43 +6,40 @@ import { auth } from '@/config/firebase';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
 
 // ─── Country Code Data ──────────────────────────────────────────────────────
+// ─── Country Code Data ──────────────────────────────────────────────────────
 const COUNTRY_CODES = [
-  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom' },
-  { code: '+91', country: 'IN', flag: '🇮🇳', name: 'India' },
-  { code: '+1',  country: 'US', flag: '🇺🇸', name: 'United States' },
-  { code: '+1',  country: 'CA', flag: '🇨🇦', name: 'Canada' },
-  { code: '+61', country: 'AU', flag: '🇦🇺', name: 'Australia' },
-  { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany' },
-  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France' },
-  { code: '+971', country: 'AE', flag: '🇦🇪', name: 'UAE' },
-  { code: '+966', country: 'SA', flag: '🇸🇦', name: 'Saudi Arabia' },
-  { code: '+81', country: 'JP', flag: '🇯🇵', name: 'Japan' },
-  { code: '+86', country: 'CN', flag: '🇨🇳', name: 'China' },
-  { code: '+82', country: 'KR', flag: '🇰🇷', name: 'South Korea' },
-  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy' },
-  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'Spain' },
-  { code: '+31', country: 'NL', flag: '🇳🇱', name: 'Netherlands' },
-  { code: '+46', country: 'SE', flag: '🇸🇪', name: 'Sweden' },
-  { code: '+47', country: 'NO', flag: '🇳🇴', name: 'Norway' },
-  { code: '+45', country: 'DK', flag: '🇩🇰', name: 'Denmark' },
-  { code: '+353', country: 'IE', flag: '🇮🇪', name: 'Ireland' },
-  { code: '+65', country: 'SG', flag: '🇸🇬', name: 'Singapore' },
-  { code: '+60', country: 'MY', flag: '🇲🇾', name: 'Malaysia' },
-  { code: '+63', country: 'PH', flag: '🇵🇭', name: 'Philippines' },
-  { code: '+92', country: 'PK', flag: '🇵🇰', name: 'Pakistan' },
-  { code: '+880', country: 'BD', flag: '🇧🇩', name: 'Bangladesh' },
-  { code: '+234', country: 'NG', flag: '🇳🇬', name: 'Nigeria' },
-  { code: '+27', country: 'ZA', flag: '🇿🇦', name: 'South Africa' },
-  { code: '+254', country: 'KE', flag: '🇰🇪', name: 'Kenya' },
-  { code: '+55', country: 'BR', flag: '🇧🇷', name: 'Brazil' },
-  { code: '+52', country: 'MX', flag: '🇲🇽', name: 'Mexico' },
-  { code: '+7',  country: 'RU', flag: '🇷🇺', name: 'Russia' },
-  { code: '+90', country: 'TR', flag: '🇹🇷', name: 'Turkey' },
-  { code: '+48', country: 'PL', flag: '🇵🇱', name: 'Poland' },
-  { code: '+62', country: 'ID', flag: '🇮🇩', name: 'Indonesia' },
-  { code: '+66', country: 'TH', flag: '🇹🇭', name: 'Thailand' },
-  { code: '+84', country: 'VN', flag: '🇻🇳', name: 'Vietnam' },
+  { code: '+91', country: 'IN', flag: '🇮🇳', name: 'India', format: '##### #####' },
+  { code: '+1',  country: 'US', flag: '🇺🇸', name: 'United States', format: '(###) ###-####' },
+  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom', format: '#### ### ####' },
+  { code: '+971', country: 'AE', flag: '🇦🇪', name: 'UAE', format: '## ### ####' },
+  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France', format: '## ## ## ## ##' },
+  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'Spain', format: '### ### ###' },
+  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy', format: '### ### ####' },
+  { code: '+31', country: 'NL', flag: '🇳🇱', name: 'Netherlands', format: '## ### ####' },
+  { code: '+32', country: 'BE', flag: '🇧🇪', name: 'Belgium', format: '### ## ## ##' },
+  { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany', format: '###########' },
 ];
+
+/**
+ * formatPhoneNumber
+ * Applies a mask (e.g. "#### ### ####") to a raw digit string.
+ */
+const formatPhoneNumber = (value, mask) => {
+  if (!mask) return value;
+  const digits = value.replace(/\D/g, '');
+  let formatted = '';
+  let digitIndex = 0;
+
+  for (let i = 0; i < mask.length && digitIndex < digits.length; i++) {
+    if (mask[i] === '#') {
+      formatted += digits[digitIndex];
+      digitIndex++;
+    } else {
+      formatted += mask[i];
+    }
+  }
+  return formatted;
+};
 
 // ─── Country Code Dropdown ──────────────────────────────────────────────────
 function CountryCodeSelect({ selected, onChange }) {
@@ -214,7 +211,7 @@ function OtpInput({ value, onChange }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function PhoneVerification() {
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[1]);
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [verificationCode, setVerificationCode] = useState('');
@@ -311,7 +308,10 @@ export default function PhoneVerification() {
     setLoading(true);
     try {
       const result = await confirmationResult.confirm(verificationCode);
-      await updateProfile(result.user.uid, { phone_number: result.user.phoneNumber });
+      await updateProfile(result.user.uid, { 
+        phone_number: result.user.phoneNumber,
+        is_verified: true
+      });
       toast.success('Phone verified successfully!');
     } catch (error) {
       console.error('Verify code error:', error);
@@ -353,13 +353,23 @@ export default function PhoneVerification() {
                 Phone Number
               </label>
               <div className="flex">
-                <CountryCodeSelect selected={selectedCountry} onChange={setSelectedCountry} />
+                <CountryCodeSelect 
+                  selected={selectedCountry} 
+                  onChange={(c) => {
+                    setSelectedCountry(c);
+                    setPhoneNumber('');
+                  }} 
+                />
                 <div className="flex-1 flex items-center h-12 px-4 rounded-r-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 focus-within:border-[var(--color-primary)]/60 transition-all">
                   <input
                     type="tel"
                     placeholder="Enter your phone number"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value.replace(/[^\d\s]/g, ''))}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^\d]/g, '');
+                      const formatted = formatPhoneNumber(raw, selectedCountry.format);
+                      setPhoneNumber(formatted);
+                    }}
                     className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/40"
                     autoComplete="tel-national"
                   />

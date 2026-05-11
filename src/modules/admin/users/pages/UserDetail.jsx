@@ -86,10 +86,14 @@ const UserDetail = () => {
     // { id: 'notes', label: t('users.detail.tabs.notes'), icon: FileText },
   ];
 
-  const renderStatusBadge = (isActive) => {
-    return isActive !== false
-      ? <Badge variant="success">{t('common.active')}</Badge>
-      : <Badge variant="danger">{t('common.suspended')}</Badge>;
+  const renderStatusBadge = (user) => {
+    if (user.is_deleted === true) {
+      return <Badge variant="neutral" className="bg-gray-500/20 text-gray-500 border-gray-500/50">Deleted</Badge>;
+    }
+    if (user.is_active === false) {
+      return <Badge variant="danger">{t('common.suspended')}</Badge>;
+    }
+    return <Badge variant="success">{t('common.active')}</Badge>;
   };
 
   const renderOverview = () => (
@@ -353,15 +357,27 @@ const UserDetail = () => {
               <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white relative">
                 {(profile.display_name || profile.name || '?').charAt(0)}
                 <div className="absolute -bottom-1 -right-1">
-                  {renderStatusBadge(profile.is_active)}
+                  {renderStatusBadge(profile)}
                 </div>
               </div>
               <div className="space-y-1">
-                <h2 className="text-2xl font-bold text-white">{profile.display_name || profile.name}</h2>
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  {profile.display_name || profile.name}
+                  {profile.is_deleted === true && (
+                    <span className="text-xs px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded uppercase tracking-wider font-bold">Deleted Account</span>
+                  )}
+                </h2>
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-gray-400 text-sm">
                   <span className="flex items-center gap-1"><Mail size={14} /> {profile.email}</span>
                 </div>
-                <p className="text-xs text-gray-500 pt-1">{t('users.detail.registered')}: {formatDate(profile.created_time || profile.created_at)}</p>
+                <p className="text-xs text-gray-500 pt-1">
+                  {t('users.detail.registered')}: {formatDate(profile.created_time || profile.created_at)}
+                  {profile.deleted_at && (
+                    <span className="ml-3 text-red-400/60">
+                      • Deleted on: {formatDate(profile.deleted_at)}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
             

@@ -7,6 +7,7 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import SearchInput from '@/shared/components/ui/SearchInput';
 import Modal from '@/shared/components/ui/Modal';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import {
   Plus, Calendar, Download,
   Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X
@@ -349,22 +350,18 @@ const CompetitionsList = () => {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <ConfirmationModal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDelete}
         title={t('competitions.deleteModal.title')}
         description={t('competitions.deleteModal.description')}
-        actions={
-          <>
-            <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>{t('common.cancel')}</Button>
-            <Button variant="primary" className="bg-red-500 border-red-500 hover:bg-red-600 text-white" onClick={handleDelete} disabled={loading}>
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.delete')}
-            </Button>
-          </>
-        }
+        confirmLabel={t('common.delete')}
+        loading={loading}
+        variant="danger"
       >
         {competitionToDelete && (
-          <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3">
+          <div className="p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-3 mt-4">
             <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
               {competitionToDelete.image ? (
                 <img src={competitionToDelete.image} alt={competitionToDelete.name} className="w-full h-full object-cover" />
@@ -372,13 +369,13 @@ const CompetitionsList = () => {
                 <span className="text-xs text-gray-500 font-medium">IMG</span>
               )}
             </div>
-            <div>
+            <div className="text-left">
               <p className="text-sm font-medium text-white">{competitionToDelete.name}</p>
               <p className="text-xs text-gray-500">{competitionToDelete.subTitle}</p>
             </div>
           </div>
         )}
-      </Modal>
+      </ConfirmationModal>
     </div>
   );
 };

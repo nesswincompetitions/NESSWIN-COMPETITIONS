@@ -45,7 +45,6 @@ export default function Footer() {
     { label: t("footer.links.rules"), href: "/rules" },
     { label: t("footer.links.freePostalEntry"), href: "/free-postal-entry" },
     { label: t("footer.links.responsiblePlay"), href: "/responsible-play" },
-    { label: t("footer.links.contactUs"), href: "mailto:support@nesswin.com" },
   ];
 
   return (

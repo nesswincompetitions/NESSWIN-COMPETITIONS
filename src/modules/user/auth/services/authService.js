@@ -73,6 +73,7 @@ export const checkAndCreateUserDocument = async (user, additionalData = {}) => {
       photo_url: user.photoURL || "",
       created_time: serverTimestamp(),
       is_verified: false,
+      date_of_birth: additionalData.date_of_birth ? new Date(additionalData.date_of_birth) : null,
       free_tickets: 0,
       role: "user",
       is_active: true,
@@ -90,9 +91,9 @@ export const checkAndCreateUserDocument = async (user, additionalData = {}) => {
   return userData;
 };
 
-export const signUpWithEmail = async (email, password, name) => {
+export const signUpWithEmail = async (email, password, name, date_of_birth) => {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  await checkAndCreateUserDocument(userCredential.user, { name });
+  await checkAndCreateUserDocument(userCredential.user, { name, date_of_birth });
   return userCredential.user;
 };
 
@@ -247,15 +248,14 @@ export const completeOnboarding = async (username, referralCodeInput) => {
     // Write: Update referrer and create referral document if applicable
     if (referrerRef) {
       const newReferralRef = doc(collection(db, "referrals"));
-      // Auto-issue the reward immediately — no manual claim needed
+      // Create audit log for the referral reward
       transaction.set(newReferralRef, {
         referrer_id: referrerRef,
         referred_user_id: currentUserRef,
         referral_code: referralCodeInput.trim().toUpperCase(),
         reward_type: "free_ticket",
         reward_value: 1,
-        reward_issued: true,
-        reward_issued_at: serverTimestamp(),
+        reward_issued: false,
         created_at: serverTimestamp(),
       });
 

@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/shared/state/AuthContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { uploadImages } from '@/shared/services/storageService';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
+import { createSupportChat } from '@/shared/services/supportChatService';
 import {
   fetchAllReferrals,
 } from '@/modules/user/referrals/services/referralService';
@@ -26,6 +27,7 @@ import {
   Loader2,
   Pencil,
   X as XIcon,
+  LifeBuoy,
 } from "lucide-react";
 import { toast } from 'react-hot-toast';
 
@@ -36,6 +38,7 @@ export default function ProfilePage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCreatingSupportChat, setIsCreatingSupportChat] = useState(false);
   const [referrals, setReferrals] = useState([]);
   const [referralsLoading, setReferralsLoading] = useState(true);
 
@@ -44,7 +47,7 @@ export default function ProfilePage() {
   const [editValue, setEditValue] = useState('');
   const [isSavingField, setIsSavingField] = useState(false);
 
-  const loadReferrals = async () => {
+  const loadReferrals = useCallback(async () => {
     if (!currentUser?.uid) {
       setReferrals([]);
       setReferralsLoading(false);
@@ -60,7 +63,7 @@ export default function ProfilePage() {
     } finally {
       setReferralsLoading(false);
     }
-  };
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     loadReferrals();
@@ -69,7 +72,7 @@ export default function ProfilePage() {
         document.getElementById('referrals-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-  }, [currentUser?.uid]);
+  }, [loadReferrals]);
 
   const handleStartEdit = (field) => {
     setEditingField(field);
@@ -158,22 +161,26 @@ export default function ProfilePage() {
       await logout();
       toast.success("Signed out successfully");
       navigate("/");
-    } catch (error) {
+    } catch {
       toast.error("Failed to sign out");
     }
   };
 
-  const handleSingleClaim = async (referralId) => {
+  const handleContactSupport = async () => {
     if (!currentUser?.uid) return;
-    setClaimingId(referralId);
+
+    setIsCreatingSupportChat(true);
     try {
-      await claimSingleReferralReward(currentUser.uid, referralId);
-      toast.success('Successfully claimed 1 free ticket!');
-      await loadReferrals();
+      const chatId = await createSupportChat(currentUser.uid);
+      navigate(`/profile/support/${chatId}`);
     } catch (error) {
-      toast.error(error.message || 'Failed to claim reward');
+      console.error("Support chat error:", error);
+      if (error.message?.includes("index")) {
+        console.error("MISSING INDEX LINK:", error.message);
+      }
+      toast.error(error.message || 'No support agents are online right now.');
     } finally {
-      setClaimingId(null);
+      setIsCreatingSupportChat(false);
     }
   };
 
@@ -509,23 +516,41 @@ export default function ProfilePage() {
           {/* Quick Actions */}
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4">
             <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-3">Quick Actions</h2>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { to: '/profile/tickets', icon: Ticket,      label: 'My Tickets'     },
                 { to: '/profile/orders',  icon: ShoppingBag, label: 'Order History'  },
                 { to: '/profile/edit',    icon: Pencil,      label: 'Edit Profile'   },
-              ].map(({ to, icon: Icon, label }) => (
+              ].map((item) => (
                 <Link
-                  key={to}
-                  to={to}
+                  key={item.to}
+                  to={item.to}
                   className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all group cursor-pointer"
                 >
                   <div className="w-9 h-9 rounded-lg bg-[var(--color-muted)]/20 group-hover:bg-[var(--color-primary)]/10 flex items-center justify-center transition-colors">
-                    <Icon className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
+                    <item.icon className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
                   </div>
-                  <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">{label}</span>
+                  <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">{item.label}</span>
                 </Link>
               ))}
+
+              <button
+                type="button"
+                onClick={handleContactSupport}
+                disabled={isCreatingSupportChat}
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all group cursor-pointer disabled:opacity-60"
+              >
+                <div className="w-9 h-9 rounded-lg bg-[var(--color-muted)]/20 group-hover:bg-[var(--color-primary)]/10 flex items-center justify-center transition-colors">
+                  {isCreatingSupportChat ? (
+                    <Loader2 className="w-4 h-4 text-[var(--color-primary)] animate-spin" />
+                  ) : (
+                    <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
+                  )}
+                </div>
+                <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">
+                  Contact Support
+                </span>
+              </button>
             </div>
           </div>
 
