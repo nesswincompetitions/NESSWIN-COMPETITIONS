@@ -16,6 +16,7 @@ import { toast } from 'react-hot-toast';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
 import { fetchAdminCompetitionsList, deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
 import { exportToCSV } from '@/shared/utils/csvExport';
+import { formatStatus } from '@/shared/utils/formatters';
 
 const CompetitionsList = () => {
   const [activeTab, setActiveTab] = useState('All');
@@ -259,7 +260,7 @@ const CompetitionsList = () => {
                         }>
                           {comp.status === 'active' ? t('common.active') :
                             comp.status === 'end' ? t('common.ended') :
-                              comp.status === 'draft' ? 'Draft' : comp.status}
+                              formatStatus(comp.status)}
                         </Badge>
                       );
                     })()}

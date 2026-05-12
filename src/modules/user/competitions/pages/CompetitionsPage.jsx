@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, Sparkles, Tag, Users, Ticket, Lock } from 'lucide-react';
+import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock } from 'lucide-react';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { fetchLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function StatusBadge({ type, label }) {
   );
 }
 
-function CompetitionCard({ competition }) {
+function CompetitionCard({ competition, hasTicket }) {
   const { t } = useTranslation();
   const {
     id,
@@ -58,10 +59,12 @@ function CompetitionCard({ competition }) {
     status,
   } = competition;
 
-  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
-  const isEnded = status === 'end';
-  const remaining = total - sold;
-  const progress = Math.min(100, Math.round((sold / total) * 100));
+  const isReadyToDraw = status === 'ready_to_draw';
+  const isSoldOut     = status === 'sold_out';
+  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw;
+  const isEnded       = status === 'end';
+  const remaining     = total - sold;
+  const progress      = Math.min(100, Math.round((sold / total) * 100));
 
   return (
     <article
@@ -166,30 +169,38 @@ function CompetitionCard({ competition }) {
           </div>
 
           {/* CTA */}
-          {isClosed ? (
-            <div
-              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
-            >
-              <Lock className="w-4 h-4 mr-2" aria-hidden="true" />
+          {(isClosed || isReadyToDraw) ? (
+            <div className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default">
+              <Clock className="w-4 h-4" aria-hidden="true" />
               {t("common.drawPending")}
+            </div>
+          ) : isSoldOut ? (
+            <div className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default">
+              <Ticket className="w-4 h-4" aria-hidden="true" />
+              {t("common.soldOut")}
             </div>
           ) : (
             <Link
               to={`/competitions/${id}`}
               className={`inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 transition-all cursor-pointer ${
-                isEnded 
-                  ? "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10" 
+                isEnded
+                  ? "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10"
                   : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
               }`}
             >
               {isEnded ? (
                 <>
-                  <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
                   {t("common.viewResults")}
+                </>
+              ) : hasTicket ? (
+                <>
+                  <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+                  {t("common.buyMoreTickets")}
                 </>
               ) : (
                 <>
-                  <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
+                  <Ticket className="w-4 h-4" aria-hidden="true" />
                   {t("common.participate")}
                 </>
               )}
@@ -258,6 +269,7 @@ export default function CompetitionsPage() {
   const [nowTs] = useState(() => Date.now());
   const [liveCompetitions, setLiveCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { ticketedIds } = useUserTicketedCompetitions();
 
   useEffect(() => {
     const fetchCompetitions = async () => {
@@ -382,7 +394,10 @@ export default function CompetitionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((comp, index) => (
                 <Reveal key={comp.id} delay={index * 65}>
-                  <CompetitionCard competition={comp} />
+                  <CompetitionCard
+                    competition={comp}
+                    hasTicket={ticketedIds.has(comp.id)}
+                  />
                 </Reveal>
               ))}
             </div>

@@ -116,6 +116,7 @@ export const fetchCompetitionWithParticipants = async (id) => {
     description: data.description || '',
     included: data.included_things || [],
     prizeVideoUrl: data.prize_video_url || '',
+    instagramLiveUrl: data.instagram_live_url || '',
     status: data.status,
     docRef: compDoc.ref,
     rawParticipants,                                          // ← raw refs for membership check

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { fetchCompetitionWithParticipants } from '@/modules/user/competitions/services/competitionService';
 import Modal from '@/shared/components/ui/Modal';
+import { Ticket } from 'lucide-react';
 import {
   Breadcrumb,
   ImageGallery,
@@ -11,6 +12,8 @@ import {
   PrizeVideo,
   StatsGrid,
   TicketPurchaseCard,
+  BigCountdown,
+  InstagramLiveCard,
   WhatsIncluded,
 } from '@/modules/user/competitions/components/CompetitionDetailsSections';
 import { SkillGateModalContent } from '@/modules/user/competitions/components/SkillGateModalContent';
@@ -38,9 +41,12 @@ export default function CompetitionDetails() {
     isProcessing,
     checkoutError,
     orderResult,
+    setOrderResult,
     pendingReferralCount,
-    useFreeTickets,
-    setUseFreeTickets,
+    freeTicketsQuantity,
+    setFreeTicketsQuantity,
+    userHasTickets,
+    userTickets,
     handleParticipateClick,
     handleVerifyAnswer,
     handleBuyTickets,
@@ -51,6 +57,8 @@ export default function CompetitionDetails() {
     competition: c,
     setCompetition: setC,
   });
+
+  const [isTicketsModalOpen, setIsTicketsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!c || !c.endsAt || c.status === "end") return;
@@ -102,6 +110,8 @@ export default function CompetitionDetails() {
               <div className="hidden lg:block space-y-4">
                 <WhatsIncluded items={c.included} />
                 <PrizeVideo url={c.prizeVideoUrl} />
+                <BigCountdown endsAt={c.endsAt} />
+                <InstagramLiveCard url={c.instagramLiveUrl} />
               </div>
             </div>
 
@@ -124,12 +134,16 @@ export default function CompetitionDetails() {
                   ticketQuantity={ticketQuantity}
                   setTicketQuantity={setTicketQuantity}
                   pendingReferralCount={pendingReferralCount}
-                  useFreeTickets={useFreeTickets}
-                  setUseFreeTickets={setUseFreeTickets}
+                  freeTicketsQuantity={freeTicketsQuantity}
+                  setFreeTicketsQuantity={setFreeTicketsQuantity}
                   onBuyTickets={handleBuyTickets}
                   isProcessing={isProcessing}
                   orderResult={orderResult}
+                  onBuyMore={() => setOrderResult(null)}
                   checkoutError={checkoutError}
+                  userHasTickets={userHasTickets}
+                  userTickets={userTickets}
+                  onViewAllTickets={() => setIsTicketsModalOpen(true)}
                 />
               </div>
             </div>
@@ -140,6 +154,8 @@ export default function CompetitionDetails() {
           <div className="lg:hidden mt-8 space-y-8">
             <WhatsIncluded items={c.included} />
             <PrizeVideo url={c.prizeVideoUrl} />
+            <BigCountdown endsAt={c.endsAt} />
+            <InstagramLiveCard url={c.instagramLiveUrl} />
           </div>
 
           <ParticipantsSection participants={c.participants} />
@@ -165,6 +181,40 @@ export default function CompetitionDetails() {
             handleVerifyAnswer={handleVerifyAnswer}
             setIsModalOpen={setIsModalOpen}
           />
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isTicketsModalOpen}
+        onClose={() => setIsTicketsModalOpen(false)}
+        title="Your Tickets"
+        description={`You have ${userTickets.length} active entries in this competition.`}
+      >
+        <div className="max-w-md mx-auto w-full max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-2 gap-3 pb-4">
+            {userTickets.map((tk) => (
+              <div 
+                key={tk.id}
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/30 transition-all group"
+              >
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">Ticket ID</span>
+                  <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">{tk.ticket_sequence}</span>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Ticket className="w-4 h-4 text-primary" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-6 pt-6 border-t border-border/40 text-center">
+          <button 
+            onClick={() => setIsTicketsModalOpen(false)}
+            className="w-full py-3 rounded-xl bg-primary text-black font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all cursor-pointer"
+          >
+            Close
+          </button>
         </div>
       </Modal>
     </div>

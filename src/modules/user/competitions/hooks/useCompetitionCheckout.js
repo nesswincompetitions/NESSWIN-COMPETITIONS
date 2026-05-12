@@ -5,7 +5,9 @@ import {
   query,
   where,
   getDocs,
-  doc
+  doc,
+  limit,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import {
@@ -39,7 +41,11 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
   // Free tickets from referrals query (replaces old wallet balance)
   const [pendingReferrals, setPendingReferrals] = useState([]);
   const pendingReferralCount = pendingReferrals.length;
-  const [useFreeTickets, setUseFreeTickets] = useState(false);
+  const [freeTicketsQuantity, setFreeTicketsQuantity] = useState(0);
+
+  // Whether the user already has ≥1 ticket for this competition
+  const [userHasTickets, setUserHasTickets] = useState(false);
+  const [userTickets, setUserTickets] = useState([]);
 
   // Stores the question_answer Map to embed into the order document
   const [questionAnswerMap, setQuestionAnswerMap] = useState(null);
@@ -75,6 +81,33 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       }
     };
     loadReferrals();
+
+    // ── One-time check: does this user already have tickets for this competition? ──
+    const loadUserTickets = async () => {
+      try {
+        const userRef = doc(db, 'user', currentUser.uid);
+        const compRef = doc(db, 'competition', competitionId);
+        const q = query(
+          collection(db, 'ticket'),
+          where('user_id', '==', userRef),
+          where('competition_id', '==', compRef),
+          orderBy('created_at', 'desc')
+        );
+        const snap = await getDocs(q);
+        if (isMounted) {
+          const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setUserTickets(tickets);
+          if (tickets.length > 0) {
+            setUserHasTickets(true);
+            setSkillPassed(true);
+            setGateStatus('eligible');
+          }
+        }
+      } catch (err) {
+        console.error("Error loading user tickets:", err);
+      }
+    };
+    loadUserTickets();
 
     const preLoadGateStatus = async () => {
       setGateStatus('loading');
@@ -255,11 +288,26 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
         questionId: resolvedQuestionId,
         questionAnswer: questionAnswerMap,
         currentUser,
-        freeTicketsToUse: useFreeTickets ? pendingReferralCount : 0,
-        referralsToBurn: useFreeTickets ? pendingReferrals : [],
+        freeTicketsToUse: freeTicketsQuantity,
+        referralsToBurn: pendingReferrals.slice(0, freeTicketsQuantity),
       });
 
       setOrderResult(result);
+
+      // Mark as existing ticket holder
+      setUserHasTickets(true);
+
+      // Refresh ticket list
+      const userRef = doc(db, 'user', currentUser.uid);
+      const compRef = doc(db, 'competition', competition.id);
+      const q = query(
+        collection(db, 'ticket'),
+        where('user_id', '==', userRef),
+        where('competition_id', '==', compRef),
+        orderBy('created_at', 'desc')
+      );
+      const snap = await getDocs(q);
+      setUserTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       // Optimistically update the competition stats in UI
       setCompetition((prev) => ({
@@ -293,9 +341,12 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     isProcessing,
     checkoutError,
     orderResult,
+    setOrderResult,
     pendingReferralCount,
-    useFreeTickets,
-    setUseFreeTickets,
+    freeTicketsQuantity,
+    setFreeTicketsQuantity,
+    userHasTickets,
+    userTickets,
     handleParticipateClick,
     handleVerifyAnswer,
     handleBuyTickets,

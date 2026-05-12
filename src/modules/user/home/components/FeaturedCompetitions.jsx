@@ -1,19 +1,23 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Flame, Sparkles, Users, Ticket, Lock } from 'lucide-react';
+import { Clock, Flame, ShoppingCart, Sparkles, Users, Ticket, Lock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Badge from '@/shared/components/ui/Badge';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { fetchLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 
-function CompetitionCard({ competition, onNavigate }) {
+function CompetitionCard({ competition, onNavigate, hasTicket }) {
   const { t } = useTranslation();
   const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt, status } = competition;
-  const isClosed = status === 'active' && endsAt && endsAt < Date.now();
-  const isEnded = status === 'end';
-  const progress = Math.round((sold / total) * 100);
-  const remaining = total - sold;
+  const isReadyToDraw = status === 'ready_to_draw';
+  const isSoldOut     = status === 'sold_out';
+  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw;
+  const isEnded       = status === 'end';
+  const isDisabled    = isClosed || isReadyToDraw || isSoldOut || isEnded;
+  const progress      = Math.round((sold / total) * 100);
+  const remaining     = total - sold;
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -42,15 +46,21 @@ function CompetitionCard({ competition, onNavigate }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
-          <Badge variant={(isClosed || isEnded) ? "ended" : badgeType}>
-            {isClosed || isEnded ? (
+          <Badge variant={(isClosed || isReadyToDraw || isSoldOut || isEnded) ? "ended" : badgeType}>
+            {(isClosed || isReadyToDraw || isSoldOut || isEnded) ? (
               <Lock className="w-3 h-3" aria-hidden="true" />
             ) : badgeType === "featured" ? (
               <Flame className="w-3 h-3" aria-hidden="true" />
             ) : (
               <Sparkles className="w-3 h-3" aria-hidden="true" />
             )}
-            {isEnded ? t("common.ended").toUpperCase() : isClosed ? t("common.closed").toUpperCase() : badgeLabel.toUpperCase()}
+            {isEnded
+              ? t("common.ended").toUpperCase()
+              : isSoldOut
+              ? t("common.soldOut").toUpperCase()
+              : isClosed || isReadyToDraw
+              ? t("common.drawPending").toUpperCase()
+              : badgeLabel.toUpperCase()}
           </Badge>
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary">
@@ -102,31 +112,49 @@ function CompetitionCard({ competition, onNavigate }) {
         </div>
 
         {/* CTA */}
-        <button
-          onClick={() => !isClosed && onNavigate(id)}
-          className={`mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 transition-all ${
-            isClosed || isEnded 
-              ? "bg-white/5 border border-white/10 text-muted-foreground" 
-              : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
-          } ${isClosed ? "cursor-default" : "cursor-pointer"}`}
-        >
-          {isClosed ? (
-            <>
-              <Lock className="w-4 h-4 mr-2" aria-hidden="true" />
-              {t("common.drawPending")}
-            </>
-          ) : isEnded ? (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" aria-hidden="true" />
-              {t("common.viewResults")}
-            </>
-          ) : (
-            <>
-              <Ticket className="w-4 h-4 mr-2" aria-hidden="true" />
-              {t("common.participate")}
-            </>
-          )}
-        </button>
+        {(isClosed || isReadyToDraw) ? (
+          <button
+            disabled
+            className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
+          >
+            <Clock className="w-4 h-4" aria-hidden="true" />
+            {t("common.drawPending")}
+          </button>
+        ) : isSoldOut ? (
+          <button
+            disabled
+            className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
+          >
+            <Ticket className="w-4 h-4" aria-hidden="true" />
+            {t("common.soldOut")}
+          </button>
+        ) : (
+          <button
+            onClick={() => onNavigate(id)}
+            className={`mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 transition-all cursor-pointer ${
+              isEnded
+                ? "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10"
+                : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
+            }`}
+          >
+            {isEnded ? (
+              <>
+                <Sparkles className="w-4 h-4" aria-hidden="true" />
+                {t("common.viewResults")}
+              </>
+            ) : hasTicket ? (
+              <>
+                <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+                {t("common.buyMoreTickets")}
+              </>
+            ) : (
+              <>
+                <Ticket className="w-4 h-4" aria-hidden="true" />
+                {t("common.participate")}
+              </>
+            )}
+          </button>
+        )}
       </div>
     </article>
   );
@@ -137,6 +165,7 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
   const navigate = useNavigate();
   const [featuredComps, setFeaturedComps] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { ticketedIds } = useUserTicketedCompetitions();
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -221,7 +250,11 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
           ) : featuredComps.length > 0 ? (
             featuredComps.map((comp, index) => (
               <Reveal key={comp.id} delay={index * 70}>
-                <CompetitionCard competition={comp} onNavigate={handleNavigate} />
+                <CompetitionCard
+                  competition={comp}
+                  onNavigate={handleNavigate}
+                  hasTicket={ticketedIds.has(comp.id)}
+                />
               </Reveal>
             ))
           ) : (

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
   ArrowRight,
   CircleCheck,
+  Clock,
   Lock,
   LogIn,
   Video,
@@ -17,7 +18,9 @@ import {
   Loader2,
   Gift,
   Tag,
+  Play,
 } from "lucide-react";
+import { FaInstagram } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 
@@ -148,7 +151,7 @@ export function PrizeVideo({ url }) {
   );
 }
 
-export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, pendingReferralCount, useFreeTickets, setUseFreeTickets, onBuyTickets, isProcessing, orderResult, checkoutError }) {
+export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, pendingReferralCount, freeTicketsQuantity, setFreeTicketsQuantity, onBuyTickets, isProcessing, orderResult, onBuyMore, checkoutError, userHasTickets, userTickets, onViewAllTickets }) {
   const { t } = useTranslation();
   const { currentUser, userData } = useAuth();
   const {
@@ -250,9 +253,56 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
             <div className="text-xs text-muted-foreground pt-2 border-t border-border/40 mt-3">
               Total: <span className="font-bold text-primary">{orderResult.totalAmount} €</span> · Order #{orderResult.orderId.slice(0, 8)}
             </div>
+            {competition.status === 'active' && onBuyMore && (
+              <button
+                onClick={onBuyMore}
+                className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary/15 border border-primary/30 text-primary hover:bg-primary/25 transition-all cursor-pointer mt-2"
+              >
+                <ShoppingCart className="w-4 h-4" aria-hidden="true" />
+                {t('common.buyMoreTickets')}
+              </button>
+            )}
           </div>
         ) : (skillPassed && !isClosed && !isEnded) ? (
           <div className="space-y-6">
+            {userTickets.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Ticket className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Your Tickets</span>
+                  </div>
+                  <button 
+                    onClick={onViewAllTickets}
+                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
+                  >
+                    View All ({userTickets.length})
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {userTickets.slice(0, 4).map((tk) => (
+                    <div 
+                      key={tk.id}
+                      className="h-10 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-center"
+                    >
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
+                        {tk.ticket_sequence}
+                      </span>
+                    </div>
+                  ))}
+                  {userTickets.length > 4 && (
+                    <button 
+                      onClick={onViewAllTickets}
+                      className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all"
+                    >
+                      <span className="text-[10px] font-bold text-primary">+{userTickets.length - 4} more</span>
+                    </button>
+                  )}
+                </div>
+                <div className="h-px bg-border/40 my-2" />
+              </div>
+            )}
+
             <div className="bg-[#0A1A14] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
                 <Gift className="w-4 h-4 text-emerald-500" />
@@ -261,7 +311,31 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 {t("competitionDetails.buy10Get1Free")}
               </p>
             </div>
-
+            {pendingReferralCount > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Ticket className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    {t("competitionDetails.freeTickets")} user's referral
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {Array.from({ length: pendingReferralCount }, (_, i) => i + 1).map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setFreeTicketsQuantity(freeTicketsQuantity === num ? 0 : num)}
+                      className={`w-10 h-12 rounded-xl border font-bold text-sm transition-all duration-300 cursor-pointer ${
+                        freeTicketsQuantity === num
+                          ? "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]"
+                          : "bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white"
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Ticket className="w-3.5 h-3.5 text-primary" />
@@ -282,14 +356,12 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 ))}
               </div>
             </div>
-
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="h-px flex-1 bg-border/40" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("competitionDetails.advantageousPacks")}</span>
                 <div className="h-px flex-1 bg-border/40" />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { id: "prestige", name: "Pack Prestige", tickets: 15, discount: 10, popular: false },
@@ -323,7 +395,6 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                           {(pack.tickets * ticketPrice * (1 - pack.discount / 100)).toFixed(0)} €
                         </p>
                       </div>
-
                       {isSelected && (
                         <div className="absolute inset-0 rounded-2xl border-2 border-primary/50 animate-pulse-slow pointer-events-none" />
                       )}
@@ -332,14 +403,14 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 })}
               </div>
             </div>
-
             <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">{t("common.subtotal")} · {ticketQuantity} {t("common.tickets")}</span>
+                  <span className="text-muted-foreground">
+                    {t("common.subtotal")} · {ticketQuantity + freeTicketsQuantity + Math.floor(ticketQuantity / 10)} {t("common.tickets")}
+                  </span>
                   <span className="font-bold text-white">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
                 </div>
-
                 {(() => {
                   const packs = [
                     { tickets: 15, discount: 10 },
@@ -362,7 +433,6 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                   }
                   return null;
                 })()}
-
                 {(() => {
                   const bonus = Math.floor(ticketQuantity / 10);
                   if (bonus > 0) {
@@ -378,10 +448,17 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                   }
                   return null;
                 })()}
+                {freeTicketsQuantity > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2 text-emerald-400">
+                      <Gift className="w-3.5 h-3.5" />
+                      <span className="font-bold">Referral Tickets</span>
+                    </div>
+                    <span className="font-bold text-emerald-400">+{freeTicketsQuantity} {t("common.free")} 🎫</span>
+                  </div>
+                )}
               </div>
-
               <div className="h-px bg-white/5" />
-
               <div className="flex justify-between items-center pt-1">
                 <span className="text-base font-black text-white uppercase tracking-wider">{t("common.total")}</span>
                 <span className="text-2xl font-black text-primary">
@@ -394,35 +471,18 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                     ];
                     const activePack = packs.find((p) => p.tickets === ticketQuantity);
                     const subtotal = ticketQuantity * ticketPrice;
-                    const discount = activePack ? (subtotal * activePack.discount) / 100 : 0;
+                    const discount = activePack ? (subtotal * activePack.discount / 100) : 0;
                     return (subtotal - discount).toFixed(2);
                   })()} €
                 </span>
               </div>
             </div>
-
-            {pendingReferralCount > 0 && (
-              <label className="flex items-center gap-3 p-3 rounded-xl border border-primary/30 bg-primary/10 cursor-pointer hover:bg-primary/20 transition-colors">
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 rounded border-primary text-primary focus:ring-primary bg-transparent"
-                  checked={useFreeTickets}
-                  onChange={(e) => setUseFreeTickets(e.target.checked)}
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-primary">You have {pendingReferralCount} Referral Ticket{pendingReferralCount > 1 ? 's' : ''} to use!</p>
-                  <p className="text-xs text-primary/70">Apply to this order to receive them for free</p>
-                </div>
-              </label>
-            )}
-
             {checkoutError && (
               <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                 {checkoutError}
               </div>
             )}
-
             <button
               onClick={onBuyTickets}
               disabled={isProcessing}
@@ -443,9 +503,15 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
           </div>
         ) : (
           <div className="text-center py-2">
-            {isClosed && (
+            {/* Status banners */}
+            {competition.status === 'ready_to_draw' && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
                 {t("common.competitionClosed")}
+              </div>
+            )}
+            {competition.status === 'sold_out' && (
+              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
+                All tickets have been sold out.
               </div>
             )}
             {isEnded && (
@@ -454,33 +520,44 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
               </div>
             )}
 
-            <button
-              onClick={competition.onParticipate}
-              disabled={competition.status === "cancelled" || competition.status === "paused" || isClosed || isEnded || competition.gateStatus === "loading"}
-              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
-            >
-              {competition.gateStatus === "loading" ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  Checking eligibility...
-                </>
-              ) : isClosed ? (
-                <>
-                  <Lock className="w-4 h-4" aria-hidden="true" />
-                  {t("common.drawPending")}
-                </>
-              ) : isEnded ? (
-                <>
-                  <Sparkles className="w-4 h-4" aria-hidden="true" />
-                  {t("common.ended")}
-                </>
-              ) : (
-                <>
-                  <Ticket className="w-4 h-4" aria-hidden="true" />
-                  {t("common.participate")}
-                </>
-              )}
-            </button>
+            {/* Smart Participate Button */}
+            {(() => {
+              const isReadyToDraw = competition.status === 'ready_to_draw';
+              const isSoldOut    = competition.status === 'sold_out';
+              const isDisabled   = competition.status !== 'active' || isClosed || isEnded || competition.gateStatus === 'loading';
+
+              let icon, label;
+              if (competition.gateStatus === 'loading') {
+                icon  = <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />;
+                label = 'Checking eligibility...';
+              } else if (isReadyToDraw || isClosed) {
+                icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.drawPending');
+              } else if (isSoldOut) {
+                icon  = <Ticket className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.soldOut');
+              } else if (isEnded) {
+                icon  = <Sparkles className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.ended');
+              } else if (userHasTickets) {
+                icon  = <ShoppingCart className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.buyMoreTickets');
+              } else {
+                icon  = <Ticket className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.participate');
+              }
+
+              return (
+                <button
+                  onClick={competition.onParticipate}
+                  disabled={isDisabled}
+                  className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold h-10 px-4 bg-primary text-(--color-primary-foreground) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                >
+                  {icon}
+                  {label}
+                </button>
+              );
+            })()}
           </div>
         )}
 
@@ -514,14 +591,6 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
             </p>
           </div>
 
-          {competition.drawDate && (
-            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl p-3 text-primary">
-              <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <p className="text-[11px] font-medium leading-relaxed">
-                Expected Draw Date: <span className="font-bold">{competition.drawDate} at {competition.drawTime}</span>
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="text-center pt-1 border-t border-border/40 mt-4">
@@ -533,6 +602,73 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
     </div>
   );
 }
+
+export function BigCountdown({ endsAt }) {
+  const { t } = useTranslation();
+  const [time, setTime] = useState({ d: 0, h: 0, m: 0, s: 0, done: false });
+
+  useEffect(() => {
+    if (!endsAt) return;
+    
+    const calculate = () => {
+      const diff = Math.max(0, endsAt - Date.now());
+      const s = Math.floor(diff / 1000) % 60;
+      const m = Math.floor(diff / 60000) % 60;
+      const h = Math.floor(diff / 3600000) % 24;
+      const d = Math.floor(diff / 86400000);
+      return { d, h, m, s, done: diff === 0 };
+    };
+
+    setTime(calculate());
+    const interval = setInterval(() => setTime(calculate()), 1000);
+    return () => clearInterval(interval);
+  }, [endsAt]);
+
+  if (!endsAt || time.done) return null;
+
+  const segments = [
+    { label: "Days", value: time.d },
+    { label: "Hours", value: time.h },
+    { label: "Mins", value: time.m },
+    { label: "Secs", value: time.s },
+  ];
+
+  return (
+    <div className="bg-card border border-border/60 rounded-3xl p-6 shadow-xl">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+          <Clock className="w-4 h-4 text-primary" />
+        </div>
+        <h3 className="font-serif font-bold text-lg text-(--color-foreground)">Draw Countdown</h3>
+      </div>
+      
+      <div className="grid grid-cols-4 gap-3">
+        {segments.map((seg) => (
+          <div key={seg.label} className="relative group">
+            <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 text-center transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5">
+              <span className="block text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter">
+                {String(seg.value).padStart(2, '0')}
+              </span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">
+                {seg.label}
+              </span>
+            </div>
+            {seg.label !== "Secs" && (
+              <div className="absolute top-1/2 -right-1.5 -translate-y-1/2 text-muted-foreground/30 font-black text-xl">:</div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 pt-4 border-t border-border/40 flex items-center justify-center gap-2">
+        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Competition Draw Pending</span>
+      </div>
+    </div>
+  );
+}
+
+
+
 
 export function StatsGrid({ ticketPrice, maxTickets, sold, priceLabel }) {
   const { t } = useTranslation();
@@ -640,3 +776,61 @@ export function ParticipantsSection({ participants }) {
     </section>
   );
 }
+
+export function InstagramLiveCard({ url }) {
+  const { t } = useTranslation();
+  
+  return (
+    <div className="bg-[#121212] border border-white/5 rounded-3xl p-6 shadow-2xl">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-16 h-16 rounded-2xl bg-linear-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] flex items-center justify-center shrink-0 shadow-lg shadow-pink-500/20">
+          <FaInstagram className="w-9 h-9 text-white" />
+        </div>
+        <div>
+          <h3 className="font-serif font-bold text-xl text-white tracking-tight">Live Draw</h3>
+          <p className="text-sm text-muted-foreground/60">Draw streamed live on instagram</p>
+        </div>
+      </div>
+
+      <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/[0.05]">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+              <Play className="w-4 h-4 text-primary fill-primary" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">Watch the draw live</h4>
+              <p className="text-xs text-muted-foreground/50">
+                {url ? "@NESSWIN · Official Channel" : "@NESSWIN · When countdown ends"}
+              </p>
+            </div>
+          </div>
+          
+          {url ? (
+            <a 
+              href={url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm font-black text-primary uppercase tracking-widest hover:scale-105 transition-transform cursor-pointer"
+            >
+              Join
+            </a>
+          ) : (
+            <span className="text-sm font-black text-primary uppercase tracking-widest opacity-50 cursor-not-allowed">
+              Follow
+            </span>
+          )}
+        </div>
+        
+        {!url && (
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <p className="text-[10px] font-medium text-muted-foreground/40 italic">
+              Live is yet to be started, come back soon to watch the official draw.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

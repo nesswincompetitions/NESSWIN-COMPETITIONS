@@ -63,12 +63,39 @@ export async function fetchUserDetail(uid) {
     const orders = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortDesc);
     const tickets = ticketsSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort(sortDesc);
 
+    const compCache = {};
+    const getResolvedComp = async (idOrRef) => {
+      if (!idOrRef) return null;
+      const id = typeof idOrRef === 'string' ? idOrRef : idOrRef.id;
+      if (compCache[id]) return compCache[id];
+      
+      try {
+        const ref = typeof idOrRef === 'string' ? doc(db, "competition", idOrRef) : idOrRef;
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const cData = snap.data();
+          compCache[id] = { 
+            id: snap.id, 
+            title: cData.title || "Untitled", 
+            status: cData.status || "active", 
+            drawDate: cData.draw_date || null 
+          };
+          return compCache[id];
+        }
+      } catch (e) {
+        console.error(`[UsersService] Error resolving comp ${id}:`, e);
+      }
+      return null;
+    };
+
     const referrals = await Promise.all(referralsSnap.docs.map(async d => {
       const refData = d.data();
       let referredName = "Unknown User", referredEmail = "N/A";
       if (refData.referred_user_id) {
         try {
-          const uSnap = await getDoc(refData.referred_user_id);
+          const uSnap = typeof refData.referred_user_id === 'string' 
+            ? await getDoc(doc(db, "user", refData.referred_user_id))
+            : await getDoc(refData.referred_user_id);
           if (uSnap.exists()) {
             referredName = uSnap.data().display_name || uSnap.data().name || "Unknown";
             referredEmail = uSnap.data().email || "N/A";
@@ -80,48 +107,35 @@ export async function fetchUserDetail(uid) {
 
     const bonusLogs = await Promise.all(bonusLogsSnap.docs.map(async d => {
       const logData = d.data();
-      let compTitle = "N/A";
-      if (logData.competition_id) {
-        try {
-          const cRef = typeof logData.competition_id === 'string' 
-            ? doc(db, "competition", logData.competition_id)
-            : logData.competition_id;
-          const cSnap = await getDoc(cRef);
-          if (cSnap.exists()) compTitle = cSnap.data().title;
-        } catch (e) { /* ignore */ }
-      }
-      return { id: d.id, ...logData, competitionTitle: compTitle };
+      const comp = await getResolvedComp(logData.competition_id);
+      return { id: d.id, ...logData, competitionTitle: comp?.title || "N/A" };
     }));
 
     referrals.sort(sortDesc);
     bonusLogs.sort(sortDesc);
 
     const resolvedOrders = await Promise.all(orders.map(async (order) => {
-      let compTitle = "Unknown Competition";
-      const cId = order.competition_id;
-      if (cId) {
-        try {
-          const cSnap = await getDoc(doc(db, "competition", cId));
-          if (cSnap.exists()) compTitle = cSnap.data().title;
-        } catch (e) { /* ignore */ }
-      }
-      return { ...order, competitionName: compTitle };
+      const comp = await getResolvedComp(order.competition_id);
+      return { ...order, competitionName: comp?.title || "Unknown Competition" };
     }));
 
     const compMap = {};
     tickets.forEach(tk => {
-      const cId = tk.competition_id;
-      if (!compMap[cId]) compMap[cId] = { id: cId, tickets: [], title: "Loading..." };
-      compMap[cId].tickets.push(tk);
+      const idOrRef = tk.competition_id;
+      if (!idOrRef) return;
+      const id = typeof idOrRef === 'string' ? idOrRef : idOrRef.id;
+      if (!compMap[id]) compMap[id] = { id: idOrRef, tickets: [] };
+      compMap[id].tickets.push(tk);
     });
 
     const resolvedComps = await Promise.all(Object.values(compMap).map(async (item) => {
-      let title = "Unknown Competition", status = "Ended", drawDate = null;
-      try {
-        const cSnap = await getDoc(doc(db, "competition", item.id));
-        if (cSnap.exists()) { const cData = cSnap.data(); title = cData.title; status = cData.status; drawDate = cData.draw_date; }
-      } catch (e) { /* ignore */ }
-      return { ...item, title, status, drawDate };
+      const comp = await getResolvedComp(item.id);
+      return { 
+        ...item, 
+        title: comp?.title || "Unknown Competition", 
+        status: comp?.status || "Ended", 
+        drawDate: comp?.drawDate || null 
+      };
     }));
 
     return {

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { fetchUserDetail, updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
+import { formatStatus } from '@/shared/utils/formatters';
 
 const UserDetail = () => {
   const { id } = useParams();
@@ -177,7 +178,7 @@ const UserDetail = () => {
                 </TableCell>
                 <TableCell>{formatDate(comp.drawDate)}</TableCell>
                 <TableCell>
-                  <Badge variant={comp.status === 'active' ? 'success' : 'neutral'}>{comp.status}</Badge>
+                  <Badge variant={comp.status === 'active' ? 'success' : 'neutral'}>{formatStatus(comp.status)}</Badge>
                 </TableCell>
               </TableRow>
             ))}

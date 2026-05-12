@@ -22,6 +22,7 @@ import {
   fetchCompetitionParticipants 
 } from '@/modules/admin/competitions/services/adminCompetitionService';
 import { uploadImages } from '@/shared/services/storageService';
+import { formatStatus } from '@/shared/utils/formatters';
 
 const CompetitionDetail = () => {
   const { id } = useParams();
@@ -42,6 +43,9 @@ const CompetitionDetail = () => {
   
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [participantTicketsModalOpen, setParticipantTicketsModalOpen] = useState(false);
+  const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -374,9 +378,15 @@ const CompetitionDetail = () => {
                       </span>
                     ))}
                     {p.tickets.length > 3 && (
-                      <span className="px-2 py-0.5 text-[10px] text-gray-500 italic">
+                      <button 
+                        onClick={() => {
+                          setSelectedParticipantForTickets(p);
+                          setParticipantTicketsModalOpen(true);
+                        }}
+                        className="px-2 py-0.5 text-[10px] text-primary hover:text-primary/80 font-bold underline cursor-pointer transition-colors"
+                      >
                         +{p.tickets.length - 3} more
-                      </span>
+                      </button>
                     )}
                     {p.tickets.length === 0 && (
                       <span className="text-gray-600 text-[10px]">No tickets</span>
@@ -637,7 +647,7 @@ const CompetitionDetail = () => {
               
               return (
                 <Badge variant={competition.status === 'active' ? 'success' : competition.status === 'draft' ? 'warning' : 'neutral'}>
-                  {competition.status}
+                  {formatStatus(competition.status)}
                 </Badge>
               );
             })()}
@@ -726,6 +736,43 @@ const CompetitionDetail = () => {
               loading={isDeleting}
             >
               {t('common.delete')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Participant Tickets Modal */}
+      <Modal
+        isOpen={participantTicketsModalOpen}
+        onClose={() => {
+          setParticipantTicketsModalOpen(false);
+          setSelectedParticipantForTickets(null);
+        }}
+        title="Participant Tickets"
+        description={selectedParticipantForTickets ? `Viewing all ${selectedParticipantForTickets.tickets.length} tickets for ${selectedParticipantForTickets.name}` : ''}
+      >
+        <div className="space-y-6 py-2">
+          <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {selectedParticipantForTickets?.tickets.map((ticket, idx) => (
+                <div 
+                  key={idx}
+                  className="flex flex-col p-3 rounded-xl bg-white/5 border border-white/10 hover:border-primary/30 transition-all group"
+                >
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">Ticket</span>
+                  <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">#{ticket}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end pt-4 border-t border-white/10">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="px-6" 
+              onClick={() => setParticipantTicketsModalOpen(false)}
+            >
+              {t('common.close')}
             </Button>
           </div>
         </div>

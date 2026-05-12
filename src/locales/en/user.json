@@ -22,6 +22,8 @@
     "closed": "Closed",
     "competitionClosed": "This competition is closed.",
     "drawPending": "Draw Pending",
+    "soldOut": "Sold Out",
+    "buyMoreTickets": "Buy More Tickets",
     "viewResults": "View Results"
   },
   "hero": {
@@ -182,6 +184,7 @@
     "individualTickets": "Individual Tickets",
     "advantageousPacks": "Advantageous Packs",
     "bonusTickets": "Bonus Tickets",
+    "freeTickets": "Free Tickets",
     "proceedToPayment": "Proceed to Payment"
   },
   "winnersPage": {

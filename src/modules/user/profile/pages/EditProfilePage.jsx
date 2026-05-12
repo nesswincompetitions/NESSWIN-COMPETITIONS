@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
 import {
-  reauthenticate,
   saveEditedProfile,
   updateProfile,
 } from '@/modules/user/profile/services/profileService';
@@ -11,14 +10,9 @@ import { toast } from 'react-hot-toast';
 import {
   ArrowLeft,
   User,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
   Loader2,
   Camera,
   Save,
-  KeyRound,
 } from 'lucide-react';
 
 function Field({ label, id, type = 'text', placeholder, value, onChange, rightSlot }) {
@@ -48,15 +42,8 @@ export default function EditProfilePage() {
   const fileInputRef = React.useRef(null);
 
   const [displayName, setDisplayName] = useState(userData?.display_name ?? '');
-  const [newEmail, setNewEmail] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  const needsReauth = newEmail || newPassword;
 
   const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -79,21 +66,10 @@ export default function EditProfilePage() {
     e.preventDefault();
     if (!currentUser?.uid) return;
 
-    if (needsReauth && !currentPassword) {
-      toast.error('Enter your current password to change email or password.');
-      return;
-    }
-
     setSaving(true);
     try {
-      if (needsReauth) {
-        await reauthenticate(currentPassword);
-      }
-      await saveEditedProfile(currentUser.uid, { displayName, newEmail, newPassword });
+      await saveEditedProfile(currentUser.uid, { displayName });
       toast.success('Profile updated!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setNewEmail('');
     } catch (err) {
       toast.error(err.message ?? 'Failed to update profile.');
     } finally {
@@ -171,55 +147,6 @@ export default function EditProfilePage() {
             />
           </div>
 
-          {/* Security */}
-          <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-6 space-y-4">
-            <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)]">Security</h2>
-
-            <Field
-              label="New Email (optional)"
-              id="edit-email"
-              type="email"
-              placeholder={currentUser?.email}
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-            />
-
-            <Field
-              label="New Password (optional)"
-              id="edit-new-password"
-              type={showNew ? 'text' : 'password'}
-              placeholder="Leave blank to keep current"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              rightSlot={
-                <button type="button" onClick={() => setShowNew((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer">
-                  {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              }
-            />
-
-            {needsReauth && (
-              <div className="rounded-xl bg-yellow-500/5 border border-yellow-500/20 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-yellow-400 text-xs font-semibold">
-                  <KeyRound className="w-3.5 h-3.5" />
-                  Confirm your current password to continue
-                </div>
-                <Field
-                  label="Current Password"
-                  id="edit-current-password"
-                  type={showCurrent ? 'text' : 'password'}
-                  placeholder="Enter current password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  rightSlot={
-                    <button type="button" onClick={() => setShowCurrent((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer">
-                      {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  }
-                />
-              </div>
-            )}
-          </div>
 
           <button
             type="submit"

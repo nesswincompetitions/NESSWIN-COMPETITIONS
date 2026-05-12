@@ -262,11 +262,16 @@ export const processOrder = async ({
       });
     }
 
-    // Write 6 — Update user stats (only pack bonus added here)
+    // Write 6 — Update user stats
+    // free_tickets  = wallet balance → only decremented when referral tickets are SPENT
+    //                                  (incremented separately by referralService when a referral is claimed)
+    // total_free_tickets = lifetime stat → always incremented by pack bonus tickets
     transaction.update(userRef, {
       total_tickets_bought: increment(qty),
-      free_tickets: increment(packBonusTickets),
-      total_free_tickets: increment(packBonusTickets),
+      // Decrement wallet balance only when referral free-tickets are burned in this order
+      ...(clampedReferralTickets > 0 && { free_tickets: increment(-clampedReferralTickets) }),
+      // Pack bonus tickets count toward the lifetime total (they are already generated in this order)
+      ...(packBonusTickets > 0 && { total_free_tickets: increment(packBonusTickets) }),
       total_spent: increment(totalAmount),
       updated_at: serverTimestamp(),
     });
