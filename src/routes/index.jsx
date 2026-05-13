@@ -1,3 +1,3 @@
-export { AdminRoutes } from './AdminRoutes.jsx';
-export { UserRoutes } from './UserRoutes.jsx';
+export { AdminRoutes } from './adminRoutes.jsx';
+export { UserRoutes } from './userRoutes.jsx';
 export { ProtectedRoute, AuthRoute } from './ProtectedRoute.jsx';

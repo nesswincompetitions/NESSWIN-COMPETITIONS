@@ -22,7 +22,7 @@ const App = () => {
         <Routes>
           {UserRoutes}
           {AdminRoutes}
-          
+
           {/* If the route does not exist (404), redirect to Home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
