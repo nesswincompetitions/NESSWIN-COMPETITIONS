@@ -1,6 +1,6 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
-import { ProtectedRoute, AuthRoute } from '@/routes/ProtectedRoute';
+import { ProtectedRoute, AuthRoute } from './ProtectedRoute';
 import UserLayout from '@/shared/layouts/UserLayout';
 
 import Home from '@/modules/user/home/pages/Home';
