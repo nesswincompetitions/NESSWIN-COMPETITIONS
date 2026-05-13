@@ -1,3 +1,9 @@
-export { aggregateOrderMetrics } from "./controllers/orderController.js";
+export { aggregateOrderMetrics, processOrder } from "./controllers/orderController.js";
+export {
+	cancelCompetitionDrawOnDelete,
+	drawWorker,
+	scheduleCompetitionDrawOnCreate,
+	scheduleCompetitionDrawOnUpdate,
+} from "./controllers/competitionStatusCloudTasksController.js";
 export { aggregateUserMetrics, softDeleteUser } from "./controllers/userController.js";
-export { manageCompetitionLifecycle } from "./controllers/competitionController.js";
+export { getSkillQuestion, submitSkillAnswer } from "./controllers/skillGateController.js";

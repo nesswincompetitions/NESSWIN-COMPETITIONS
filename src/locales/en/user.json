@@ -24,7 +24,8 @@
     "drawPending": "Draw Pending",
     "soldOut": "Sold Out",
     "buyMoreTickets": "Buy More Tickets",
-    "viewResults": "View Results"
+    "viewResults": "View Results",
+    "loading": "Loading..."
   },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",
@@ -140,7 +141,8 @@
     "statusFilters": {
       "all": "All",
       "ongoing": "Ongoing",
-      "comingSoon": "Coming Soon",
+      "drawSoon": "Draw Soon",
+      "soldOut": "Sold Out",
       "completed": "Completed"
     },
     "categoryFilters": {

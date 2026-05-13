@@ -19,7 +19,13 @@
     "popular": "Populaire",
     "tickets": "Tickets",
     "ended": "Terminé",
-    "closed": "Fermé"
+    "closed": "Fermé",
+    "loading": "Chargement...",
+    "competitionClosed": "Ce concours est fermé.",
+    "drawPending": "Tirage en attente",
+    "soldOut": "Épuisé",
+    "buyMoreTickets": "Acheter plus de tickets",
+    "viewResults": "Voir les résultats"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
@@ -135,7 +141,8 @@
     "statusFilters": {
       "all": "Tous",
       "ongoing": "En cours",
-      "comingSoon": "Bientôt",
+      "drawSoon": "Tirage imminent",
+      "soldOut": "Épuisé",
       "completed": "Terminés"
     },
     "categoryFilters": {

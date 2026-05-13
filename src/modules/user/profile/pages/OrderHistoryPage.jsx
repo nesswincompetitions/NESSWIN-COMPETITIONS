@@ -10,12 +10,13 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Loader2,
   Inbox,
   ChevronDown,
   ChevronUp,
   Hash,
+  Gift,
 } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { useState as useLocalState } from 'react';
 
 const formatDate = (ts) => {
@@ -42,7 +43,7 @@ function OrderCard({ order }) {
   const [tickets, setTickets] = React.useState([]);
   const [loadingTickets, setLoadingTickets] = React.useState(false);
   const {
-    id, competition, total_ticket, free_ticket, total_amount,
+    id, competition, total_ticket, free_ticket, free_used, total_amount,
     subtotal, discount_amount, discount_percent, pack_type,
     currency, created_at, paid_at, status, stripe_status,
     question_answer,
@@ -100,10 +101,11 @@ function OrderCard({ order }) {
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-px bg-[var(--color-border)]/30">
+      <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
         {[
           { label: 'Tickets', value: total_ticket ?? 0, icon: Ticket },
-          { label: 'Free Used', value: free_ticket ?? 0, icon: Ticket },
+          { label: 'Free Used', value: free_used ?? 0, icon: Ticket },
+          { label: 'Bonus Got', value: free_ticket ?? 0, icon: Gift },
           { label: 'Pack', value: pack_type ?? '—', icon: CreditCard },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-1">
@@ -145,13 +147,13 @@ function OrderCard({ order }) {
             <div className="flex items-center justify-between mb-3">
               <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">Order Tickets</p>
               <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-md">
-                {total_ticket + free_ticket} Total
+                {total_ticket + (free_ticket || 0) + (free_used || 0)} Total
               </span>
             </div>
             
             {loadingTickets ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-4 h-4 animate-spin text-[var(--color-primary)]" />
+                <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" />
               </div>
             ) : tickets.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -222,8 +224,8 @@ export default function OrderHistoryPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-[var(--color-primary)]">
-            <Loader2 className="w-8 h-8 animate-spin" />
+          <div className="flex items-center justify-center py-20">
+            <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
         ) : orders.length > 0 ? (
           <div className="space-y-4">

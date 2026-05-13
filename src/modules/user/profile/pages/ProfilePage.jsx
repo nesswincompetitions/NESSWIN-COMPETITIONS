@@ -24,11 +24,11 @@ import {
   LogOut,
   ArrowLeft,
   Camera,
-  Loader2,
   Pencil,
   X as XIcon,
   LifeBuoy,
 } from "lucide-react";
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
@@ -148,7 +148,7 @@ export default function ProfilePage() {
 
   const handleCopyLink = () => {
     if (userData?.referral_code) {
-      const link = `https://www.nesswin.com/signup?ref=${userData.referral_code}`;
+      const link = `https://www.nesswin.com/signin?ref=${userData.referral_code}`;
       navigator.clipboard.writeText(link);
       setCopiedLink(true);
       toast.success("Referral link copied!");
@@ -233,7 +233,7 @@ export default function ProfilePage() {
               >
                 {isUploading ? (
                   <div className="w-full h-full bg-black/50 flex items-center justify-center">
-                    <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+                    <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
                   </div>
                 ) : (
                   <>
@@ -281,7 +281,7 @@ export default function ProfilePage() {
                   className="flex-1 bg-[var(--color-muted)]/20 border border-[var(--color-primary)]/50 rounded-lg px-3 py-1 text-lg font-bold text-[var(--color-foreground)] outline-none"
                 />
                 <button onClick={handleSaveField} disabled={isSavingField} className="p-1.5 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-90 transition cursor-pointer disabled:opacity-50">
-                  {isSavingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isSavingField ? <LoadingSpinner fullScreen={false} size="w-3.5 h-3.5" message="" /> : <Check className="w-3.5 h-3.5" />}
                 </button>
                 <button onClick={handleCancelEdit} className="p-1.5 rounded-lg bg-[var(--color-muted)]/30 hover:bg-[var(--color-muted)]/50 transition cursor-pointer">
                   <XIcon className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
@@ -312,7 +312,7 @@ export default function ProfilePage() {
                   className="flex-1 bg-[var(--color-muted)]/20 border border-[var(--color-primary)]/50 rounded-lg px-3 py-1 text-sm font-medium text-[var(--color-primary)] outline-none"
                 />
                 <button onClick={handleSaveField} disabled={isSavingField} className="p-1.5 rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:opacity-90 transition cursor-pointer disabled:opacity-50">
-                  {isSavingField ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  {isSavingField ? <LoadingSpinner fullScreen={false} size="w-3.5 h-3.5" message="" /> : <Check className="w-3.5 h-3.5" />}
                 </button>
                 <button onClick={handleCancelEdit} className="p-1.5 rounded-lg bg-[var(--color-muted)]/30 hover:bg-[var(--color-muted)]/50 transition cursor-pointer">
                   <XIcon className="w-3.5 h-3.5 text-[var(--color-muted-foreground)]" />
@@ -428,7 +428,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Link</p>
-                      <p className="text-sm font-mono text-[var(--color-muted-foreground)] truncate">{`https://www.nesswin.com/signup?ref=${userData.referral_code}`}</p>
+                      <p className="text-sm font-mono text-[var(--color-muted-foreground)] truncate">{`https://www.nesswin.com/signin?ref=${userData.referral_code}`}</p>
                     </div>
                     <button
                       onClick={handleCopyLink}
@@ -453,8 +453,8 @@ export default function ProfilePage() {
                 </h3>
                 
                 {referralsLoading ? (
-                  <div className="flex items-center justify-center p-6 text-[var(--color-primary)]">
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                  <div className="flex items-center justify-center p-6">
+                    <LoadingSpinner fullScreen={false} size="w-6 h-6" message="" />
                   </div>
                 ) : referrals.length > 0 ? (
                   <div className="space-y-3">
@@ -542,7 +542,7 @@ export default function ProfilePage() {
               >
                 <div className="w-9 h-9 rounded-lg bg-[var(--color-muted)]/20 group-hover:bg-[var(--color-primary)]/10 flex items-center justify-center transition-colors">
                   {isCreatingSupportChat ? (
-                    <Loader2 className="w-4 h-4 text-[var(--color-primary)] animate-spin" />
+                    <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" />
                   ) : (
                     <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
                   )}

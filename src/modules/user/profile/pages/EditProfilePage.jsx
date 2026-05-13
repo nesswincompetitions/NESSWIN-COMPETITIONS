@@ -10,10 +10,10 @@ import { toast } from 'react-hot-toast';
 import {
   ArrowLeft,
   User,
-  Loader2,
   Camera,
   Save,
 } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 function Field({ label, id, type = 'text', placeholder, value, onChange, rightSlot }) {
   return (
@@ -109,7 +109,7 @@ export default function EditProfilePage() {
           >
             {uploading ? (
               <div className="w-full h-full bg-black/50 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+                <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
               </div>
             ) : userData?.photo_url ? (
               <>
@@ -153,7 +153,7 @@ export default function EditProfilePage() {
             disabled={saving}
             className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </form>

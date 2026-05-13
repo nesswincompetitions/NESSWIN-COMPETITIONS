@@ -262,7 +262,7 @@
         "questionImagesMin": "(Min 1)",
         "uploadQuestionImages": "Télécharger des images pour la question",
         "imageRequired": "Au moins une image est requise pour la question de compétence.",
-        "answerOptions": "Options de réponse (2-4)",
+        "answerOptions": "Options de réponse",
         "answerHint": "Sélectionnez le bouton radio pour marquer la bonne réponse.",
         "answerPlaceholder": "Entrez l'option de réponse",
         "addOption": "Ajouter une option",

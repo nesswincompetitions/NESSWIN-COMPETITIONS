@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, ArrowRight, ChevronDown, Search } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { linkWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
 import { auth } from '@/config/firebase';
@@ -387,7 +388,7 @@ export default function PhoneVerification() {
               className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
             >
               {loading ? (
-                <><div className="w-4 h-4 border-2 border-[var(--color-primary-foreground)] border-t-transparent rounded-full animate-spin"></div> Sending...</>
+                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Sending...</>
               ) : (
                 <>Send Code <ArrowRight className="w-4 h-4" /></>
               )}
@@ -408,7 +409,7 @@ export default function PhoneVerification() {
               className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
             >
               {loading ? (
-                <><div className="w-4 h-4 border-2 border-[var(--color-primary-foreground)] border-t-transparent rounded-full animate-spin"></div> Verifying...</>
+                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Verifying...</>
               ) : (
                 <>Verify &amp; Continue <CheckCircle className="w-4 h-4" /></>
               )}

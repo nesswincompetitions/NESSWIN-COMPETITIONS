@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { ArrowLeft, Loader2, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, MessageSquareText } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/shared/state/AuthContext';
 import { db } from '@/config/firebase';
@@ -62,8 +63,8 @@ export default function SupportChatPage() {
         </div>
 
         {!hasLoadedChat ? (
-          <div className="flex min-h-[440px] items-center justify-center rounded-3xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-primary)]">
-            <Loader2 className="h-7 w-7 animate-spin" />
+          <div className="flex min-h-[440px] items-center justify-center rounded-3xl border border-[var(--color-border)]/60 bg-[var(--color-card)]">
+            <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
         ) : chatData ? (
           <SupportChatWidget

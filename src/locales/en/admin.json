@@ -262,7 +262,7 @@
         "questionImagesMin": "(Min 1)",
         "uploadQuestionImages": "Upload images for the question",
         "imageRequired": "At least one image is required for the skill question.",
-        "answerOptions": "Answer Options (2-4)",
+        "answerOptions": "Answer Options",
         "answerHint": "Select the radio button to mark the correct answer.",
         "answerPlaceholder": "Enter answer option",
         "addOption": "Add Option",

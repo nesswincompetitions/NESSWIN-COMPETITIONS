@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Navigate, useParams, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { fetchCompetitionWithParticipants } from '@/modules/user/competitions/services/competitionService';
@@ -9,7 +10,6 @@ import {
   Breadcrumb,
   ImageGallery,
   ParticipantsSection,
-  PrizeVideo,
   StatsGrid,
   TicketPurchaseCard,
   BigCountdown,
@@ -18,14 +18,32 @@ import {
 } from '@/modules/user/competitions/components/CompetitionDetailsSections';
 import { SkillGateModalContent } from '@/modules/user/competitions/components/SkillGateModalContent';
 import { useCompetitionCheckout } from '@/modules/user/competitions/hooks/useCompetitionCheckout';
+import { useCheckout } from '@/modules/user/competitions/hooks/useCheckout';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 export default function CompetitionDetails() {
   const { id } = useParams();
+  const location = useLocation();
   const { t } = useTranslation();
-  const { currentUser, userData } = useAuth();
-  const [c, setC] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { currentUser, userData, initialLoading: authLoading } = useAuth();
+  
+  // Initial state from navigation if available
+  const initialComp = location.state?.competition 
+    ? { ...location.state.competition, participants: location.state.competition.participants || [] }
+    : null;
+    
+  const [c, setC] = useState(initialComp);
+  // Only stop loading if we have initial data AND auth state is resolved
+  const [loading, setLoading] = useState(!initialComp || authLoading);
 
+  // Sync loading state with auth loading
+  useEffect(() => {
+    if (!authLoading && initialComp) {
+      setLoading(false);
+    }
+  }, [authLoading, initialComp]);
+
+  // ── Skill Gate hook (manages quiz modal, eligibility check) ─────────────────
   const {
     isModalOpen,
     setIsModalOpen,
@@ -36,20 +54,14 @@ export default function CompetitionDetails() {
     isVerifying,
     verifyError,
     skillPassed,
-    ticketQuantity,
-    setTicketQuantity,
-    isProcessing,
-    checkoutError,
-    orderResult,
-    setOrderResult,
+    pendingReferrals,
     pendingReferralCount,
-    freeTicketsQuantity,
-    setFreeTicketsQuantity,
     userHasTickets,
     userTickets,
     handleParticipateClick,
     handleVerifyAnswer,
-    handleBuyTickets,
+    questionAnswerMap,
+    resolvedQuestionId,
   } = useCompetitionCheckout({
     currentUser,
     userData,
@@ -58,30 +70,64 @@ export default function CompetitionDetails() {
     setCompetition: setC,
   });
 
+  // ── Checkout hook (manages ticket selection + order submission) ─────────────
+  const onOrderSuccess = useCallback((result) => {
+    // Optimistically update competition stats in UI
+    setC((prev) => prev ? ({
+      ...prev,
+      sold: prev.sold + result.tickets.length,
+    }) : prev);
+  }, []);
+
+  const {
+    paidTicketQty,
+    referralTicketsToUse,
+    maxReferralTickets,
+    handleSetPaidQty,
+    handleSetReferralQty,
+    bonusTickets,
+    totalTickets,
+    totalAmount,
+    subtotal,
+    discountAmt,
+    isZeroPayment,
+    isProcessing,
+    checkoutError,
+    orderResult,
+    resetOrder,
+    submitOrder,
+  } = useCheckout({
+    currentUser,
+    competition: c,
+    pendingReferrals,
+    resolvedQuestionId,
+    questionAnswerMap,
+    onSuccess: onOrderSuccess,
+  });
+
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState(false);
 
+  // ── Countdown auto-expire ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!c || !c.endsAt || c.status === "end") return;
-
+    if (!c || !c.endsAt || c.status === 'end') return;
     const interval = setInterval(() => {
       if (Date.now() >= c.endsAt) {
-        setC((prev) => ({ ...prev, status: "end" }));
+        setC((prev) => ({ ...prev, status: 'end' }));
         clearInterval(interval);
       }
     }, 1000);
-
     return () => clearInterval(interval);
   }, [c?.endsAt, c?.status]);
 
+  // ── Fetch competition ────────────────────────────────────────────────────────
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchCompetition = async () => {
       try {
         const competition = await fetchCompetitionWithParticipants(id);
-        if (competition) {
-          setC(competition);
-        }
+        if (competition) setC(competition);
       } catch (err) {
-        console.error("Error fetching competition details:", err);
+        console.error('Error fetching competition details:', err);
       } finally {
         setLoading(false);
       }
@@ -90,7 +136,7 @@ export default function CompetitionDetails() {
   }, [id]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-primary">Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!c) {
@@ -98,9 +144,17 @@ export default function CompetitionDetails() {
   }
 
   return (
-    <div className="min-h-screen bg-(--color-background)">
-      <div className="pt-16 lg:pt-20">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+    <AnimatePresence mode="wait">
+      <motion.div 
+        key={id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="min-h-screen bg-(--color-background)"
+      >
+        <div className="pt-16 lg:pt-20">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <Breadcrumb title={c.title} />
 
           <div className="grid lg:grid-cols-2 gap-10 xl:gap-16">
@@ -109,9 +163,8 @@ export default function CompetitionDetails() {
 
               <div className="hidden lg:block space-y-4">
                 <WhatsIncluded items={c.included} />
-                <PrizeVideo url={c.prizeVideoUrl} />
                 <BigCountdown endsAt={c.endsAt} />
-                <InstagramLiveCard url={c.instagramLiveUrl} />
+                {c.instagramLiveUrl && <InstagramLiveCard url={c.instagramLiveUrl} />}
               </div>
             </div>
 
@@ -131,19 +184,26 @@ export default function CompetitionDetails() {
                 <TicketPurchaseCard
                   competition={{ ...c, onParticipate: handleParticipateClick, gateStatus }}
                   skillPassed={skillPassed}
-                  ticketQuantity={ticketQuantity}
-                  setTicketQuantity={setTicketQuantity}
-                  pendingReferralCount={pendingReferralCount}
-                  freeTicketsQuantity={freeTicketsQuantity}
-                  setFreeTicketsQuantity={setFreeTicketsQuantity}
-                  onBuyTickets={handleBuyTickets}
+                  // useCheckout props
+                  paidTicketQty={paidTicketQty}
+                  setPaidTicketQty={handleSetPaidQty}
+                  referralTicketsToUse={referralTicketsToUse}
+                  setReferralTickets={handleSetReferralQty}
+                  bonusTickets={bonusTickets}
+                  totalTickets={totalTickets}
+                  totalAmount={totalAmount}
+                  subtotal={subtotal}
+                  discountAmt={discountAmt}
+                  isZeroPayment={isZeroPayment}
+                  onSubmitOrder={submitOrder}
                   isProcessing={isProcessing}
                   orderResult={orderResult}
-                  onBuyMore={() => setOrderResult(null)}
+                  onBuyMore={resetOrder}
                   checkoutError={checkoutError}
                   userHasTickets={userHasTickets}
                   userTickets={userTickets}
                   onViewAllTickets={() => setIsTicketsModalOpen(true)}
+                  pendingReferralCount={pendingReferralCount}
                 />
               </div>
             </div>
@@ -153,9 +213,8 @@ export default function CompetitionDetails() {
 
           <div className="lg:hidden mt-8 space-y-8">
             <WhatsIncluded items={c.included} />
-            <PrizeVideo url={c.prizeVideoUrl} />
             <BigCountdown endsAt={c.endsAt} />
-            <InstagramLiveCard url={c.instagramLiveUrl} />
+            {c.instagramLiveUrl && <InstagramLiveCard url={c.instagramLiveUrl} />}
           </div>
 
           <ParticipantsSection participants={c.participants} />
@@ -164,10 +223,11 @@ export default function CompetitionDetails() {
         </div>
       </div>
 
+      {/* Skill Gate Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={t("common.participate")}
+        title={t('common.participate')}
         description="Verify your skill to enter the draw."
       >
         <div className="max-w-md mx-auto w-full">
@@ -184,6 +244,7 @@ export default function CompetitionDetails() {
         </div>
       </Modal>
 
+      {/* User Tickets Modal */}
       <Modal
         isOpen={isTicketsModalOpen}
         onClose={() => setIsTicketsModalOpen(false)}
@@ -193,7 +254,7 @@ export default function CompetitionDetails() {
         <div className="max-w-md mx-auto w-full max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           <div className="grid grid-cols-2 gap-3 pb-4">
             {userTickets.map((tk) => (
-              <div 
+              <div
                 key={tk.id}
                 className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/30 transition-all group"
               >
@@ -209,7 +270,7 @@ export default function CompetitionDetails() {
           </div>
         </div>
         <div className="mt-6 pt-6 border-t border-border/40 text-center">
-          <button 
+          <button
             onClick={() => setIsTicketsModalOpen(false)}
             className="w-full py-3 rounded-xl bg-primary text-black font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all cursor-pointer"
           >
@@ -217,6 +278,7 @@ export default function CompetitionDetails() {
           </button>
         </div>
       </Modal>
-    </div>
+    </motion.div>
+  </AnimatePresence>
   );
 }

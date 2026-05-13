@@ -147,7 +147,6 @@ const CompetitionDetail = () => {
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
         tag: formData.tag || '',
         instagram_live_url: formData.instagramLiveLink || '',
-        prize_video_url: formData.prizeVideoUrl || '',
         included_things: formData.includedThings.filter(thing => thing.trim() !== ''),
         is_featured: formData.isFeatured || false,
       };
@@ -435,7 +434,6 @@ const CompetitionDetail = () => {
       tag: competition.tag || '',
       instagramLiveLink: competition.instagram_live_url || '',
       includedThings: competition.included_things || [],
-      prizeVideoUrl: competition.prize_video_url || '',
       questions: questions.map(q => ({
         questionText: q.question,
         questionImages: q.images || [],

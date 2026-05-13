@@ -1,4 +1,5 @@
-import { AlertTriangle, Loader2, ShieldCheck, Sparkles, WifiOff } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, Sparkles, WifiOff } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 export function SkillGateModalContent({
   gateStatus,
@@ -14,10 +15,7 @@ export function SkillGateModalContent({
   if (gateStatus === 'loading' || isVerifying) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-muted-foreground font-medium animate-pulse">
-          {isVerifying ? 'Checking your answer...' : 'Loading secure challenge...'}
-        </p>
+        <LoadingSpinner fullScreen={false} size="w-10 h-10" message={isVerifying ? 'Checking your answer...' : 'Loading secure challenge...'} />
       </div>
     );
   }
@@ -122,7 +120,7 @@ export function SkillGateModalContent({
             disabled={selectedOptionId === null || isVerifying}
             className="w-full sm:flex-[1.5] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
           >
-            {isVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+            {isVerifying ? <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> : <ShieldCheck className="w-4 h-4" />}
             {isVerifying ? 'Verifying...' : 'Submit Answer'}
           </button>
         </div>

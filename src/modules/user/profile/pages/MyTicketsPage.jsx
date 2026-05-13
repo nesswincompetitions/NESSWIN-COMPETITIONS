@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
-import { fetchUserTickets } from '@/modules/user/profile/services/profileService';
+import { fetchUserOrders, fetchUserTickets } from '@/modules/user/profile/services/profileService';
 import {
   ArrowLeft,
   Ticket,
-  Trophy,
-  Clock,
+  Gift,
   CheckCircle,
-  Loader2,
+  Clock,
   Inbox,
-  Search,
-  X,
+  ChevronRight
 } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+import Modal from '@/shared/components/ui/Modal';
 
 const formatDate = (ts) => {
   if (!ts) return 'N/A';
@@ -21,75 +21,129 @@ const formatDate = (ts) => {
 };
 
 const STATUS_MAP = {
-  active:  { label: 'Active',   classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  won:     { label: 'Winner!',  classes: 'bg-yellow-400/10  text-yellow-400  border-yellow-400/20'  },
-  lost:    { label: 'Ended',    classes: 'bg-white/5        text-white/40     border-white/10'       },
-  default: { label: 'Pending',  classes: 'bg-blue-500/10   text-blue-400    border-blue-500/20'    },
+  active:        { label: 'Active',      classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  ready_to_draw: { label: 'Draw Soon',   classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  won:           { label: 'Winner!',     classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
+  lost:          { label: 'Ended',       classes: 'bg-white/5 text-white/40 border-white/10' },
+  default:       { label: 'Pending',     classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
 };
 
-function TicketCard({ ticket }) {
-  const { competition, ticket_sequence, ticket_number, created_at, is_winner, status } = ticket;
-  const s = is_winner ? STATUS_MAP.won : STATUS_MAP[status] ?? STATUS_MAP.default;
+function CompetitionGroupCard({ compData, onViewAll }) {
+  const navigate = useNavigate();
+  const { competition, tickets, orders } = compData;
+  
   const image = competition?.image?.[0];
+  
+  // Check if user won
+  const isWinner = tickets.some(t => t.is_winner) || orders.some(o => o.is_winner);
+  const compStatus = competition?.status === 'active' ? 'active' : (competition?.status === 'ready_to_draw' ? 'ready_to_draw' : 'lost');
+  const displayStatus = isWinner ? STATUS_MAP.won : (STATUS_MAP[compStatus] ?? STATUS_MAP.default);
+
+  // Stats
+  const totalPaid = orders.reduce((sum, o) => sum + (o.total_ticket || 0), 0);
+  const totalBonus = orders.reduce((sum, o) => sum + (o.free_ticket || 0), 0);
+  const hasOrderStats = totalPaid > 0 || totalBonus > 0;
+  
+  // Use actual tickets length if available, otherwise fallback to order totals (just in case)
+  const totalTickets = tickets.length > 0 ? tickets.length : totalPaid + totalBonus;
+  
+  const displayTickets = tickets.slice(0, 5);
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden flex flex-col sm:flex-row shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] transition-shadow duration-300">
-      {/* Competition image */}
-      <div className="sm:w-36 sm:shrink-0 h-36 sm:h-auto relative overflow-hidden">
-        {image ? (
-          <img src={image} alt={competition?.title} className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[var(--color-muted)]/20">
-            <Ticket className="w-10 h-10 text-[var(--color-muted-foreground)]/40" />
+    <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden flex flex-col shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] transition-shadow duration-300">
+      {/* Header / Comp Info */}
+      <div 
+        className="flex flex-col sm:flex-row cursor-pointer"
+        onClick={() => navigate(`/competitions/${competition?.id}`)}
+      >
+        <div className="sm:w-40 sm:shrink-0 h-36 sm:h-auto relative overflow-hidden">
+          {image ? (
+            <img src={image} alt={competition?.title} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-[var(--color-muted)]/20">
+              <Ticket className="w-10 h-10 text-[var(--color-muted-foreground)]/40" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--color-card)] hidden sm:block" />
+        </div>
+
+        <div className="flex-1 p-5 flex flex-col justify-center">
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-[var(--color-primary)] mb-0.5">
+                {competition?.category ?? 'Competition'}
+              </p>
+              <h3 className="text-base font-bold text-[var(--color-foreground)] line-clamp-1 group-hover:text-[var(--color-primary)] transition-colors">
+                {competition?.title ?? 'Unknown Competition'}
+              </h3>
+            </div>
+            <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${displayStatus.classes}`}>
+              {displayStatus.label}
+            </span>
           </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[var(--color-card)] hidden sm:block" />
+
+          <div className="mt-auto flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
+            <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
+              <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
+              {totalTickets} Tickets
+            </span>
+            <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-4 h-4" />
+              Draw: {competition?.draw_date ? formatDate(competition.draw_date) : 'TBC'}
+            </span>
+            <div className="ml-auto flex items-center gap-1 text-[var(--color-primary)] font-semibold text-xs">
+              View <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="flex-1 p-5 flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-[var(--color-primary)] mb-0.5">
-              {competition?.category ?? 'Competition'}
-            </p>
-            <h3 className="text-base font-bold text-[var(--color-foreground)] line-clamp-1">
-              {competition?.title ?? 'Unknown Competition'}
-            </h3>
+      {/* Tickets List */}
+      <div className="border-t border-[var(--color-border)]/40 p-5 bg-[var(--color-muted)]/5 flex flex-col gap-3">
+        {tickets.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {displayTickets.map(t => (
+              <span 
+                key={t.id} 
+                className={`px-2.5 py-1 text-xs font-mono rounded border ${
+                  t.is_winner 
+                    ? 'bg-yellow-400/20 border-yellow-400/40 text-yellow-500 font-bold shadow-[0_0_10px_rgba(250,204,21,0.2)]' 
+                    : 'bg-[var(--color-background)] border-[var(--color-border)] text-[var(--color-foreground)]'
+                }`}
+              >
+                {t.ticket_sequence ?? `#${t.ticket_number}`}
+              </span>
+            ))}
           </div>
-          <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${s.classes}`}>
-            {s.label}
-          </span>
-        </div>
+        ) : (
+          <div className="text-sm text-[var(--color-muted-foreground)] italic">
+            Tickets are being processed...
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl bg-[var(--color-muted)]/10 p-3 border border-[var(--color-border)]/40">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] mb-1">Ticket #</p>
-            <p className="text-sm font-mono font-bold text-[var(--color-foreground)]">
-              {ticket_sequence ?? `#${ticket_number}`}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--color-muted)]/10 p-3 border border-[var(--color-border)]/40">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] mb-1">Prize</p>
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">
-              {competition?.prize_value ? `€${competition.prize_value.toLocaleString()}` : 'N/A'}
-            </p>
-          </div>
-          <div className="rounded-xl bg-[var(--color-muted)]/10 p-3 border border-[var(--color-border)]/40 col-span-2 sm:col-span-1">
-            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] mb-1">Draw Date</p>
-            <p className="text-sm text-[var(--color-foreground)]">
-              {competition?.draw_date ? formatDate(competition.draw_date) : 'TBC'}
-            </p>
-          </div>
-        </div>
+        {tickets.length > 5 && (
+          <button 
+            onClick={onViewAll} 
+            className="text-[var(--color-primary)] text-xs font-bold hover:opacity-80 transition-opacity cursor-pointer text-left w-fit"
+          >
+            + {tickets.length - 5} more (View All)
+          </button>
+        )}
 
-        <div className="flex items-center gap-2 text-[11px] text-[var(--color-muted-foreground)]">
-          <Clock className="w-3.5 h-3.5" />
-          Purchased {formatDate(created_at)}
-          {is_winner && (
-            <span className="ml-auto flex items-center gap-1 text-yellow-400 font-bold">
-              <Trophy className="w-3.5 h-3.5" /> Winner!
-            </span>
+        <div className="mt-1 text-xs text-[var(--color-muted-foreground)] flex items-center gap-2">
+          <span className="font-semibold text-[var(--color-foreground)]">{totalTickets} Total Tickets</span>
+          {hasOrderStats && (
+            <>
+              <span className="text-[var(--color-border)]/50">|</span>
+              <span>{totalPaid} Paid</span>
+              {totalBonus > 0 && (
+                <>
+                  <span className="text-[var(--color-border)]/50">|</span>
+                  <span className="text-[var(--color-primary)] font-semibold">+{totalBonus} Bonus</span>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -101,100 +155,174 @@ export default function MyTicketsPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [tickets, setTickets] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('active');
+  const [selectedCompData, setSelectedCompData] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.uid) return;
-    fetchUserTickets(currentUser.uid)
-      .then(setTickets)
-      .catch((e) => console.error('Failed to load tickets', e))
+    
+    // Fetch both to support legacy data (tickets without orders) and new data
+    Promise.all([
+      fetchUserTickets(currentUser.uid),
+      fetchUserOrders(currentUser.uid)
+    ]).then(([ticketsRes, ordersRes]) => {
+      setTickets(ticketsRes);
+      setOrders(ordersRes);
+    }).catch(e => console.error('Failed to load tickets/orders', e))
       .finally(() => setLoading(false));
   }, [currentUser?.uid]);
 
-  const filteredTickets = tickets.filter((t) => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query) return true;
+  // Calculate top stats
+  const totalTickets = tickets.length > 0 ? tickets.length : orders.reduce((sum, o) => sum + (o.total_ticket || 0) + (o.free_ticket || 0), 0);
+  const freeBonus = orders.reduce((sum, o) => sum + (o.free_ticket || 0), 0);
+  const wonCount = tickets.filter(t => t.is_winner).length || orders.filter(o => o.is_winner).length;
+
+  // Group by competition
+  const groupedComps = {};
+  
+  tickets.forEach(ticket => {
+    const compId = ticket.competition_id || ticket.competition?.id;
+    if (!compId) return;
+    if (!groupedComps[compId]) {
+      groupedComps[compId] = { competition: ticket.competition, tickets: [], orders: [] };
+    }
+    groupedComps[compId].tickets.push(ticket);
+  });
+
+  orders.forEach(order => {
+    const compId = order.competition_id || order.competition?.id;
+    if (!compId) return;
+    if (!groupedComps[compId]) {
+      groupedComps[compId] = { competition: order.competition, tickets: [], orders: [] };
+    }
+    groupedComps[compId].orders.push(order);
+  });
+
+  // Filter groups by tab
+  const filteredGroups = Object.values(groupedComps).filter(group => {
+    const compStatus = group.competition?.status;
+    const isWinner = group.tickets.some(t => t.is_winner) || group.orders.some(o => o.is_winner);
     
-    return (
-      t.competition?.title?.toLowerCase().includes(query) ||
-      t.ticket_sequence?.toLowerCase().includes(query) ||
-      t.ticket_number?.toString().includes(query)
-    );
+    if (activeTab === 'won') return isWinner;
+    if (activeTab === 'past') return compStatus === 'end' || compStatus === 'completed' || compStatus === 'sold_out';
+    return compStatus === 'active' || compStatus === 'ready_to_draw'; // 'active' tab
   });
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pt-24 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
-        <button
-          onClick={() => navigate('/profile')}
-          className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Profile
-        </button>
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-full border border-[var(--color-border)]/60 flex items-center justify-center text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-serif font-bold text-[var(--color-foreground)]">My Tickets</h1>
+        </div>
 
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">Your Entry</p>
-            <h1 className="text-3xl font-bold text-[var(--color-foreground)]">My Tickets</h1>
-            <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              All your competition entries in one place.
-            </p>
+        {/* Top Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+            <Ticket className="w-6 h-6 text-[var(--color-primary)] mb-2" />
+            <span className="text-2xl font-bold text-[var(--color-foreground)]">{totalTickets}</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Total Tickets</span>
           </div>
-
-          <div className="relative group w-full sm:w-64">
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-[var(--color-muted-foreground)] group-focus-within:text-[var(--color-primary)] transition-colors" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search tickets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--color-card)] border border-[var(--color-border)]/60 rounded-xl py-2.5 pl-10 pr-10 text-sm text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)]/50 focus:ring-4 focus:ring-[var(--color-primary)]/5 transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-3 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+            <Gift className="w-6 h-6 text-[var(--color-primary)] mb-2" />
+            <span className="text-2xl font-bold text-[var(--color-foreground)]">{freeBonus}</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Free Bonus</span>
+          </div>
+          <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+            <CheckCircle className="w-6 h-6 text-[var(--color-primary)] mb-2" />
+            <span className="text-2xl font-bold text-[var(--color-foreground)]">{wonCount}</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Won</span>
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex bg-[var(--color-card)] border border-[var(--color-border)]/60 rounded-xl p-1.5 mb-8 shadow-sm">
+          {['active', 'past', 'won'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all capitalize cursor-pointer ${
+                activeTab === tab 
+                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-md' 
+                  : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-[var(--color-primary)]">
-            <Loader2 className="w-8 h-8 animate-spin" />
+          <div className="flex items-center justify-center py-20">
+            <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
-        ) : filteredTickets.length > 0 ? (
-          <div className="space-y-4">
-            {filteredTickets.map((t) => <TicketCard key={t.id} ticket={t} />)}
-          </div>
-        ) : tickets.length > 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl">
-            <Inbox className="w-12 h-12 text-[var(--color-muted-foreground)]/30 mb-4" />
-            <p className="text-[var(--color-foreground)] font-semibold">No matches found</p>
-            <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              Try adjusting your search query.
-            </p>
+        ) : filteredGroups.length > 0 ? (
+          <div className="space-y-6">
+            {filteredGroups.map(compData => (
+              <CompetitionGroupCard 
+                key={compData.competition.id} 
+                compData={compData} 
+                onViewAll={() => setSelectedCompData(compData)}
+              />
+            ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl">
+          <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl bg-[var(--color-card)]/50">
             <Inbox className="w-12 h-12 text-[var(--color-muted-foreground)]/30 mb-4" />
-            <p className="text-[var(--color-foreground)] font-semibold">No tickets yet</p>
-            <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              Enter a competition to see your tickets here.
-            </p>
-            <button
-              onClick={() => navigate('/competitions')}
-              className="mt-5 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold hover:opacity-90 transition-all cursor-pointer"
-            >
-              Browse Competitions
-            </button>
+            <p className="text-[var(--color-foreground)] font-semibold text-lg">No {activeTab} tickets found</p>
+            {activeTab === 'active' && (
+              <button
+                onClick={() => navigate('/competitions')}
+                className="mt-5 px-6 py-3 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-bold hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
+              >
+                Browse Competitions
+              </button>
+            )}
           </div>
         )}
+
+        {/* View All Tickets Modal */}
+        <Modal
+          isOpen={!!selectedCompData}
+          onClose={() => setSelectedCompData(null)}
+          title="Your Tickets"
+          description={`You have ${selectedCompData?.tickets?.length || 0} tickets for ${selectedCompData?.competition?.title || 'this competition'}.`}
+        >
+          <div className="max-w-md mx-auto w-full max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-2 gap-3 pb-4">
+              {selectedCompData?.tickets?.map((tk) => (
+                <div
+                  key={tk.id}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)]/60 hover:border-[var(--color-primary)]/30 transition-all group"
+                >
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1 group-hover:text-[var(--color-primary)]/70 transition-colors">Ticket ID</span>
+                    <span className="text-sm font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{tk.ticket_sequence ?? `#${tk.ticket_number}`}</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+                    <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-6 pt-6 border-t border-[var(--color-border)]/40 text-center">
+            <button
+              onClick={() => setSelectedCompData(null)}
+              className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
       </div>
     </div>
   );

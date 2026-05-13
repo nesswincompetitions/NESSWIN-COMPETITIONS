@@ -12,7 +12,20 @@
     "beforeDraw": "antes del sorteo",
     "participate": "Participar",
     "ended": "Finalizado",
-    "closed": "Cerrado"
+    "closed": "Cerrado",
+    "loading": "Cargando...",
+    "subtotal": "Subtotal",
+    "discount": "Descuento",
+    "total": "Total",
+    "free": "Gratis",
+    "processing": "Procesando...",
+    "popular": "Popular",
+    "tickets": "Entradas",
+    "competitionClosed": "Este sorteo está cerrado.",
+    "drawPending": "Sorteo Pendiente",
+    "soldOut": "Agotado",
+    "buyMoreTickets": "Comprar Más Entradas",
+    "viewResults": "Ver Resultados"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",
@@ -128,7 +141,8 @@
     "statusFilters": {
       "all": "Todos",
       "ongoing": "En Curso",
-      "comingSoon": "Próximamente",
+      "drawSoon": "Sorteo pronto",
+      "soldOut": "Agotado",
       "completed": "Completados"
     },
     "categoryFilters": {

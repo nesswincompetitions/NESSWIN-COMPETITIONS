@@ -18,6 +18,6 @@ export function getOrderPricing(ticketQuantity) {
   return {
     discount: 0,
     freeTickets: Math.floor(ticketQuantity / 10),
-    packType: "Manual",
+    packType: "Single",
   };
 }

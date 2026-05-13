@@ -1,27 +1,38 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock } from 'lucide-react';
+import { useState, useEffect } from 'react'; 
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCircle } from 'lucide-react';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { fetchLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const STATUS_FILTER_KEYS = ["all", "ongoing", "comingSoon", "completed"];
+const STATUS_FILTER_KEYS = ["all", "ongoing", "drawSoon", "soldOut", "completed"];
 const CATEGORY_FILTER_KEYS = ["allCategories", "cars", "watches", "travel", "realEstate", "tech", "other"];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusBadge({ type, label }) {
-  const isHot = type === "hot";
-  const isEnded = type === "ended";
+  const isHot = type === "hot" || type === "featured";
+  const isSoldOut = type === "sold_out";
+  const isCompleted = type === "completed" || type === "end";
+  const isDrawSoon = type === "ready_to_draw";
 
-  let colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
-  if (type === "hot" || type === "featured") {
+  const isActive = type === "active";
+
+  let colorClasses = "bg-primary/20 text-white border-primary/40 shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]";
+  
+  if (isHot) {
     colorClasses = "bg-orange-600/35 text-white border-orange-500/50 shadow-[0_0_12px_rgba(234,88,12,0.3)]";
-  } else if (isEnded) {
+  } else if (isSoldOut) {
+    colorClasses = "bg-red-600/35 text-white border-red-500/50 shadow-[0_0_12px_rgba(220,38,38,0.3)]";
+  } else if (isCompleted || isActive) {
+    colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
+  } else if (type === "ended") {
     colorClasses = "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale";
   }
 
@@ -29,10 +40,14 @@ function StatusBadge({ type, label }) {
     <div
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold tracking-[0.15em] backdrop-blur-md ${colorClasses}`}
     >
-      {isEnded ? (
+      {isCompleted ? (
+        <CheckCircle className="w-3 h-3" aria-hidden="true" />
+      ) : (isSoldOut || type === "ended") ? (
         <Lock className="w-3 h-3" aria-hidden="true" />
       ) : isHot ? (
         <Flame className="w-3 h-3" aria-hidden="true" />
+      ) : isDrawSoon ? (
+        <Clock className="w-3 h-3" aria-hidden="true" />
       ) : (
         <Sparkles className="w-3 h-3" aria-hidden="true" />
       )}
@@ -43,6 +58,8 @@ function StatusBadge({ type, label }) {
 
 function CompetitionCard({ competition, hasTicket }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const {
     id,
     image,
@@ -68,7 +85,8 @@ function CompetitionCard({ competition, hasTicket }) {
 
   return (
     <article
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-md transform-gpu motion-reduce:transform-none h-full"
+      onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-md transform-gpu motion-reduce:transform-none h-full cursor-pointer"
       style={{
         transition:
           "transform 0.45s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.45s cubic-bezier(0.34,1.56,0.64,1), border-color 0.35s ease",
@@ -97,8 +115,14 @@ function CompetitionCard({ competition, hasTicket }) {
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
           <StatusBadge 
-            type={(isClosed || isEnded) ? "ended" : badgeType} 
-            label={isEnded ? t("common.ended") : isClosed ? t("common.closed") : badgeLabel} 
+            type={status} 
+            label={
+              isEnded ? t("common.ended") : 
+              isReadyToDraw ? t("competitionsPage.statusFilters.drawSoon") : 
+              isSoldOut ? t("common.soldOut") : 
+              isClosed ? t("common.closed") : 
+              badgeLabel
+            } 
           />
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary flex items-center gap-1">
@@ -170,22 +194,28 @@ function CompetitionCard({ competition, hasTicket }) {
 
           {/* CTA */}
           {(isClosed || isReadyToDraw) ? (
-            <div className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default">
+            <button
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
+            >
               <Clock className="w-4 h-4" aria-hidden="true" />
               {t("common.drawPending")}
-            </div>
+            </button>
           ) : isSoldOut ? (
-            <div className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-white/5 border border-white/10 text-muted-foreground cursor-default">
+            <button
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+              className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
+            >
               <Ticket className="w-4 h-4" aria-hidden="true" />
               {t("common.soldOut")}
-            </div>
+            </button>
           ) : (
-            <Link
-              to={`/competitions/${id}`}
+            <button
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
               className={`inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 transition-all cursor-pointer ${
                 isEnded
-                  ? "bg-white/5 border border-white/10 text-muted-foreground hover:bg-white/10"
-                  : "bg-primary text-(--color-primary-foreground) hover:opacity-90"
+                  ? "bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10"
+                  : "bg-primary text-(--color-primary-foreground) hover:opacity-90 shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
               }`}
             >
               {isEnded ? (
@@ -204,7 +234,7 @@ function CompetitionCard({ competition, hasTicket }) {
                   {t("common.participate")}
                 </>
               )}
-            </Link>
+            </button>
           )}
         </div>
       </div>
@@ -282,7 +312,7 @@ export default function CompetitionsPage() {
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
             badgeType: data.status === 'active' ? 'new' : 'ended',
-            badgeLabel: data.status === 'active' ? 'Active' : data.status,
+            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Draw Soon' : (data.status === 'sold_out' ? 'Sold Out' : data.status)),
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
@@ -322,9 +352,10 @@ export default function CompetitionsPage() {
   const filtered = liveCompetitions.filter((c) => {
     const statusMatch =
       activeStatusKey === "all" ||
-      (activeStatusKey === "ongoing" && (c.endsAt && c.endsAt > nowTs || c.badgeLabel === "Draw Soon")) ||
-      (activeStatusKey === "comingSoon" && !c.endsAt && c.sold === 0) ||
-      (activeStatusKey === "completed" && c.sold === c.total && c.badgeLabel !== "Draw Soon");
+      (activeStatusKey === "ongoing" && c.status === "active") ||
+      (activeStatusKey === "drawSoon" && c.status === "ready_to_draw") ||
+      (activeStatusKey === "soldOut" && c.status === "sold_out") ||
+      (activeStatusKey === "completed" && (c.status === "completed" || c.status === "end"));
 
     const categoryMap = {
       cars: ["Cars", "Luxury Car"],
@@ -383,10 +414,7 @@ export default function CompetitionsPage() {
 
           {/* ── Cards grid ── */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-24 space-y-4">
-              <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-              <p className="text-muted-foreground animate-pulse font-medium">Loading competitions...</p>
-            </div>
+            <LoadingSpinner fullScreen={false} message={t("common.loading")} />
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((comp, index) => (

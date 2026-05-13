@@ -262,7 +262,7 @@
         "questionImagesMin": "(Mín. 1)",
         "uploadQuestionImages": "Cargar imágenes para la pregunta",
         "imageRequired": "Se requiere al menos una imagen para la pregunta de habilidad.",
-        "answerOptions": "Opciones de respuesta (2-4)",
+        "answerOptions": "Opciones de respuesta",
         "answerHint": "Seleccione el botón de radio para marcar la respuesta correcta.",
         "answerPlaceholder": "Ingrese la opción de respuesta",
         "addOption": "Agregar opción",

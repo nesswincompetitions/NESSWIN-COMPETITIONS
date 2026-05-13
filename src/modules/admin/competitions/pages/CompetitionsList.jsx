@@ -35,7 +35,8 @@ const CompetitionsList = () => {
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
     { key: 'Ready', label: 'Ready for Draw' },
-    { key: 'Ended', label: t('common.ended') },
+    { key: 'SoldOut', label: 'Sold Out' },
+    { key: 'Completed', label: 'Completed' },
     { key: 'Drafts', label: 'Drafts' },
     { key: 'Archived', label: t('common.archived') },
   ];
@@ -45,11 +46,11 @@ const CompetitionsList = () => {
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
-    setLoading(true);
+    const loadingToast = toast.loading('Deleting competition...');
     try {
       await deleteCompetition(competitionToDelete.id);
       
-      toast.success('Competition deleted successfully');
+      toast.success('Competition deleted successfully', { id: loadingToast });
       // Optimistically update UI
       setCompetitions(prev => prev.filter(c => c.id !== competitionToDelete.id));
       // Invalidate cache
@@ -57,7 +58,7 @@ const CompetitionsList = () => {
       setDeleteModalOpen(false);
     } catch (err) {
       console.error('Error deleting:', err);
-      toast.error('Failed to delete competition');
+      toast.error('Failed to delete competition', { id: loadingToast });
     } finally {
       setCompetitionToDelete(null);
     }
@@ -93,8 +94,9 @@ const CompetitionsList = () => {
     // 1. Status Filter
     let statusMatch = true;
     if (activeTab === 'Active') statusMatch = c.status === 'active' && !isTimeUp;
-    else if (activeTab === 'Ready') statusMatch = isTimeUp;
-    else if (activeTab === 'Ended') statusMatch = c.status === 'end';
+    else if (activeTab === 'Ready') statusMatch = isTimeUp || c.status === 'ready_to_draw';
+    else if (activeTab === 'SoldOut') statusMatch = c.status === 'sold_out';
+    else if (activeTab === 'Completed') statusMatch = c.status === 'completed' || c.status === 'end';
     else if (activeTab === 'Drafts') statusMatch = c.status === 'draft';
     else if (activeTab === 'Archived') statusMatch = c.status === 'cancelled' || c.status === 'paused';
 
@@ -116,6 +118,10 @@ const CompetitionsList = () => {
     }
 
     return statusMatch && searchMatch && dateMatch;
+  }).sort((a, b) => {
+    const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+    const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+    return dateB - dateA; // Newest first
   });
 
   const clearDateFilter = () => {
@@ -256,11 +262,13 @@ const CompetitionsList = () => {
                       return (
                         <Badge variant={
                           comp.status === 'active' ? 'success' :
-                            comp.status === 'end' ? 'neutral' : 'warning'
+                            comp.status === 'completed' || comp.status === 'end' ? 'success' :
+                              comp.status === 'sold_out' ? 'danger' : 'warning'
                         }>
                           {comp.status === 'active' ? t('common.active') :
-                            comp.status === 'end' ? t('common.ended') :
-                              formatStatus(comp.status)}
+                            comp.status === 'completed' || comp.status === 'end' ? 'Completed' :
+                              comp.status === 'sold_out' ? 'Sold Out' :
+                                formatStatus(comp.status)}
                         </Badge>
                       );
                     })()}

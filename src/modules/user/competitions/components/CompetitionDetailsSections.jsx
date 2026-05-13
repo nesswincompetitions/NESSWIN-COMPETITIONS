@@ -15,11 +15,12 @@ import {
   ShoppingCart,
   CheckCircle,
   AlertTriangle,
-  Loader2,
   Gift,
   Tag,
   Play,
+  ArrowDown,
 } from "lucide-react";
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { FaInstagram } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
@@ -107,51 +108,325 @@ export function WhatsIncluded({ items }) {
   );
 }
 
-export function PrizeVideo({ url }) {
-  if (!url) return null;
 
-  const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
-  const isVimeo = url.includes("vimeo.com");
+// ─── SelectTicketPanel ────────────────────────────────────────────────────────
 
-  let embedUrl = url;
-  if (isYoutube) {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    if (match && match[2].length === 11) {
-      embedUrl = `https://www.youtube.com/embed/${match[2]}`;
-    }
-  } else if (isVimeo) {
-    const vimeoId = url.split("/").pop();
-    embedUrl = `https://player.vimeo.com/video/${vimeoId}`;
-  }
+/**
+ * SelectTicketPanel
+ *
+ * Hybrid ticket selection UI with two distinct areas:
+ *   1. "Claim Free Referral Tickets" — visible only when pendingReferralCount > 0
+ *   2. "Purchase Ticket Packs"       — individual qty + pack cards
+ *
+ * Real-time summary bar: Paid + Referral + Bonus = Total
+ * Zero-payment guard: if totalAmount === 0, CTA becomes "Claim Free Tickets"
+ */
+function SelectTicketPanel({
+  ticketPrice,
+  paidQty,
+  setPaidQty,
+  referralQty,
+  setReferralQty,
+  pendingReferralCount,
+  bonusTickets,
+  totalTickets,
+  totalAmount,
+  subtotal,
+  discountAmt,
+  isZeroPayment,
+  isProcessing,
+  checkoutError,
+  onSubmit,
+}) {
+  const { t } = useTranslation();
+
+  const PACKS = [
+    { id: 'prestige', name: 'Pack Prestige', tickets: 15, discount: 10, popular: false },
+    { id: 'elite',    name: 'Pack Elite',    tickets: 20, discount: 15, popular: false },
+    { id: 'gold',     name: 'Pack Gold',     tickets: 25, discount: 20, popular: true  },
+    { id: 'diamond',  name: 'Pack Diamond',  tickets: 50, discount: 25, popular: false },
+  ];
 
   return (
-    <div className="space-y-4 mt-8">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
-          <Video className="w-4 h-4 text-primary" />
+    <div className="space-y-6">
+      {/* ── REWARD BANNER ────────────────────────────────────────────────── */}
+      {pendingReferralCount > 0 && (
+        <div className="bg-primary/10 border border-primary/20 rounded-xl px-4 py-3 flex items-center gap-3 group animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <Sparkles className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-[11px] font-black text-primary uppercase tracking-widest">
+              Reward Available!
+            </p>
+            <p className="text-[10px] text-primary/70 font-bold">
+              You have {pendingReferralCount} free ticket{pendingReferralCount > 1 ? 's' : ''} to claim.
+            </p>
+          </div>
         </div>
-        <h3 className="font-serif font-bold text-xl text-(--color-foreground)">Watch Prize Video</h3>
+      )}
+
+      {/* ── AREA 1: Referral tickets ──────────────────────────────────────── */}
+      {pendingReferralCount > 0 && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Ticket className="w-3.5 h-3.5 text-primary" />
+            Claim Free Referral Tickets
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: pendingReferralCount }, (_, i) => i + 1).map((num) => {
+              const isActive = referralQty === num;
+              return (
+                <button
+                  key={num}
+                  onClick={() => setReferralQty(num)}
+                  aria-pressed={isActive}
+                  className={`w-11 h-12 rounded-xl border font-black text-sm transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
+                      : 'bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── AREA 2: Purchase Ticket Packs ─────────────────────────────────── */}
+      <div className="space-y-4">
+        {/* Bonus notice */}
+        <div className="bg-[#0A1A14] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-emerald-500" />
+          </div>
+          <p className="text-[11px] font-bold text-emerald-400 leading-tight">
+            {t('competitionDetails.buy10Get1Free')}
+          </p>
+        </div>
+
+        {/* Individual qty selector (1–10) */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Ticket className="w-3.5 h-3.5 text-primary" />
+            {t('competitionDetails.individualTickets')}
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+              const isActive = paidQty === num;
+              return (
+                <button
+                  key={num}
+                  onClick={() => setPaidQty(num)}
+                  className={`h-12 rounded-xl border font-bold text-sm transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
+                      : 'bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Pack cards */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border/40" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+              {t('competitionDetails.advantageousPacks')}
+            </span>
+            <div className="h-px flex-1 bg-border/40" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {PACKS.map((pack) => {
+              const isActive = paidQty === pack.tickets;
+              const rawPrice = pack.tickets * ticketPrice * (1 - pack.discount / 100);
+              // Show decimals only if not a whole number, or always show 2 for consistency?
+              // User said "if applicable", so let's show up to 2 decimals.
+              const packPrice = rawPrice % 1 === 0 ? rawPrice.toFixed(0) : rawPrice.toFixed(2);
+              return (
+                <button
+                  key={pack.id}
+                  onClick={() => setPaidQty(pack.tickets)}
+                  className={`relative p-4 rounded-2xl border text-left transition-all duration-300 cursor-pointer group ${
+                    isActive
+                      ? 'bg-primary/5 border-primary shadow-[0_0_28px_rgba(var(--primary-rgb),0.12)]'
+                      : 'bg-white/[0.02] border-white/5 hover:border-white/15'
+                  }`}
+                >
+                  {pack.popular && (
+                    <div className="absolute -top-px -right-px px-2.5 py-1 bg-primary rounded-bl-xl rounded-tr-2xl">
+                      <span className="text-[8px] font-black text-black uppercase tracking-tighter">
+                        {t('common.popular')}
+                      </span>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold border ${
+                      isActive ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-muted-foreground'
+                    }`}>
+                      -{pack.discount}%
+                    </span>
+                    <p className="text-sm font-bold text-white pt-1">{pack.name}</p>
+                    <p className="text-xs text-muted-foreground">{pack.tickets} {t('common.tickets')}</p>
+                    <p className="text-lg font-black text-primary pt-0.5">{packPrice} €</p>
+                  </div>
+                  {isActive && (
+                    <div className="absolute inset-0 rounded-2xl border-2 border-primary/40 animate-pulse pointer-events-none" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
-      <div className="relative aspect-video rounded-3xl overflow-hidden border border-border/40 bg-card shadow-2xl group">
-        {isYoutube || isVimeo ? (
-          <iframe
-            src={embedUrl}
-            className="absolute inset-0 w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title="Prize Video"
-          />
-        ) : (
-          <video src={url} controls className="w-full h-full object-cover" />
-        )}
-        <div className="absolute inset-0 pointer-events-none border border-white/5 rounded-3xl" />
+
+      {/* ── REAL-TIME SUMMARY BAR ─────────────────────────────────────────── */}
+      <div className="bg-white/[0.02] border border-white/8 rounded-2xl overflow-hidden">
+        {/* Ticket breakdown strip */}
+        <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
+          {[
+            { label: 'Paid', value: paidQty, color: 'text-primary' },
+            { label: 'Referral', value: referralQty, color: 'text-emerald-400' },
+            { label: 'Bonus', value: bonusTickets, color: 'text-amber-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="py-3 text-center">
+              <p className={`text-xl font-black tabular-nums ${color}`}>{value}</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/70 mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Total tickets + price */}
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground font-medium">
+              Total Tickets
+            </span>
+            <span className="font-black text-white">{totalTickets} {t('common.tickets')}</span>
+          </div>
+
+          {discountAmt > 0 && (
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <Tag className="w-3.5 h-3.5" />
+                <span className="font-bold">{t('common.discount')}</span>
+              </div>
+              <span className="font-bold text-emerald-400">-{discountAmt.toFixed(2)} €</span>
+            </div>
+          )}
+
+          {bonusTickets > 0 && (
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-amber-400">
+                <Gift className="w-3.5 h-3.5" />
+                <span className="font-bold">{t('competitionDetails.bonusTickets')}</span>
+              </div>
+              <span className="font-bold text-amber-400">+{bonusTickets} {t('common.free')} 🎁</span>
+            </div>
+          )}
+
+          {referralQty > 0 && (
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <Gift className="w-3.5 h-3.5" />
+                <span className="font-bold">Referral Tickets</span>
+              </div>
+              <span className="font-bold text-emerald-400">+{referralQty} Free 🎫</span>
+            </div>
+          )}
+
+          <div className="h-px bg-white/5" />
+
+          {/* Grand total row */}
+          <div className="flex justify-between items-center">
+            <span className="text-base font-black text-white uppercase tracking-wide">{t('common.total')}</span>
+            {isZeroPayment ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">FREE</span>
+                <span className="text-2xl font-black text-emerald-400">0.00 €</span>
+              </div>
+            ) : (
+              <span className="text-2xl font-black text-primary">{totalAmount.toFixed(2)} €</span>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* ── Error message ─────────────────────────────────────────────────── */}
+      {checkoutError && (
+        <div className="flex items-start gap-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>{checkoutError}</span>
+        </div>
+      )}
+
+      {/* ── CTA Button (Zero-Payment Guard) ───────────────────────────────── */}
+      <button
+        id="checkout-submit-btn"
+        onClick={onSubmit}
+        disabled={isProcessing}
+        className={`group/btn relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer ${
+          isZeroPayment
+            ? 'bg-emerald-500'
+            : 'bg-primary'
+        }`}
+      >
+        <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+        <div className="relative flex items-center justify-center gap-3">
+          {isProcessing ? (
+            <LoadingSpinner fullScreen={false} size="w-5 h-5" message={null} />
+          ) : isZeroPayment ? (
+            <Gift className="w-5 h-5 text-black" />
+          ) : (
+            <ShoppingCart className="w-5 h-5 text-black" />
+          )}
+          <span className="text-base font-black text-black uppercase tracking-widest">
+            {isProcessing
+              ? t('common.processing')
+              : isZeroPayment
+                ? 'Claim Free Tickets'
+                : t('competitionDetails.proceedToPayment')}
+          </span>
+        </div>
+      </button>
     </div>
   );
 }
 
-export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, setTicketQuantity, pendingReferralCount, freeTicketsQuantity, setFreeTicketsQuantity, onBuyTickets, isProcessing, orderResult, onBuyMore, checkoutError, userHasTickets, userTickets, onViewAllTickets }) {
+// ─── TicketPurchaseCard ───────────────────────────────────────────────────────
+
+export function TicketPurchaseCard({
+  competition,
+  skillPassed,
+  // useCheckout-driven props
+  paidTicketQty,
+  setPaidTicketQty,
+  referralTicketsToUse,
+  setReferralTickets,
+  bonusTickets,
+  totalTickets,
+  totalAmount,
+  subtotal,
+  discountAmt,
+  isZeroPayment,
+  onSubmitOrder,
+  isProcessing,
+  orderResult,
+  onBuyMore,
+  checkoutError,
+  userHasTickets,
+  userTickets,
+  onViewAllTickets,
+  // legacy compat (used by smart participate button)
+  pendingReferralCount,
+}) {
   const { t } = useTranslation();
   const { currentUser, userData } = useAuth();
   const {
@@ -263,8 +538,9 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
               </button>
             )}
           </div>
-        ) : (skillPassed && !isClosed && !isEnded) ? (
-          <div className="space-y-6">
+        ) : ((skillPassed || competition.gateStatus === 'eligible') && !isClosed && !isEnded) ? (
+          <div className="space-y-5">
+            {/* Existing tickets strip */}
             {userTickets.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -272,7 +548,7 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                     <Ticket className="w-3.5 h-3.5 text-primary" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Your Tickets</span>
                   </div>
-                  <button 
+                  <button
                     onClick={onViewAllTickets}
                     className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
                   >
@@ -281,225 +557,38 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {userTickets.slice(0, 4).map((tk) => (
-                    <div 
-                      key={tk.id}
-                      className="h-10 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-center"
-                    >
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground">
-                        {tk.ticket_sequence}
-                      </span>
+                    <div key={tk.id} className="h-10 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-center">
+                      <span className="text-[10px] font-mono font-bold text-muted-foreground">{tk.ticket_sequence}</span>
                     </div>
                   ))}
                   {userTickets.length > 4 && (
-                    <button 
-                      onClick={onViewAllTickets}
-                      className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all"
-                    >
+                    <button onClick={onViewAllTickets} className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all">
                       <span className="text-[10px] font-bold text-primary">+{userTickets.length - 4} more</span>
                     </button>
                   )}
                 </div>
-                <div className="h-px bg-border/40 my-2" />
+                <div className="h-px bg-border/40" />
               </div>
             )}
 
-            <div className="bg-[#0A1A14] border border-emerald-500/20 rounded-xl p-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
-                <Gift className="w-4 h-4 text-emerald-500" />
-              </div>
-              <p className="text-[11px] font-bold text-emerald-400 leading-tight">
-                {t("competitionDetails.buy10Get1Free")}
-              </p>
-            </div>
-            {pendingReferralCount > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Ticket className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">
-                    {t("competitionDetails.freeTickets")} user's referral
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from({ length: pendingReferralCount }, (_, i) => i + 1).map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setFreeTicketsQuantity(freeTicketsQuantity === num ? 0 : num)}
-                      className={`w-10 h-12 rounded-xl border font-bold text-sm transition-all duration-300 cursor-pointer ${
-                        freeTicketsQuantity === num
-                          ? "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]"
-                          : "bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white"
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Ticket className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] font-black uppercase tracking-widest">{t("competitionDetails.individualTickets")}</span>
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => setTicketQuantity(num)}
-                    className={`h-12 rounded-xl border font-bold text-sm transition-all duration-300 cursor-pointer ${ticketQuantity === num
-                      ? "bg-primary/20 border-primary text-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)]"
-                      : "bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white"
-                      }`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="h-px flex-1 bg-border/40" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{t("competitionDetails.advantageousPacks")}</span>
-                <div className="h-px flex-1 bg-border/40" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: "prestige", name: "Pack Prestige", tickets: 15, discount: 10, popular: false },
-                  { id: "elite", name: "Pack Elite", tickets: 20, discount: 15, popular: false },
-                  { id: "gold", name: "Pack Gold", tickets: 25, discount: 20, popular: true },
-                  { id: "diamond", name: "Pack Diamond", tickets: 50, discount: 25, popular: false },
-                ].map((pack) => {
-                  const isSelected = ticketQuantity === pack.tickets;
-                  return (
-                    <button
-                      key={pack.id}
-                      onClick={() => setTicketQuantity(pack.tickets)}
-                      className={`relative p-5 rounded-2xl border text-left transition-all duration-500 cursor-pointer group ${isSelected
-                        ? "bg-primary/5 border-primary shadow-[0_0_30px_rgba(var(--primary-rgb),0.15)]"
-                        : "bg-white/[0.02] border-white/5 hover:border-white/20"
-                        }`}
-                    >
-                      {pack.popular && (
-                        <div className="absolute -top-px -right-px px-3 py-1 bg-primary rounded-bl-xl rounded-tr-2xl">
-                          <span className="text-[8px] font-black text-black uppercase tracking-tighter">{t("common.popular")}</span>
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <span className={`inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-colors ${isSelected ? "bg-primary/20 border-primary/40 text-primary" : "bg-white/5 border-white/10 text-muted-foreground"
-                          }`}>
-                          -{pack.discount}%
-                        </span>
-                        <p className="text-sm font-bold text-white pt-1">{pack.name}</p>
-                        <p className="text-xs text-muted-foreground">{pack.tickets} {t("common.tickets")}</p>
-                        <p className="text-lg font-black text-primary pt-1">
-                          {(pack.tickets * ticketPrice * (1 - pack.discount / 100)).toFixed(0)} €
-                        </p>
-                      </div>
-                      {isSelected && (
-                        <div className="absolute inset-0 rounded-2xl border-2 border-primary/50 animate-pulse-slow pointer-events-none" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-4">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">
-                    {t("common.subtotal")} · {ticketQuantity + freeTicketsQuantity + Math.floor(ticketQuantity / 10)} {t("common.tickets")}
-                  </span>
-                  <span className="font-bold text-white">{(ticketQuantity * ticketPrice).toFixed(2)} €</span>
-                </div>
-                {(() => {
-                  const packs = [
-                    { tickets: 15, discount: 10 },
-                    { tickets: 20, discount: 15 },
-                    { tickets: 25, discount: 20 },
-                    { tickets: 50, discount: 25 },
-                  ];
-                  const activePack = packs.find((p) => p.tickets === ticketQuantity);
-                  if (activePack) {
-                    const discountAmt = (ticketQuantity * ticketPrice * activePack.discount) / 100;
-                    return (
-                      <div className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2 text-emerald-400">
-                          <Tag className="w-3.5 h-3.5" />
-                          <span className="font-bold">{t("common.discount")} {activePack.discount}%</span>
-                        </div>
-                        <span className="font-bold text-emerald-400">-{discountAmt.toFixed(2)} €</span>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {(() => {
-                  const bonus = Math.floor(ticketQuantity / 10);
-                  if (bonus > 0) {
-                    return (
-                      <div className="flex justify-between items-center text-sm">
-                        <div className="flex items-center gap-2 text-emerald-400">
-                          <Gift className="w-3.5 h-3.5" />
-                          <span className="font-bold">{t("competitionDetails.bonusTickets")}</span>
-                        </div>
-                        <span className="font-bold text-emerald-400">+{bonus} {t("common.free")} 🎁</span>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {freeTicketsQuantity > 0 && (
-                  <div className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2 text-emerald-400">
-                      <Gift className="w-3.5 h-3.5" />
-                      <span className="font-bold">Referral Tickets</span>
-                    </div>
-                    <span className="font-bold text-emerald-400">+{freeTicketsQuantity} {t("common.free")} 🎫</span>
-                  </div>
-                )}
-              </div>
-              <div className="h-px bg-white/5" />
-              <div className="flex justify-between items-center pt-1">
-                <span className="text-base font-black text-white uppercase tracking-wider">{t("common.total")}</span>
-                <span className="text-2xl font-black text-primary">
-                  {(() => {
-                    const packs = [
-                      { tickets: 15, discount: 10 },
-                      { tickets: 20, discount: 15 },
-                      { tickets: 25, discount: 20 },
-                      { tickets: 50, discount: 25 },
-                    ];
-                    const activePack = packs.find((p) => p.tickets === ticketQuantity);
-                    const subtotal = ticketQuantity * ticketPrice;
-                    const discount = activePack ? (subtotal * activePack.discount / 100) : 0;
-                    return (subtotal - discount).toFixed(2);
-                  })()} €
-                </span>
-              </div>
-            </div>
-            {checkoutError && (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs font-medium">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                {checkoutError}
-              </div>
-            )}
-            <button
-              onClick={onBuyTickets}
-              disabled={isProcessing}
-              className="group/btn relative w-full h-16 rounded-2xl bg-primary overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer"
-            >
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
-              <div className="relative flex items-center justify-center gap-3">
-                {isProcessing ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-black" />
-                ) : (
-                  <ShoppingCart className="w-5 h-5 text-black" />
-                )}
-                <span className="text-base font-black text-black uppercase tracking-widest">
-                  {isProcessing ? t("common.processing") : t("competitionDetails.proceedToPayment")}
-                </span>
-              </div>
-            </button>
+            {/* Hybrid ticket selection panel */}
+            <SelectTicketPanel
+              ticketPrice={ticketPrice}
+              paidQty={paidTicketQty}
+              setPaidQty={setPaidTicketQty}
+              referralQty={referralTicketsToUse}
+              setReferralQty={setReferralTickets}
+              pendingReferralCount={pendingReferralCount}
+              bonusTickets={bonusTickets}
+              totalTickets={totalTickets}
+              totalAmount={totalAmount}
+              subtotal={subtotal}
+              discountAmt={discountAmt}
+              isZeroPayment={isZeroPayment}
+              isProcessing={isProcessing}
+              checkoutError={checkoutError}
+              onSubmit={onSubmitOrder}
+            />
           </div>
         ) : (
           <div className="text-center py-2">
@@ -528,7 +617,7 @@ export function TicketPurchaseCard({ competition, skillPassed, ticketQuantity, s
 
               let icon, label;
               if (competition.gateStatus === 'loading') {
-                icon  = <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />;
+                icon  = <LoadingSpinner fullScreen={false} size="w-4 h-4" message={null} />;
                 label = 'Checking eligibility...';
               } else if (isReadyToDraw || isClosed) {
                 icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
@@ -673,10 +762,10 @@ export function BigCountdown({ endsAt }) {
 export function StatsGrid({ ticketPrice, maxTickets, sold, priceLabel }) {
   const { t } = useTranslation();
   const stats = [
-    { label: t("competitionDetails.stats.ticketPrice"), value: `${ticketPrice} €` },
-    { label: t("competitionDetails.stats.maxTickets"), value: maxTickets.toLocaleString() },
-    { label: t("competitionDetails.stats.ticketsSold"), value: sold.toLocaleString() },
-    { label: t("competitionDetails.stats.prizeValue"), value: priceLabel },
+    { label: t("competitionDetails.stats.ticketPrice"), value: `${ticketPrice || 0} €` },
+    { label: t("competitionDetails.stats.maxTickets"), value: (maxTickets || 0).toLocaleString() },
+    { label: t("competitionDetails.stats.ticketsSold"), value: (sold || 0).toLocaleString() },
+    { label: t("competitionDetails.stats.prizeValue"), value: priceLabel || t("common.loading") },
   ];
 
   return (
@@ -741,12 +830,12 @@ export function ParticipantsSection({ participants }) {
         </div>
         <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2">
           <Users className="w-4 h-4 text-primary" aria-hidden="true" />
-          <span className="font-bold text-primary tabular-nums">{participants.length}</span>
+          <span className="font-bold text-primary tabular-nums">{participants?.length || 0}</span>
           <span className="text-sm text-muted-foreground">{t("competitionDetails.participants")}</span>
         </div>
       </div>
 
-      {participants.length > 0 ? (
+      {(participants?.length || 0) > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {participants.map((p, idx) => (
             <ParticipantCard

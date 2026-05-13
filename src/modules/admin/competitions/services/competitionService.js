@@ -72,7 +72,6 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
       category: String(formData.category || "").trim(),
       tag: String(formData.tag || "").trim(),
       prize_name: String(formData.prizeName || "").trim(),
-      prize_video_url: String(formData.prizeVideoUrl || "").trim(),
       instagram_live_url: String(formData.instagramLiveLink || "").trim(),
       ticket_price: Number(formData.ticketPrice) || 0,
       prize_value: Number(formData.prizeValue) || 0,

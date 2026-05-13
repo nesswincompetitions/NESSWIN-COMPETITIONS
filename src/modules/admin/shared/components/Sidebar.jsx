@@ -9,7 +9,7 @@ import {
   ShoppingCart,
   Share2,
   Ticket,
-  Settings,
+
   MessageSquareText,
   Menu,
   X
@@ -28,7 +28,7 @@ const Sidebar = () => {
     { name: t('sidebar.referrals'), path: '/admin/referrals', icon: <Share2 size={20} /> },
     { name: t('sidebar.bonusTickets'), path: '/admin/bonus-tickets', icon: <Ticket size={20} /> },
     { name: t('sidebar.supportInbox'), path: '/admin/support-inbox', icon: <MessageSquareText size={20} /> },
-    { name: t('sidebar.settings'), path: '/admin/settings', icon: <Settings size={20} /> },
+
   ];
 
   const toggleSidebar = () => {

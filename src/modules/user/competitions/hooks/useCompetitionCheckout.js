@@ -1,31 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
+import { httpsCallable } from 'firebase/functions';
 import {
   collection,
   query,
   where,
   getDocs,
   doc,
-  limit,
   orderBy,
 } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import {
-  checkSkillGateStatus,
-  submitSkillAnswer,
-} from '@/modules/user/competitions/services/competitionService';
+import { db, functions } from '@/config/firebase';
 import { processOrder } from '@/modules/user/competitions/services/orderService';
+
+// ── Cloud Function callables ───────────────────────────────────────────────────
+const getSkillQuestionFn = httpsCallable(functions, 'getSkillQuestion');
+const submitSkillAnswerFn = httpsCallable(functions, 'submitSkillAnswer');
 
 /**
  * useCompetitionCheckout
  *
  * Manages the full Skill Gate → Ticket Selection → Checkout flow.
  *
+ * Skill gate question fetching and answer grading are fully server-side.
+ * The correct answer NEVER reaches the client.
+ *
  * Gate Status Values:
  *   'idle'         — Initial state, not yet evaluated
  *   'loading'      — Gate check in progress
- *   'quiz'         — Show quiz modal (Case C)
- *   'eligible'     — Passed, show ticket selector (Case B / A)
+ *   'quiz'         — Show quiz modal
+ *   'eligible'     — Passed, show ticket selector
  *   'no_questions' — Admin misconfigured, show alert
  */
 export function useCompetitionCheckout({ currentUser, userData, competitionId, competition, setCompetition }) {
@@ -38,7 +41,7 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
   const [verifyError, setVerifyError] = useState('');
   const [skillPassed, setSkillPassed] = useState(false);
 
-  // Free tickets from referrals query (replaces old wallet balance)
+  // Free tickets from referrals query
   const [pendingReferrals, setPendingReferrals] = useState([]);
   const pendingReferralCount = pendingReferrals.length;
   const [freeTicketsQuantity, setFreeTicketsQuantity] = useState(0);
@@ -49,21 +52,55 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
 
   // Stores the question_answer Map to embed into the order document
   const [questionAnswerMap, setQuestionAnswerMap] = useState(null);
-  // Stores the question ID for building the order (Case A/B path)
+  // Stores the question ID for building the order
   const [resolvedQuestionId, setResolvedQuestionId] = useState(null);
-  // In-memory only — never rendered — the correct answer for local grading
-  const correctAnswerId = useRef(null);
-  // Ensures eager evaluation only runs once
-  const hasEvaluated = useRef(false);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * Calls the getSkillQuestion Cloud Function and updates state accordingly.
+   * Returns true if the modal should stay open (quiz), false if it should close.
+   */
+  const loadSkillQuestion = async () => {
+    setGateStatus('loading');
+    try {
+      const { data } = await getSkillQuestionFn({ competitionId });
+
+      if (data.passed) {
+        // User already passed — immediately eligible
+        setSkillPassed(true);
+        setGateStatus('eligible');
+        return false; // close modal
+      }
+
+      if (data.question) {
+        setActiveQuestion(data.question);
+        setSelectedOptionId(null);
+        setVerifyError('');
+        setGateStatus('quiz');
+        return true; // keep modal open
+      }
+
+      // Unexpected response shape
+      setGateStatus('idle');
+      return false;
+    } catch (err) {
+      // Edge case 5: admin has not configured questions
+      if (err?.code === 'functions/failed-precondition') {
+        setGateStatus('no_questions');
+        return true; // keep modal open showing the no_questions state
+      }
+      throw err;
+    }
+  };
 
   // ── Eager Evaluation ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (!currentUser || !userData?.is_verified || !competition) return;
-    if (hasEvaluated.current) return;
-
-    hasEvaluated.current = true;
+    if (!currentUser || !competition?.id) return;
+    
     let isMounted = true;
 
+    // Load pending referrals
     const loadReferrals = async () => {
       try {
         const userRef = doc(db, 'user', currentUser.uid);
@@ -77,12 +114,12 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
           setPendingReferrals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         }
       } catch (err) {
-        console.error("Error loading referrals:", err);
+        console.error('Error loading referrals:', err);
       }
     };
     loadReferrals();
 
-    // ── One-time check: does this user already have tickets for this competition? ──
+    // Check if user already has tickets for this competition
     const loadUserTickets = async () => {
       try {
         const userRef = doc(db, 'user', currentUser.uid);
@@ -104,41 +141,39 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
           }
         }
       } catch (err) {
-        console.error("Error loading user tickets:", err);
+        console.error('Error loading user tickets:', err);
       }
     };
     loadUserTickets();
 
-    const preLoadGateStatus = async () => {
-      setGateStatus('loading');
-      try {
-        const result = await checkSkillGateStatus(competition, currentUser, userData);
-        if (!isMounted) return;
+    // Pre-load the skill gate question if verified
+    if (userData?.is_verified) {
+      const preLoadGate = async () => {
+        try {
+          const { data } = await getSkillQuestionFn({ competitionId });
+          if (!isMounted) return;
 
-        if (result.status === 'existing_buyer') {
-          setQuestionAnswerMap(result.questionAnswer);
-          setResolvedQuestionId(result.questionId);
-          setSkillPassed(true);
-          setGateStatus('eligible');
-        } else if (result.status === 'eligible') {
-          setQuestionAnswerMap(result.questionAnswer);
-          setResolvedQuestionId(result.questionId);
-          setSkillPassed(true);
-          setGateStatus('eligible');
-        } else if (result.status === 'quiz') {
-          setActiveQuestion(result.question);
-          correctAnswerId.current = result._correctAnswerId;
-          setGateStatus('quiz_ready');
-        } else if (result.status === 'no_questions') {
-          setGateStatus('no_questions');
+          if (data.passed) {
+            setSkillPassed(true);
+            setGateStatus('eligible');
+          } else if (data.question) {
+            setActiveQuestion(data.question);
+            setGateStatus('quiz_ready');
+          } else {
+            setGateStatus('idle');
+          }
+        } catch (err) {
+          if (!isMounted) return;
+          if (err?.code === 'functions/failed-precondition') {
+            setGateStatus('no_questions');
+          } else {
+            console.error('[Eager Skill Gate Load] Error:', err);
+            setGateStatus('idle');
+          }
         }
-      } catch (err) {
-        console.error('[Eager Skill Gate Load] Error:', err);
-        if (isMounted) setGateStatus('idle');
-      }
-    };
-
-    preLoadGateStatus();
+      };
+      preLoadGate();
+    }
 
     return () => { isMounted = false; };
   }, [currentUser?.uid, userData?.is_verified, competition?.id]);
@@ -156,14 +191,14 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     }
     if (!competition) return;
 
-    // If already eligible (eagerly evaluated), just scroll to the ticket card
+    // Already eligible — scroll to the ticket card
     if (skillPassed || gateStatus === 'eligible') {
       document.getElementById('ticket-purchase-card')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
 
-    // If quiz is pre-loaded and ready
-    if (gateStatus === 'quiz_ready') {
+    // Quiz pre-loaded eagerly — just open the modal
+    if (gateStatus === 'quiz_ready' && activeQuestion) {
       setVerifyError('');
       setSelectedOptionId(null);
       setGateStatus('quiz');
@@ -171,44 +206,21 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       return;
     }
 
-    // If no questions were found eagerly
+    // No questions configured
     if (gateStatus === 'no_questions') {
       setIsModalOpen(true);
       return;
     }
 
-    // Fallback: If eager load hasn't finished, wait and lazy-load it
-    setGateStatus('loading');
+    // Fallback: lazy-load the question now
     setIsModalOpen(true);
-
     try {
-      const result = await checkSkillGateStatus(competition, currentUser, userData);
-
-      if (result.status === 'existing_buyer') {
-        setQuestionAnswerMap(result.questionAnswer);
-        setResolvedQuestionId(result.questionId);
-        setSkillPassed(true);
-        setGateStatus('eligible');
+      const shouldStayOpen = await loadSkillQuestion();
+      if (!shouldStayOpen) {
         setIsModalOpen(false);
         document.getElementById('ticket-purchase-card')?.scrollIntoView({ behavior: 'smooth' });
-      } else if (result.status === 'eligible') {
-        setQuestionAnswerMap(result.questionAnswer);
-        setResolvedQuestionId(result.questionId);
-        setSkillPassed(true);
-        setGateStatus('eligible');
-        setIsModalOpen(false);
-        document.getElementById('ticket-purchase-card')?.scrollIntoView({ behavior: 'smooth' });
-      } else if (result.status === 'quiz') {
-        setActiveQuestion(result.question);
-        correctAnswerId.current = result._correctAnswerId;
-        setGateStatus('quiz');
-        setVerifyError('');
-        setSelectedOptionId(null);
-      } else if (result.status === 'no_questions') {
-        setGateStatus('no_questions');
       }
     } catch (err) {
-      console.error('[handleParticipateClick] Error:', err);
       setGateStatus('idle');
       setIsModalOpen(false);
       toast.error(err?.message || 'Could not load quiz. Please try again.');
@@ -227,31 +239,36 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     setVerifyError('');
 
     try {
-      const result = await submitSkillAnswer(
+      const { data } = await submitSkillAnswerFn({
         competitionId,
-        activeQuestion,
         selectedOptionId,
-        correctAnswerId.current,
-        currentUser
-      );
+      });
 
-      if (result.passed) {
-        // Build the question_answer Map to embed in the order (mirrors backend shape)
+      if (data.passed) {
+        // Find the selected option details for the answer map
+        const options = activeQuestion.option || [];
+        const selectedOption = options.find((o) => o.option_id === selectedOptionId) || {};
+
+        // Build the question_answer Map to embed in the order
         setQuestionAnswerMap({
-          question_id: activeQuestion.id,
+          question_id: data.questionId,
           question: activeQuestion.question || '',
-          option: activeQuestion.option || [],
-          // answer field intentionally omitted (answer is not in sanitizedQuestion)
+          option: options,
           image: activeQuestion.images || [],
+          answer: {
+            option_id: selectedOption.option_id || String(selectedOptionId),
+            option:    selectedOption.option    || '',
+          },
         });
-        setResolvedQuestionId(result.questionId);
+        setResolvedQuestionId(data.questionId);
         setSkillPassed(true);
         setGateStatus('eligible');
         setIsModalOpen(false);
         toast.success('Skill verified! Now select your tickets.');
       } else {
-        // Wrong answer — UI error only, unlimited attempts, zero DB writes
+        // Wrong answer — server already incremented attempt_number
         setVerifyError('Incorrect answer. Please try again.');
+        toast.error('Incorrect answer. Please try again.');
         setSelectedOptionId(null);
       }
     } catch (err) {
@@ -293,8 +310,6 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       });
 
       setOrderResult(result);
-
-      // Mark as existing ticket holder
       setUserHasTickets(true);
 
       // Refresh ticket list
@@ -309,7 +324,7 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       const snap = await getDocs(q);
       setUserTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-      // Optimistically update the competition stats in UI
+      // Optimistically update competition stats in UI
       setCompetition((prev) => ({
         ...prev,
         sold: prev.sold + ticketQuantity + (result.freeTickets || 0),
@@ -327,8 +342,10 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
   };
 
   return {
+    // Modal
     isModalOpen,
     setIsModalOpen,
+    // Quiz state
     activeQuestion,
     selectedOptionId,
     setSelectedOptionId,
@@ -336,19 +353,17 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     isVerifying,
     verifyError,
     skillPassed,
-    ticketQuantity,
-    setTicketQuantity,
-    isProcessing,
-    checkoutError,
-    orderResult,
-    setOrderResult,
+    // Referrals (full array for useCheckout, count for UI)
+    pendingReferrals,
     pendingReferralCount,
-    freeTicketsQuantity,
-    setFreeTicketsQuantity,
+    // Question answer (for useCheckout)
+    questionAnswerMap,
+    resolvedQuestionId,
+    // User ticket state
     userHasTickets,
     userTickets,
+    // Handlers
     handleParticipateClick,
     handleVerifyAnswer,
-    handleBuyTickets,
   };
 }

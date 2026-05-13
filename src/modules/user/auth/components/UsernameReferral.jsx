@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AtSign, Gift, CheckCircle, Loader2, X } from 'lucide-react';
+import { AtSign, Gift, CheckCircle, X } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { completeOnboarding, checkUsernameAvailability } from '@/modules/user/auth/services/authService';
 import { auth } from '@/config/firebase';
@@ -149,7 +150,7 @@ export default function UsernameReferral() {
               {/* Status icon */}
               <div className="w-4 h-4 shrink-0 flex items-center justify-center">
                 {usernameStatus === STATUS.CHECKING && (
-                  <Loader2 className="w-4 h-4 text-[var(--color-muted-foreground)] animate-spin" />
+                  <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" />
                 )}
                 {usernameStatus === STATUS.AVAILABLE && (
                   <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -210,7 +211,7 @@ export default function UsernameReferral() {
             className="w-full h-12 rounded-xl mt-4 bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
           >
             {loading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Completing Setup...</>
+              ? <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Completing Setup...</>
               : <><CheckCircle className="w-4 h-4" /> Complete Setup</>}
           </button>
         </form>

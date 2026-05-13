@@ -66,7 +66,6 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
       drawEndTime: baseData.drawEndTime || (isEditMode ? '' : new Date(Date.now() + 60 * 60 * 1000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
       instagramLiveLink: baseData.instagramLiveLink || '',
       includedThings: baseData.includedThings || [],
-      prizeVideoUrl: baseData.prizeVideoUrl || '',
     };
   };
 
@@ -87,20 +86,7 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
       if (parseFloat(value) < 0) finalValue = '0';
     }
 
-    // Restriction: Draw date/time must be in the future
-    if (name === 'drawEndDate' || name === 'drawEndTime') {
-      const datePart = name === 'drawEndDate' ? value : formData.drawEndDate;
-      const timePart = name === 'drawEndTime' ? value : formData.drawEndTime;
-      
-      if (datePart && timePart) {
-        const selectedDateTime = new Date(`${datePart}T${timePart}`);
-        if (selectedDateTime < new Date()) {
-          toast.error("Draw date and time must be in the future");
-          return; // Prevent state update for past dates
-        }
-      }
-    }
-
+    // Negative number checks handled above
     setFormData(prev => ({
       ...prev,
       [name]: finalValue
@@ -370,6 +356,11 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
     if (currentStep === 3) {
       if (!formData.drawEndDate || !formData.drawEndTime) {
         toast.error("Draw Date & Time is required");
+        return;
+      }
+      const selectedDateTime = new Date(`${formData.drawEndDate}T${formData.drawEndTime}`);
+      if (selectedDateTime < new Date()) {
+        toast.error("Draw date and time cannot be in the past");
         return;
       }
     }

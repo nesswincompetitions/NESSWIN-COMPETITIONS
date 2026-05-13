@@ -4,6 +4,8 @@ import { useAuth } from '@/shared/state/AuthContext';
 import PhoneVerification from '@/modules/user/auth/components/PhoneVerification';
 import UsernameReferral from '@/modules/user/auth/components/UsernameReferral';
 
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+
 export default function OnboardingPage() {
   const { userData, loading } = useAuth();
   const navigate = useNavigate();
@@ -15,11 +17,7 @@ export default function OnboardingPage() {
   }, [userData, loading, navigate]);
 
   if (loading || !userData) {
-    return (
-      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // Step 2: Phone Verification

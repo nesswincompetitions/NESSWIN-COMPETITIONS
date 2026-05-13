@@ -9,9 +9,9 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Loader2,
   ShieldAlert,
 } from 'lucide-react';
+import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 export default function DeleteAccountPage() {
   const { currentUser } = useAuth();
@@ -135,7 +135,7 @@ export default function DeleteAccountPage() {
               className="w-full h-12 rounded-xl bg-red-500 text-white text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Deleting Account...</>
+                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Deleting Account...</>
               ) : (
                 <><Trash2 className="w-4 h-4" /> Permanently Delete Account</>
               )}
