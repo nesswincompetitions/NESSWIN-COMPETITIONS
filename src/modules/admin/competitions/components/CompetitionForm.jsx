@@ -8,7 +8,7 @@ import Badge from '@/shared/components/ui/Badge';
 import { Upload, Image as ImageIcon, CheckCircle2, Clock, MapPin, Tag, Plus, Trash2, AlertCircle, Eye, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onSaveDraft, onSubmit }) => {
+const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initialData = null, onCancel, onSaveDraft, onSubmit }) => {
   const { t } = useTranslation('admin');
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -520,15 +520,6 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Prize Video URL</label>
-          <input
-            type="url" name="prizeVideoUrl" value={formData.prizeVideoUrl} onChange={handleChange} placeholder="https://youtube.com/..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
-          />
-          <p className="text-xs text-gray-500">Optional video showcasing the prize</p>
-        </div>
-
         <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">
           <div>
             <p className="text-sm font-medium text-white">{t('competitions.form.step1.featuredCompetition')}</p>
@@ -992,9 +983,11 @@ const CompetitionForm = ({ isEditMode = false, initialData = null, onCancel, onS
               {currentStep === 0 ? t('competitions.form.buttons.cancel') : t('common.back')}
             </Button>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-2">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>
-                {isEditMode ? 'Update Draft' : t('competitions.form.buttons.saveDraft')}
-              </Button>
+              {(!isEditMode || (isEditMode && competitionStatus === 'draft')) && (
+                <Button variant="outline" className="w-full sm:w-auto" onClick={() => onSaveDraft && onSaveDraft(formData)}>
+                  {isEditMode ? 'Update Draft' : t('competitions.form.buttons.saveDraft')}
+                </Button>
+              )}
               {currentStep === steps.length - 1 ? (
                 <Button variant="primary" className="w-full sm:w-auto" onClick={() => onSubmit && onSubmit(formData)}>
                   {isEditMode ? t('competitions.form.buttons.saveChanges') : t('competitions.form.buttons.publishCompetition')}

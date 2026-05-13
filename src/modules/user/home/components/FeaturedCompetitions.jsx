@@ -195,16 +195,8 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
         });
 
         // ── Selection Logic ──
-        // 1. Priority: is_featured == true
-        // 2. Secondary: Newest first (created_at)
-        const sorted = allComps.sort((a, b) => {
-          // Priority 1: Featured
-          if (a.is_featured !== b.is_featured) {
-            return a.is_featured ? -1 : 1;
-          }
-          // Priority 2: Newest (created_at)
-          return b.created_at - a.created_at;
-        });
+        // Newest first by creation time
+        const sorted = allComps.sort((a, b) => b.created_at - a.created_at);
 
         // Limit to exactly 6 cards as requested
         setFeaturedComps(sorted.slice(0, 6));

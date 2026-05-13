@@ -145,6 +145,7 @@ const CompetitionDetail = () => {
         image: imageUrls,
         status: isDraft ? 'draft' : (competition.status === 'draft' ? 'active' : competition.status),
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
+        tag: formData.tag || '',
         instagram_live_url: formData.instagramLiveLink || '',
         prize_video_url: formData.prizeVideoUrl || '',
         included_things: formData.includedThings.filter(thing => thing.trim() !== ''),
@@ -431,6 +432,7 @@ const CompetitionDetail = () => {
       maxTickets: competition.total_tickets || '',
       drawEndDate: drawInfo.date,
       drawEndTime: drawInfo.time,
+      tag: competition.tag || '',
       instagramLiveLink: competition.instagram_live_url || '',
       includedThings: competition.included_things || [],
       prizeVideoUrl: competition.prize_video_url || '',
@@ -450,6 +452,7 @@ const CompetitionDetail = () => {
     <div className={`fade-in ${isSaving ? 'pointer-events-none opacity-60' : ''}`}>
       <CompetitionForm
         isEditMode={true}
+        competitionStatus={competition.status}
         initialData={mapToFormData()}
         onCancel={() => handleTabChange('overview')}
         onSaveDraft={(data) => handleSave(data, true)}

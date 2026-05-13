@@ -303,11 +303,8 @@ export default function CompetitionsPage() {
           };
         });
 
-        // Sorting Logic: Newest Featured first, then Newest Standard
+        // Sorting Logic: newest created competitions first
         const sorted = fetchedComps.sort((a, b) => {
-          if (a.is_featured !== b.is_featured) {
-            return a.is_featured ? -1 : 1;
-          }
           return b.created_at - a.created_at;
         });
 

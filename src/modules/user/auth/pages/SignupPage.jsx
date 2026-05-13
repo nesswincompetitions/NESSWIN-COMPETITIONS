@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -118,7 +118,7 @@ function SocialLogin({ loading }) {
 }
 
 // ─── Sign Up Form ─────────────────────────────────────────────────────────────
-function SignUpForm({ onSwitch }) {
+function SignUpForm() {
   const [form, setForm] = useState({ name: "", email: "", password: "", date_of_birth: "" });
   const [focused, setFocused] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -171,7 +171,7 @@ function SignUpForm({ onSwitch }) {
       <SocialLogin loading={loading} />
       <div className="mt-6 text-center">
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Already have an account? <button type="button" onClick={onSwitch} className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign In</button>
+          Already have an account? <Link to="/signin" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign In</Link>
         </p>
       </div>
     </AuthCard>
@@ -179,7 +179,7 @@ function SignUpForm({ onSwitch }) {
 }
 
 // ─── Sign In Form ─────────────────────────────────────────────────────────────
-function SignInForm({ onSwitch }) {
+function SignInForm() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [focused, setFocused] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -219,7 +219,7 @@ function SignInForm({ onSwitch }) {
       <SocialLogin loading={loading} />
       <div className="mt-6 text-center">
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Don't have an account yet? <button type="button" onClick={onSwitch} className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign Up</button>
+          Don't have an account yet? <Link to="/signup" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign Up</Link>
         </p>
       </div>
     </AuthCard>
@@ -228,7 +228,8 @@ function SignInForm({ onSwitch }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SignupPage() {
-  const [mode, setMode] = useState("signup");
+  const location = useLocation();
+  const mode = location.pathname === "/signin" ? "signin" : "signup";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -249,7 +250,7 @@ export default function SignupPage() {
           <div className="absolute bottom-12 right-12 w-8 h-8 border border-[var(--color-primary)]/10 rotate-45" />
         </div>
         <div className="relative w-full max-w-md z-10">
-          {mode === "signup" ? <SignUpForm onSwitch={() => setMode("signin")} /> : <SignInForm onSwitch={() => setMode("signup")} />}
+          {mode === "signup" ? <SignUpForm /> : <SignInForm />}
         </div>
       </div>
     </div>

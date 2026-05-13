@@ -28,6 +28,7 @@ export const UserRoutes = (
   <Route element={<UserLayout />}>
     <Route path="/" element={<Home />} />
     <Route path="/signin" element={<AuthRoute><SignupPage /></AuthRoute>} />
+    <Route path="/signup" element={<AuthRoute><SignupPage /></AuthRoute>} />
     <Route path="/forgot-password" element={<AuthRoute><ForgotPasswordPage /></AuthRoute>} />
     <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
