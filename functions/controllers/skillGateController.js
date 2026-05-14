@@ -107,7 +107,6 @@ export const getSkillQuestion = onCall(async (request) => {
           );
           transaction.update(attemptRef, {
             question_id: admin.firestore.FieldValue.delete(),
-            updated_at: admin.firestore.FieldValue.serverTimestamp(),
           });
           // Fall through to the unseen-question picker below
         }
@@ -158,13 +157,11 @@ export const getSkillQuestion = onCall(async (request) => {
           attempted_at: now,
           passed: false,
           shown_questions: finalShown,
-          updated_at: now,
         });
       } else {
         transaction.update(attemptRef, {
           question_id: selectedRef,
           shown_questions: finalShown,
-          updated_at: now,
         });
       }
 
@@ -287,7 +284,6 @@ export const submitSkillAnswer = onCall(async (request) => {
           answer_given: answerGivenText,
           attempt_number: admin.firestore.FieldValue.increment(1),
           attempted_at: now,
-          updated_at: now,
         });
 
         return { passed: false };
@@ -299,7 +295,6 @@ export const submitSkillAnswer = onCall(async (request) => {
         answer_given: answerGivenText,
         attempt_number: admin.firestore.FieldValue.increment(1),
         attempted_at: now,
-        updated_at: now,
         // question_id stays as the final passed question ref (already set)
       });
 
