@@ -7,13 +7,13 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
-  ArrowLeft, CalendarPlus, Trophy,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, ArrowRight, Loader2, Trash2
+  ArrowLeft, Trophy, ExternalLink,
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 
 import { toast } from 'react-hot-toast';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, deleteField } from 'firebase/firestore';
 import { 
   fetchAdminCompetitionDetail, 
   updateCompetition, 
@@ -21,6 +21,11 @@ import {
   deleteCompetition,
   fetchCompetitionParticipants 
 } from '@/modules/admin/competitions/services/adminCompetitionService';
+import {
+  selectCompetitionWinner,
+  startCompetitionLiveDraw,
+  updateCompetitionHandover,
+} from '@/modules/admin/competitions/services/winnerWorkflowService';
 import { uploadImages } from '@/shared/services/storageService';
 import { formatStatus } from '@/shared/utils/formatters';
 
@@ -34,10 +39,15 @@ const CompetitionDetail = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isDrawConfirmed, setIsDrawConfirmed] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState(null);
+  const [winnerTicketSequence, setWinnerTicketSequence] = useState('');
+  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
   const [competition, setCompetition] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isStartingDraw, setIsStartingDraw] = useState(false);
+  const [isSelectingWinner, setIsSelectingWinner] = useState(false);
+  const [handoverActionLoading, setHandoverActionLoading] = useState('');
   const [participantsData, setParticipantsData] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   
@@ -54,40 +64,59 @@ const CompetitionDetail = () => {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const compDoc = await fetchAdminCompetitionDetail(id);
-        if (compDoc) {
-          const sold = compDoc.sold_tickets || 0;
-          const total = compDoc.total_tickets || 1000;
-          const price = compDoc.ticket_price || 0;
+  const hydrateWinnerSummary = (compDoc) => {
+    const winnerUser = compDoc?.winnerDetails?.user;
+    const winnerTicket = compDoc?.winnerDetails?.ticket;
 
-          setCompetition({
-            id: compDoc.id,
-            ...compDoc,
-            price,
-            prizeValue: compDoc.prize_value || 0,
-            ticketsSold: sold,
-            maxTickets: total,
-            revenue: sold * price
-          });
+    if (!winnerUser || !winnerTicket) {
+      return null;
+    }
 
-          setQuestions(compDoc.questions || []);
-        } else {
-          toast.error('Competition not found');
-          navigate('/admin/competitions');
-        }
-      } catch (err) {
-        console.error('Error fetching competition:', err);
-        toast.error('Failed to load competition data');
-      } finally {
-        setLoading(false);
-      }
+    return {
+      id: winnerUser.id,
+      name: winnerUser.display_name || winnerUser.name || winnerUser.full_name || 'Winner',
+      ticket: String(winnerTicket.ticket_sequence || winnerTicket.ticket_number || winnerTicket.id),
+      date: (compDoc.updated_at?.toDate?.() || compDoc.created_at?.toDate?.() || new Date()).toISOString(),
     };
+  };
 
-    if (id) fetchData();
+  const loadCompetition = async () => {
+    setLoading(true);
+    try {
+      const compDoc = await fetchAdminCompetitionDetail(id);
+      if (compDoc) {
+        const sold = compDoc.sold_tickets || 0;
+        const total = compDoc.total_tickets || 1000;
+        const price = compDoc.ticket_price || 0;
+        const hydratedWinner = hydrateWinnerSummary(compDoc);
+
+        setCompetition({
+          id: compDoc.id,
+          ...compDoc,
+          price,
+          prizeValue: compDoc.prize_value || 0,
+          ticketsSold: sold,
+          maxTickets: total,
+          revenue: sold * price,
+        });
+
+        setQuestions(compDoc.questions || []);
+        setSelectedWinner(hydratedWinner);
+        setWinnerTicketSequence(hydratedWinner?.ticket || '');
+      } else {
+        toast.error('Competition not found');
+        navigate('/admin/competitions');
+      }
+    } catch (err) {
+      console.error('Error fetching competition:', err);
+      toast.error('Failed to load competition data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) loadCompetition();
   }, [id, navigate]);
 
   const fetchParticipants = async () => {
@@ -135,7 +164,6 @@ const CompetitionDetail = () => {
 
       const updateData = {
         title: formData.title,
-        sub_title: formData.subTitle,
         description: formData.description,
         category: formData.category,
         ticket_price: parseFloat(formData.ticketPrice) || 0,
@@ -150,28 +178,42 @@ const CompetitionDetail = () => {
         included_things: formData.includedThings.filter(thing => thing.trim() !== ''),
         is_featured: formData.isFeatured || false,
       };
-      await updateCompetition(id, updateData);
+      await updateCompetition(id, {
+        ...updateData,
+        sub_title: deleteField(),
+      });
 
       if (formData.questions && formData.questions.length > 0) {
-        const qsToSync = formData.questions.map((qData, idx) => ({
-          id: questions[idx]?.id,
-          question: qData.questionText,
-          images: qData.questionImagePreviews || [],
-          option: qData.answers.map((ans, i) => ({
-            option_id: i + 1,
-            option: ans.text
-          })),
-          answer: {
-            option_id: qData.answers.findIndex(a => a.isCorrect) + 1
-          }
-        }));
+        const qsToSync = formData.questions.map((qData, idx) => {
+          const timestamp = Date.now();
+          const answers = qData.answers.map((ans, i) => {
+            // Preserve existing option_id if available, otherwise generate new one
+            const option_id = ans.option_id || `opt_${timestamp}_${i}`;
+            return {
+              option_id,
+              option: ans.text
+            };
+          });
+          const correctAnswerIndex = qData.answers.findIndex(a => a.isCorrect);
+          return {
+            id: questions[idx]?.id,
+            question: qData.questionText,
+            images: qData.questionImagePreviews || [],
+            option: answers,
+            answer: {
+              option_id: answers[correctAnswerIndex]?.option_id || answers[0]?.option_id || `opt_${timestamp}_0`
+            }
+          };
+        });
         await syncCompetitionQuestions(id, qsToSync);
       }
 
       setCompetition(prev => ({
         ...prev,
         ...updateData,
-        draw_date: Timestamp.fromMillis(drawDateTimestamp)
+        draw_date: Timestamp.fromMillis(drawDateTimestamp),
+        drawEndDate: formData.drawEndDate || '',
+        drawEndTime: formData.drawEndTime || '',
       }));
 
       toast.success(isDraft ? 'Draft updated!' : 'Changes saved!', { id: loadingToast });
@@ -202,6 +244,77 @@ const CompetitionDetail = () => {
     }
   };
 
+  const refreshCompetition = async () => {
+    await loadCompetition();
+  };
+
+  const handleStartLiveDraw = async () => {
+    if (!competition?.id) return;
+    if (competition.status !== 'ready_to_draw') {
+      toast.error('Only competitions with status Ready To Draw can start live draw.');
+      return;
+    }
+
+    setIsStartingDraw(true);
+    const loadingToast = toast.loading('Starting live draw...');
+    try {
+      await startCompetitionLiveDraw(competition.id);
+      toast.success('Live draw started', { id: loadingToast });
+      await refreshCompetition();
+    } catch (err) {
+      console.error('Error starting live draw:', err);
+      toast.error(err.message || 'Failed to start the live draw', { id: loadingToast });
+    } finally {
+      setIsStartingDraw(false);
+    }
+  };
+
+  const handleConfirmWinner = async () => {
+    if (!competition?.id || !winnerTicketSequence.trim()) {
+      toast.error('Enter a winning ticket sequence first');
+      return;
+    }
+
+    setIsSelectingWinner(true);
+    const loadingToast = toast.loading('Selecting winner...');
+    try {
+      const result = await selectCompetitionWinner(competition.id, winnerTicketSequence);
+      toast.success('Winner selected successfully', { id: loadingToast });
+      setWinnerModalOpen(false);
+      setIsDrawConfirmed(false);
+      setWinnerTicketSequence('');
+      setSelectedWinner({
+        id: result.winnerUserId,
+        name: selectedWinner?.name || 'Winner',
+        ticket: result.winnerTicketSequence,
+        date: new Date().toISOString(),
+      });
+      await refreshCompetition();
+    } catch (err) {
+      console.error('Error selecting winner:', err);
+      toast.error(err.message || 'Failed to select winner', { id: loadingToast });
+    } finally {
+      setIsSelectingWinner(false);
+    }
+  };
+
+  const handleHandoverAction = async (stage) => {
+    if (!competition?.id) return;
+
+    setHandoverActionLoading(stage);
+    const loadingToast = toast.loading('Updating handover...');
+    try {
+      await updateCompetitionHandover(competition.id, stage);
+      toast.success('Handover updated', { id: loadingToast });
+      await refreshCompetition();
+    } catch (err) {
+      console.error('Error updating handover:', err);
+      toast.error(err.message || 'Failed to update handover', { id: loadingToast });
+    } finally {
+      setHandoverActionLoading('');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -221,7 +334,7 @@ const CompetitionDetail = () => {
               <img src={competition.image[0]} alt={competition.title} className="w-full h-full object-cover" />
             ) : (
               <>
-                <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-transparent"></div>
+                <div className="absolute inset-0 bg-linear-to-tr from-primary/20 to-transparent"></div>
                 <span className="text-gray-500 font-medium text-lg relative z-10">{t('competitions.detail.competitionImage')}</span>
               </>
             )}
@@ -299,7 +412,7 @@ const CompetitionDetail = () => {
                   return isStatusEnded ? (
                     <p className="text-sm text-emerald-400 font-bold uppercase tracking-wider">COMPLETED</p>
                   ) : (
-                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">READY FOR DRAW</p>
+                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">READY TO DRAW</p>
                   );
                 }
 
@@ -309,15 +422,15 @@ const CompetitionDetail = () => {
 
                 return (
                   <div className="flex justify-center gap-2">
-                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-[50px]">
+                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-12.5">
                       <span className="text-xl font-mono text-white">{String(days).padStart(2, '0')}</span>
                       <span className="text-[10px] text-gray-500 block">{t('competitions.detail.days')}</span>
                     </div>
-                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-[50px]">
+                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-12.5">
                       <span className="text-xl font-mono text-white">{String(hours).padStart(2, '0')}</span>
                       <span className="text-[10px] text-gray-500 block">{t('competitions.detail.hrs')}</span>
                     </div>
-                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-[50px]">
+                    <div className="bg-white/5 px-3 py-2 rounded-lg min-w-12.5">
                       <span className="text-xl font-mono text-white">{String(mins).padStart(2, '0')}</span>
                       <span className="text-[10px] text-gray-500 block">{t('competitions.detail.min')}</span>
                     </div>
@@ -371,7 +484,7 @@ const CompetitionDetail = () => {
                 <TableCell className="font-medium text-white">{p.name}</TableCell>
                 <TableCell className="text-gray-400">{p.email}</TableCell>
                 <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                  <div className="flex flex-wrap gap-1 max-w-50">
                     {p.tickets.slice(0, 3).map((ticket, idx) => (
                       <span key={idx} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-primary font-mono">
                         #{ticket}
@@ -415,11 +528,12 @@ const CompetitionDetail = () => {
       return { date, time };
     };
 
-    const drawInfo = getLocalInfo(competition.draw_date);
+    const drawInfo = competition.drawEndDate || competition.drawEndTime
+      ? { date: competition.drawEndDate || '', time: competition.drawEndTime || '' }
+      : getLocalInfo(competition.draw_date);
 
     return {
       title: competition.title || '',
-      subTitle: competition.sub_title || '',
       description: competition.description || '',
       prizeName: competition.prize_name || '',
       prizeValue: competition.prize_value || '',
@@ -440,6 +554,7 @@ const CompetitionDetail = () => {
         questionImagePreviews: q.images || [],
         answers: q.option.map(opt => ({
           text: opt.option,
+          option_id: opt.option_id || undefined,
           isCorrect: q.answer?.option_id === opt.option_id
         }))
       }))
@@ -459,72 +574,152 @@ const CompetitionDetail = () => {
     </div>
   );
 
-  const handleSelectWinner = () => {
-    setSelectedWinner({
-      id: 1,
-      name: "John Doe",
-      ticket: "#0234",
-      date: new Date().toISOString()
-    });
+  const renderWinnerDetails = () => {
+    const winner = selectedWinner;
+
+    if (!winner) return null;
+
+    const handover = competition?.handover_details || {};
+
+    return (
+      <div className="space-y-8 fade-in transform scale-in">
+        <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+          <span className="text-4xl">🎉</span>
+        </div>
+
+        <div>
+          <h2 className="text-3xl font-bold text-white mb-2">{t('competitions.detail.draw.winnerSelected')}</h2>
+          <p className="text-emerald-400 font-medium">{t('competitions.detail.draw.drawCompleted')}</p>
+        </div>
+
+        <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 text-left relative overflow-hidden shadow-2xl">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Trophy size={100} />
+          </div>
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
+                {(winner.name || 'W').charAt(0)}
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">{t('competitions.detail.draw.winnerName')}</p>
+                <p className="text-xl font-bold text-white">{winner.name}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+              <div>
+                <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.draw.winningTicket')}</p>
+                <Badge variant="hot" className="text-sm px-3 py-1 font-mono">{winner.ticket}</Badge>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.drawDate')}</p>
+                <p className="text-white font-medium">{new Date(winner.date).toLocaleDateString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
+          <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Contacted</p>
+            <p className="text-white font-semibold">{handover.is_contacted ? 'Yes' : 'No'}</p>
+          </div>
+          <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Prize Sent</p>
+            <p className="text-white font-semibold">{handover.prize_sent ? 'Yes' : 'No'}</p>
+          </div>
+          <div className="p-4 rounded-xl border border-white/10 bg-white/5">
+            <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Handover</p>
+            <p className="text-white font-semibold">{handover.handover_completed ? 'Completed' : 'Pending'}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-6 border-t border-white/5 mt-4">
+          <Button 
+            variant="primary" 
+            className="w-full sm:w-auto px-8 h-12 text-base font-bold shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.2)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.4)] transition-all"
+            onClick={() => navigate(`/admin/winners/${competition.id}`)}
+          >
+            <ExternalLink size={18} className="mr-2" />
+            Manage Winner & Handover
+          </Button>
+        </div>
+      </div>
+    );
   };
 
   const renderDraw = () => (
     <Card className="max-w-2xl mx-auto fade-in">
       <div className="p-8 text-center space-y-8">
+        {(() => {
+          const drawStatus = competition.status;
+          const canManageDraw = ['ready_to_draw', 'drawing'].includes(drawStatus);
 
-        {selectedWinner ? (
-          <div className="space-y-8 fade-in transform scale-in">
-            <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-              <span className="text-4xl">🎉</span>
-            </div>
+          if (selectedWinner) {
+            return renderWinnerDetails();
+          }
 
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-2">{t('competitions.detail.draw.winnerSelected')}</h2>
-              <p className="text-emerald-400 font-medium">{t('competitions.detail.draw.drawCompleted')}</p>
-            </div>
-
-            <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 text-left relative overflow-hidden shadow-2xl">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Trophy size={100} />
-              </div>
-              <div className="relative z-10 space-y-4">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xl">
-                    {selectedWinner.name.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400">{t('competitions.detail.draw.winnerName')}</p>
-                    <p className="text-xl font-bold text-white">{selectedWinner.name}</p>
-                  </div>
+          if (!canManageDraw) {
+            const isTimerVisible = ['active', 'sold_out'].includes(drawStatus);
+            return (
+              <div className="space-y-6">
+                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                  <Trophy className="text-primary" size={40} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.draw.winningTicket')}</p>
-                    <Badge variant="hot" className="text-sm px-3 py-1 font-mono">{selectedWinner.ticket}</Badge>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.drawDate')}</p>
-                    <p className="text-white font-medium">{new Date(selectedWinner.date).toLocaleDateString()}</p>
-                  </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
+                  <p className="text-gray-400 mt-2 max-w-md mx-auto">
+                    {`This competition is currently ${formatStatus(drawStatus).toLowerCase()}. Draw controls are only available when the status is Ready To Draw.`}
+                  </p>
                 </div>
-              </div>
-            </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-              <Button variant="outline" onClick={() => setSelectedWinner(null)}>
-                {t('competitions.detail.draw.reDraw')}
-              </Button>
-              <Button variant="primary" className="flex items-center gap-2" onClick={() => navigate(`/admin/winners/${selectedWinner.id}`)}>
-                {t('competitions.detail.draw.viewWinnerDetails')} <ArrowRight size={16} />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <Trophy className="text-primary" size={40} />
-            </div>
+                <div className="p-6 bg-white/5 border border-white/10 rounded-2xl inline-block w-full">
+                  <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">Current Status</p>
+                  <p className="text-xl font-bold text-white">{formatStatus(drawStatus) || 'Unknown'}</p>
+                </div>
+
+                {isTimerVisible && competition.draw_date && (
+                  <div className="p-6 bg-white/5 border border-white/10 rounded-2xl inline-block w-full">
+                    <p className="text-sm text-gray-500 mb-3 uppercase tracking-widest font-medium">{t('competitions.detail.draw.timeUntilDraw')}</p>
+                    {(() => {
+                      const diff = Math.max(0, competition.draw_date.toMillis() - Date.now());
+                      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+                      return (
+                        <div className="flex justify-center gap-3 sm:gap-6">
+                          <div className="flex flex-col items-center">
+                            <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(days).padStart(2, '0')}</span>
+                            <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.days')}</span>
+                          </div>
+                          <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
+                          <div className="flex flex-col items-center">
+                            <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(hours).padStart(2, '0')}</span>
+                            <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.hours')}</span>
+                          </div>
+                          <span className="text-3xl sm:text-4xl font-mono text-white/20 font-bold self-start mt-2">:</span>
+                          <div className="flex flex-col items-center">
+                            <span className="text-3xl sm:text-4xl font-mono text-white font-bold bg-[#0a0a0a] px-4 py-3 rounded-xl border border-white/10 shadow-inner">{String(mins).padStart(2, '0')}</span>
+                            <span className="text-xs text-gray-500 mt-2 uppercase font-medium tracking-wider">{t('competitions.detail.draw.mins')}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                <Trophy className="text-primary" size={40} />
+              </div>
 
             <div>
               <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
@@ -546,7 +741,7 @@ const CompetitionDetail = () => {
                     </div>
                   ) : (
                     <div className="py-4">
-                      <p className="text-3xl font-bold text-yellow-500 uppercase tracking-widest">READY FOR DRAW</p>
+                      <p className="text-3xl font-bold text-yellow-500 uppercase tracking-widest">READY TO DRAW</p>
                     </div>
                   );
                 }
@@ -592,21 +787,33 @@ const CompetitionDetail = () => {
                 </span>
               </label>
 
-              <Button
-                variant="primary"
-                disabled={!isDrawConfirmed}
-                onClick={handleSelectWinner}
-                className={`w-full sm:w-auto px-8 py-4 text-lg font-bold transition-all ${isDrawConfirmed
-                  ? 'shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]'
-                  : 'opacity-50 cursor-not-allowed'
-                  }`}
-              >
-                {t('competitions.detail.draw.selectWinnerBtn')}
-              </Button>
-              <p className="text-xs text-gray-500 mt-4">{t('competitions.detail.draw.selectWinnerNote')}</p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Button
+                  variant="outline"
+                  disabled={isStartingDraw || competition.status !== 'ready_to_draw'}
+                  onClick={handleStartLiveDraw}
+                  loading={isStartingDraw}
+                >
+                  Start Live Draw
+                </Button>
+
+                <Button
+                  variant="primary"
+                  disabled={!isDrawConfirmed || competition.status !== 'drawing'}
+                  onClick={() => setWinnerModalOpen(true)}
+                  className={`w-full sm:w-auto px-8 py-4 text-lg font-bold transition-all ${isDrawConfirmed && competition.status === 'drawing'
+                    ? 'shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]'
+                    : 'opacity-50 cursor-not-allowed'
+                    }`}
+                >
+                  Enter Winning Ticket
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-4">Start the draw first, then confirm the winning ticket sequence.</p>
             </div>
           </>
-        )}
+          );
+        })()}
       </div>
     </Card>
   );
@@ -643,7 +850,19 @@ const CompetitionDetail = () => {
               const isTimeUp = competition.status === 'active' && competition.draw_date && competition.draw_date.toMillis() <= now.getTime();
               
               if (isTimeUp) {
-                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready for Draw</Badge>;
+                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready To Draw</Badge>;
+              }
+
+              if (competition.status === 'drawing') {
+                return <Badge variant="warning" className="bg-orange-500/20 text-orange-300 border-orange-500/50">LIVE DRAWING</Badge>;
+              }
+
+              if (competition.status === 'winner_announced') {
+                return <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/50">WINNER ANNOUNCED</Badge>;
+              }
+
+              if (competition.status === 'completed') {
+                return <Badge variant="neutral" className="bg-white/10 text-white border-white/20">COMPLETED</Badge>;
               }
               
               return (
@@ -653,7 +872,6 @@ const CompetitionDetail = () => {
               );
             })()}
           </div>
-          <p className="text-gray-400 font-medium">{competition.sub_title}</p>
           <p className="text-xs text-gray-500 mt-1">ID: #{competition.id}</p>
         </div>
 
@@ -774,6 +992,44 @@ const CompetitionDetail = () => {
               onClick={() => setParticipantTicketsModalOpen(false)}
             >
               {t('common.close')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Winner Ticket Modal */}
+      <Modal
+        isOpen={winnerModalOpen}
+        onClose={() => setWinnerModalOpen(false)}
+        title="Enter Winning Ticket"
+        description="Make sure the live draw is already active before confirming the winning sequence."
+      >
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Ticket sequence</label>
+            <input
+              type="text"
+              value={winnerTicketSequence}
+              onChange={(e) => setWinnerTicketSequence(e.target.value.toUpperCase())}
+              placeholder="Enter ticket number (eg. DT007)"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-500 outline-none focus:border-primary"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" size="sm" className="px-6" onClick={() => setWinnerModalOpen(false)} disabled={isSelectingWinner}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              className="px-6"
+              onClick={handleConfirmWinner}
+              loading={isSelectingWinner}
+              disabled={!winnerTicketSequence.trim()}
+            >
+              Confirm Winner
             </Button>
           </div>
         </div>

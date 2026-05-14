@@ -13,9 +13,9 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
   const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt, status } = competition;
   const isReadyToDraw = status === 'ready_to_draw';
   const isSoldOut     = status === 'sold_out';
-  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw;
-  const isEnded       = status === 'end';
-  const isDisabled    = isClosed || isReadyToDraw || isSoldOut || isEnded;
+  const isEnded       = status === 'end' || status === 'completed';
+  const isClosed      = isReadyToDraw || isSoldOut || isEnded;
+  const isDisabled    = isClosed;
   const progress      = Math.round((sold / total) * 100);
   const remaining     = total - sold;
   const [hovered, setHovered] = useState(false);
@@ -195,8 +195,15 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
         });
 
         // ── Selection Logic ──
-        // Newest first by creation time
-        const sorted = allComps.sort((a, b) => b.created_at - a.created_at);
+        // Only show competitions that are active, sold out, or ready to draw
+        const filtered = allComps.filter(c => ['active', 'sold_out', 'ready_to_draw'].includes(c.status));
+
+        // Sort: Featured first, then newest created_at
+        const sorted = filtered.sort((a, b) => {
+          if (a.is_featured && !b.is_featured) return -1;
+          if (!a.is_featured && b.is_featured) return 1;
+          return b.created_at - a.created_at;
+        });
 
         // Limit to exactly 6 cards as requested
         setFeaturedComps(sorted.slice(0, 6));
@@ -238,7 +245,7 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
-            <div className="col-span-full text-center py-10 text-primary">Loading featured prizes...</div>
+            null
           ) : featuredComps.length > 0 ? (
             featuredComps.map((comp, index) => (
               <Reveal key={comp.id} delay={index * 70}>

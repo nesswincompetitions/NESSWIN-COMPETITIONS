@@ -6,6 +6,7 @@ import {
   limit,
   orderBy,
   query,
+  onSnapshot,
   runTransaction,
   serverTimestamp,
   updateDoc,
@@ -213,4 +214,86 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
       active_chats: nextActiveChats,
     });
   });
+};
+
+/**
+ * onActiveUserChatsSnapshot
+ * 
+ * Sets up a real-time listener for all active chats where the current user
+ * is a participant. This includes both 'support' and 'winner_chat' types.
+ * 
+ * @param {string} userUid - The UID of the current user
+ * @param {Function} callback - Success callback receiving the chats array
+ * @returns {Function} - Unsubscribe function
+ */
+export const onActiveUserChatsSnapshot = (userUid, callback) => {
+  if (!userUid) return () => {};
+
+  const userRef = getUserRef(userUid);
+  const chatsRef = collection(db, 'chats');
+
+  const q = query(
+    chatsRef,
+    where('participants', 'array-contains', userRef),
+    where('status', '==', 'active'),
+    orderBy('last_message_time', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const chats = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(chats);
+    },
+    (error) => {
+      console.error('[supportChatService] Error fetching user chats:', error);
+      if (error.message?.includes("index")) {
+        console.error("FIRESTORE MISSING INDEX LINK:", error.message);
+      }
+    }
+  );
+};
+
+/**
+ * onUserChatHistorySnapshot
+ * 
+ * Sets up a real-time listener for all closed chats where the current user
+ * was a participant.
+ * 
+ * @param {string} userUid - The UID of the current user
+ * @param {Function} callback - Success callback receiving the chats array
+ * @returns {Function} - Unsubscribe function
+ */
+export const onUserChatHistorySnapshot = (userUid, callback) => {
+  if (!userUid) return () => {};
+
+  const userRef = getUserRef(userUid);
+  const chatsRef = collection(db, 'chats');
+
+  const q = query(
+    chatsRef,
+    where('participants', 'array-contains', userRef),
+    where('status', '==', 'closed'),
+    orderBy('last_message_time', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const chats = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(chats);
+    },
+    (error) => {
+      console.error('[supportChatService] Error fetching chat history:', error);
+      if (error.message?.includes("index")) {
+        console.error("FIRESTORE MISSING INDEX LINK:", error.message);
+      }
+    }
+  );
 };

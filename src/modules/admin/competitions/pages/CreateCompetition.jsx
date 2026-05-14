@@ -17,6 +17,15 @@ const CreateCompetition = () => {
 
   const draftId = searchParams.get('id');
 
+  const getLocalDateTime = (timestamp) => {
+    if (!timestamp) return { date: '', time: '' };
+    const dateObject = new Date(timestamp.toMillis());
+    return {
+      date: `${dateObject.getFullYear()}-${String(dateObject.getMonth() + 1).padStart(2, '0')}-${String(dateObject.getDate()).padStart(2, '0')}`,
+      time: `${String(dateObject.getHours()).padStart(2, '0')}:${String(dateObject.getMinutes()).padStart(2, '0')}`,
+    };
+  };
+
   useEffect(() => {
     const fetchDraft = async () => {
       setLoading(true);
@@ -38,8 +47,7 @@ const CreateCompetition = () => {
             imagePreviews: compData.image || [],
             ticketPrice: compData.ticket_price || '',
             maxTickets: compData.total_tickets || '',
-            drawEndDate: compData.draw_date ? new Date(compData.draw_date.toMillis()).toISOString().split('T')[0] : '',
-            drawEndTime: compData.draw_date ? new Date(compData.draw_date.toMillis()).toISOString().split('T')[1].slice(0, 5) : '',
+            ...getLocalDateTime(compData.draw_date),
             instagramLiveLink: compData.instagram_live_url || '',
             includedThings: compData.included_things || [],
             prizeVideoUrl: compData.prize_video_url || '',

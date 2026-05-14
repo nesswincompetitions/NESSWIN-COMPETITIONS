@@ -44,21 +44,25 @@ export default function SupportChatPage() {
     <div className="min-h-screen bg-[var(--color-background)] px-4 pb-16 pt-24">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <button
-          onClick={() => navigate('/profile')}
+            onClick={() => navigate('/profile/support')}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-primary)]"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Profile
+            Back to Support Center
         </button>
 
         <div className="rounded-3xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
           <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--color-primary)]">
             <MessageSquareText className="h-4 w-4" />
-            Support
+            {chatData?.chat_type === 'winner_chat' ? 'Winner Support' : 'Support'}
           </div>
-          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">Your Support Chat</h1>
+          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">
+            {chatData?.chat_type === 'winner_chat' ? 'Prize Handover' : 'Your Support Chat'}
+          </h1>
           <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-            Keep the conversation in one place with real-time updates and attachments.
+            {chatData?.chat_type === 'winner_chat' 
+              ? 'Securely communicate with our team regarding your prize and documentation.'
+              : 'Keep the conversation in one place with real-time updates and attachments.'}
           </p>
         </div>
 
@@ -73,8 +77,9 @@ export default function SupportChatPage() {
             receiverRef={chatData.assigned_admin_id}
             assignedAdminRef={chatData.assigned_admin_id}
             isCurrentUserAdmin={false}
-            title="Support Chat"
-            closeLabel="Close Ticket"
+            chatType={chatData.chat_type}
+            title={chatData.chat_type === 'winner_chat' ? 'Prize Handover Chat' : 'Support Chat'}
+            closeLabel={chatData.chat_type === 'winner_chat' ? 'End Conversation' : 'Close Ticket'}
             onCloseTicket={() => navigate('/profile')}
             unreadCount={chatData.unread_sender_count ?? 0}
             status={chatData.status ?? 'active'}

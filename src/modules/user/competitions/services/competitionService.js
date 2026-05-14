@@ -5,9 +5,11 @@ import {
   query,
   where,
   getDocs,
-  doc,
   getDoc,
+  doc,
   getCountFromServer,
+  updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
@@ -135,3 +137,40 @@ export const fetchLiveCompetitions = async () => {
 //   - submitSkillAnswer (functions/controllers/skillGateController.js)
 //
 // The frontend calls these via httpsCallable — see useCompetitionCheckout.js.
+
+/**
+ * Submits a winner review for a completed competition.
+ * 
+ * @param {string} competitionId 
+ * @param {string} userId 
+ * @param {string} comment 
+ * @param {number} rating 
+ */
+export const submitWinnerReview = async (competitionId, userId, comment, rating) => {
+  const compRef = doc(db, 'competition', competitionId);
+  const compSnap = await getDoc(compRef);
+  
+  if (!compSnap.exists()) throw new Error('Competition not found');
+  
+  const data = compSnap.data();
+  
+  // Validation
+  if (data.status !== 'completed') {
+    throw new Error('Review can only be submitted after the prize handover is complete.');
+  }
+  
+  const winnerRef = data.winner_ref;
+  const winnerId = typeof winnerRef === 'string' ? winnerRef : winnerRef?.id;
+  
+  if (winnerId !== userId) {
+    throw new Error('Only the winner of this competition can submit a review.');
+  }
+  
+  await updateDoc(compRef, {
+    winner_comment: comment,
+    winner_rating: Number(rating),
+    winner_review_at: serverTimestamp()
+  });
+  
+  return { success: true };
+};

@@ -28,7 +28,7 @@ export default function SupportInboxPage() {
     const currentAdminRef = doc(db, 'user', currentUser.uid);
     const inboxQuery = query(
       collection(db, 'chats'),
-      where('chat_type', '==', 'support'),
+      where('chat_type', 'in', ['support', 'winner_chat']),
       where('assigned_admin_id', '==', currentAdminRef),
       where('status', '==', 'active'),
       orderBy('last_message_time', 'desc')

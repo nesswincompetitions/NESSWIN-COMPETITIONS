@@ -7,6 +7,7 @@ import { createSupportChat } from '@/shared/services/supportChatService';
 import {
   fetchAllReferrals,
 } from '@/modules/user/referrals/services/referralService';
+import { onActiveUserChatsSnapshot } from '@/shared/services/supportChatService';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Users,
@@ -38,7 +39,6 @@ export default function ProfilePage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isCreatingSupportChat, setIsCreatingSupportChat] = useState(false);
   const [referrals, setReferrals] = useState([]);
   const [referralsLoading, setReferralsLoading] = useState(true);
 
@@ -67,6 +67,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadReferrals();
+
     if (window.location.hash === '#referrals') {
       setTimeout(() => {
         document.getElementById('referrals-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -166,22 +167,8 @@ export default function ProfilePage() {
     }
   };
 
-  const handleContactSupport = async () => {
-    if (!currentUser?.uid) return;
-
-    setIsCreatingSupportChat(true);
-    try {
-      const chatId = await createSupportChat(currentUser.uid);
-      navigate(`/profile/support/${chatId}`);
-    } catch (error) {
-      console.error("Support chat error:", error);
-      if (error.message?.includes("index")) {
-        console.error("MISSING INDEX LINK:", error.message);
-      }
-      toast.error(error.message || 'No support agents are online right now.');
-    } finally {
-      setIsCreatingSupportChat(false);
-    }
+  const handleContactSupport = () => {
+    navigate('/profile/support');
   };
 
   // Format Firestore timestamp
@@ -537,15 +524,10 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleContactSupport}
-                disabled={isCreatingSupportChat}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all group cursor-pointer disabled:opacity-60"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all group cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-lg bg-[var(--color-muted)]/20 group-hover:bg-[var(--color-primary)]/10 flex items-center justify-center transition-colors">
-                  {isCreatingSupportChat ? (
-                    <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" />
-                  ) : (
-                    <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
-                  )}
+                  <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
                 </div>
                 <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">
                   Contact Support

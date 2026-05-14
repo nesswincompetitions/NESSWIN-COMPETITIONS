@@ -8,6 +8,7 @@ const QUEUE_NAME = "competition-draw-queue";
 const COMPETITION_COLLECTION = "competition";
 const DRAW_TASK_FIELD = "draw_task_id";
 const TERMINAL_STATUSES = new Set(["cancelled", "deleted", "paused", "end", "completed"]);
+const PRE_DRAW_STATUSES = new Set(["active", "sold_out", "ready_to_draw"]);
 
 const tasksClient = new CloudTasksClient();
 let cachedTaskServiceAccountEmail;
@@ -41,6 +42,10 @@ function normalizeStatus(status) {
 
 function isTerminalStatus(status) {
   return TERMINAL_STATUSES.has(normalizeStatus(status));
+}
+
+function isPreDrawStatus(status) {
+  return PRE_DRAW_STATUSES.has(normalizeStatus(status));
 }
 
 function getDateFromFirestoreValue(value) {
@@ -230,7 +235,7 @@ async function reconcileCompetitionLifecycle({ competitionRef, competitionId, be
       await deleteTaskById(afterTaskId || beforeTaskId);
     }
 
-    if (afterStatus !== "ready_to_draw") {
+    if (isPreDrawStatus(afterStatus) && afterStatus !== "ready_to_draw") {
       await markCompetitionReadyToDraw(competitionRef);
     }
 
@@ -350,6 +355,20 @@ export const drawWorker = onTaskDispatched(
       }
 
       if (!drawDate || drawDate.getTime() > Date.now()) {
+        return;
+      }
+
+      if (!isPreDrawStatus(currentStatus)) {
+        if (storedTaskId) {
+          transaction.set(
+            competitionRef,
+            {
+              updated_at: admin.firestore.FieldValue.serverTimestamp(),
+              [DRAW_TASK_FIELD]: admin.firestore.FieldValue.delete(),
+            },
+            { merge: true },
+          );
+        }
         return;
       }
 

@@ -34,7 +34,7 @@ const CompetitionsList = () => {
   const tabs = [
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
-    { key: 'Ready', label: 'Ready for Draw' },
+    { key: 'Ready', label: 'Ready To Draw' },
     { key: 'SoldOut', label: 'Sold Out' },
     { key: 'Completed', label: 'Completed' },
     { key: 'Drafts', label: 'Drafts' },
@@ -256,7 +256,7 @@ const CompetitionsList = () => {
                       const isTimeUp = comp.status === 'active' && comp.countdownEnd && comp.countdownEnd <= now;
                       
                       if (isTimeUp) {
-                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready for Draw</Badge>;
+                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready To Draw</Badge>;
                       }
                       
                       return (

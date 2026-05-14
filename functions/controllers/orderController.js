@@ -1,4 +1,3 @@
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
@@ -50,8 +49,16 @@ export const processOrder = onCall(async (request) => {
   }
 
   const qty = Number(ticketQuantity);
-  if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
-    throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
+  const freeUse = Number(freeTicketsToUse) || 0;
+  const referralsArr = Array.isArray(referralsToBurn) ? referralsToBurn : [];
+
+  if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty < 0) {
+    throw new HttpsError("invalid-argument", "ticketQuantity must be a non-negative integer.");
+  }
+
+  // Allow zero paid tickets only when the user is redeeming free/referral tickets
+  if (qty === 0 && freeUse === 0 && referralsArr.length === 0) {
+    throw new HttpsError("invalid-argument", "At least one ticket must be requested (paid or free).");
   }
   if (qty > 100) {
     throw new HttpsError("invalid-argument", "Maximum 100 tickets per order.");
@@ -152,44 +159,4 @@ export const processOrder = onCall(async (request) => {
   }
 });
 
-// ─── aggregateOrderMetrics ────────────────────────────────────────────────────
-
-/**
- * Trigger: aggregateOrderMetrics
- * Listen for changes to the order/{orderId} collection.
- * If the order status is 'paid' (and wasn't previously paid), increment metrics.
- */
-export const aggregateOrderMetrics = onDocumentWritten("order/{orderId}", async (event) => {
-  const beforeData = event.data.before?.data() || {};
-  const afterData = event.data.after?.data() || {};
-
-  const wasPaid = beforeData.status === "paid";
-  const isPaid = afterData.status === "paid";
-
-  if (!wasPaid && isPaid) {
-    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-    const totalAmount = Number(afterData.total_amount || 0);
-    const totalTickets = Number(afterData.total_ticket || 0) + Number(afterData.free_ticket || 0);
-
-    logger.info(`[aggregateOrderMetrics] order=${event.params.orderId} amount=${totalAmount} tickets=${totalTickets}`);
-
-    const batch = db.batch();
-
-    // Daily Metrics
-    const dailyRef = db.collection("daily_metrics").doc(todayStr);
-    batch.set(dailyRef, {
-      daily_revenue: admin.firestore.FieldValue.increment(totalAmount),
-      daily_tickets_sold: admin.firestore.FieldValue.increment(totalTickets),
-      date: todayStr,
-    }, { merge: true });
-
-    // Global Metrics
-    const globalRef = db.collection("system_metrics").doc("global_stats");
-    batch.set(globalRef, {
-      total_revenue: admin.firestore.FieldValue.increment(totalAmount),
-      total_tickets_sold: admin.firestore.FieldValue.increment(totalTickets),
-    }, { merge: true });
-
-    await batch.commit();
-  }
-});
+// Removed aggregateOrderMetrics (now handled by dashboardController.js)

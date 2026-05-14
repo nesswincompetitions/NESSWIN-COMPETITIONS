@@ -19,6 +19,9 @@ import {
   Tag,
   Play,
   ArrowDown,
+  MessageSquare,
+  Star,
+  Quote,
 } from "lucide-react";
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { FaInstagram } from 'react-icons/fa';
@@ -48,8 +51,10 @@ export function Breadcrumb({ title }) {
 export function ImageGallery({ images, title, status, endsAt }) {
   const { t } = useTranslation();
   const [active, setActive] = useState(0);
-  const isClosed = status === "active" && endsAt && endsAt < Date.now();
-  const isEnded = status === "end";
+  const isReadyToDraw = status === "ready_to_draw";
+  const isSoldOut = status === "sold_out";
+  const isEnded = status === "end" || status === "completed";
+  const isClosed = isReadyToDraw || isSoldOut || isEnded;
 
   return (
     <div className="space-y-3">
@@ -185,7 +190,7 @@ function SelectTicketPanel({
                   className={`w-11 h-12 rounded-xl border font-black text-sm transition-all duration-200 cursor-pointer ${
                     isActive
                       ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
-                      : 'bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
+                      : 'bg-white/3 border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
                   }`}
                 >
                   {num}
@@ -224,7 +229,7 @@ function SelectTicketPanel({
                   className={`h-12 rounded-xl border font-bold text-sm transition-all duration-200 cursor-pointer ${
                     isActive
                       ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
-                      : 'bg-white/[0.03] border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
+                      : 'bg-white/3 border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
                   }`}
                 >
                   {num}
@@ -257,7 +262,7 @@ function SelectTicketPanel({
                   className={`relative p-4 rounded-2xl border text-left transition-all duration-300 cursor-pointer group ${
                     isActive
                       ? 'bg-primary/5 border-primary shadow-[0_0_28px_rgba(var(--primary-rgb),0.12)]'
-                      : 'bg-white/[0.02] border-white/5 hover:border-white/15'
+                      : 'bg-white/2 border-white/5 hover:border-white/15'
                   }`}
                 >
                   {pack.popular && (
@@ -288,7 +293,7 @@ function SelectTicketPanel({
       </div>
 
       {/* ── REAL-TIME SUMMARY BAR ─────────────────────────────────────────── */}
-      <div className="bg-white/[0.02] border border-white/8 rounded-2xl overflow-hidden">
+      <div className="bg-white/2 border border-white/8 rounded-2xl overflow-hidden">
         {/* Ticket breakdown strip */}
         <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
           {[
@@ -439,8 +444,11 @@ export function TicketPurchaseCard({
     ticketPrice,
   } = competition;
 
-  const isClosed = status === "active" && endsAt && endsAt < Date.now();
-  const isEnded = status === "end";
+  const isReadyToDraw = status === "ready_to_draw";
+  const isSoldOut = status === "sold_out";
+  const isEnded = status === "end" || status === "completed";
+  const isActive = status === "active";
+  const isClosed = isReadyToDraw || isSoldOut || isEnded;
   const remaining = total - sold;
   const progress = Math.min(100, Math.round((sold / total) * 100));
 
@@ -538,7 +546,7 @@ export function TicketPurchaseCard({
               </button>
             )}
           </div>
-        ) : ((skillPassed || competition.gateStatus === 'eligible') && !isClosed && !isEnded) ? (
+        ) : ((skillPassed || competition.gateStatus === 'eligible') && !isClosed && isActive) ? (
           <div className="space-y-5">
             {/* Existing tickets strip */}
             {userTickets.length > 0 && (
@@ -557,7 +565,7 @@ export function TicketPurchaseCard({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {userTickets.slice(0, 4).map((tk) => (
-                    <div key={tk.id} className="h-10 rounded-lg bg-white/[0.03] border border-white/5 flex items-center justify-center">
+                    <div key={tk.id} className="h-10 rounded-lg bg-white/3 border border-white/5 flex items-center justify-center">
                       <span className="text-[10px] font-mono font-bold text-muted-foreground">{tk.ticket_sequence}</span>
                     </div>
                   ))}
@@ -593,12 +601,12 @@ export function TicketPurchaseCard({
         ) : (
           <div className="text-center py-2">
             {/* Status banners */}
-            {competition.status === 'ready_to_draw' && (
+            {isReadyToDraw && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
                 {t("common.competitionClosed")}
               </div>
             )}
-            {competition.status === 'sold_out' && (
+            {isSoldOut && (
               <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
                 All tickets have been sold out.
               </div>
@@ -611,9 +619,7 @@ export function TicketPurchaseCard({
 
             {/* Smart Participate Button */}
             {(() => {
-              const isReadyToDraw = competition.status === 'ready_to_draw';
-              const isSoldOut    = competition.status === 'sold_out';
-              const isDisabled   = competition.status !== 'active' || isClosed || isEnded || competition.gateStatus === 'loading';
+              const isDisabled   = competition.status !== 'active' || isClosed || competition.gateStatus === 'loading';
 
               let icon, label;
               if (competition.gateStatus === 'loading') {
@@ -661,7 +667,7 @@ export function TicketPurchaseCard({
               <span className="text-muted-foreground opacity-50"> / {total.toLocaleString()}</span>
             </div>
           </div>
-          <div className="h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden p-[1px]">
+          <div className="h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden p-px">
             <div
               className="h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-1000 ease-out"
               style={{
@@ -734,7 +740,7 @@ export function BigCountdown({ endsAt }) {
       <div className="grid grid-cols-4 gap-3">
         {segments.map((seg) => (
           <div key={seg.label} className="relative group">
-            <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 text-center transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5">
+            <div className="bg-white/3 border border-white/10 rounded-2xl p-4 text-center transition-all duration-300 group-hover:border-primary/40 group-hover:bg-primary/5">
               <span className="block text-2xl md:text-3xl font-black text-white tabular-nums tracking-tighter">
                 {String(seg.value).padStart(2, '0')}
               </span>
@@ -881,7 +887,7 @@ export function InstagramLiveCard({ url }) {
         </div>
       </div>
 
-      <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/[0.05]">
+      <div className="bg-white/3 border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0">
@@ -923,3 +929,57 @@ export function InstagramLiveCard({ url }) {
   );
 }
 
+
+export function ReviewSection({ winnerName, comment, rating, date }) {
+  const { t } = useTranslation();
+
+  if (!comment) return null;
+
+  return (
+    <div className="mt-16 relative">
+      {/* Decorative background */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full -z-10" />
+      
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-10 space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+            <Sparkles size={12} />
+            Winner's Experience
+          </div>
+          <h2 className="text-3xl font-serif font-bold text-white">What the winner said</h2>
+        </div>
+
+        <div className="relative bg-card border border-border/60 rounded-[2.5rem] p-8 md:p-12 shadow-2xl overflow-hidden">
+          {/* Quote icon decoration */}
+          <Quote className="absolute top-8 left-8 text-primary/10 w-24 h-24 z-0" />
+          
+          <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+            {/* Rating Stars */}
+            <div className="flex gap-1.5">
+              {[...Array(5)].map((_, i) => (
+                <Star
+                  key={i}
+                  size={20}
+                  className={i < Math.floor(rating) ? "fill-amber-500 text-amber-500" : "text-border"}
+                />
+              ))}
+            </div>
+
+            {/* Comment */}
+            <p className="text-xl md:text-2xl font-medium text-white italic leading-relaxed">
+              "{comment}"
+            </p>
+
+            {/* Winner Info */}
+            <div className="pt-6 border-t border-border/40 w-full max-w-xs">
+              <p className="font-bold text-white">{winnerName || "The Winner"}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
+                Verified Winner · {date ? new Date(date).toLocaleDateString() : ""}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

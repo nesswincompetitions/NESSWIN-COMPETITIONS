@@ -12,6 +12,7 @@ import MyTicketsPage from '@/modules/user/profile/pages/MyTicketsPage';
 import OrderHistoryPage from '@/modules/user/profile/pages/OrderHistoryPage';
 import EditProfilePage from '@/modules/user/profile/pages/EditProfilePage';
 import DeleteAccountPage from '@/modules/user/profile/pages/DeleteAccountPage';
+import SupportHubPage from '@/modules/user/support/pages/SupportHubPage';
 import SupportChatPage from '@/modules/user/support/pages/SupportChatPage';
 
 import CompetitionsPage from '@/modules/user/competitions/pages/CompetitionsPage';
@@ -35,6 +36,7 @@ export const UserRoutes = (
     <Route path="/profile/tickets" element={<ProtectedRoute><MyTicketsPage /></ProtectedRoute>} />
     <Route path="/profile/orders" element={<ProtectedRoute><OrderHistoryPage /></ProtectedRoute>} />
     <Route path="/profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+    <Route path="/profile/support" element={<ProtectedRoute><SupportHubPage /></ProtectedRoute>} />
     <Route path="/profile/support/:chatId" element={<ProtectedRoute><SupportChatPage /></ProtectedRoute>} />
     <Route path="/profile/delete" element={<ProtectedRoute><DeleteAccountPage /></ProtectedRoute>} />
     <Route path="/competitions" element={<CompetitionsPage />} />

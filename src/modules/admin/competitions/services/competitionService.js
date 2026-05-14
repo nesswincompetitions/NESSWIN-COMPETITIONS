@@ -35,8 +35,9 @@ const sanitizeIncludedThings = (includedThings) => {
 };
 
 const buildQuestionPayload = (question, imageUrls) => {
+  const timestamp = Date.now();
   const options = (question.answers || []).map((answer, index) => ({
-    option_id: `opt_${Date.now()}_${index}`,
+    option_id: `opt_${timestamp}_${index}`,
     option: String(answer?.text || "").trim(),
   }));
 

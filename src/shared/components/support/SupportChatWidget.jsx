@@ -10,6 +10,7 @@ import {
   Send,
   Trash2,
   X,
+  Gift,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { db } from '@/config/firebase';
@@ -124,6 +125,7 @@ export default function SupportChatWidget({
   receiverRef,
   assignedAdminRef,
   isCurrentUserAdmin = false,
+  chatType = 'support',
   title = 'Support Chat',
   closeLabel = 'Close Ticket',
   onCloseTicket,
@@ -138,6 +140,7 @@ export default function SupportChatWidget({
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [closing, setClosing] = useState(false);
 
+  // ... existing hooks ...
   const scrollAreaRef = useRef(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -313,6 +316,8 @@ export default function SupportChatWidget({
     renderable.push({ type: 'msg', key: msg.id, msg, isOwn, isFirst, isLast });
   });
 
+  const canClose = isCurrentUserAdmin || chatType !== 'winner_chat';
+
   return (
     <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%', minHeight: '560px' }}>
       {/* ─── Header ─── */}
@@ -320,7 +325,7 @@ export default function SupportChatWidget({
         <div className="flex items-center gap-3 min-w-0">
           <div className="relative flex-shrink-0">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20">
-              <LifeBuoy className="h-5 w-5" />
+              {chatType === 'winner_chat' ? <Gift className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />}
             </div>
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
@@ -338,15 +343,17 @@ export default function SupportChatWidget({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleCloseChat}
-          disabled={closing}
-          className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/8 hover:bg-red-500/15 px-3.5 py-2 text-xs font-semibold text-red-400 transition-all disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {closing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-          {closeLabel}
-        </button>
+        {canClose && (
+          <button
+            type="button"
+            onClick={handleCloseChat}
+            disabled={closing}
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/8 hover:bg-red-500/15 px-3.5 py-2 text-xs font-semibold text-red-400 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {closing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {closeLabel}
+          </button>
+        )}
       </header>
 
       {/* ─── Messages ─── */}
@@ -464,7 +471,18 @@ export default function SupportChatWidget({
                 className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)] text-white hover:opacity-90 active:scale-95 transition-all disabled:cursor-not-allowed disabled:opacity-40 shadow-md"
                 aria-label="Send message"
               >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  // Use lucide Send icon when available, otherwise fallback to inline SVG
+                  <>
+                    <Send className="h-4 w-4" />
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden className="h-4 w-4 absolute">
+                      <path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </>
+                )}
               </button>
             </form>
           </>

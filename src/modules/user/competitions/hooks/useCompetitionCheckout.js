@@ -55,6 +55,89 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
   // Stores the question ID for building the order
   const [resolvedQuestionId, setResolvedQuestionId] = useState(null);
 
+  const skillAnswerStorageKey = currentUser?.uid && competitionId
+    ? `nesswin_skill_answer_${currentUser.uid}_${competitionId}`
+    : null;
+
+  const persistSkillAnswer = (nextQuestionId, nextQuestionAnswerMap) => {
+    if (!skillAnswerStorageKey || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(
+        skillAnswerStorageKey,
+        JSON.stringify({
+          questionId: nextQuestionId || null,
+          questionAnswerMap: nextQuestionAnswerMap || null,
+        })
+      );
+    } catch (err) {
+      console.error('Failed to persist skill answer:', err);
+    }
+  };
+
+  const restorePersistedSkillAnswer = () => {
+    if (!skillAnswerStorageKey || typeof window === 'undefined') return null;
+    try {
+      const raw = window.localStorage.getItem(skillAnswerStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.questionAnswerMap) return null;
+      return parsed;
+    } catch (err) {
+      console.error('Failed to restore skill answer:', err);
+      return null;
+    }
+  };
+
+  const buildQuestionAnswerMap = (dataQuestion, answerData) => {
+    if (!dataQuestion) return null;
+
+    const options = Array.isArray(dataQuestion.option) ? dataQuestion.option : [];
+    const selectedOption =
+      options.find((o) => String(o.option_id) === String(answerData?.option_id)) || {};
+
+    return {
+      question_id: dataQuestion.id || answerData?.questionId || '',
+      question: dataQuestion.question || '',
+      option: options,
+      image: dataQuestion.image || dataQuestion.images || [],
+      answer: {
+        option_id: selectedOption.option_id || answerData?.option_id || '',
+        option: selectedOption.option || answerData?.option || '',
+      },
+    };
+  };
+
+  const applyPassedSkillData = (data) => {
+    const restored = data?.question
+      ? buildQuestionAnswerMap(data.question, {
+          option_id: data.answer?.option_id,
+          option: data.answer?.option,
+          questionId: data.questionId,
+        })
+      : restorePersistedSkillAnswer();
+
+    if (restored?.questionAnswerMap) {
+      setQuestionAnswerMap(restored.questionAnswerMap);
+      setResolvedQuestionId(restored.questionId || restored.questionAnswerMap.question_id || null);
+      persistSkillAnswer(
+        restored.questionId || restored.questionAnswerMap.question_id || null,
+        restored.questionAnswerMap
+      );
+    } else if (data?.question) {
+      const nextMap = buildQuestionAnswerMap(data.question, {
+        option_id: data.answer?.option_id,
+        option: data.answer?.option,
+        questionId: data.questionId,
+      });
+      setQuestionAnswerMap(nextMap);
+      setResolvedQuestionId(data.questionId || data.question?.id || null);
+      persistSkillAnswer(data.questionId || data.question?.id || null, nextMap);
+    }
+
+    setSkillPassed(true);
+    setGateStatus('eligible');
+  };
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   /**
@@ -67,9 +150,8 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       const { data } = await getSkillQuestionFn({ competitionId });
 
       if (data.passed) {
-        // User already passed — immediately eligible
-        setSkillPassed(true);
-        setGateStatus('eligible');
+        // User already passed — immediately eligible and rebuild the answer map
+        applyPassedSkillData(data);
         return false; // close modal
       }
 
@@ -107,7 +189,8 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
         const q = query(
           collection(db, 'referrals'),
           where('referrer_id', '==', userRef),
-          where('reward_issued', '==', false)
+          where('reward_issued', '==', false),
+          orderBy('created_at', 'asc')  // Oldest first for consistent consumption order
         );
         const snap = await getDocs(q);
         if (isMounted) {
@@ -146,6 +229,14 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     };
     loadUserTickets();
 
+    const restored = restorePersistedSkillAnswer();
+    if (restored?.questionAnswerMap) {
+      setQuestionAnswerMap(restored.questionAnswerMap);
+      setResolvedQuestionId(restored.questionId || restored.questionAnswerMap.question_id || null);
+      setSkillPassed(true);
+      setGateStatus('eligible');
+    }
+
     // Pre-load the skill gate question if verified
     if (userData?.is_verified) {
       const preLoadGate = async () => {
@@ -154,8 +245,7 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
           if (!isMounted) return;
 
           if (data.passed) {
-            setSkillPassed(true);
-            setGateStatus('eligible');
+            applyPassedSkillData(data);
           } else if (data.question) {
             setActiveQuestion(data.question);
             setGateStatus('quiz_ready');
@@ -250,26 +340,28 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
         const selectedOption = options.find((o) => o.option_id === selectedOptionId) || {};
 
         // Build the question_answer Map to embed in the order
-        setQuestionAnswerMap({
+        const nextMap = {
           question_id: data.questionId,
           question: activeQuestion.question || '',
           option: options,
-          image: activeQuestion.images || [],
+          image: activeQuestion.image || activeQuestion.images || [],
           answer: {
             option_id: selectedOption.option_id || String(selectedOptionId),
             option:    selectedOption.option    || '',
           },
-        });
+        };
+        setQuestionAnswerMap(nextMap);
         setResolvedQuestionId(data.questionId);
+        persistSkillAnswer(data.questionId, nextMap);
         setSkillPassed(true);
         setGateStatus('eligible');
         setIsModalOpen(false);
         toast.success('Skill verified! Now select your tickets.');
       } else {
-        // Wrong answer — server already incremented attempt_number
-        setVerifyError('Incorrect answer. Please try again.');
-        toast.error('Incorrect answer. Please try again.');
+        // Wrong answer — server already incremented attempt_number and cleared the active question.
+        toast.error('Incorrect answer. Loading the next question.');
         setSelectedOptionId(null);
+        await loadSkillQuestion();
       }
     } catch (err) {
       const msg = err?.message || 'Verification failed. Please try again.';
@@ -311,6 +403,14 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
 
       setOrderResult(result);
       setUserHasTickets(true);
+      persistSkillAnswer(null, null);
+      try {
+        if (skillAnswerStorageKey && typeof window !== 'undefined') {
+          window.localStorage.removeItem(skillAnswerStorageKey);
+        }
+      } catch (err) {
+        console.error('Failed to clear persisted skill answer:', err);
+      }
 
       // Refresh ticket list
       const userRef = doc(db, 'user', currentUser.uid);

@@ -22,7 +22,7 @@ const formatDate = (ts) => {
 
 const STATUS_MAP = {
   active:        { label: 'Active',      classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  ready_to_draw: { label: 'Draw Soon',   classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  ready_to_draw: { label: 'Ready To Draw',   classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
   won:           { label: 'Winner!',     classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
   lost:          { label: 'Ended',       classes: 'bg-white/5 text-white/40 border-white/10' },
   default:       { label: 'Pending',     classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },

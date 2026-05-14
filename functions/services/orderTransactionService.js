@@ -74,8 +74,8 @@ export async function runOrderTransaction(
 ) {
   // ── Input validation ─────────────────────────────────────────────────────────
   const qty = Number(ticketQuantity);
-  if (!Number.isInteger(qty) || qty <= 0) {
-    throw new Error("Quantity must be a positive integer.");
+  if (!Number.isInteger(qty) || qty < 0) {
+    throw new Error("Quantity must be a non-negative integer.");
   }
   if (qty > 100) {
     throw new Error("Maximum 100 tickets per order.");
@@ -94,6 +94,10 @@ export async function runOrderTransaction(
 
   const clampedReferralTickets = Math.max(0, Math.floor(freeTicketsToUse));
   const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets;
+
+  if (totalTicketsToGenerate <= 0) {
+    throw new Error("At least one ticket must be requested (paid or free).");
+  }
 
   // Pre-build ticket refs outside the transaction (auto-ids don't require I/O)
   const ticketRefs = Array.from({ length: totalTicketsToGenerate }, () =>
@@ -132,15 +136,6 @@ export async function runOrderTransaction(
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) throw new Error("User not found.");
 
-    // ── NEW: Skill Gate Verification ──────────────────────────────────────────
-    // Enforce that the user has actually passed the quiz for this competition.
-    const attemptRef = db.collection("skill_attempts").doc(`${uid}_${competitionId}`);
-    const attemptSnap = await transaction.get(attemptRef);
-
-    if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
-      throw new Error("You must pass the skill-gate quiz before entering this competition.");
-    }
-
     // Validate each referral doc
     let validReferralCount = 0;
     const referralSnaps = await Promise.all(
@@ -164,6 +159,15 @@ export async function runOrderTransaction(
     if (clampedReferralTickets > 0 && validReferralCount < clampedReferralTickets) {
       throw new Error("Not enough valid referral tickets found.");
     }
+
+      // ── Skill Gate Verification ──────────────────────────────────────────
+      // Enforce that the user has passed the quiz for this competition.
+      const attemptRef = db.collection("skill_attempts").doc(`${uid}_${competitionId}`);
+      const attemptSnap = await transaction.get(attemptRef);
+
+      if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
+        throw new Error("You must pass the skill-gate quiz before entering this competition.");
+      }
 
     // ══════════════════════════════════════════════════════════════════════════
     // PHASE 2 — MATH & VALIDATION (no I/O — pure computation)
@@ -213,7 +217,8 @@ export async function runOrderTransaction(
     transaction.set(orderRef, {
       competition_id: competitionRef,
       user_ref: userRef,
-      total_ticket: qty,
+      total_ticket: totalTicketsToGenerate,
+      paid_ticket: qty,
       free_ticket: packBonusTickets,
       free_used: clampedReferralTickets,
       pack_type: packType,
@@ -299,24 +304,71 @@ export async function runOrderTransaction(
       });
     }
 
-    // Write 5 — Burn referrals + audit log
+    // Write 5 — Burn referrals + audit logs (grouped by reward_type for proper audit trail)
     if (clampedReferralTickets > 0) {
-      referralRefs.forEach((ref) => {
-        transaction.update(ref, {
+      // Group referrals by reward_type for separate audit logging
+      const referralsByType = {
+        admin_bonus: [],
+        referral: [],
+        other: []
+      };
+
+      referralSnaps.forEach((snap, idx) => {
+        const refData = snap.data();
+        const rewardType = refData.reward_type || 'referral';
+        
+        // Mark referral as issued
+        transaction.update(referralRefs[idx], {
           reward_issued: true,
           reward_issued_at: serverNow,
         });
+
+        // Track for audit logging
+        if (rewardType === 'admin_bonus') {
+          referralsByType.admin_bonus.push(1);
+        } else if (rewardType === 'referral') {
+          referralsByType.referral.push(1);
+        } else {
+          referralsByType.other.push(1);
+        }
       });
 
-      const referralLogRef = db.collection("free_ticket_log").doc();
-      transaction.set(referralLogRef, {
-        user_id: userRef,
-        order_id: orderRef,
-        competition_id: competitionRef,
-        quantity: clampedReferralTickets,
-        reason: "referral",
-        created_at: serverNow,
-      });
+      // Create separate audit logs for each reward type
+      if (referralsByType.admin_bonus.length > 0) {
+        const adminBonusLogRef = db.collection("free_ticket_log").doc();
+        transaction.set(adminBonusLogRef, {
+          user_id: userRef,
+          order_id: orderRef,
+          competition_id: competitionRef,
+          quantity: referralsByType.admin_bonus.length,
+          reason: "admin_bonus",
+          created_at: serverNow,
+        });
+      }
+
+      if (referralsByType.referral.length > 0) {
+        const referralLogRef = db.collection("free_ticket_log").doc();
+        transaction.set(referralLogRef, {
+          user_id: userRef,
+          order_id: orderRef,
+          competition_id: competitionRef,
+          quantity: referralsByType.referral.length,
+          reason: "referral",
+          created_at: serverNow,
+        });
+      }
+
+      if (referralsByType.other.length > 0) {
+        const otherLogRef = db.collection("free_ticket_log").doc();
+        transaction.set(otherLogRef, {
+          user_id: userRef,
+          order_id: orderRef,
+          competition_id: competitionRef,
+          quantity: referralsByType.other.length,
+          reason: "free_ticket",
+          created_at: serverNow,
+        });
+      }
     }
 
     // Write 6 — Update user stats

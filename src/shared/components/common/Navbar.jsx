@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2, LifeBuoy, Loader2 } from 'lucide-react';
+import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2, LifeBuoy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { deleteAccount } from '@/modules/user/profile/services/profileService';
-import { createSupportChat } from '@/shared/services/supportChatService';
 import { toast } from 'react-hot-toast';
 import { Gift } from 'lucide-react';
 import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
@@ -30,7 +29,6 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isCreatingSupportChat, setIsCreatingSupportChat] = useState(false);
   const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   const desktopLanguageMenuRef = useRef(null);
@@ -85,24 +83,10 @@ export default function Navbar() {
     }
   };
 
-  const handleContactSupport = async () => {
-    if (!currentUser?.uid) return;
-
-    setIsCreatingSupportChat(true);
-    try {
-      const chatId = await createSupportChat(currentUser.uid);
-      setProfileOpen(false);
-      setMenuOpen(false);
-      navigate(`/profile/support/${chatId}`);
-    } catch (error) {
-      console.error("Support chat error:", error);
-      if (error.message?.includes("index")) {
-        console.error("MISSING INDEX LINK:", error.message);
-      }
-      toast.error(error.message || 'No support agents are online right now.');
-    } finally {
-      setIsCreatingSupportChat(false);
-    }
+  const handleContactSupport = () => {
+    setProfileOpen(false);
+    setMenuOpen(false);
+    navigate('/profile/support');
   };
 
   useEffect(() => {
@@ -270,14 +254,9 @@ export default function Navbar() {
         <button
           type="button"
           onClick={handleContactSupport}
-          disabled={isCreatingSupportChat}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer disabled:opacity-60"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
         >
-          {isCreatingSupportChat ? (
-            <Loader2 className="w-4 h-4 text-[var(--color-primary)] animate-spin" />
-          ) : (
             <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-          )}
           Contact Support
         </button>
 

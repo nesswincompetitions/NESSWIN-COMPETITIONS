@@ -16,7 +16,7 @@ function pickRandom(arr) {
  * IMPORTANT: The correct answer MUST never leave the server.
  */
 function sanitizeQuestion(doc) {
-  const { answer, created_at, updated_at, competition_id, ...safe } = doc.data();
+  const { answer: _answer, created_at: _createdAt, updated_at: _updatedAt, competition_id: _competitionId, ...safe } = doc.data();
   return { id: doc.id, ...safe };
 }
 
@@ -29,11 +29,12 @@ function sanitizeQuestion(doc) {
  *
  * Edge cases handled:
  *  1. Already passed            → returns { passed: true }
- *  2. Active question exists     → returns SAME question (refresh-cheat prevention)
- *  3. Active question deleted    → clears stale ref, picks a fresh unseen question
- *  4. Admin shrinks pool         → filters shown_questions against live IDs before cycle
- *  5. No questions at all        → throws HttpsError("failed-precondition")
- *  6. All questions exhausted    → resets cycle and picks fresh
+ *  2. Active question exists     → returns SAME question until submitted (refresh-cheat prevention)
+ *  3. Wrong answer submitted     → clears active question, picks next unseen question
+ *  4. Active question deleted    → clears stale ref, picks a fresh unseen question
+ *  5. Admin shrinks pool         → filters shown_questions against live IDs before cycle
+ *  6. No questions at all        → throws HttpsError("failed-precondition")
+ *  7. All questions exhausted    → resets cycle and picks fresh
  *
  * Creates or merges a single  skill_attempts/{uid}_{competitionId}  document.
  *
@@ -84,11 +85,30 @@ export const getSkillQuestion = onCall(async (request) => {
       if (attemptSnap.exists) {
         const attemptData = attemptSnap.data();
         if (attemptData.passed === true) {
-          return { passed: true };
+          let passedQuestion = null;
+          let questionId = attemptData.question_id?.id || null;
+
+          if (attemptData.question_id) {
+            const passedQuestionSnap = await transaction.get(attemptData.question_id);
+            if (passedQuestionSnap.exists) {
+              passedQuestion = sanitizeQuestion(passedQuestionSnap);
+              questionId = passedQuestionSnap.id;
+            }
+          }
+
+          return {
+            passed: true,
+            questionId,
+            question: passedQuestion,
+            answer: {
+              option_id: attemptData.selected_option_id || '',
+              option: attemptData.answer_given || '',
+            },
+          };
         }
 
-        // ── Edge case 2 & 3: active question set ─────────────────────────────
-        // Return SAME question to prevent refresh-cheating.
+        // ── Edge case 2 & 4: active question set ─────────────────────────────
+        // Return SAME question to prevent refresh-cheating while the question is active.
         // If the question was deleted by admin, clear the stale ref and fall
         // through to pick a fresh one from the current pool.
         if (attemptData.question_id) {
@@ -265,7 +285,6 @@ export const submitSkillAnswer = onCall(async (request) => {
       const correctOptionId = questionData.answer?.option_id;
 
       // ── Grade ────────────────────────────────────────────────────────────
-      // eslint-disable-next-line eqeqeq
       const passed = String(selectedOptionId) == String(correctOptionId);
 
       const now = admin.firestore.FieldValue.serverTimestamp();
@@ -282,8 +301,10 @@ export const submitSkillAnswer = onCall(async (request) => {
         // ── WRITE: wrong answer — only increment attempt count ─────────────
         transaction.update(attemptRef, {
           answer_given: answerGivenText,
+          selected_option_id: String(selectedOptionId),
           attempt_number: admin.firestore.FieldValue.increment(1),
           attempted_at: now,
+          question_id: admin.firestore.FieldValue.delete(),
         });
 
         return { passed: false };
@@ -293,6 +314,7 @@ export const submitSkillAnswer = onCall(async (request) => {
       transaction.update(attemptRef, {
         passed: true,
         answer_given: answerGivenText,
+        selected_option_id: String(selectedOptionId),
         attempt_number: admin.firestore.FieldValue.increment(1),
         attempted_at: now,
         // question_id stays as the final passed question ref (already set)

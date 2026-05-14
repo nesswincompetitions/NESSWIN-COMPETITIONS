@@ -15,7 +15,9 @@ import {
   BigCountdown,
   InstagramLiveCard,
   WhatsIncluded,
+  ReviewSection,
 } from '@/modules/user/competitions/components/CompetitionDetailsSections';
+import WinnerReviewForm from '@/modules/user/competitions/components/WinnerReviewForm';
 import { SkillGateModalContent } from '@/modules/user/competitions/components/SkillGateModalContent';
 import { useCompetitionCheckout } from '@/modules/user/competitions/hooks/useCompetitionCheckout';
 import { useCheckout } from '@/modules/user/competitions/hooks/useCheckout';
@@ -107,18 +109,6 @@ export default function CompetitionDetails() {
 
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState(false);
 
-  // ── Countdown auto-expire ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!c || !c.endsAt || c.status === 'end') return;
-    const interval = setInterval(() => {
-      if (Date.now() >= c.endsAt) {
-        setC((prev) => ({ ...prev, status: 'end' }));
-        clearInterval(interval);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [c?.endsAt, c?.status]);
-
   // ── Fetch competition ────────────────────────────────────────────────────────
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -156,6 +146,27 @@ export default function CompetitionDetails() {
         <div className="pt-16 lg:pt-20">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <Breadcrumb title={c.title} />
+          
+          {/* Winner Review Section */}
+          {currentUser && c?.status === 'completed' && (
+            (() => {
+              const winnerId = typeof c.winner_ref === 'string' ? c.winner_ref : c.winner_ref?.id;
+              const isWinner = winnerId === currentUser.uid;
+              
+              if (isWinner) {
+                return (
+                  <div className="mb-12">
+                    <WinnerReviewForm 
+                      competitionId={c.id} 
+                      userId={currentUser.uid} 
+                      alreadyReviewed={!!c.winner_comment}
+                    />
+                  </div>
+                );
+              }
+              return null;
+            })()
+          )}
 
           <div className="grid lg:grid-cols-2 gap-10 xl:gap-16">
             <div className="space-y-4">
@@ -163,8 +174,12 @@ export default function CompetitionDetails() {
 
               <div className="hidden lg:block space-y-4">
                 <WhatsIncluded items={c.included} />
-                <BigCountdown endsAt={c.endsAt} />
-                {c.instagramLiveUrl && <InstagramLiveCard url={c.instagramLiveUrl} />}
+                {(c.status === 'active' || c.status === 'sold_out') && (
+                  <BigCountdown endsAt={c.endsAt} />
+                )}
+                {(c.status === 'drawing' || c.status === 'ready_to_draw') && c.instagramLiveUrl && (
+                  <InstagramLiveCard url={c.instagramLiveUrl} />
+                )}
               </div>
             </div>
 
@@ -213,11 +228,24 @@ export default function CompetitionDetails() {
 
           <div className="lg:hidden mt-8 space-y-8">
             <WhatsIncluded items={c.included} />
-            <BigCountdown endsAt={c.endsAt} />
-            {c.instagramLiveUrl && <InstagramLiveCard url={c.instagramLiveUrl} />}
+            {(c.status === 'active' || c.status === 'sold_out') && (
+              <BigCountdown endsAt={c.endsAt} />
+            )}
+            {(c.status === 'drawing' || c.status === 'ready_to_draw') && c.instagramLiveUrl && (
+              <InstagramLiveCard url={c.instagramLiveUrl} />
+            )}
           </div>
 
           <ParticipantsSection participants={c.participants} />
+
+          {c.status === 'completed' && c.winner_comment && (
+            <ReviewSection 
+              winnerName={c.participants?.find(p => p.id === (typeof c.winner_ref === 'string' ? c.winner_ref : c.winner_ref?.id))?.name || 'The Winner'}
+              comment={c.winner_comment}
+              rating={c.winner_rating}
+              date={c.winner_review_at?.toMillis ? c.winner_review_at.toMillis() : c.winner_review_at}
+            />
+          )}
 
           <div className="pb-20" />
         </div>
@@ -256,7 +284,7 @@ export default function CompetitionDetails() {
             {userTickets.map((tk) => (
               <div
                 key={tk.id}
-                className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-primary/30 transition-all group"
+                className="flex items-center justify-between p-4 rounded-2xl bg-white/3 border border-white/10 hover:border-primary/30 transition-all group"
               >
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">Ticket ID</span>

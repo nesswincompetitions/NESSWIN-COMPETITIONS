@@ -8,7 +8,7 @@ import Modal from '@/shared/components/ui/Modal';
 import {
   Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2, Download
 } from 'lucide-react';
-import { fetchBonusTicketsList } from '@/modules/admin/bonus/services/bonusService';
+import { fetchBonusTicketsList, searchUsers, grantAdminBonus, fetchAdminBonusTotal } from '@/modules/admin/bonus/services/bonusService';
 import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
@@ -18,14 +18,20 @@ const BonusTickets = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const { data: ticketsData, loading } = useAdminQuery('bonus_tickets_list', fetchBonusTicketsList);
+  const { data: totalIssuedData } = useAdminQuery('admin_bonus_total', fetchAdminBonusTotal);
   const tickets = ticketsData || [];
+  const totalIssued = totalIssuedData || 0;
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Form State
   const [assignUser, setAssignUser] = useState('');
+  const [assignUserId, setAssignUserId] = useState('');
   const [assignAmount, setAssignAmount] = useState(1);
   const [assignReason, setAssignReason] = useState('');
   const [assignExpiry, setAssignExpiry] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -74,11 +80,119 @@ const BonusTickets = () => {
     toast.success('Bonus tickets list exported to CSV');
   };
 
-  const handleAssignSubmit = (e) => {
+  // Handle user search
+  const handleUserSearch = async (e) => {
+    const value = e.target.value;
+    setAssignUser(value);
+    setAssignUserId(''); // Clear user ID when search term changes
+    
+    if (value.length < 2) {
+      setUserSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await searchUsers(value);
+      setUserSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Failed to search users');
+      setUserSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle user selection from dropdown
+  const handleSelectUser = (user) => {
+    setAssignUser(user.display_name || user.name || user.email);
+    setAssignUserId(user.id);
+    setUserSearchResults([]);
+  };
+
+  // Handle quantity input - validate no negative numbers
+  const handleAmountChange = (e) => {
+    let value = e.target.value;
+    
+    // Allow empty input while user is typing
+    if (value === '') {
+      setAssignAmount('');
+      return;
+    }
+    
+    // Convert to number and validate
+    let num = parseInt(value, 10);
+    
+    // If not a valid number, keep current value
+    if (isNaN(num)) {
+      return;
+    }
+    
+    // Clamp to valid range (1-1000)
+    if (num < 1) num = 1;
+    if (num > 1000) num = 1000;
+    
+    setAssignAmount(num);
+  };
+
+  const handleAssignSubmit = async (e) => {
     e.preventDefault();
-    // In a real app, you'd call a Cloud Function here
-    toast.error('Direct ticket assignment is coming soon');
-    setIsAssignModalOpen(false);
+
+    // Validation
+    if (!assignUserId) {
+      toast.error('Please select a user');
+      return;
+    }
+
+    const qty = Number(assignAmount);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      toast.error('Please enter a valid quantity (1 or more)');
+      return;
+    }
+
+    if (qty > 1000) {
+      toast.error('Maximum 1000 tickets per grant');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await grantAdminBonus(assignUserId, qty, assignReason);
+      
+      if (result.success) {
+        toast.success(result.message);
+        
+        // Reset form
+        setAssignUser('');
+        setAssignUserId('');
+        setAssignAmount(1);
+        setAssignReason('');
+        setAssignExpiry('');
+        setIsAssignModalOpen(false);
+
+        // Trigger refetch of bonus tickets
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error granting bonus:', error);
+      toast.error(error.message || 'Failed to grant bonus tickets');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    if (!isSubmitting) {
+      setIsAssignModalOpen(false);
+      // Reset form
+      setAssignUser('');
+      setAssignUserId('');
+      setAssignAmount(1);
+      setAssignReason('');
+      setAssignExpiry('');
+      setUserSearchResults([]);
+    }
   };
 
   return (
@@ -96,7 +210,7 @@ const BonusTickets = () => {
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Total Issued</p>
               <p className="text-lg font-bold text-white leading-none mt-0.5">
-                {tickets.reduce((acc, curr) => acc + (curr.quantity || 0), 0).toLocaleString()}
+                {totalIssued.toLocaleString()}
               </p>
             </div>
           </Card>
@@ -220,56 +334,115 @@ const BonusTickets = () => {
       {/* 3. Assign Modal */}
       <Modal
         isOpen={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
+        onClose={handleCloseModal}
         title={t('bonusTickets.issueTickets')}
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
+          {/* User Search */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.searchUser')}</label>
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
               <input
                 type="text"
-                required
+                required={!assignUserId}
                 value={assignUser}
-                onChange={(e) => setAssignUser(e.target.value)}
+                onChange={handleUserSearch}
                 placeholder={t('bonusTickets.modal.searchUserPlaceholder')}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
+                disabled={isSubmitting}
+                autoComplete="off"
               />
+              
+              {/* Search Results Dropdown */}
+              {assignUser && (userSearchResults.length > 0 || isSearching) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg z-50 max-h-48 overflow-y-auto">
+                  {isSearching ? (
+                    <div className="p-3 text-center text-gray-400">
+                      <Loader2 size={16} className="inline animate-spin mr-2" />
+                      Searching...
+                    </div>
+                  ) : userSearchResults.length > 0 ? (
+                    userSearchResults.map(user => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => handleSelectUser(user)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors border-b border-white/5 last:border-b-0 text-sm"
+                      >
+                        <div className="font-medium text-white">{user.display_name || user.name || 'Unknown'}</div>
+                        <div className="text-xs text-gray-400">{user.email}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="p-3 text-center text-gray-400 text-sm">No users found</div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {assignUserId && (
+              <div className="mt-2 px-3 py-2 bg-green-400/10 border border-green-400/30 rounded-lg text-sm text-green-300">
+                ✓ User selected
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.numberOfTickets')}</label>
-              <input
-                type="number"
-                required
-                min="1"
-                value={assignAmount}
-                onChange={(e) => setAssignAmount(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
-              />
-            </div>
-          </div>
-
+          {/* Quantity Input */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.reasonNote')}</label>
-            <textarea
+            <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.numberOfTickets')}</label>
+            <input
+              type="number"
               required
+              min="1"
+              max="1000"
+              value={assignAmount}
+              onChange={handleAmountChange}
+              placeholder="Enter number of tickets (1-1000)"
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-gray-400">
+              Note: {assignAmount > 1 ? `${assignAmount} separate referral documents` : 'Creates 1 referral document'} will be created
+            </p>
+          </div>
+
+          {/* Reason */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.reasonNote')} <span className="text-gray-500">(optional)</span></label>
+            <textarea
               value={assignReason}
               onChange={(e) => setAssignReason(e.target.value)}
               placeholder={t('bonusTickets.modal.reasonPlaceholder')}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
+              disabled={isSubmitting}
             />
           </div>
 
+          {/* Buttons */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
-            <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={handleCloseModal}
+              disabled={isSubmitting}
+            >
               {t('common.cancel')}
             </Button>
-            <Button type="submit" variant="primary">
-              {t('bonusTickets.issueTickets')}
+            <Button 
+              type="submit" 
+              variant="primary"
+              disabled={isSubmitting || !assignUserId || !assignAmount}
+              className="flex items-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Granting...
+                </>
+              ) : (
+                `${t('bonusTickets.issueTickets')}`
+              )}
             </Button>
           </div>
         </form>

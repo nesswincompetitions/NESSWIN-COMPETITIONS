@@ -73,14 +73,37 @@ export default function NotificationBell() {
 
     // 3. Navigate based on type
     setIsOpen(false);
+    
     if (notif.type === 'payment_success' || notif.type === 'ticket_issued') {
       navigate('/profile/tickets');
-    } else if (notif.category === 'Support') {
-      // If we have a chat_ref, we could link to support page
-      if (notif.chat_ref) {
-        const chatId = typeof notif.chat_ref === 'string' 
+    } else if (notif.category === 'messages' || notif.type === 'support_replied' || notif.category === 'Support') {
+      // Extract chatId from multiple possible sources
+      let chatId = null;
+      
+      // Try parameter_data first (common for push notifications)
+      if (notif.parameter_data) {
+        try {
+          const params = typeof notif.parameter_data === 'string' 
+            ? JSON.parse(notif.parameter_data) 
+            : notif.parameter_data;
+          chatId = params.chatId || params.chat_id;
+        } catch (e) {
+          console.warn('Failed to parse notification parameter_data:', e);
+        }
+      }
+      
+      // Fallback to chat_ref or explicit chat_id
+      if (!chatId && notif.chat_ref) {
+        chatId = typeof notif.chat_ref === 'string' 
           ? notif.chat_ref.split('/').pop() 
           : notif.chat_ref.id;
+      }
+      
+      if (!chatId && notif.chat_id) {
+        chatId = notif.chat_id;
+      }
+
+      if (chatId) {
         navigate(`/profile/support/${chatId}`);
       } else {
         navigate('/profile');

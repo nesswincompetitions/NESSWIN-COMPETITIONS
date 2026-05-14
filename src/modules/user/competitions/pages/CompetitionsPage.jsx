@@ -312,7 +312,7 @@ export default function CompetitionsPage() {
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
             badgeType: data.status === 'active' ? 'new' : 'ended',
-            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Draw Soon' : (data.status === 'sold_out' ? 'Sold Out' : data.status)),
+            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Ready To Draw' : (data.status === 'sold_out' ? 'Sold Out' : data.status)),
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
@@ -414,7 +414,7 @@ export default function CompetitionsPage() {
 
           {/* ── Cards grid ── */}
           {loading ? (
-            <LoadingSpinner fullScreen={false} message={t("common.loading")} />
+            null
           ) : filtered.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filtered.map((comp, index) => (

@@ -21,16 +21,36 @@ export const fetchAdminCompetitionDetail = async (id) => {
   const questionsSnap = await getDocs(questionsQuery);
   const questions = questionsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+  const winnerRef = compDoc.data().winner_ref;
+  const winnerTicketRef = compDoc.data().winner_ticket_ref;
+
+  let winnerDetails = null;
+  if (winnerRef || winnerTicketRef) {
+    const [winnerSnap, winnerTicketSnap] = await Promise.all([
+      winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
+      winnerTicketRef ? getDoc(winnerTicketRef) : Promise.resolve(null),
+    ]);
+
+    winnerDetails = {
+      user: winnerSnap?.exists() ? { id: winnerSnap.id, ...winnerSnap.data() } : null,
+      ticket: winnerTicketSnap?.exists() ? { id: winnerTicketSnap.id, ...winnerTicketSnap.data() } : null,
+    };
+  }
+
   return { 
     id: compDoc.id, 
     ...compDoc.data(),
-    questions 
+    questions,
+    winnerDetails,
   };
 };
 
 export const updateCompetition = async (id, data) => {
   const compRef = doc(db, 'competition', id);
-  await updateDoc(compRef, data);
+  await updateDoc(compRef, {
+    ...data,
+    updated_at: serverTimestamp(),
+  });
 };
 
 export const deleteCompetition = async (id) => {

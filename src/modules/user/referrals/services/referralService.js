@@ -44,11 +44,13 @@ export const fetchPendingReferralRewards = async (uid) => {
   const snap = await getDocs(q);
   if (snap.empty) return [];
 
-  return snap.docs.map((d) => ({
-    id: d.id,
-    updateTime: d.updateTime,
-    ...d.data(),
-  }));
+  return snap.docs
+    .map((d) => ({
+      id: d.id,
+      updateTime: d.updateTime,
+      ...d.data(),
+    }))
+    .filter((d) => d.reward_type !== 'admin_bonus');
 };
 
 /**
@@ -168,7 +170,9 @@ export const fetchAllReferrals = async (uid) => {
     })
   );
 
-  return referrals.sort((a, b) => b.created_at?.toMillis() - a.created_at?.toMillis());
+  return referrals
+    .filter((r) => r.reward_type !== 'admin_bonus')
+    .sort((a, b) => b.created_at?.toMillis() - a.created_at?.toMillis());
 };
 
 /**

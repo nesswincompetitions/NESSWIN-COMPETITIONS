@@ -53,7 +53,7 @@ export function SkillGateModalContent({
             <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Skill Question</span>
           </div>
           <div className="text-xs text-muted-foreground">
-            Unlimited attempts
+            A new question appears after each miss
           </div>
         </div>
 
@@ -81,7 +81,7 @@ export function SkillGateModalContent({
                       onClick={() => setSelectedOptionId(opt.option_id)}
                       className={`group/opt relative w-full text-left px-5 py-4 rounded-xl border transition-all duration-300 cursor-pointer ${isSelected
                         ? 'bg-primary/10 border-primary shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
-                        : 'bg-white/[0.03] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
+                        : 'bg-white/3 border-white/5 hover:border-white/20 hover:bg-white/5'
                         }`}
                     >
                       <div className="flex items-center justify-between">
