@@ -339,7 +339,11 @@ export async function runOrderTransaction(
       tickets: ticketResults,
       totalAmount,
       packType,
+      // Total free tickets awarded/used (pack bonus + referrals)
       freeTickets: packBonusTickets + clampedReferralTickets,
+      // Expose components separately so callers can craft distinct notifications
+      packBonusTickets,
+      referralTicketsUsed: clampedReferralTickets,
     };
   });
 
