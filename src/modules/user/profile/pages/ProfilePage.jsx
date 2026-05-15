@@ -101,10 +101,12 @@ export default function ProfilePage() {
     }
     setIsSavingField(true);
     try {
-      const payload = editingField === 'user_name'
-        ? { user_name: trimmed.toLowerCase() }
-        : { display_name: trimmed };
-      await updateProfile(currentUser.uid, payload);
+      if (editingField === 'user_name') {
+        const { updateUsername } = await import('@/modules/user/profile/services/profileService');
+        await updateUsername(currentUser.uid, trimmed.toLowerCase());
+      } else {
+        await updateProfile(currentUser.uid, { display_name: trimmed });
+      }
       toast.success('Updated successfully!');
       setEditingField(null);
     } catch (err) {

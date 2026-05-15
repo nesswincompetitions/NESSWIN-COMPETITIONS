@@ -305,10 +305,12 @@ function SelectTicketPanel({
       {/* ── REAL-TIME SUMMARY BAR ─────────────────────────────────────────── */}
       <div className="bg-white/2 border border-white/8 rounded-2xl overflow-hidden">
         {/* Ticket breakdown strip */}
-        <div className="grid grid-cols-3 divide-x divide-white/5 border-b border-white/5">
+        <div className={`grid divide-x divide-white/5 border-b border-white/5 ${
+          pendingReferralCount > 0 ? 'grid-cols-3' : 'grid-cols-2'
+        }`}>
           {[
             { label: 'Paid', value: paidQty, color: 'text-primary' },
-            { label: 'Referral', value: referralQty, color: 'text-emerald-400' },
+            ...(pendingReferralCount > 0 ? [{ label: 'Referral', value: referralQty, color: 'text-emerald-400' }] : []),
             { label: 'Bonus', value: bonusTickets, color: 'text-amber-400' },
           ].map(({ label, value, color }) => (
             <div key={label} className="py-3 text-center">
@@ -362,13 +364,15 @@ function SelectTicketPanel({
           {/* Grand total row */}
           <div className="flex justify-between items-center">
             <span className="text-base font-black text-white uppercase tracking-wide">{t('common.total')}</span>
-            {isZeroPayment ? (
+            {referralQty > 0 && paidQty === 0 ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">FREE</span>
                 <span className="text-2xl font-black text-emerald-400">0.00 €</span>
               </div>
             ) : (
-              <span className="text-2xl font-black text-primary">{totalAmount.toFixed(2)} €</span>
+              <span className={`text-2xl font-black ${totalAmount === 0 ? 'text-muted-foreground' : 'text-primary'}`}>
+                {totalAmount.toFixed(2)} €
+              </span>
             )}
           </div>
         </div>
@@ -388,7 +392,7 @@ function SelectTicketPanel({
         onClick={onSubmit}
         disabled={isProcessing}
         className={`group/btn relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer ${
-          isZeroPayment
+          (referralQty > 0 && paidQty === 0)
             ? 'bg-emerald-500'
             : 'bg-primary'
         }`}
@@ -397,7 +401,7 @@ function SelectTicketPanel({
         <div className="relative flex items-center justify-center gap-3">
           {isProcessing ? (
             <LoadingSpinner fullScreen={false} size="w-5 h-5" message={null} />
-          ) : isZeroPayment ? (
+          ) : (referralQty > 0 && paidQty === 0) ? (
             <Gift className="w-5 h-5 text-black" />
           ) : (
             <ShoppingCart className="w-5 h-5 text-black" />
@@ -405,7 +409,7 @@ function SelectTicketPanel({
           <span className="text-base font-black text-black uppercase tracking-widest">
             {isProcessing
               ? t('common.processing')
-              : isZeroPayment
+              : (referralQty > 0 && paidQty === 0)
                 ? 'Claim Free Tickets'
                 : t('competitionDetails.proceedToPayment')}
           </span>

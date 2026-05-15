@@ -216,6 +216,7 @@ export const completeOnboarding = async (username, referralCodeInput) => {
   const generatedReferralCode = generateReferralCode(cleanUsername);
   const currentUserRef = doc(db, "user", user.uid);
 
+
   // 4. Execute the Transaction (All reads must happen before writes)
   await runTransaction(db, async (transaction) => {
     
@@ -232,7 +233,7 @@ export const completeOnboarding = async (username, referralCodeInput) => {
       throw new Error("Referral code already used.");
     }
 
-    // Write: Update current user (no user_name_lower field)
+    // Write: Update current user
     const updateData = {
       user_name: cleanUsername,
       referral_code: generatedReferralCode,
@@ -274,6 +275,7 @@ export const completeOnboarding = async (username, referralCodeInput) => {
         order_id: null,
         quantity: 1,
         reason: "referral_auto_reward",
+        reward_type: "referral",
         created_at: serverTimestamp(),
       });
 

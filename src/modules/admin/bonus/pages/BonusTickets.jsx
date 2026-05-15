@@ -36,6 +36,7 @@ const BonusTickets = () => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCompId, setSelectedCompId] = useState('');
 
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
   const competitionMap = useMemo(() => Object.fromEntries(competitions.map((competition) => [competition.id, competition])), [competitions]);
@@ -46,10 +47,21 @@ const BonusTickets = () => {
     const user = userMap[userId];
     const competition = competitionMap[competitionId];
 
+    const rewardTypeMap = {
+      'admin_bonus': 'admin_bonus',
+      'referral_auto_reward': 'referral',
+      'ticket_bonus': 'pack_bonus',
+      'referral': 'referral',
+      'free_ticket': 'other'
+    };
+
+    const resolvedRewardType = ticket.reward_type || rewardTypeMap[ticket.reason] || 'admin_bonus';
+
     return {
       ...ticket,
       userName: user?.display_name || user?.name || 'Unknown User',
       competitionTitle: competition?.title || 'N/A',
+      resolvedRewardType
     };
   }), [ticketsRaw, userMap, competitionMap]);
 
@@ -184,7 +196,7 @@ const BonusTickets = () => {
 
     setIsSubmitting(true);
     try {
-      const result = await grantAdminBonus(assignUserId, qty, assignReason);
+      const result = await grantAdminBonus(assignUserId, qty, assignReason, selectedCompId);
       
       if (result.success) {
         toast.success(result.message);
@@ -195,6 +207,7 @@ const BonusTickets = () => {
         setAssignAmount(1);
         setAssignReason('');
         setAssignExpiry('');
+        setSelectedCompId('');
         setIsAssignModalOpen(false);
 
         // Realtime listeners update the list automatically.
@@ -216,6 +229,7 @@ const BonusTickets = () => {
       setAssignAmount(1);
       setAssignReason('');
       setAssignExpiry('');
+      setSelectedCompId('');
       setUserSearchResults([]);
     }
   };
@@ -304,6 +318,7 @@ const BonusTickets = () => {
                   <TableRow>
                     <TableHead>{t('bonusTickets.table.user')}</TableHead>
                     <TableHead className="text-center">{t('bonusTickets.table.tickets')}</TableHead>
+                    <TableHead>Reward Type</TableHead>
                     <TableHead>{t('bonusTickets.table.reason')}</TableHead>
                     <TableHead>Competition</TableHead>
                     <TableHead>{t('bonusTickets.table.date')}</TableHead>
@@ -318,6 +333,11 @@ const BonusTickets = () => {
                         <span className={`font-bold font-mono px-2 py-1 rounded-md text-emerald-400 bg-emerald-400/10`}>
                           +{ticket.quantity}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {ticket.resolvedRewardType.replace('_', ' ')}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-gray-300">
@@ -431,6 +451,7 @@ const BonusTickets = () => {
               Note: {assignAmount > 1 ? `${assignAmount} separate referral documents` : 'Creates 1 referral document'} will be created
             </p>
           </div>
+
 
           {/* Reason */}
           <div className="space-y-2">

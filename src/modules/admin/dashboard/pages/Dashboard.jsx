@@ -171,8 +171,8 @@ const Dashboard = () => {
                       <TableCell>€{revenue.toLocaleString()}</TableCell>
                       <TableCell>
                         {comp.draw_date?.toMillis
-                          ? new Date(comp.draw_date.toMillis()).toLocaleDateString()
-                          : comp.draw_date ? new Date(comp.draw_date).toLocaleDateString() : 'N/A'}
+                          ? new Date(comp.draw_date.toMillis()).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : comp.draw_date ? new Date(comp.draw_date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

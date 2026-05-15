@@ -29,11 +29,6 @@ const getUserRef = (userRefLike) => {
 
 const getRefPath = (refLike) => refLike?.path ?? '';
 
-const buildSupportUnavailableError = () => {
-  const error = new Error('No support agents are online right now. Please try again later.');
-  error.code = 'support/no-online-admins';
-  return error;
-};
 
 export const createSupportChat = async (currentUserRefLike) => {
   const currentUserRef = getUserRef(currentUserRefLike);
@@ -58,27 +53,42 @@ export const createSupportChat = async (currentUserRefLike) => {
     return existingChatSnap.docs[0].id;
   }
 
-  const adminsQuery = query(
+  // 1. Try to find an online admin first (prioritize them)
+  const onlineAdminsQuery = query(
     collection(db, 'user'),
     where('role', '==', 'admin'),
     where('is_online', '==', true),
     orderBy('active_chats', 'asc'),
-    limit(1)
+    limit(5)
   );
 
   let adminsSnap;
   try {
-    adminsSnap = await getDocs(adminsQuery);
+    adminsSnap = await getDocs(onlineAdminsQuery);
   } catch (error) {
     if (error.message?.includes("index")) {
       console.error("FIRESTORE MISSING INDEX:", error.message);
     }
     throw error;
   }
-  const selectedAdmin = adminsSnap.docs.find((adminDoc) => getRefPath(adminDoc.ref) !== getRefPath(currentUserRef));
+
+  let selectedAdmin = adminsSnap.docs.find((adminDoc) => getRefPath(adminDoc.ref) !== getRefPath(currentUserRef));
+
+  // 2. Fallback: If no online admins, find any admin with fewest chats
+  if (!selectedAdmin) {
+    const allAdminsQuery = query(
+      collection(db, 'user'),
+      where('role', '==', 'admin'),
+      orderBy('active_chats', 'asc'),
+      limit(5)
+    );
+    
+    const allAdminsSnap = await getDocs(allAdminsQuery);
+    selectedAdmin = allAdminsSnap.docs.find((adminDoc) => getRefPath(adminDoc.ref) !== getRefPath(currentUserRef));
+  }
 
   if (!selectedAdmin) {
-    throw buildSupportUnavailableError();
+    throw new Error('No support agents are available at this time. Please try again later.');
   }
 
   const adminRef = selectedAdmin.ref;
@@ -88,13 +98,13 @@ export const createSupportChat = async (currentUserRefLike) => {
     const adminSnap = await transaction.get(adminRef);
 
     if (!adminSnap.exists()) {
-      throw buildSupportUnavailableError();
+      throw new Error('Selected support agent no longer exists.');
     }
 
     const adminData = adminSnap.data();
 
-    if (adminData.role !== 'admin' || adminData.is_online !== true) {
-      throw buildSupportUnavailableError();
+    if (adminData.role !== 'admin') {
+      throw new Error('Selected user is no longer an administrator.');
     }
 
     transaction.update(adminRef, {
@@ -198,7 +208,7 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
     }
 
     if (!adminSnap.exists()) {
-      throw buildSupportUnavailableError();
+      throw new Error('Assigned support agent no longer exists.');
     }
 
     const adminData = adminSnap.data();

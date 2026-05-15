@@ -52,6 +52,15 @@ const CompetitionsList = () => {
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
+
+    // Edge Case: Prevent deletion if users have already bought tickets
+    if (competitionToDelete.last_ticket_sequence > 0 || (competitionToDelete.sold || 0) > 0) {
+      toast.error('This competition already has participants and cannot be deleted.');
+      setDeleteModalOpen(false);
+      setCompetitionToDelete(null);
+      return;
+    }
+
     const loadingToast = toast.loading('Deleting competition...');
     try {
       await deleteCompetition(competitionToDelete.id);
@@ -288,9 +297,9 @@ const CompetitionsList = () => {
                     </div>
                   </TableCell>
                   <TableCell className="font-medium text-white">{comp.revenue}</TableCell>
-                  <TableCell>
-                    {comp.drawDate?.toDate ? comp.drawDate.toDate().toLocaleDateString() : 
-                     comp.drawDate ? new Date(comp.drawDate).toLocaleDateString() : 'N/A'}
+                  <TableCell className="text-sm">
+                    {comp.drawDate?.toDate ? comp.drawDate.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 
+                     comp.drawDate ? new Date(comp.drawDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">

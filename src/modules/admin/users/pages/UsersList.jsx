@@ -104,6 +104,9 @@ const UsersList = () => {
     const filtered = users.filter((u) => {
       // Filter out deleted users completely from the admin view
       if (u.is_deleted === true) return false;
+      
+      // Filter out admin accounts
+      if (u.role === 'admin') return false;
 
       const isActiveUser = u.is_active !== false;
       const matchesStatus = activeStatus === 'All'
@@ -125,7 +128,6 @@ const UsersList = () => {
         return tB - tA;
       }
       if (sortBy === 'Spend') return (b.total_spent || 0) - (a.total_spent || 0);
-      if (sortBy === 'Tickets') return (b.total_tickets_bought || 0) - (a.total_tickets_bought || 0);
       return 0;
     });
 
@@ -194,12 +196,11 @@ const UsersList = () => {
               >
                 <option value="Newest" className="bg-[#121212]">{t('common.newest')}</option>
                 <option value="Spend" className="bg-[#121212]">{t('common.highestSpend')}</option>
-                <option value="Tickets" className="bg-[#121212]">{t('common.mostTickets')}</option>
               </select>
             </div>
           </div>
 
-          <div className="overflow-x-auto min-h-100">
+          <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
@@ -266,8 +267,8 @@ const UsersList = () => {
             )}
           </div>
 
-          {!loading && totalFiltered > itemsPerPage && (
-            <div className="p-4 border-t border-white/10 flex items-center justify-between">
+          {!loading && totalFiltered > 0 && (
+            <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-gray-400">
                 {t('common.showing')} {(currentPage - 1) * itemsPerPage + 1}-
                 {Math.min(currentPage * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}

@@ -62,6 +62,7 @@ const mapCompetitionSummary = (competition) => {
     drawDate: competition?.draw_date || null,
     image: competition?.image?.[0] || null,
     createdAt: competition?.created_at?.toDate?.() || new Date(),
+    last_ticket_sequence: Number(competition?.last_ticket_sequence) || 0,
   };
 };
 

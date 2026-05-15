@@ -209,7 +209,17 @@ const CompetitionDetail = () => {
         prize_value: parseFloat(formData.prizeValue) || 0,
         prize_name: formData.prizeName || '',
         image: imageUrls,
-        status: isDraft ? 'draft' : (competition.status === 'draft' ? 'active' : competition.status),
+        status: isDraft ? 'draft' : (() => {
+          const totalTickets = parseInt(formData.maxTickets) || 0;
+          const soldTickets = competition.sold_tickets || 0;
+          
+          // If admin makes max tickets <= sold tickets, it's sold out
+          if (totalTickets > 0 && totalTickets <= soldTickets) return 'sold_out';
+          if (totalTickets === 0) return 'sold_out';
+          
+          // Otherwise keep existing status or move to active if it was draft
+          return competition.status === 'draft' ? 'active' : competition.status;
+        })(),
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
         tag: formData.tag || '',
         instagram_live_url: formData.instagramLiveLink || '',
@@ -275,6 +285,13 @@ const CompetitionDetail = () => {
 
 
   const handleDelete = async () => {
+    // Edge Case: Prevent deletion if users have already bought tickets
+    if ((competition.last_ticket_sequence || 0) > 0 || (competition.sold_tickets || 0) > 0) {
+      toast.error('This competition already has participants and cannot be deleted.');
+      setDeleteModalOpen(false);
+      return;
+    }
+
     setIsDeleting(true);
     const loadingToast = toast.loading('Deleting competition...');
     try {
@@ -411,7 +428,9 @@ const CompetitionDetail = () => {
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1 flex items-center gap-1"><Clock size={12} /> {t('competitions.detail.drawDate')}</p>
-                <p className="font-medium text-white">{competition.draw_date ? competition.draw_date.toDate().toLocaleDateString() : '—'}</p>
+                <p className="font-medium text-white">
+                  {competition.draw_date ? competition.draw_date.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -660,7 +679,9 @@ const CompetitionDetail = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-400 mb-1">{t('competitions.detail.drawDate')}</p>
-                <p className="text-white font-medium">{new Date(winner.date).toLocaleDateString()}</p>
+                <p className="text-white font-medium">
+                  {new Date(winner.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
               </div>
             </div>
           </div>
@@ -770,7 +791,7 @@ const CompetitionDetail = () => {
             <div>
               <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
               <p className="text-gray-400 mt-2 max-w-md mx-auto">
-                {t('competitions.detail.draw.scheduledFor')} <span className="text-white font-medium">{competition.draw_date ? competition.draw_date.toDate().toLocaleDateString() : '—'}</span>.
+                {t('competitions.detail.draw.scheduledFor')} <span className="text-white font-medium">{competition.draw_date ? competition.draw_date.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</span>.
               </p>
             </div>
 

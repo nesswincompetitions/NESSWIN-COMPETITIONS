@@ -31,6 +31,29 @@ export const updateProfile = async (uid, data) => {
   await setDoc(userRef, data, { merge: true });
 };
 
+/**
+ * Updates a username after checking for uniqueness in the user collection.
+ */
+export const updateUsername = async (uid, newUsername) => {
+  const cleanNew = newUsername.trim().toLowerCase();
+  
+  // Check if username is already taken by another user
+  const q = query(collection(db, 'user'), where('user_name', '==', cleanNew));
+  const snap = await getDocs(q);
+  
+  if (!snap.empty) {
+    const takenByOther = snap.docs.some(d => d.id !== uid);
+    if (takenByOther) {
+      throw new Error("Username is already taken.");
+    }
+    return; // It's already the user's own username
+  }
+
+  // Update the user document
+  const userRef = doc(db, 'user', uid);
+  await setDoc(userRef, { user_name: cleanNew }, { merge: true });
+};
+
 // ─── Edit Profile ────────────────────────────────────────────────────────────
 
 /**

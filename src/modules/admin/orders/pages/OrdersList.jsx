@@ -215,7 +215,7 @@ const OrdersList = () => {
           </div>
 
           {/* Table Area */}
-          <div className="overflow-x-auto min-h-100">
+          <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />

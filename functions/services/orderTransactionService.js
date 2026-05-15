@@ -292,13 +292,13 @@ export async function runOrderTransaction(
 
     // Write 4 — Audit log: pack bonus tickets
     if (packBonusTickets > 0) {
-      const logRef = db.collection("free_ticket_log").doc();
       transaction.set(logRef, {
         user_id: userRef,
         order_id: orderRef,
         competition_id: competitionRef,
         quantity: packBonusTickets,
         reason: "ticket_bonus",
+        reward_type: "pack_bonus",
         pack_type: packType,
         created_at: serverNow,
       });
@@ -335,37 +335,37 @@ export async function runOrderTransaction(
 
       // Create separate audit logs for each reward type
       if (referralsByType.admin_bonus.length > 0) {
-        const adminBonusLogRef = db.collection("free_ticket_log").doc();
         transaction.set(adminBonusLogRef, {
           user_id: userRef,
           order_id: orderRef,
           competition_id: competitionRef,
           quantity: referralsByType.admin_bonus.length,
           reason: "admin_bonus",
+          reward_type: "admin_bonus",
           created_at: serverNow,
         });
       }
 
       if (referralsByType.referral.length > 0) {
-        const referralLogRef = db.collection("free_ticket_log").doc();
         transaction.set(referralLogRef, {
           user_id: userRef,
           order_id: orderRef,
           competition_id: competitionRef,
           quantity: referralsByType.referral.length,
           reason: "referral",
+          reward_type: "referral",
           created_at: serverNow,
         });
       }
 
       if (referralsByType.other.length > 0) {
-        const otherLogRef = db.collection("free_ticket_log").doc();
         transaction.set(otherLogRef, {
           user_id: userRef,
           order_id: orderRef,
           competition_id: competitionRef,
           quantity: referralsByType.other.length,
           reason: "free_ticket",
+          reward_type: "other",
           created_at: serverNow,
         });
       }

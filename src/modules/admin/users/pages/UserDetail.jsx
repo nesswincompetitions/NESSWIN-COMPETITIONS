@@ -7,10 +7,11 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import { 
   ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard, 
-  ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2
+  ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2,
+  Phone, User, Share2
 } from 'lucide-react';
 import { db } from '@/config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, where } from 'firebase/firestore';
 import { 
   useUserRealtime, 
   useUserOrdersRealtime, 
@@ -21,6 +22,10 @@ import {
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
 import { formatStatus } from '@/shared/utils/formatters';
+import Modal from '@/shared/components/ui/Modal';
+import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
+import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
+import { Clock } from 'lucide-react';
 
 const UserDetail = () => {
   const { id } = useParams();
@@ -37,6 +42,15 @@ const UserDetail = () => {
 
   const [compDetails, setCompDetails] = useState({});
   const [resolvingComps, setResolvingComps] = useState(false);
+  const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
+  const [selectedCompId, setSelectedCompId] = useState('');
+  const [bonusQuantity, setBonusQuantity] = useState(1);
+  const [bonusReason, setBonusReason] = useState('');
+  const [isSubmittingBonus, setIsSubmittingBonus] = useState(false);
+
+  const { data: allActiveCompetitions } = useRealtimeCollection('competition', [
+    where('status', 'in', ['active', 'live', 'upcoming'])
+  ]);
 
   useEffect(() => {
     if (!tickets || tickets.length === 0) return;
@@ -100,6 +114,33 @@ const UserDetail = () => {
       toast.success(`User state updated to ${newStatus ? 'ACTIVE' : 'INACTIVE'}`);
     } catch (error) {
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleAssignBonus = async (e) => {
+    e.preventDefault();
+    if (!selectedCompId) {
+      toast.error("Please select a competition");
+      return;
+    }
+    
+    setIsSubmittingBonus(true);
+    try {
+      const result = await grantAdminBonus(id, bonusQuantity, bonusReason, selectedCompId);
+      if (result.success) {
+        toast.success(result.message);
+        setIsBonusModalOpen(false);
+        setBonusQuantity(1);
+        setBonusReason('');
+        setSelectedCompId('');
+      } else {
+        toast.error(result.message || "Failed to grant bonus");
+      }
+    } catch (error) {
+      console.error("Error granting bonus:", error);
+      toast.error("An error occurred while granting bonus");
+    } finally {
+      setIsSubmittingBonus(false);
     }
   };
 
@@ -298,7 +339,7 @@ const UserDetail = () => {
               <p className="text-2xl font-bold text-white">{profile.free_tickets || 0} {t('users.detail.bonusTab.tickets')}</p>
             </div>
           </div>
-          <Button variant="primary" className="flex items-center gap-2">
+          <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsBonusModalOpen(true)}>
             <Plus size={16} />
             {t('users.detail.bonusTab.assignBonus')}
           </Button>
@@ -312,6 +353,7 @@ const UserDetail = () => {
                   <TableHead>Reason</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>Competition</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
               </TableHeader>
@@ -331,9 +373,20 @@ const UserDetail = () => {
                       <span className="text-emerald-400 font-bold">+{log.quantity}</span>
                     </TableCell>
                     <TableCell className="text-gray-400">
-                      {log.competitionTitle}
+                      {log.competitionTitle || (log.reason === 'Referral_auto_reward' ? 'N/A' : 'General Bonus')}
                     </TableCell>
-                    <TableCell className="text-gray-400 text-sm">
+                    <TableCell>
+                      {log.reason === 'Referral_auto_reward' ? (
+                        log.reward_issued ? (
+                          <Badge variant="success" className="bg-emerald-500/10 text-emerald-400">Used</Badge>
+                        ) : (
+                          <Badge variant="warning">Pending</Badge>
+                        )
+                      ) : (
+                        <Badge variant="success" className="bg-emerald-500/10 text-emerald-400">Used</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-gray-400 text-sm whitespace-nowrap">
                       {formatDate(log.created_at || log.createdAt)}
                     </TableCell>
                   </TableRow>
@@ -419,8 +472,11 @@ const UserDetail = () => {
                     <span className="text-xs px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded uppercase tracking-wider font-bold">Deleted Account</span>
                   )}
                 </h2>
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-gray-400 text-sm">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4 text-gray-400 text-sm">
                   <span className="flex items-center gap-1"><Mail size={14} /> {profile.email}</span>
+                  {profile.phone_number && <span className="flex items-center gap-1"><Phone size={14} /> {profile.phone_number}</span>}
+                  {profile.user_name && <span className="flex items-center gap-1"><User size={14} /> @{profile.user_name}</span>}
+                  {profile.referral_code && <span className="flex items-center gap-1 text-primary"><Share2 size={14} /> {profile.referral_code}</span>}
                 </div>
                 <p className="text-xs text-gray-500 pt-1">
                   {t('users.detail.registered')}: {formatDate(profile.created_time || profile.created_at)}
@@ -473,6 +529,65 @@ const UserDetail = () => {
         {activeTab === 'wins' && renderWins()}
         {/* {activeTab === 'notes' && renderNotes()} */}
       </div>
+
+      {/* Assign Bonus Modal */}
+      <Modal
+        isOpen={isBonusModalOpen}
+        onClose={() => !isSubmittingBonus && setIsBonusModalOpen(false)}
+        title={t('users.detail.bonusTab.assignBonus')}
+      >
+        <form onSubmit={handleAssignBonus} className="space-y-4">
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Number of Tickets</label>
+            <input
+              type="number"
+              required
+              min="1"
+              max="100"
+              value={bonusQuantity}
+              onChange={(e) => setBonusQuantity(parseInt(e.target.value))}
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
+              disabled={isSubmittingBonus}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-300">Reason (Optional)</label>
+            <textarea
+              value={bonusReason}
+              onChange={(e) => setBonusReason(e.target.value)}
+              placeholder="e.g. Compensation, VIP gift..."
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 resize-none h-20"
+              disabled={isSubmittingBonus}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsBonusModalOpen(false)}
+              disabled={isSubmittingBonus}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="primary"
+              disabled={isSubmittingBonus}
+              className="flex items-center gap-2"
+            >
+              {isSubmittingBonus ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Issuing...
+                </>
+              ) : 'Issue Tickets'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

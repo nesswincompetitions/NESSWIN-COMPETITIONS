@@ -900,11 +900,42 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
           {currentStep === 3 ? (
             <div className="pt-4 border-t border-white/5 text-center">
               <p className="text-xs text-gray-500 mb-2">{t('competitions.form.preview.drawEndsIn')}</p>
-              <div className="flex justify-center gap-2">
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">05</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.days')}</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">12</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.hrs')}</span></div>
-                <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-xl font-mono text-white">45</span><span className="text-[10px] text-gray-500 block">{t('competitions.detail.min')}</span></div>
-              </div>
+              {(() => {
+                const getTimeLeft = () => {
+                  if (!formData.drawEndDate) return { days: '00', hours: '00', minutes: '00' };
+                  const drawDateTimeStr = formData.drawEndTime 
+                    ? `${formData.drawEndDate}T${formData.drawEndTime}`
+                    : `${formData.drawEndDate}T00:00`;
+                  const drawDate = new Date(drawDateTimeStr);
+                  const diff = drawDate.getTime() - Date.now();
+                  if (diff <= 0) return { days: '00', hours: '00', minutes: '00' };
+                  const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                  const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                  return {
+                    days: String(d).padStart(2, '0'),
+                    hours: String(h).padStart(2, '0'),
+                    minutes: String(m).padStart(2, '0')
+                  };
+                };
+                const timeLeft = getTimeLeft();
+                return (
+                  <div className="flex justify-center gap-2">
+                    <div className="bg-white/5 px-3 py-2 rounded-lg">
+                      <span className="text-xl font-mono text-white">{timeLeft.days}</span>
+                      <span className="text-[10px] text-gray-500 block">{t('competitions.detail.days')}</span>
+                    </div>
+                    <div className="bg-white/5 px-3 py-2 rounded-lg">
+                      <span className="text-xl font-mono text-white">{timeLeft.hours}</span>
+                      <span className="text-[10px] text-gray-500 block">{t('competitions.detail.hrs')}</span>
+                    </div>
+                    <div className="bg-white/5 px-3 py-2 rounded-lg">
+                      <span className="text-xl font-mono text-white">{timeLeft.minutes}</span>
+                      <span className="text-[10px] text-gray-500 block">{t('competitions.detail.min')}</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <div className="flex items-center justify-between pt-4 border-t border-white/5">
