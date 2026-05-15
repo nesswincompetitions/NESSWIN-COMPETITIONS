@@ -10,26 +10,20 @@ import {
   CheckCircle, Clock, Plus, Eye, User, ShoppingCart, Loader2
 } from 'lucide-react';
 
-import { fetchDashboardStats } from '@/modules/admin/dashboard/services/dashboardService';
-import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { useAdminDashboardData } from '@/shared/hooks/useAdminData';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation('admin');
-  const { data: statsData, loading: loadingStats } = useAdminQuery('dashboard_stats', fetchDashboardStats);
+  const { data: stats, loading: loadingStats } = useAdminDashboardData();
 
-  const stats = statsData || {
-    totalRevenue: 0,
-    totalRegisteredUsers: 0,
-    ticketsSoldToday: 0,
-    activeCompetitions: 0,
-    pendingWinners: 0,
-    drawsEndingSoon: 0,
-    activeCompetitionsList: [],
-    upcomingDrawsList: [],
-    recentOrdersList: []
-  };
+  // Force re-render every minute to update relative times and countdowns
+  const [, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const kpiData = [
     { title: t('dashboard.kpi.activeCompetitions'), value: stats.activeCompetitions.toLocaleString(), icon: Trophy, color: 'text-primary' },
@@ -230,14 +224,14 @@ const Dashboard = () => {
                   </TableRow>
                 ) : recentOrders.map((order, i) => (
                   <TableRow key={i}>
-                    <TableCell className="text-primary font-medium truncate max-w-[100px]">#{order.id.slice(-6).toUpperCase()}</TableCell>
+                    <TableCell className="text-primary font-medium truncate max-w-25">#{order.id.slice(-6).toUpperCase()}</TableCell>
                     <TableCell className="text-white">
                       <div className="flex flex-col">
                         <span>{order.userName}</span>
                         <span className="text-[10px] text-gray-500">{order.userEmail}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="max-w-[150px] truncate">{order.competitionName}</TableCell>
+                    <TableCell className="max-w-37.5 truncate">{order.competitionName}</TableCell>
                     <TableCell>{order.total_ticket}</TableCell>
                     <TableCell className="text-white font-medium">€{order.total_amount.toLocaleString()}</TableCell>
                     <TableCell className="text-gray-400 text-xs">{formatRelativeTime(order.created_at)}</TableCell>
@@ -321,6 +315,10 @@ const Dashboard = () => {
                       <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">
                         {formatCountdown(draw.draw_date)}
                       </span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                      <Clock size={10} /> 
+                      {draw.draw_date?.toDate ? draw.draw_date.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </div>
                   </div>
                   <Button

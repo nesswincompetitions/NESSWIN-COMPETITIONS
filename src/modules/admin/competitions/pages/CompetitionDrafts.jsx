@@ -1,36 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchCompetitionDrafts, deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
+import { deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import Modal from '@/shared/components/ui/Modal';
 import { ArrowLeft, FileEdit, Trash2, Plus, Clock, ImageIcon, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { useCompetitionDraftsFeed } from '@/shared/hooks/useAdminData';
 
 const CompetitionDrafts = () => {
   const navigate = useNavigate();
-  const [drafts, setDrafts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState({ open: false, draft: null });
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    fetchDrafts();
-  }, []);
-
-  const fetchDrafts = async () => {
-    setLoading(true);
-    try {
-      const draftList = await fetchCompetitionDrafts();
-      setDrafts(draftList);
-    } catch (err) {
-      console.error('Failed to fetch drafts:', err);
-      toast.error('Failed to load drafts.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: drafts, loading } = useCompetitionDraftsFeed();
 
   const handleDelete = async () => {
     if (!deleteModal.draft) return;
@@ -38,7 +21,6 @@ const CompetitionDrafts = () => {
     try {
       await deleteCompetition(deleteModal.draft.id);
       
-      setDrafts(prev => prev.filter(d => d.id !== deleteModal.draft.id));
       toast.success('Draft deleted.');
       setDeleteModal({ open: false, draft: null });
     } catch (err) {

@@ -63,12 +63,13 @@ export const deleteCompetition = async (id) => {
 
 export const syncCompetitionQuestions = async (competitionId, questions) => {
   const batch = questions.map(async (q) => {
-    if (q.id) {
-      const qRef = doc(db, 'questions', q.id);
-      await updateDoc(qRef, q);
+    const { id, ...data } = q;
+    if (id) {
+      const qRef = doc(db, 'questions', id);
+      await updateDoc(qRef, data);
     } else {
       await addDoc(collection(db, 'questions'), {
-        ...q,
+        ...data,
         competition_id: doc(db, 'competition', competitionId),
         created_at: serverTimestamp()
       });
@@ -97,7 +98,9 @@ export const fetchAdminCompetitionsList = async () => {
     const total = data.total_tickets || 1000;
     const price = data.ticket_price || 0;
     const revenue = sold * price;
-    const drawDate = data.draw_date ? data.draw_date.toDate().toLocaleDateString() : '—';
+    const drawDate = data.draw_date 
+      ? data.draw_date.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+      : '—';
 
     return {
       id: doc.id,

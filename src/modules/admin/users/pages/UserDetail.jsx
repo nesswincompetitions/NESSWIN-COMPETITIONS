@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -9,7 +9,16 @@ import {
   ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard, 
   ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2
 } from 'lucide-react';
-import { fetchUserDetail, updateUserStatus } from '@/modules/admin/users/services/usersService';
+import { db } from '@/config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { 
+  useUserRealtime, 
+  useUserOrdersRealtime, 
+  useUserTicketsRealtime, 
+  useUserReferralsRealtime, 
+  useUserBonusLogsRealtime 
+} from '@/shared/hooks/useAdminData';
+import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
 import { formatStatus } from '@/shared/utils/formatters';
 
@@ -19,31 +28,76 @@ const UserDetail = () => {
   const { t } = useTranslation('admin');
   const [activeTab, setActiveTab] = useState('overview');
   const [noteText, setNoteText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(null);
+  
+  const { data: profile, loading: profileLoading } = useUserRealtime(id);
+  const { data: orders, loading: ordersLoading } = useUserOrdersRealtime(id);
+  const { data: tickets, loading: ticketsLoading } = useUserTicketsRealtime(id);
+  const { data: referralsList, loading: referralsLoading } = useUserReferralsRealtime(id);
+  const { data: bonusLogs, loading: bonusLoading } = useUserBonusLogsRealtime(id);
+
+  const [compDetails, setCompDetails] = useState({});
+  const [resolvingComps, setResolvingComps] = useState(false);
 
   useEffect(() => {
-    loadUser();
-  }, [id]);
+    if (!tickets || tickets.length === 0) return;
+    
+    const missingIds = new Set();
+    tickets.forEach(tk => {
+      const cId = tk.competition_id?.id || (typeof tk.competition_id === 'string' ? tk.competition_id : null);
+      if (cId && !compDetails[cId]) missingIds.add(cId);
+    });
 
-  const loadUser = async () => {
-    setLoading(true);
-    try {
-      const result = await fetchUserDetail(id);
-      setData(result);
-    } catch (error) {
-      console.error('Error loading user detail:', error);
-      toast.error('Failed to load user profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (missingIds.size === 0) return;
+
+    const fetchComps = async () => {
+      setResolvingComps(true);
+      try {
+        const snaps = await Promise.all(
+          Array.from(missingIds).map(cid => getDoc(doc(db, 'competition', cid)))
+        );
+        setCompDetails(prev => {
+          const next = { ...prev };
+          snaps.forEach(snap => {
+            if (snap.exists()) next[snap.id] = snap.data();
+          });
+          return next;
+        });
+      } catch (err) {
+        console.error('Error fetching competition details:', err);
+      } finally {
+        setResolvingComps(false);
+      }
+    };
+    fetchComps();
+  }, [tickets, compDetails]);
+
+  const competitions = useMemo(() => {
+    if (!tickets) return [];
+    const map = {};
+    tickets.forEach(tk => {
+      const cId = tk.competition_id?.id || (typeof tk.competition_id === 'string' ? tk.competition_id : null);
+      if (!cId) return;
+      if (!map[cId]) {
+        const details = compDetails[cId] || {};
+        map[cId] = { 
+          id: cId, 
+          tickets: [], 
+          title: details.title || 'Unknown Competition',
+          status: details.status || 'active',
+          drawDate: details.draw_date || null
+        };
+      }
+      map[cId].tickets.push(tk);
+    });
+    return Object.values(map);
+  }, [tickets, compDetails]);
+
+  const loading = profileLoading || ordersLoading || ticketsLoading || referralsLoading || bonusLoading || resolvingComps;
 
   const handleStatusUpdate = async (newStatus) => {
     try {
       await updateUserStatus(id, newStatus);
       toast.success(`User state updated to ${newStatus ? 'ACTIVE' : 'INACTIVE'}`);
-      loadUser(); // Refresh data
     } catch (error) {
       toast.error('Failed to update status');
     }
@@ -52,14 +106,16 @@ const UserDetail = () => {
   const formatDate = (ts) => {
     if (!ts) return '—';
     const date = ts.toMillis ? new Date(ts.toMillis()) : new Date(ts);
-    return date.toLocaleDateString('en-GB', {
+    return date.toLocaleString('en-GB', {
       day: '2-digit',
       month: 'short',
-      year: 'numeric'
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
-  if (loading || !data) {
+  if (loading || !profile) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
         <Loader2 size={48} className="animate-spin text-primary mb-4 opacity-50" />
@@ -68,14 +124,7 @@ const UserDetail = () => {
     );
   }
 
-  const { 
-    profile = {}, 
-    orders = [], 
-    tickets = [], 
-    competitions = [], 
-    referralsList = [], 
-    bonusLogs = [] 
-  } = data || {};
+  // Group tickets by competition logic is now inside useMemo above
 
   const tabs = [
     { id: 'overview', label: t('users.detail.tabs.overview'), icon: LayoutDashboard },
@@ -274,7 +323,9 @@ const UserDetail = () => {
                 ) : bonusLogs.map(log => (
                   <TableRow key={log.id}>
                     <TableCell>
-                      <span className="font-medium text-white capitalize">{log.reason || 'Bonus'}</span>
+                      <span className="font-medium text-white">
+                        {(log.reason || 'Bonus').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <span className="text-emerald-400 font-bold">+{log.quantity}</span>

@@ -9,26 +9,36 @@ import {
   ShoppingCart,
   Share2,
   Ticket,
-
   MessageSquareText,
   Menu,
   X
 } from 'lucide-react';
+import useAdminUnreadCounts from '@/shared/hooks/useAdminUnreadCounts';
 
 const Sidebar = () => {
   const { t } = useTranslation('admin');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const { supportUnread, winnerUnread } = useAdminUnreadCounts();
 
   const menuItems = [
     { name: t('sidebar.dashboard'), path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: t('sidebar.competitions'), path: '/admin/competitions', icon: <Trophy size={20} /> },
-    { name: t('sidebar.winners'), path: '/admin/winners', icon: <Award size={20} /> },
+    { 
+      name: t('sidebar.winners'), 
+      path: '/admin/winners', 
+      icon: <Award size={20} />,
+      badge: winnerUnread > 0 ? winnerUnread : null
+    },
     { name: t('sidebar.users'), path: '/admin/users', icon: <Users size={20} /> },
     { name: t('sidebar.orders'), path: '/admin/orders', icon: <ShoppingCart size={20} /> },
     { name: t('sidebar.referrals'), path: '/admin/referrals', icon: <Share2 size={20} /> },
     { name: t('sidebar.bonusTickets'), path: '/admin/bonus-tickets', icon: <Ticket size={20} /> },
-    { name: t('sidebar.supportInbox'), path: '/admin/support-inbox', icon: <MessageSquareText size={20} /> },
-
+    { 
+      name: t('sidebar.supportInbox'), 
+      path: '/admin/support-inbox', 
+      icon: <MessageSquareText size={20} />,
+      badge: supportUnread > 0 ? supportUnread : null
+    },
   ];
 
   const toggleSidebar = () => {
@@ -99,7 +109,12 @@ const SidebarContent = ({ menuItems, title, onClose, onNavigate }) => (
                 {item.icon}
               </span>
               <span className="font-medium">{item.name}</span>
-              {isActive && (
+              {item.badge && (
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center animate-pulse">
+                  {item.badge}
+                </span>
+              )}
+              {isActive && !item.badge && (
                 <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
               )}
             </>
@@ -111,3 +126,4 @@ const SidebarContent = ({ menuItems, title, onClose, onNavigate }) => (
 );
 
 export default Sidebar;
+

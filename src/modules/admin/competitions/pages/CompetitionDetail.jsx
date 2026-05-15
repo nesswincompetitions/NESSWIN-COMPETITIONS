@@ -13,9 +13,9 @@ import {
 import Modal from '@/shared/components/ui/Modal';
 
 import { toast } from 'react-hot-toast';
-import { Timestamp, deleteField } from 'firebase/firestore';
+import { Timestamp, deleteField, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { 
-  fetchAdminCompetitionDetail, 
   updateCompetition, 
   syncCompetitionQuestions, 
   deleteCompetition,
@@ -44,6 +44,7 @@ const CompetitionDetail = () => {
   const [competition, setCompetition] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isStartingDraw, setIsStartingDraw] = useState(false);
   const [isSelectingWinner, setIsSelectingWinner] = useState(false);
@@ -80,44 +81,85 @@ const CompetitionDetail = () => {
     };
   };
 
-  const loadCompetition = async () => {
+  useEffect(() => {
+    if (!id) return undefined;
+
     setLoading(true);
-    try {
-      const compDoc = await fetchAdminCompetitionDetail(id);
-      if (compDoc) {
-        const sold = compDoc.sold_tickets || 0;
-        const total = compDoc.total_tickets || 1000;
-        const price = compDoc.ticket_price || 0;
-        const hydratedWinner = hydrateWinnerSummary(compDoc);
 
-        setCompetition({
-          id: compDoc.id,
-          ...compDoc,
-          price,
-          prizeValue: compDoc.prize_value || 0,
-          ticketsSold: sold,
-          maxTickets: total,
-          revenue: sold * price,
-        });
+    const competitionRef = doc(db, 'competition', id);
 
-        setQuestions(compDoc.questions || []);
-        setSelectedWinner(hydratedWinner);
-        setWinnerTicketSequence(hydratedWinner?.ticket || '');
-      } else {
+    const unsub = onSnapshot(competitionRef, async (docSnap) => {
+      if (!docSnap.exists()) {
         toast.error('Competition not found');
         navigate('/admin/competitions');
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      console.error('Error fetching competition:', err);
-      toast.error('Failed to load competition data');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    if (id) loadCompetition();
+      const compDoc = { id: docSnap.id, ...docSnap.data() };
+      const winnerRef = compDoc.winner_ref;
+      const winnerTicketRef = compDoc.winner_ticket_ref;
+
+      let winnerDetails = null;
+      try {
+        if (winnerRef || winnerTicketRef) {
+          const [winnerSnap, ticketSnap] = await Promise.all([
+            winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
+            winnerTicketRef ? getDoc(winnerTicketRef) : Promise.resolve(null),
+          ]);
+
+          winnerDetails = {
+            user: winnerSnap?.exists() ? { id: winnerSnap.id, ...winnerSnap.data() } : null,
+            ticket: ticketSnap?.exists() ? { id: ticketSnap.id, ...ticketSnap.data() } : null,
+          };
+        }
+      } catch (err) {
+        console.error('Error resolving winner refs:', err);
+      }
+
+      const sold = compDoc.sold_tickets || 0;
+      const total = compDoc.total_tickets || 1000;
+      const price = compDoc.ticket_price || 0;
+      const hydratedWinner = hydrateWinnerSummary({ ...compDoc, winnerDetails });
+
+      setCompetition({
+        ...compDoc,
+        winnerDetails,
+        price,
+        prizeValue: compDoc.prize_value || 0,
+        ticketsSold: sold,
+        maxTickets: total,
+        revenue: sold * price,
+      });
+      setSelectedWinner(hydratedWinner);
+      setWinnerTicketSequence(hydratedWinner?.ticket || '');
+    });
+    return () => unsub();
   }, [id, navigate]);
+
+  // Separate listener for questions
+  useEffect(() => {
+    if (!id) return undefined;
+
+    const questionsQuery = query(
+      collection(db, 'questions'), 
+      where('competition_id', '==', doc(db, 'competition', id))
+    );
+
+    const unsub = onSnapshot(questionsQuery, (snapshot) => {
+      const qs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      console.log(`[CompetitionDetail] Loaded ${qs.length} questions for ${id}`);
+      setQuestions(qs);
+      setLoadingQuestions(false);
+      setLoading(false); // Both competition and questions are now ready
+    }, (err) => {
+      console.error('Error listening to questions:', err);
+      setLoadingQuestions(false);
+      setLoading(false);
+    });
+
+    return () => unsub();
+  }, [id]);
 
   const fetchParticipants = async () => {
     if (!competition?.participants || competition.participants.length === 0) {
@@ -150,17 +192,13 @@ const CompetitionDetail = () => {
     setIsSaving(true);
     const loadingToast = toast.loading(isDraft ? 'Saving draft...' : 'Saving changes...');
     try {
+      // 1. Upload competition images
       const imageUrls = await uploadImages(formData.images, 'competitions');
 
       const drawDateTimeStr = formData.drawEndDate && formData.drawEndTime
         ? `${formData.drawEndDate}T${formData.drawEndTime}`
         : (formData.drawEndDate ? `${formData.drawEndDate}T00:00` : null);
       const drawDateTimestamp = drawDateTimeStr ? new Date(drawDateTimeStr).getTime() : (competition.draw_date?.toMillis() || Date.now());
-
-      const countdownDateTimeStr = formData.countdownEndDate && formData.countdownEndTime
-        ? `${formData.countdownEndDate}T${formData.countdownEndTime}`
-        : (formData.countdownEndDate ? `${formData.countdownEndDate}T00:00` : null);
-      const countdownEndTimestamp = countdownDateTimeStr ? new Date(countdownDateTimeStr).getTime() : drawDateTimestamp;
 
       const updateData = {
         title: formData.title,
@@ -178,42 +216,50 @@ const CompetitionDetail = () => {
         included_things: formData.includedThings.filter(thing => thing.trim() !== ''),
         is_featured: formData.isFeatured || false,
       };
-      await updateCompetition(id, {
-        ...updateData,
-        sub_title: deleteField(),
-      });
 
+      // 2. Sync questions with image uploads
       if (formData.questions && formData.questions.length > 0) {
-        const qsToSync = formData.questions.map((qData, idx) => {
+        const qsToSync = await Promise.all(formData.questions.map(async (qData, idx) => {
           const timestamp = Date.now();
+          
+          // CRITICAL: Upload question images (handles both File objects and existing URLs)
+          const uploadedQuestionImages = await uploadImages(qData.questionImages || [], 'questions');
+
           const answers = qData.answers.map((ans, i) => {
-            // Preserve existing option_id if available, otherwise generate new one
             const option_id = ans.option_id || `opt_${timestamp}_${i}`;
             return {
               option_id,
               option: ans.text
             };
           });
+          
           const correctAnswerIndex = qData.answers.findIndex(a => a.isCorrect);
+          const existingQuestion = questions.find((_, qIdx) => qIdx === idx);
+
           return {
-            id: questions[idx]?.id,
+            id: existingQuestion?.id,
             question: qData.questionText,
-            images: qData.questionImagePreviews || [],
+            images: uploadedQuestionImages,
             option: answers,
             answer: {
               option_id: answers[correctAnswerIndex]?.option_id || answers[0]?.option_id || `opt_${timestamp}_0`
             }
           };
-        });
+        }));
+
         await syncCompetitionQuestions(id, qsToSync);
       }
+
+      // 3. Update main competition doc
+      await updateCompetition(id, {
+        ...updateData,
+        sub_title: deleteField(),
+      });
 
       setCompetition(prev => ({
         ...prev,
         ...updateData,
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
-        drawEndDate: formData.drawEndDate || '',
-        drawEndTime: formData.drawEndTime || '',
       }));
 
       toast.success(isDraft ? 'Draft updated!' : 'Changes saved!', { id: loadingToast });
@@ -245,7 +291,7 @@ const CompetitionDetail = () => {
   };
 
   const refreshCompetition = async () => {
-    await loadCompetition();
+    return undefined;
   };
 
   const handleStartLiveDraw = async () => {

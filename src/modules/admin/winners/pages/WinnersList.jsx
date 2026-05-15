@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -6,97 +6,72 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import SearchInput from '@/shared/components/ui/SearchInput';
-import { Search, Calendar, Download, Eye, ExternalLink, Trophy } from 'lucide-react';
+import { Calendar, Download, Eye, ExternalLink, Trophy } from 'lucide-react';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import { useSearch } from '@/shared/hooks/useSearch';
+import { useWinnerCompetitionsFeed } from '@/shared/hooks/useAdminData';
 
 const WinnersList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
-
-  // Dummy Winners Data
-  const winners = [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      competition: t('competitionNames.iphone'),
-      ticket: "#0234",
-      drawDate: "12 May 2026",
-      status: "Completed"
-    },
-    {
-      id: 2,
-      name: "Sarah Smith",
-      email: "sarah@example.com",
-      competition: t('competitionNames.rangeRover'),
-      ticket: "#1450",
-      drawDate: "01 Jun 2026",
-      status: "Contacted"
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike@example.com",
-      competition: t('competitionNames.rolex'),
-      ticket: "#0899",
-      drawDate: "15 Apr 2026",
-      status: "pending"
-    },
-  ];
+  const { data: winners, loading } = useWinnerCompetitionsFeed();
 
   const handleExportCSV = () => {
     if (!winners.length) return;
-    
+
     const headers = [
-      { label: 'Winner', key: 'name' },
-      { label: 'Email', key: 'email' },
+      { label: 'Winner', key: 'winnerName' },
+      { label: 'Email', key: 'winnerEmail' },
       { label: 'Competition', key: 'competition' },
       { label: 'Ticket', key: 'ticket' },
       { label: 'Draw Date', key: 'drawDate' },
       { label: 'Status', key: 'status' }
     ];
 
-    exportToCSV(winners, headers, `winners_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    const exportData = winners.map((winner) => ({
+      ...winner,
+      drawDate: winner.drawDate?.toDate ? winner.drawDate.toDate().toISOString() : winner.drawDate ? new Date(winner.drawDate).toISOString() : 'N/A'
+    }));
+
+    exportToCSV(exportData, headers, `winners_export_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success('Winners list exported to CSV');
   };
 
-  // Setup search hook with debouncing
   const { searchTerm, setSearchTerm, filteredItems: searchedWinners, clearSearch } = useSearch(
     winners,
-    ['name', 'email', 'competition', 'ticket'],
+    ['winnerName', 'winnerEmail', 'competition', 'ticket'],
     { debounceDelay: 300 }
   );
 
-  // Combine search and status filtering
-  const filteredWinners = useMemo(() => {
-    return searchedWinners.filter(w => {
+  const filteredWinners = useMemo(
+    () => searchedWinners.filter((winner) => {
       if (activeStatus === 'all') return true;
-      return w.status.toLowerCase() === activeStatus;
-    });
-  }, [searchedWinners, activeStatus]);
+      return (winner.status || '').toLowerCase() === activeStatus;
+    }),
+    [searchedWinners, activeStatus]
+  );
 
   const renderStatusBadge = (status) => {
-    switch (status.toLowerCase()) {
+    switch ((status || '').toLowerCase()) {
+      case 'winner_announced':
       case 'completed': return <Badge variant="success">{t('common.completed')}</Badge>;
       case 'contacted': return <Badge variant="hot">{t('common.contacted')}</Badge>;
       case 'pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
-      default: return <Badge variant="neutral">{status}</Badge>;
+      default: return <Badge variant="neutral">{status || 'Unknown'}</Badge>;
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-      {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
           <h1 className="text-3xl font-serif font-bold text-white">{t('winners.title')}</h1>
           <p className="text-gray-400 mt-1">{t('winners.subtitle')}</p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="flex items-center gap-2"
           onClick={handleExportCSV}
           disabled={!winners.length}
@@ -108,10 +83,7 @@ const WinnersList = () => {
 
       <Card>
         <CardContent className="p-0">
-          {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-
-            {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {[
                 { key: 'all', label: t('common.all') },
@@ -132,7 +104,6 @@ const WinnersList = () => {
               ))}
             </div>
 
-            {/* Search & Actions */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <SearchInput
                 value={searchTerm}
@@ -148,8 +119,9 @@ const WinnersList = () => {
             </div>
           </div>
 
-          {/* Table Area */}
-          {filteredWinners.length > 0 ? (
+          {loading ? (
+            <div className="p-12 text-center text-gray-400">Loading winners...</div>
+          ) : filteredWinners.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -167,25 +139,27 @@ const WinnersList = () => {
                 {filteredWinners.map((winner, index) => (
                   <TableRow key={winner.id}>
                     <TableCell className="text-gray-500 font-medium">{index + 1}</TableCell>
-                    <TableCell className="font-medium text-white">{winner.name}</TableCell>
-                    <TableCell className="text-gray-400">{winner.email}</TableCell>
+                    <TableCell className="font-medium text-white">{winner.winnerName}</TableCell>
+                    <TableCell className="text-gray-400">{winner.winnerEmail}</TableCell>
                     <TableCell>{winner.competition}</TableCell>
                     <TableCell>
                       <Badge variant="neutral" className="font-mono bg-white/5 border-white/10">{winner.ticket}</Badge>
                     </TableCell>
-                    <TableCell>{winner.drawDate}</TableCell>
+                    <TableCell>{winner.drawDate?.toDate ? winner.drawDate.toDate().toLocaleDateString() : winner.drawDate ? new Date(winner.drawDate).toLocaleDateString() : '—'}</TableCell>
                     <TableCell>{renderStatusBadge(winner.status)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => navigate(`/admin/winners/${winner.id}`)}
-                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative" title={t('winners.tooltips.viewWinner')}
+                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors group relative"
+                          title={t('winners.tooltips.viewWinner')}
                         >
                           <Eye size={16} />
                         </button>
                         <button
                           onClick={() => navigate(`/admin/competitions/${winner.id}`)}
-                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-primary transition-colors" title={t('winners.tooltips.viewCompetition')}
+                          className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-primary transition-colors"
+                          title={t('winners.tooltips.viewCompetition')}
                         >
                           <ExternalLink size={16} />
                         </button>
@@ -196,16 +170,13 @@ const WinnersList = () => {
               </TableBody>
             </Table>
           ) : (
-            /* Empty State */
             <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
                 <Trophy className="text-gray-500" size={32} />
               </div>
               <div>
                 <p className="text-white font-medium text-lg">{t('winners.empty.title')}</p>
-                <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">
-                  {t('winners.empty.desc')}
-                </p>
+                <p className="text-gray-500 text-sm mt-1 max-w-sm mx-auto">{t('winners.empty.desc')}</p>
               </div>
               {activeStatus !== 'all' && (
                 <Button variant="outline" size="sm" onClick={() => setActiveStatus('all')} className="mt-2">
@@ -215,7 +186,6 @@ const WinnersList = () => {
             </div>
           )}
 
-          {/* Pagination (Only show if there are items) */}
           {filteredWinners.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-sm text-gray-400">

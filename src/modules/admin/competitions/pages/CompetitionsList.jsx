@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -13,8 +13,8 @@ import {
   Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
-import { fetchAdminCompetitionsList, deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
+import { deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
+import { useAdminCompetitionsFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { formatStatus } from '@/shared/utils/formatters';
 
@@ -41,8 +41,14 @@ const CompetitionsList = () => {
     { key: 'Archived', label: t('common.archived') },
   ];
 
-  const { data: competitionsData, setData: setCompetitions, loading, invalidate } = useAdminQuery('competitions_list', fetchAdminCompetitionsList);
-  const competitions = competitionsData || [];
+  const { data: competitions, loading } = useAdminCompetitionsFeed();
+
+  // Force re-render every minute to update countdown-based statuses
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
@@ -51,10 +57,6 @@ const CompetitionsList = () => {
       await deleteCompetition(competitionToDelete.id);
       
       toast.success('Competition deleted successfully', { id: loadingToast });
-      // Optimistically update UI
-      setCompetitions(prev => prev.filter(c => c.id !== competitionToDelete.id));
-      // Invalidate cache
-      invalidate();
       setDeleteModalOpen(false);
     } catch (err) {
       console.error('Error deleting:', err);
@@ -286,7 +288,10 @@ const CompetitionsList = () => {
                     </div>
                   </TableCell>
                   <TableCell className="font-medium text-white">{comp.revenue}</TableCell>
-                  <TableCell>{comp.drawDate}</TableCell>
+                  <TableCell>
+                    {comp.drawDate?.toDate ? comp.drawDate.toDate().toLocaleDateString() : 
+                     comp.drawDate ? new Date(comp.drawDate).toLocaleDateString() : 'N/A'}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
@@ -343,7 +348,7 @@ const CompetitionsList = () => {
               type="date" 
               value={dateRange.start}
               onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark"
             />
           </div>
           <div className="space-y-2">
@@ -352,7 +357,7 @@ const CompetitionsList = () => {
               type="date" 
               value={dateRange.end}
               onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors [color-scheme:dark]"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark"
             />
           </div>
         </div>

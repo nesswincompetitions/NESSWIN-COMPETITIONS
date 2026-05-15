@@ -8,7 +8,8 @@ import {
   ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, 
   CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2
 } from 'lucide-react';
-import { fetchOrderDetail, refundOrder } from '@/modules/admin/orders/services/ordersService';
+import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId } from '@/shared/hooks/useAdminData';
+import { refundOrder } from '@/modules/admin/orders/services/ordersService';
 import { toast } from 'react-hot-toast';
 
 const OrderDetail = () => {
@@ -16,33 +17,15 @@ const OrderDetail = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadOrder();
-  }, [id]);
-
-  const loadOrder = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchOrderDetail(id);
-      setOrder(data);
-    } catch (error) {
-      console.error('Error loading order:', error);
-      toast.error('Failed to load order details');
-      navigate('/admin/orders');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: order, loading: orderLoading } = useOrderRealtime(id);
+  const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
+  const loading = orderLoading || ticketsLoading;
 
   const handleRefund = async () => {
     if (!window.confirm(t('orders.detail.confirmRefund'))) return;
     try {
       await refundOrder(id);
       toast.success(t('orders.detail.refundSuccess'));
-      loadOrder(); // refresh data
     } catch (error) {
       console.error('Error refunding order:', error);
       toast.error(t('orders.detail.refundFailed'));
@@ -52,7 +35,7 @@ const OrderDetail = () => {
   const formatDate = (ts) => {
     if (!ts) return '—';
     const date = ts.toMillis ? new Date(ts.toMillis()) : new Date(ts);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   const renderStatusBadge = (status) => {
@@ -76,7 +59,6 @@ const OrderDetail = () => {
   }
 
   const orderId = `#${order.id.substring(0,8).toUpperCase()}`;
-  const tickets = order.ticketsList || [];
   const questionAnswer = order.question_answer || {};
 
   return (
@@ -131,7 +113,7 @@ const OrderDetail = () => {
                     <p className="font-medium text-white">{order.competition_title || 'Unknown Competition'}</p>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/admin/competitions/${order.competition_id}`)}>
+                <Button variant="outline" size="sm" onClick={() => navigate(`/admin/competitions/${getReferenceId(order.competition_id)}`)}>
                   {t('common.view')}
                 </Button>
               </div>
@@ -206,7 +188,7 @@ const OrderDetail = () => {
                   <UserIcon size={18} className="text-primary" />
                   {t('orders.detail.customerInfo')}
                 </h2>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/admin/users/${order.user_ref}`)}>
+                <Button variant="outline" size="sm" onClick={() => navigate(`/admin/users/${getReferenceId(order.user_ref)}`)}>
                   {t('orders.detail.viewProfile')}
                 </Button>
               </div>

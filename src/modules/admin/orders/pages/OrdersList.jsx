@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -10,8 +10,7 @@ import {
   Calendar, Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
-import { fetchOrdersStats } from '@/modules/admin/orders/services/ordersService';
-import { usePaginatedData } from '@/modules/admin/shared/hooks/usePaginatedData';
+import { useAdminDashboardData, useAdminOrdersFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
@@ -24,53 +23,15 @@ const OrdersList = () => {
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const compDropdownRef = useRef(null);
 
   const itemsPerPage = 20;
-  const { 
-    data: orders, 
-    loading, 
-    currentPage,
-    nextPage,
-    prevPage,
-    goToPage,
-    hasPageCursor,
-    setFilters,
-    resolveRelation
-  } = usePaginatedData({
-    collectionName: 'order',
-    pageSize: itemsPerPage,
-    initialFilters: { status: 'all' },
-    relations: [
-      { collection: 'user', key: 'user_ref' },
-      { collection: 'competition', key: 'competition_id' }
-    ]
-  });
-
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [statsLoading, setStatsLoading] = useState(true);
-
-  useEffect(() => {
-    loadStats();
-    // No need to manually trigger loadMore, fetchPage('first') is handled internally on mount or refresh if we wanted, 
-    // actually we need to trigger it if the hook doesn't auto-fetch.
-    // Wait, the hook doesn't auto-fetch on mount. Let's trigger goToPage(1).
-    goToPage(1);
-  }, []);
-
-  const loadStats = async () => {
-    setStatsLoading(true);
-    try {
-      const data = await fetchOrdersStats();
-      setTotalOrders(data.totalOrders || 0);
-      setTotalRevenue(data.totalRevenue || 0);
-    } catch (error) {
-      console.error('Error loading order stats:', error);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
+  const { data: orders, loading: ordersLoading } = useAdminOrdersFeed(50);
+  const { data: dashboardStats, loading: statsLoading } = useAdminDashboardData();
+  const loading = ordersLoading || statsLoading;
+  const totalOrders = dashboardStats.totalOrders || 0;
+  const totalRevenue = dashboardStats.totalRevenue || 0;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -96,17 +57,13 @@ const OrdersList = () => {
       { label: 'Status', key: 'status' }
     ];
 
-    const exportData = orders.map(o => {
-      const user = resolveRelation('user', o.user_ref);
-      const comp = resolveRelation('competition', o.competition_id);
-      return {
-        ...o,
-        userName: user?.display_name || user?.name || 'N/A',
-        userEmail: user?.email || 'N/A',
-        competitionTitle: comp?.title || 'N/A',
-        created_at: o.created_at?.toMillis ? new Date(o.created_at.toMillis()).toISOString() : 'N/A'
-      };
-    });
+    const exportData = orders.map(o => ({
+      ...o,
+      userName: o.userName || 'N/A',
+      userEmail: o.userEmail || 'N/A',
+      competitionTitle: o.competitionName || 'N/A',
+      created_at: o.created_at?.toMillis ? new Date(o.created_at.toMillis()).toISOString() : 'N/A'
+    }));
 
     exportToCSV(exportData, headers, `orders_export_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success('Orders list exported to CSV');
@@ -133,38 +90,43 @@ const OrdersList = () => {
   const uniqueCompetitions = useMemo(() => {
     const comps = new Set();
     orders.forEach(o => {
-      const comp = resolveRelation('competition', o.competition_id);
-      if (comp && comp.title) comps.add(comp.title);
+      if (o.competitionName) comps.add(o.competitionName);
     });
     return Array.from(comps);
-  }, [orders, resolveRelation]);
+  }, [orders]);
 
   // -- Computed Data --
   const { currentOrders, totalFiltered, totalPages } = useMemo(() => {
     // 1. Filter
     const filtered = orders.filter(o => {
-      const comp = resolveRelation('competition', o.competition_id);
-      const user = resolveRelation('user', o.user_ref);
-      
-      const compTitle = comp?.title || '';
+      const compTitle = o.competitionName || '';
       const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
 
       const search = searchTerm.toLowerCase();
       const orderId = (o.id || '').toLowerCase();
-      const userName = (user?.display_name || user?.name || '').toLowerCase();
-      const userEmail = (user?.email || '').toLowerCase();
+      const userName = (o.userName || '').toLowerCase();
+      const userEmail = (o.userEmail || '').toLowerCase();
       
       const matchesSearch = orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
       
-      return matchesComp && matchesSearch;
+      const orderStatus = (o.status || '').toLowerCase();
+      const matchesStatus = activeStatus === 'all' || orderStatus === activeStatus;
+      
+      return matchesComp && matchesSearch && matchesStatus;
     });
 
+    const totalFiltered = filtered.length;
+    const totalPages = Math.ceil(totalFiltered / itemsPerPage) || 1;
+    const safePage = Math.min(currentPage, totalPages);
+    const start = (safePage - 1) * itemsPerPage;
+    const paginated = filtered.slice(start, start + itemsPerPage);
+
     return { 
-      currentOrders: filtered, 
-      totalFiltered: filtered.length,
-      totalPages: Math.ceil(totalOrders / itemsPerPage) || 1
+      currentOrders: paginated, 
+      totalFiltered,
+      totalPages
     };
-  }, [orders, selectedComp, searchTerm, resolveRelation, totalOrders, itemsPerPage]);
+  }, [orders, selectedComp, searchTerm, currentPage, itemsPerPage, activeStatus]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -175,13 +137,13 @@ const OrdersList = () => {
           <p className="text-gray-400 mt-1">{t('orders.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
+          <Card className="bg-white/2 border-white/5 py-2 px-4 flex items-center gap-3">
             <div>
               <p className="text-xs text-gray-500">{t('orders.stats.totalOrders')}</p>
               <p className="text-lg font-bold text-white">{totalOrders.toLocaleString()}</p>
             </div>
           </Card>
-          <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
+          <Card className="bg-white/2 border-white/5 py-2 px-4 flex items-center gap-3">
             <div>
               <p className="text-xs text-gray-500">{t('dashboard.kpi.totalRevenue')}</p>
               <p className="text-lg font-bold text-emerald-400">£{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -189,7 +151,7 @@ const OrdersList = () => {
           </Card>
           <Button 
             variant="outline" 
-            className="flex items-center gap-2 h-[52px]"
+            className="flex items-center gap-2 h-13"
             onClick={handleExportCSV}
             disabled={!orders.length}
           >
@@ -217,7 +179,6 @@ const OrdersList = () => {
                   key={status.key}
                   onClick={() => { 
                     setActiveStatus(status.key); 
-                    setFilters({ status: status.key });
                   }}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
                     ? 'bg-white/10 text-white font-medium'
@@ -254,7 +215,7 @@ const OrdersList = () => {
           </div>
 
           {/* Table Area */}
-          <div className="overflow-x-auto min-h-[400px]">
+          <div className="overflow-x-auto min-h-100">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
@@ -283,15 +244,15 @@ const OrdersList = () => {
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium text-white">
-                            {resolveRelation('user', order.user_ref)?.display_name || resolveRelation('user', order.user_ref)?.name || 'Unknown User'}
+                            {order.userName || 'Unknown User'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {resolveRelation('user', order.user_ref)?.email || 'No email'}
+                              {order.userEmail || 'No email'}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-white font-medium">
-                        {resolveRelation('competition', order.competition_id)?.title || 'Unknown Competition'}
+                          {order.competitionName || 'Unknown Competition'}
                       </TableCell>
                       <TableCell className="text-center text-gray-300">{order.total_ticket || 0}</TableCell>
                       <TableCell className="font-bold text-emerald-400">£{(order.total_amount || 0).toFixed(2)}</TableCell>
@@ -336,7 +297,7 @@ const OrdersList = () => {
           {!loading && currentOrders.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-xs text-gray-400">
-                {t('common.showing')} Page {currentPage}
+                {t('common.showing')} {(Math.min(currentPage, totalPages) - 1) * itemsPerPage + 1}-{Math.min(Math.min(currentPage, totalPages) * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}
               </p>
               <div className="flex items-center gap-2">
                 <Button 
@@ -344,17 +305,16 @@ const OrdersList = () => {
                   size="sm" 
                   className="h-8 text-xs bg-white/5" 
                   disabled={currentPage === 1} 
-                  onClick={prevPage}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 >
                   {t('common.previous')}
                 </Button>
                 
-                <div className="flex gap-1 overflow-x-auto max-w-[200px] hide-scrollbar">
+                <div className="flex gap-1 overflow-x-auto max-w-50 hide-scrollbar">
                   {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => (
                     <button
                       key={i + 1}
-                      onClick={() => goToPage(i + 1)}
-                      disabled={i + 1 > currentPage && !hasPageCursor(i + 1)}
+                      onClick={() => setCurrentPage(i + 1)}
                       className={`w-8 h-8 rounded-md text-xs shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
                         currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'
                       }`}
@@ -369,8 +329,8 @@ const OrdersList = () => {
                   variant="outline" 
                   size="sm" 
                   className="h-8 text-xs bg-white/5" 
-                  disabled={orders.length < itemsPerPage} 
-                  onClick={nextPage}
+                  disabled={currentPage === totalPages} 
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                 >
                   {t('common.next')}
                 </Button>

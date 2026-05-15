@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -9,8 +9,7 @@ import SearchInput from '@/shared/components/ui/SearchInput';
 import {
   Calendar, Download, Eye, ChevronDown, Users as UsersIcon, Loader2, Award, UserCheck
 } from 'lucide-react';
-import { fetchReferralsList } from '@/modules/admin/referrals/services/referralsService';
-import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { useAdminUsersFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
@@ -22,8 +21,17 @@ const ReferralsList = () => {
   const [sortBy, setSortBy] = useState('mostReferrals');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const { data: refData, loading } = useAdminQuery('referrals_list', fetchReferralsList);
-  const data = refData || { referrals: [], stats: {} };
+  const { data: users, loading } = useAdminUsersFeed(100);
+  const data = useMemo(() => {
+    const referrals = (users || []).filter((user) => Number(user.referral_count || 0) > 0);
+    return {
+      referrals,
+      stats: {
+        totalReferrals: referrals.reduce((sum, user) => sum + Number(user.referral_count || 0), 0),
+        totalRewards: referrals.reduce((sum, user) => sum + Number(user.total_free_tickets || user.free_tickets || 0), 0),
+      },
+    };
+  }, [users]);
 
   const itemsPerPage = 20;
 
@@ -103,7 +111,7 @@ const ReferralsList = () => {
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
+          <Card className="bg-white/2 border-white/5 py-2 px-4 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <UserCheck size={16} className="text-primary" />
             </div>
@@ -112,7 +120,7 @@ const ReferralsList = () => {
               <p className="text-lg font-bold text-white">{stats.totalReferrals || 0}</p>
             </div>
           </Card>
-          <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3">
+          <Card className="bg-white/2 border-white/5 py-2 px-4 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
               <Award size={16} className="text-yellow-500" />
             </div>
@@ -123,7 +131,7 @@ const ReferralsList = () => {
           </Card>
           <Button 
             variant="outline" 
-            className="flex items-center gap-2 h-[52px]"
+            className="flex items-center gap-2 h-13"
             onClick={handleExportCSV}
             disabled={!data.referrals.length}
           >
@@ -161,7 +169,7 @@ const ReferralsList = () => {
           </div>
 
           {/* Table Area */}
-          <div className="overflow-x-auto min-h-[400px]">
+          <div className="overflow-x-auto min-h-100">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />

@@ -11,8 +11,8 @@ import {
   ChevronDown, Users as UsersIcon, Loader2, CheckCircle2,
   Ban
 } from 'lucide-react';
-import { fetchUsersList, updateUserStatus } from '@/modules/admin/users/services/usersService';
-import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { updateUserStatus } from '@/modules/admin/users/services/usersService';
+import { useAdminUsersFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
@@ -26,7 +26,7 @@ const UsersList = () => {
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: usersData, setData: setUsers, loading, invalidate } = useAdminQuery('users_list', fetchUsersList);
+  const { data: usersData, loading } = useAdminUsersFeed(50);
   const users = useMemo(() => usersData || [], [usersData]);
 
   // -- Suspend Modal State --
@@ -77,11 +77,6 @@ const UsersList = () => {
     try {
       await updateUserStatus(userToToggle.id, newStatus);
       toast.success(`User ${newStatus ? 'unsuspended' : 'suspended'} successfully`);
-      
-      // Optimistically update UI
-      setUsers(prev => prev.map(u => u.id === userToToggle.id ? { ...u, is_active: newStatus } : u));
-      
-      invalidate();
       setSuspendModalOpen(false);
     } catch (error) {
       console.error('Error updating user status:', error);
@@ -204,7 +199,7 @@ const UsersList = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto min-h-[400px]">
+          <div className="overflow-x-auto min-h-100">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
                 <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
@@ -245,7 +240,7 @@ const UsersList = () => {
                       <TableCell className="font-bold text-emerald-400">£{(user.total_spent || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center text-gray-400">{user.referral_count || 0}</TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="hot" className="px-2 py-0.5 min-w-[2rem]">{user.free_tickets || 0}</Badge>
+                        <Badge variant="hot" className="px-2 py-0.5 min-w-8">{user.free_tickets || 0}</Badge>
                       </TableCell>
                       <TableCell>{renderStatusBadge(user)}</TableCell>
                       <TableCell className="text-right">

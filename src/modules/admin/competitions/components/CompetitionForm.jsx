@@ -359,8 +359,10 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
         return;
       }
       const selectedDateTime = new Date(`${formData.drawEndDate}T${formData.drawEndTime}`);
-      if (selectedDateTime < new Date()) {
-        toast.error("Draw date and time cannot be in the past");
+      const minAllowedTime = new Date(Date.now() + 12 * 60 * 60 * 1000);
+      
+      if (selectedDateTime < minAllowedTime) {
+        toast.error("Draw date and time must be at least 12 hours from now");
         return;
       }
     }

@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import Modal from '@/shared/components/ui/Modal';
+import { limit, orderBy, where } from 'firebase/firestore';
 import {
   Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2, Download
 } from 'lucide-react';
-import { fetchBonusTicketsList, searchUsers, grantAdminBonus, fetchAdminBonusTotal } from '@/modules/admin/bonus/services/bonusService';
-import { useAdminQuery } from '@/modules/admin/shared/hooks/useAdminQuery';
+import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
+import { useRecentUsers } from '@/shared/hooks/useAdminData';
+import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
@@ -17,10 +19,12 @@ const BonusTickets = () => {
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const { data: ticketsData, loading } = useAdminQuery('bonus_tickets_list', fetchBonusTicketsList);
-  const { data: totalIssuedData } = useAdminQuery('admin_bonus_total', fetchAdminBonusTotal);
-  const tickets = ticketsData || [];
-  const totalIssued = totalIssuedData || 0;
+  const { data: ticketsRaw, loading: ticketsLoading } = useRealtimeCollection('free_ticket_log', [orderBy('created_at', 'desc')]);
+  const { data: rewardLogs, loading: rewardsLoading } = useRealtimeCollection('referrals', [where('reward_type', '==', 'admin_bonus')]);
+  const { data: users, loading: usersLoading } = useRecentUsers(100);
+  const { data: competitions, loading: competitionsLoading } = useRealtimeCollection('competition', []);
+  const loading = ticketsLoading || rewardsLoading || usersLoading || competitionsLoading;
+  const totalIssued = rewardLogs.length;
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Form State
@@ -32,6 +36,22 @@ const BonusTickets = () => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
+  const competitionMap = useMemo(() => Object.fromEntries(competitions.map((competition) => [competition.id, competition])), [competitions]);
+
+  const tickets = useMemo(() => ticketsRaw.map((ticket) => {
+    const userId = ticket.user_id?.id || (typeof ticket.user_id === 'string' ? ticket.user_id : null);
+    const competitionId = ticket.competition_id?.id || (typeof ticket.competition_id === 'string' ? ticket.competition_id : null);
+    const user = userMap[userId];
+    const competition = competitionMap[competitionId];
+
+    return {
+      ...ticket,
+      userName: user?.display_name || user?.name || 'Unknown User',
+      competitionTitle: competition?.title || 'N/A',
+    };
+  }), [ticketsRaw, userMap, competitionMap]);
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -93,7 +113,13 @@ const BonusTickets = () => {
 
     setIsSearching(true);
     try {
-      const results = await searchUsers(value);
+      const term = value.toLowerCase();
+      const results = users.filter((user) => {
+        const email = (user.email || '').toLowerCase();
+        const name = (user.display_name || user.name || '').toLowerCase();
+        return email.includes(term) || name.includes(term);
+      }).slice(0, 10);
+
       setUserSearchResults(results);
     } catch (error) {
       console.error('Search error:', error);
@@ -171,8 +197,7 @@ const BonusTickets = () => {
         setAssignExpiry('');
         setIsAssignModalOpen(false);
 
-        // Trigger refetch of bonus tickets
-        window.location.reload();
+        // Realtime listeners update the list automatically.
       }
     } catch (error) {
       console.error('Error granting bonus:', error);
@@ -205,7 +230,7 @@ const BonusTickets = () => {
           <p className="text-gray-400 mt-1">{t('bonusTickets.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <Card className="bg-white/[0.02] border-white/5 py-2 px-4 flex items-center gap-3 h-[52px]">
+          <Card className="bg-white/2 border-white/5 py-2 px-4 flex items-center gap-3 h-13">
             <Ticket className="text-primary opacity-70" size={20} />
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Total Issued</p>
@@ -296,12 +321,12 @@ const BonusTickets = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-gray-300">
-                          <span className="truncate max-w-[200px]">{ticket.reason}</span>
+                          <span className="truncate max-w-50">{ticket.reason}</span>
                           <HelpCircle size={14} className="text-gray-500 cursor-help" title={ticket.reason} />
                         </div>
                       </TableCell>
                       <TableCell className="text-gray-400">
-                        <span className="truncate max-w-[150px] block" title={ticket.competitionTitle}>
+                        <span className="truncate max-w-37.5 block" title={ticket.competitionTitle}>
                           {ticket.competitionTitle}
                         </span>
                       </TableCell>
