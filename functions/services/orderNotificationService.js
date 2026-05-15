@@ -57,6 +57,7 @@ export const buildNotificationPayload = ({
     cta_text: ctaText,
     parameter_data: JSON.stringify(parameterData),
     notification_image_url: " ", // Space as requested
+    scheduled_time: null,
     notification_sound: "default",
     is_read: false,
     num_sent: 0,

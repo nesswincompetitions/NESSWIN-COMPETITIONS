@@ -14,8 +14,10 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
   const isReadyToDraw = status === 'ready_to_draw';
   const isDrawing     = status === 'drawing';
   const isSoldOut     = status === 'sold_out';
+  const isWinnerAnnounced = status === 'winner_announced';
+  const isCompleted = status === 'completed' || status === 'end';
+  const isClosed      = isReadyToDraw || isDrawing || isSoldOut || isWinnerAnnounced || isCompleted;
   const isEnded       = status === 'end' || status === 'completed';
-  const isClosed      = isReadyToDraw || isDrawing || isSoldOut || isEnded;
   const isDisabled    = isClosed;
   const progress      = Math.round((sold / total) * 100);
   const remaining     = total - sold;
@@ -50,12 +52,14 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
           <Badge variant={(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? "ended" : badgeType}>
             {(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? (
               <Lock className="w-3 h-3" aria-hidden="true" />
-            ) : badgeType === "featured" ? (
-              <Flame className="w-3 h-3" aria-hidden="true" />
             ) : (
               <Sparkles className="w-3 h-3" aria-hidden="true" />
             )}
-            {isEnded
+            {isWinnerAnnounced
+              ? t("common.winnerAnnounced").toUpperCase()
+              : isCompleted
+              ? t("common.completed").toUpperCase()
+              : isEnded
               ? t("common.ended").toUpperCase()
               : isDrawing
               ? t("common.drawing").toUpperCase()
@@ -85,43 +89,61 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
         </div>
 
         {/* Progress */}
-        <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" aria-hidden="true" />
-              {sold.toLocaleString()} {t("common.sold")}
-            </span>
-            <span className="text-(--color-foreground) font-medium">
-              {remaining.toLocaleString()} {t("common.remaining")}
-            </span>
+        {!isWinnerAnnounced && !isCompleted && (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3" aria-hidden="true" />
+                {sold.toLocaleString()} {t("common.sold")}
+              </span>
+              <span className="text-(--color-foreground) font-medium">
+                {remaining.toLocaleString()} {t("common.remaining")}
+              </span>
+            </div>
+            <div className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden">
+              <div
+                className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
+                style={{ 
+                  width: `${progress}%`,
+                  boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
+                }}
+              />
+            </div>
           </div>
-          <div className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden">
-            <div
-              className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
-              style={{ 
-                width: `${progress}%`,
-                boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
-              }}
-            />
-          </div>
-        </div>
+        )}
 
         {/* Countdown */}
-        <div className="flex items-center justify-between">
-          <CountdownTimer endsAt={endsAt} />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-            {t("common.beforeDraw")}
-          </span>
-        </div>
+        {!isWinnerAnnounced && !isCompleted && (
+          <div className="flex items-center justify-between">
+            <CountdownTimer endsAt={endsAt} />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+              {t("common.beforeDraw")}
+            </span>
+          </div>
+        )}
 
         {/* CTA */}
-        {(isClosed || isReadyToDraw || isDrawing) ? (
+        {(isClosed || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted) ? (
           <button
-            disabled
-            className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
+            onClick={() => onNavigate(id)}
+            className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
           >
-            <Clock className="w-4 h-4" aria-hidden="true" />
-            {isDrawing ? t("common.drawing") : t("common.drawPending")}
+            {isWinnerAnnounced ? (
+              <>
+                <Sparkles className="w-4 h-4" aria-hidden="true" />
+                {t("common.winnerAnnounced")}
+              </>
+            ) : isCompleted ? (
+              <>
+                <Sparkles className="w-4 h-4" aria-hidden="true" />
+                {t("common.completed")}
+              </>
+            ) : (
+              <>
+                <Clock className="w-4 h-4" aria-hidden="true" />
+                {isDrawing ? t("common.drawing") : t("common.drawPending")}
+              </>
+            )}
           </button>
         ) : isSoldOut ? (
           <button
@@ -180,8 +202,8 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
           image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
           images: data.image || [],
           created_at: data.created_at?.toMillis() || 0,
-          badgeType: data.is_featured ? 'featured' : 'new',
-          badgeLabel: data.is_featured ? 'Featured' : 'Active',
+          badgeType: 'new',
+          badgeLabel: 'Active',
           ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
           category: data.category || 'Other',
           title: data.title || 'Untitled',

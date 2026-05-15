@@ -54,10 +54,10 @@ export async function searchUsers(searchTerm) {
  * @param {string} reason - Admin's reason for granting (optional)
  * @returns {Promise<{ success: boolean, message: string }>}
  */
-export async function grantAdminBonus(userId, quantity, reason = '', competitionId = null) {
+export async function grantAdminBonus(userId, quantity, reason = '') {
   try {
     const grant = httpsCallable(functions, 'grantAdminBonus');
-    const resp = await grant({ userId, quantity, reason, competitionId });
+    const resp = await grant({ userId, quantity, reason });
     // resp.data should contain { success, message }
     return resp.data;
   } catch (error) {

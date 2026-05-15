@@ -93,6 +93,26 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
 
     await setDoc(competitionRef, competitionPayload);
 
+    if (!isDraft) {
+      // Broadcast notification for new competition
+      const broadcastNotifRef = doc(collection(db, "ff_push_notifications"));
+      await setDoc(broadcastNotifRef, {
+        notification_title: "New Competition Launched! 🚀",
+        notification_text: `A new competition for ${formData.prizeName} is now live! Join now.`,
+        notification_image_url: competitionImages[0] || "",
+        scheduled_time: null,
+        notification_sound: "default",
+        parameter_data: JSON.stringify({ compitation: competitionRef.path }),
+        target_audience: "all_users",
+        initial_page_name: "detailsPage",
+        user_refs: "",
+        batch_index: 0,
+        num_batches: 1,
+        status: "",
+        num_sent: 0,
+      });
+    }
+
     if (Array.isArray(formData.questions)) {
       const existingQuestionsQuery = query(
         collection(db, "questions"),

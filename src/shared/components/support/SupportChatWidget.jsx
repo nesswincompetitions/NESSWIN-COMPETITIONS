@@ -322,7 +322,8 @@ export default function SupportChatWidget({
     renderable.push({ type: 'msg', key: msg.id, msg, isOwn, isFirst, isLast });
   });
 
-  const canClose = isCurrentUserAdmin || chatType !== 'winner_chat';
+  const isClosed = status === 'closed';
+  const canClose = !isClosed && (isCurrentUserAdmin || chatType !== 'winner_chat');
 
   return (
     <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%', minHeight: '560px' }}>

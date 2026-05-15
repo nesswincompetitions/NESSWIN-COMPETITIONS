@@ -88,11 +88,13 @@ function WinnerCard({ winner }) {
 
         {/* Testimonial quote */}
         <div className="relative pl-4">
-          <Quote
-            className="absolute top-0 left-0 w-3.5 h-3.5 text-[var(--color-primary)]/40"
-            aria-hidden="true"
-          />
-          <p className="text-sm text-[var(--color-muted-foreground)] italic leading-relaxed">
+          {quote !== "No comments" && (
+            <Quote
+              className="absolute top-0 left-0 w-3.5 h-3.5 text-[var(--color-primary)]/40"
+              aria-hidden="true"
+            />
+          )}
+          <p className={`text-sm leading-relaxed ${quote === "No comments" ? "text-[var(--color-muted-foreground)]/50 not-italic" : "text-[var(--color-muted-foreground)] italic"}`}>
             {quote}
           </p>
         </div>

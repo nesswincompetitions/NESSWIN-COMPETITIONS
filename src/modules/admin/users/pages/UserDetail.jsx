@@ -43,14 +43,10 @@ const UserDetail = () => {
   const [compDetails, setCompDetails] = useState({});
   const [resolvingComps, setResolvingComps] = useState(false);
   const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
-  const [selectedCompId, setSelectedCompId] = useState('');
   const [bonusQuantity, setBonusQuantity] = useState(1);
   const [bonusReason, setBonusReason] = useState('');
   const [isSubmittingBonus, setIsSubmittingBonus] = useState(false);
 
-  const { data: allActiveCompetitions } = useRealtimeCollection('competition', [
-    where('status', 'in', ['active', 'live', 'upcoming'])
-  ]);
 
   useEffect(() => {
     if (!tickets || tickets.length === 0) return;
@@ -119,20 +115,14 @@ const UserDetail = () => {
 
   const handleAssignBonus = async (e) => {
     e.preventDefault();
-    if (!selectedCompId) {
-      toast.error("Please select a competition");
-      return;
-    }
-    
     setIsSubmittingBonus(true);
     try {
-      const result = await grantAdminBonus(id, bonusQuantity, bonusReason, selectedCompId);
+      const result = await grantAdminBonus(id, bonusQuantity, bonusReason);
       if (result.success) {
         toast.success(result.message);
         setIsBonusModalOpen(false);
         setBonusQuantity(1);
         setBonusReason('');
-        setSelectedCompId('');
       } else {
         toast.error(result.message || "Failed to grant bonus");
       }
@@ -352,7 +342,6 @@ const UserDetail = () => {
                 <TableRow>
                   <TableHead>Reason</TableHead>
                   <TableHead>Quantity</TableHead>
-                  <TableHead>Competition</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
@@ -371,9 +360,6 @@ const UserDetail = () => {
                     </TableCell>
                     <TableCell>
                       <span className="text-emerald-400 font-bold">+{log.quantity}</span>
-                    </TableCell>
-                    <TableCell className="text-gray-400">
-                      {log.competitionTitle || (log.reason === 'Referral_auto_reward' ? 'N/A' : 'General Bonus')}
                     </TableCell>
                     <TableCell>
                       {log.reason === 'Referral_auto_reward' ? (

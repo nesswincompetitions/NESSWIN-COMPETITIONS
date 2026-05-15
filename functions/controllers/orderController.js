@@ -211,12 +211,12 @@ export const processOrder = onCall(async (request) => {
         )
       );
 
-      // 2) referral_tickets_applied
+      // 2) referral_reward_used
       if (typeof result.referralTicketsUsed === "number" && result.referralTicketsUsed > 0) {
         writes.push(
           db.collection("ff_user_push_notifications").add(
             buildNotificationPayload({
-              type: "referral_tickets_applied",
+              type: "referral_reward_used",
               title: "Referral Discount Applied",
               text: `You successfully checked out using ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""}.`,
               status: "succeeded",
@@ -225,7 +225,7 @@ export const processOrder = onCall(async (request) => {
               orderRef: orderRef,
               competitionRef: competitionRef,
               senderRef: userRef,
-              pageName: "OrderHistory",
+              pageName: "Reffral",
               parameterData: { orderId: result.orderId, competitionId },
             })
           )

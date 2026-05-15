@@ -26,6 +26,9 @@
     "buyMoreTickets": "Buy More Tickets",
     "viewResults": "View Results",
     "drawing": "Drawing",
+    "winnerAnnounced": "Winner Announced",
+    "completed": "Completed",
+    "active": "Active",
     "loading": "Loading..."
   },
   "hero": {
@@ -141,7 +144,7 @@
   "competitionsPage": {
     "statusFilters": {
       "all": "All",
-      "ongoing": "Ongoing",
+      "ongoing": "Active",
       "drawSoon": "Draw Soon",
       "soldOut": "Sold Out",
       "completed": "Completed"
@@ -162,7 +165,7 @@
   },
   "competitionDetails": {
     "competitions": "Competitions",
-    "ongoing": "Ongoing",
+    "ongoing": "Active",
     "whatsIncluded": "What's included",
     "yourPrize": "Your prize",
     "perTicket": "/ ticket",

@@ -1,7 +1,4 @@
-/**
- * Formats a raw status string (e.g., 'ready_for_draw') into a human-readable format.
- * Replaces underscores with spaces and capitalizes each word.
- */
+
 export const formatStatus = (status) => {
   if (!status) return '';
   

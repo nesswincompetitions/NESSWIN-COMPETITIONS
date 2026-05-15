@@ -27,7 +27,7 @@ const mapCompetitionCardData = (id, data = {}) => {
     image: data.image?.[0] || FALLBACK_IMAGE,
     images: data.image?.length > 0 ? data.image : [FALLBACK_IMAGE],
     badgeType: data.status === 'active' ? 'new' : 'ended',
-    badgeLabel: data.is_featured ? 'Featured' : (data.status === 'active' ? 'Active' : data.status),
+    badgeLabel: data.status === 'active' ? 'Active' : data.status,
     ticketPrice: data.ticket_price || 0,
     ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
     category: data.category || 'Other',
@@ -306,7 +306,7 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
             date: data.draw_date?.toDate()
               ? data.draw_date.toDate().toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
               : '—', // For WinnersShowcase
-            quote: data.winner_comment || "Une expérience inoubliable avec NessWin !",
+            quote: data.winner_comment || "No comments",
             image: data.image?.[0] || FALLBACK_IMAGE,
             ticketPrice: `${data.ticket_price || 0} €`,
           };

@@ -41,7 +41,9 @@ function WinnerCard({ winner }) {
       {/* Hover gradient */}
       <div className={`absolute inset-0 bg-linear-to-br ${accentFrom} ${accentTo} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
-      <Quote className="w-6 h-6 text-primary/20 absolute top-4 right-4" aria-hidden="true" />
+      {quote !== "No comments" && (
+        <Quote className="w-6 h-6 text-primary/20 absolute top-4 right-4" aria-hidden="true" />
+      )}
 
       {/* Winner header */}
       <div className="flex items-center gap-3 relative z-10">
@@ -63,8 +65,8 @@ function WinnerCard({ winner }) {
       </div>
 
       {/* Quote */}
-      <p className="text-sm text-muted-foreground leading-relaxed italic relative z-10 flex-1">
-        "{quote}"
+      <p className={`text-sm leading-relaxed relative z-10 flex-1 ${quote === "No comments" ? "text-muted-foreground/50 not-italic" : "text-muted-foreground italic"}`}>
+        {quote === "No comments" ? quote : `"${quote}"`}
       </p>
 
       {/* Footer */}

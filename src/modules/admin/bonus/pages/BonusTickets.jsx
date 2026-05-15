@@ -23,8 +23,7 @@ const BonusTickets = () => {
     orderBy('created_at', 'desc')
   ]);
   const { data: users, loading: usersLoading } = useRecentUsers(100);
-  const { data: competitions, loading: competitionsLoading } = useRealtimeCollection('competition', []);
-  const loading = ticketsLoading || usersLoading || competitionsLoading;
+  const loading = ticketsLoading || usersLoading;
   const totalIssued = useMemo(() => {
     return ticketsRaw
       .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
@@ -41,18 +40,15 @@ const BonusTickets = () => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCompId, setSelectedCompId] = useState('');
 
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
-  const competitionMap = useMemo(() => Object.fromEntries(competitions.map((competition) => [competition.id, competition])), [competitions]);
 
   const tickets = useMemo(() => ticketsRaw
     .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
     .map((ticket) => {
       const userId = ticket.user_id?.id || (typeof ticket.user_id === 'string' ? ticket.user_id : null);
-      const competitionId = ticket.competition_id?.id || (typeof ticket.competition_id === 'string' ? ticket.competition_id : null);
       const user = userMap[userId];
-      const competition = competitionMap[competitionId];
+      const competition = null;
 
       return {
         ...ticket,
@@ -62,7 +58,7 @@ const BonusTickets = () => {
         reason: ticket.admin_note || ticket.reason || 'Admin Bonus',
         resolvedRewardType: 'admin_bonus'
       };
-    }), [ticketsRaw, userMap, competitionMap]);
+    }), [ticketsRaw, userMap]);
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -76,7 +72,6 @@ const BonusTickets = () => {
     if (activeStatus === 'used') return matchesSearch && ticket.reward_issued;
     if (activeStatus === 'active') return matchesSearch && !ticket.reward_issued;
     
-    // For 'expired', we don't have an expiry field yet, so just return matchesSearch
     return matchesSearch;
   });
 
@@ -196,7 +191,7 @@ const BonusTickets = () => {
 
     setIsSubmitting(true);
     try {
-      const result = await grantAdminBonus(assignUserId, qty, assignReason, selectedCompId);
+      const result = await grantAdminBonus(assignUserId, qty, assignReason);
       
       if (result.success) {
         toast.success(result.message);
@@ -207,7 +202,6 @@ const BonusTickets = () => {
         setAssignAmount(1);
         setAssignReason('');
         setAssignExpiry('');
-        setSelectedCompId('');
         setIsAssignModalOpen(false);
 
         // Realtime listeners update the list automatically.
@@ -229,7 +223,6 @@ const BonusTickets = () => {
       setAssignAmount(1);
       setAssignReason('');
       setAssignExpiry('');
-      setSelectedCompId('');
       setUserSearchResults([]);
     }
   };
@@ -276,8 +269,7 @@ const BonusTickets = () => {
               {[
                 { key: 'all', label: t('common.all') },
                 { key: 'active', label: t('common.active') },
-                { key: 'used', label: t('common.used') },
-                { key: 'expired', label: t('common.expired') }
+                { key: 'used', label: t('common.used') }
               ].map((status) => (
                 <button
                   key={status.key}

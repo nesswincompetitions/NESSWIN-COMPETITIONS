@@ -3,7 +3,6 @@ import { admin, db } from "../config/firebaseAdmin.js";
 
 const HANDOOVER_KEYS = [
   "id_proof_url",
-  "handover_photo_url",
   "handover_video_url",
   "is_contacted",
   "prize_sent",
@@ -30,6 +29,10 @@ export function buildBroadcastNotificationId(competitionId) {
   return `winner-result-${normalizeText(competitionId)}`;
 }
 
+export function buildCompletedBroadcastNotificationId(competitionId) {
+  return `winner-completed-${normalizeText(competitionId)}`;
+}
+
 export function buildWinnerFirstMessageNotificationId(chatId) {
   return `winner-chat-first-message-${normalizeText(chatId)}`;
 }
@@ -37,7 +40,6 @@ export function buildWinnerFirstMessageNotificationId(chatId) {
 export function buildHandoverDefaults(existingDetails = {}) {
   const base = {
     id_proof_url: "",
-    handover_photo_url: "",
     handover_video_url: "",
     is_contacted: false,
     prize_sent: false,
@@ -198,6 +200,8 @@ export async function selectWinnerTransaction(
     {
       notification_title: "Congratulations, you won!",
       notification_text: "Your entry has been selected as the winner.",
+      notification_image_url: competitionData.image?.[0] || "",
+      scheduled_time: null,
       notification_sound: "default",
       user_ref: winnerRef,
       user_refs: winnerRef.path,
@@ -208,8 +212,8 @@ export async function selectWinnerTransaction(
       category: "winners",
       type: "congratulations_you_won",
       cta_text: "View prize",
-      initial_page_name: "WinnerDetail",
-      parameter_data: JSON.stringify({ competitionId, ticketSequence: normalizedTicketSequence }),
+      initial_page_name: "PrizeHandoverDetails",
+      parameter_data: JSON.stringify({ competionref: competitionRef.path }),
       is_read: false,
       status: "",
       num_sent: 0,
@@ -224,19 +228,17 @@ export async function selectWinnerTransaction(
     {
       notification_title: "Winner announced",
       notification_text: "The competition winner has been published.",
+      notification_image_url: competitionData.image?.[0] || "",
+      scheduled_time: null,
       notification_sound: "default",
-      parameter_data: JSON.stringify({ competitionId }),
+      parameter_data: JSON.stringify({ compitationRef: competitionRef.path }),
       target_audience: "all_users",
-      initial_page_name: "CompetitionDetail",
+      initial_page_name: "participants",
       user_refs: "",
       batch_index: 0,
       num_batches: 1,
       status: "",
       num_sent: 0,
-      category: "winners",
-      type: "result_published",
-      timestamp: now,
-      created_at: now,
     },
     { merge: true }
   );
@@ -314,6 +316,17 @@ export async function updateWinnerHandoverTransaction(
         updateData["handover_details.prize_sent"] = true;
       }
     } else if (stage === "completed") {
+      // Enforce ID Proof and Video before completion
+      const currentIdProof = idProofUrl || handoverDetails.id_proof_url;
+      const currentVideo = handoverVideoUrl || handoverDetails.handover_video_url;
+
+      if (!currentIdProof || !currentIdProof.trim()) {
+        throw new HttpsError("failed-precondition", "Winner ID Proof is required before completing the handover.");
+      }
+      if (!currentVideo || !currentVideo.trim()) {
+        throw new HttpsError("failed-precondition", "Handover Video is required before completing the handover.");
+      }
+
       if (handoverDetails.handover_completed === true || currentStatus === "completed") {
         transaction.update(competitionRef, {
           updated_at: now,
@@ -332,11 +345,51 @@ export async function updateWinnerHandoverTransaction(
           { merge: true }
         );
 
+        transaction.set(
+          db.collection("ff_push_notifications").doc(buildCompletedBroadcastNotificationId(competitionId)),
+          {
+            notification_title: "Prize Handed Over!",
+            notification_text: `The prize for ${competitionData.title || "the competition"} has been successfully handed over.`,
+            notification_image_url: competitionData.image?.[0] || "",
+            scheduled_time: null,
+            notification_sound: "default",
+            parameter_data: JSON.stringify({ competitionref: competitionRef.path }),
+            target_audience: "all_users",
+            initial_page_name: "drawComplated",
+            user_refs: "",
+            batch_index: 0,
+            num_batches: 1,
+            status: "",
+            num_sent: 0,
+          },
+          { merge: true }
+        );
+
         return { status: "completed", completed: true };
       }
 
       updateData["handover_details.handover_completed"] = true;
       updateData.status = "completed";
+
+      transaction.set(
+        db.collection("ff_push_notifications").doc(buildCompletedBroadcastNotificationId(competitionId)),
+        {
+          notification_title: "Prize Handed Over!",
+          notification_text: `The prize for ${competitionData.title || "the competition"} has been successfully handed over.`,
+          notification_image_url: competitionData.image?.[0] || "",
+          scheduled_time: null,
+          notification_sound: "default",
+          parameter_data: JSON.stringify({ competitionref: competitionRef.path }),
+          target_audience: "all_users",
+          initial_page_name: "drawComplated",
+          user_refs: "",
+          batch_index: 0,
+          num_batches: 1,
+          status: "",
+          num_sent: 0,
+        },
+        { merge: true }
+      );
 
       transaction.set(
         chatRef,

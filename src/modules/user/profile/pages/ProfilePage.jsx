@@ -38,7 +38,6 @@ export default function ProfilePage() {
   const { userData } = useUserData();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
   const [referrals, setReferrals] = useState([]);
@@ -153,15 +152,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleCopyLink = () => {
-    if (userData?.referral_code) {
-      const link = `https://www.nesswin.com/signin?ref=${userData.referral_code}`;
-      navigator.clipboard.writeText(link);
-      setCopiedLink(true);
-      toast.success("Referral link copied!");
-      setTimeout(() => setCopiedLink(false), 2000);
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -414,28 +404,6 @@ export default function ProfilePage() {
                     </button>
                   </div>
 
-                  {/* Link */}
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center shrink-0">
-                      <Gift className="w-4 h-4 text-[var(--color-primary)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Link</p>
-                      <p className="text-sm font-mono text-[var(--color-muted-foreground)] truncate">{`https://www.nesswin.com/signin?ref=${userData.referral_code}`}</p>
-                    </div>
-                    <button
-                      onClick={handleCopyLink}
-                      className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
-                      aria-label="Copy referral link"
-                    >
-                      {copiedLink ? (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-                      )}
-                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">Copy Link</span>
-                    </button>
-                  </div>
                 </div>
               )}
 
@@ -473,7 +441,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="text-center p-6 border border-[var(--color-border)]/40 border-dashed rounded-xl">
-                    <p className="text-sm text-[var(--color-muted-foreground)]">No referrals yet. Share your link to earn free tickets!</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">No referrals yet. Share your code to earn free tickets!</p>
                   </div>
                 )}
               </div>

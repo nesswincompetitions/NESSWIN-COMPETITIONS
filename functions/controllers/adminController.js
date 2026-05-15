@@ -67,6 +67,7 @@ export const grantAdminBonus = onCall(async (request) => {
         notification_title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
         notification_text: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
         notification_image_url: "",
+        scheduled_time: null,
         notification_sound: "default",
         category: "rewards",
         type: "free_ticket_earned",

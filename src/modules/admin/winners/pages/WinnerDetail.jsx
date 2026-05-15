@@ -156,6 +156,7 @@ const WinnerDetail = () => {
 
     setIsUploading(type);
     try {
+      console.log(`[HandoverUpload] Uploading ${type}:`, { name: file.name, size: file.size, type: file.type });
       const [url] = await uploadImages([file], `handover/${competitionId}/${type}`);
       
       const payload = {};
@@ -174,6 +175,16 @@ const WinnerDetail = () => {
   };
 
   const handleHandoverAction = async (stage) => {
+    if (stage === 'completed') {
+      if (!handover.id_proof_url) {
+        toast.error('Winner ID Proof is required before completing handover.');
+        return;
+      }
+      if (!handover.handover_video_url) {
+        toast.error('Handover Video is required before completing handover.');
+        return;
+      }
+    }
     setHandoverLoading(stage);
     try {
       await updateCompetitionHandover(competitionId, stage);
@@ -513,39 +524,12 @@ const WinnerDetail = () => {
                 )}
               </div>
 
-              {/* Handover Photo */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
-                  <span className="flex items-center gap-2"><ImageIcon size={16} className="text-primary" /> Handover Photo</span>
-                  {handover.handover_photo_url ? <Badge variant="success">Uploaded</Badge> : <Badge variant="neutral">Required</Badge>}
-                </label>
-                {handover.handover_photo_url ? (
-                  <div className="relative group rounded-xl overflow-hidden aspect-video border border-white/10 bg-black">
-                     <img src={handover.handover_photo_url} alt="Handover" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                        <a href={handover.handover_photo_url} target="_blank" rel="noreferrer" className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20"><ExternalLink size={20} /></a>
-                        <label className="p-2 bg-white/10 rounded-full text-white hover:bg-white/20 cursor-pointer">
-                          <RefreshCw size={20} />
-                          <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'photo')} disabled={!!isUploading} />
-                        </label>
-                     </div>
-                  </div>
-                ) : (
-                  <label className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group">
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'photo')} disabled={!!isUploading} />
-                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      {isUploading === 'photo' ? <Loader2 size={24} className="animate-spin text-primary" /> : <ImageIcon className="text-gray-500" size={24} />}
-                    </div>
-                    <p className="text-sm text-white font-medium">Click to upload handover photo</p>
-                  </label>
-                )}
-              </div>
 
               {/* Handover Video */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
                   <span className="flex items-center gap-2"><Video size={16} className="text-primary" /> Handover Video</span>
-                  {handover.handover_video_url ? <Badge variant="success">Uploaded</Badge> : <Badge variant="neutral">Optional</Badge>}
+                  {handover.handover_video_url ? <Badge variant="success">Uploaded</Badge> : <Badge variant="neutral">Required</Badge>}
                 </label>
                 {handover.handover_video_url ? (
                   <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between group">

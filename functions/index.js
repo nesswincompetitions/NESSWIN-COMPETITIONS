@@ -28,3 +28,4 @@ export {
 	onDayChangeSync,
 	syncDashboardMetrics,
 } from "./controllers/dashboardController.js";
+export { onCompetitionStatusUpdate } from "./controllers/competitionNotificationController.js";

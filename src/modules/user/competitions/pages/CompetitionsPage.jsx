@@ -19,19 +19,17 @@ const CATEGORY_FILTER_KEYS = ["allCategories", "cars", "watches", "travel", "rea
 function StatusBadge({ type, label }) {
   const isHot = type === "hot" || type === "featured";
   const isSoldOut = type === "sold_out";
+  const isWinnerAnnounced = type === "winner_announced";
   const isCompleted = type === "completed" || type === "end";
   const isDrawSoon = type === "ready_to_draw";
   const isDrawing = type === "drawing";
-
   const isActive = type === "active";
 
   let colorClasses = "bg-primary/20 text-white border-primary/40 shadow-[0_0_12px_rgba(var(--primary-rgb),0.3)]";
   
-  if (isHot) {
-    colorClasses = "bg-orange-600/35 text-white border-orange-500/50 shadow-[0_0_12px_rgba(234,88,12,0.3)]";
-  } else if (isSoldOut) {
+  if (isSoldOut) {
     colorClasses = "bg-red-600/35 text-white border-red-500/50 shadow-[0_0_12px_rgba(220,38,38,0.3)]";
-  } else if (isCompleted || isActive) {
+  } else if (isCompleted || isActive || isWinnerAnnounced || isHot) {
     colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
   } else if (isDrawing) {
     colorClasses = "bg-amber-600/35 text-white border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]";
@@ -47,8 +45,6 @@ function StatusBadge({ type, label }) {
         <CheckCircle className="w-3 h-3" aria-hidden="true" />
       ) : (isSoldOut || type === "ended") ? (
         <Lock className="w-3 h-3" aria-hidden="true" />
-      ) : isHot ? (
-        <Flame className="w-3 h-3" aria-hidden="true" />
       ) : (isDrawSoon || isDrawing) ? (
         <Clock className="w-3 h-3" aria-hidden="true" />
       ) : (
@@ -82,7 +78,9 @@ function CompetitionCard({ competition, hasTicket }) {
   const isReadyToDraw = status === 'ready_to_draw';
   const isDrawing     = status === 'drawing';
   const isSoldOut     = status === 'sold_out';
-  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw || isDrawing;
+  const isWinnerAnnounced = status === 'winner_announced';
+  const isCompleted = status === 'completed' || status === 'end';
+  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted;
   const isEnded       = status === 'end';
   const remaining     = total - sold;
   const progress      = Math.min(100, Math.round((sold / total) * 100));
@@ -121,6 +119,8 @@ function CompetitionCard({ competition, hasTicket }) {
           <StatusBadge 
             type={status} 
             label={
+              isWinnerAnnounced ? t("common.winnerAnnounced") :
+              isCompleted ? t("common.completed") :
               isEnded ? t("common.ended") : 
               isDrawing ? t("common.drawing") :
               isReadyToDraw ? t("competitionsPage.statusFilters.drawSoon") : 
@@ -134,11 +134,13 @@ function CompetitionCard({ competition, hasTicket }) {
           <Tag className="w-3 h-3" aria-hidden="true" />
           {ticketPrice}€
         </div>
-        <div className="absolute bottom-3 left-3">
-          <span className="text-[9px] font-semibold tracking-[0.18em] uppercase text-white/70 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded">
-            {tag}
-          </span>
-        </div>
+        {!isWinnerAnnounced && !isCompleted && (
+          <div className="absolute bottom-3 left-3">
+            <span className="text-[9px] font-semibold tracking-[0.18em] uppercase text-white/70 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded">
+              {tag}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Body ── */}
@@ -162,49 +164,67 @@ function CompetitionCard({ competition, hasTicket }) {
         {/* Push everything below to the bottom */}
         <div className="flex flex-col gap-3 flex-1 justify-end">
           {/* Progress block */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3" aria-hidden="true" />
-                {sold.toLocaleString()} {t("common.sold")}
-              </span>
-              <span className="text-(--color-foreground) font-medium">
-                {remaining.toLocaleString()} {t("common.remaining")}
-              </span>
-            </div>
-            <div
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progress}
-              className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden"
-            >
+          {!isWinnerAnnounced && !isCompleted && (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3" aria-hidden="true" />
+                  {sold.toLocaleString()} {t("common.sold")}
+                </span>
+                <span className="text-(--color-foreground) font-medium">
+                  {remaining.toLocaleString()} {t("common.remaining")}
+                </span>
+              </div>
               <div
-                className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${progress}%`,
-                  boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
-                }}
-              />
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress}
+                className="relative w-full h-2 rounded-full bg-white/5 border border-white/5 overflow-hidden"
+              >
+                <div
+                  className="absolute left-0 top-0 h-full bg-linear-to-r from-primary via-primary to-primary/80 rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${progress}%`,
+                    boxShadow: progress > 0 ? '0 0 12px oklch(0.78 0.14 78 / 0.4)' : 'none'
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Countdown + label */}
-          <div className="flex items-center justify-between">
-            <CountdownTimer endsAt={endsAt} />
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-              {t("common.beforeDraw")}
-            </span>
-          </div>
+          {!isWinnerAnnounced && !isCompleted && (
+            <div className="flex items-center justify-between">
+              <CountdownTimer endsAt={endsAt} />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                {t("common.beforeDraw")}
+              </span>
+            </div>
+          )}
 
           {/* CTA */}
-          {(isClosed || isReadyToDraw || isDrawing) ? (
+          {(isClosed || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted) ? (
             <button
               onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
             >
-              <Clock className="w-4 h-4" aria-hidden="true" />
-              {isDrawing ? t("common.drawing") : t("common.drawPending")}
+              {isWinnerAnnounced ? (
+                <>
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  {t("common.winnerAnnounced")}
+                </>
+              ) : isCompleted ? (
+                <>
+                  <CheckCircle className="w-4 h-4" aria-hidden="true" />
+                  {t("common.completed")}
+                </>
+              ) : (
+                <>
+                  <Clock className="w-4 h-4" aria-hidden="true" />
+                  {isDrawing ? t("common.drawing") : t("common.drawPending")}
+                </>
+              )}
             </button>
           ) : isSoldOut ? (
             <button
@@ -316,7 +336,7 @@ export default function CompetitionsPage() {
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
             badgeType: data.status === 'active' ? 'new' : 'ended',
-            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Draw Soon' : (data.status === 'sold_out' ? 'Sold Out' : data.status)),
+            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Draw Soon' : (data.status === 'sold_out' ? 'Sold Out' : (data.status === 'winner_announced' ? 'Winner Announced' : (data.status === 'completed' ? 'Completed' : data.status)))),
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',

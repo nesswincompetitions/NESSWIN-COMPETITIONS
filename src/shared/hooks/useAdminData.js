@@ -625,20 +625,15 @@ export const useUserBonusLogsRealtime = (userId) => {
     [userId, userRef]
   );
   const { data: logs, loading: logsLoading, error: logsError } = useRealtimeCollection('free_ticket_log', queryConstraints);
-  const { compMap, resolving } = useEnrichment(logs, null, 'competition_id');
 
   const enrichedLogs = useMemo(() => logs
     .filter(log => log.reward_type === 'admin_bonus')
-    .map((log) => {
-      const competitionId = getReferenceId(log.competition_id);
-      const competition = compMap[competitionId];
-      return {
-        ...log,
-        competitionTitle: competition?.title || competition?.name || 'N/A',
-      };
-    }), [logs, compMap]);
+    .map((log) => ({
+      ...log,
+      competitionTitle: 'N/A', // No longer needed
+    })), [logs]);
 
-  return { data: enrichedLogs, loading: logsLoading || resolving, error: logsError };
+  return { data: enrichedLogs, loading: logsLoading, error: logsError };
 };
 
 export const useCompetitionRealtime = (competitionId) => useRealtimeDocument(

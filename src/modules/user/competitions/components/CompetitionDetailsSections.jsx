@@ -55,8 +55,10 @@ export function ImageGallery({ images, title, status, endsAt }) {
   const isReadyToDraw = status === "ready_to_draw";
   const isDrawing = status === "drawing";
   const isSoldOut = status === "sold_out";
-  const isEnded = status === "end" || status === "completed";
+  const isWinnerAnnounced = status === "winner_announced";
+  const isEnded = status === "end" || status === "completed" || isWinnerAnnounced;
   const isClosed = isReadyToDraw || isDrawing || isSoldOut || isEnded;
+  const isActive = status === "active";
 
   return (
     <div className="space-y-3">
@@ -69,15 +71,11 @@ export function ImageGallery({ images, title, status, endsAt }) {
             : "bg-primary text-(--color-primary-foreground)"
             }`}
         >
-          {isEnded 
-            ? t("common.ended") 
-            : isDrawing 
-            ? t("common.drawing") 
-            : isReadyToDraw 
-            ? t("common.drawPending") 
+          {isActive 
+            ? t("common.active")
             : isSoldOut 
             ? t("common.soldOut") 
-            : t("competitionDetails.ongoing")}
+            : t("common.ended")}
         </span>
       </div>
 
@@ -462,7 +460,8 @@ export function TicketPurchaseCard({
   const isReadyToDraw = status === "ready_to_draw";
   const isDrawing = status === "drawing";
   const isSoldOut = status === "sold_out";
-  const isEnded = status === "end" || status === "completed";
+  const isWinnerAnnounced = status === "winner_announced";
+  const isEnded = status === "end" || status === "completed" || isWinnerAnnounced;
   const isActive = status === "active";
   const isClosed = isReadyToDraw || isDrawing || isSoldOut || isEnded;
   const remaining = total - sold;
@@ -616,48 +615,19 @@ export function TicketPurchaseCard({
           </div>
         ) : (
           <div className="text-center py-2">
-            {/* Status banners */}
-            {isDrawing && (
-              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
-                Competition is ended, drawing is going on
-              </div>
-            )}
-            {isReadyToDraw && (
-              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
-                This competition is ended and draw is pending
-              </div>
-            )}
-            {isSoldOut && (
-              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
-                Sold Out
-              </div>
-            )}
-            {isEnded && (
-              <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
-                This competition has ended.
+            {!isActive && (
+              <div className={`mb-3 px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                {isSoldOut ? "This competition is sold out" : "This competition is ended"}
               </div>
             )}
 
-            {/* Smart Participate Button */}
-            {(() => {
-              const isDisabled   = competition.status !== 'active' || isClosed || competition.gateStatus === 'loading';
+            {isActive && (() => {
+              const isDisabled = competition.gateStatus === 'loading';
 
               let icon, label;
               if (competition.gateStatus === 'loading') {
                 icon  = <LoadingSpinner fullScreen={false} size="w-4 h-4" message={null} />;
                 label = 'Checking eligibility...';
-              } else if (isDrawing) {
-                icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
-                label = t('common.drawing');
-              } else if (isReadyToDraw || isClosed) {
-                icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
-                label = t('common.drawPending');
-              } else if (isSoldOut) {
-                icon  = <Ticket className="w-4 h-4" aria-hidden="true" />;
-                label = t('common.soldOut');
-              } else if (isEnded) {
-                icon  = <Sparkles className="w-4 h-4" aria-hidden="true" />;
-                label = t('common.ended');
               } else if (userHasTickets) {
                 icon  = <ShoppingCart className="w-4 h-4" aria-hidden="true" />;
                 label = t('common.buyMoreTickets');
