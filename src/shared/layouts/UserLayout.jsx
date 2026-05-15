@@ -4,10 +4,12 @@ import Navbar from '@/shared/components/common/Navbar';
 import Footer from '@/shared/components/common/Footer';
 import ScrollManager from '@/shared/components/common/ScrollManager';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 
 const UserLayout = () => {
   const location = useLocation();
-  const { userData, loading } = useAuth();
+  const { loading } = useAuth();
+  const { userData } = useUserData();
 
   if (!loading && userData?.role === 'admin') {
     return <Navigate to="/admin" replace />;

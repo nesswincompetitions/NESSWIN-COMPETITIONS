@@ -5,7 +5,7 @@ import {
   collection,
   query,
   where,
-  getDocs,
+  onSnapshot,
   doc,
   orderBy,
 } from 'firebase/firestore';
@@ -181,53 +181,53 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
     if (!currentUser || !competition?.id) return;
     
     let isMounted = true;
+    let hasRestoredAnswer = false;
 
-    // Load pending referrals
-    const loadReferrals = async () => {
-      try {
-        const userRef = doc(db, 'user', currentUser.uid);
-        const q = query(
-          collection(db, 'referrals'),
-          where('referrer_id', '==', userRef),
-          where('reward_issued', '==', false),
-          orderBy('created_at', 'asc')  // Oldest first for consistent consumption order
-        );
-        const snap = await getDocs(q);
-        if (isMounted) {
-          setPendingReferrals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        }
-      } catch (err) {
-        console.error('Error loading referrals:', err);
-      }
-    };
-    loadReferrals();
+    const userRef = doc(db, 'user', currentUser.uid);
+    const compRef = doc(db, 'competition', competitionId);
 
-    // Check if user already has tickets for this competition
-    const loadUserTickets = async () => {
-      try {
-        const userRef = doc(db, 'user', currentUser.uid);
-        const compRef = doc(db, 'competition', competitionId);
-        const q = query(
-          collection(db, 'ticket'),
-          where('user_id', '==', userRef),
-          where('competition_id', '==', compRef),
-          orderBy('created_at', 'desc')
-        );
-        const snap = await getDocs(q);
-        if (isMounted) {
-          const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setUserTickets(tickets);
-          if (tickets.length > 0) {
-            setUserHasTickets(true);
-            setSkillPassed(true);
-            setGateStatus('eligible');
-          }
-        }
-      } catch (err) {
-        console.error('Error loading user tickets:', err);
+    const referralsQuery = query(
+      collection(db, 'referrals'),
+      where('referrer_id', '==', userRef),
+      where('reward_issued', '==', false),
+      orderBy('created_at', 'asc')
+    );
+
+    const ticketsQuery = query(
+      collection(db, 'ticket'),
+      where('user_id', '==', userRef),
+      where('competition_id', '==', compRef),
+      orderBy('created_at', 'desc')
+    );
+
+    const unsubscribeReferrals = onSnapshot(
+      referralsQuery,
+      (snap) => {
+        if (!isMounted) return;
+        setPendingReferrals(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      },
+      (err) => {
+        console.error('Error subscribing referrals:', err);
       }
-    };
-    loadUserTickets();
+    );
+
+    const unsubscribeTickets = onSnapshot(
+      ticketsQuery,
+      (snap) => {
+        if (!isMounted) return;
+        const tickets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setUserTickets(tickets);
+        setUserHasTickets(tickets.length > 0);
+
+        if (tickets.length > 0) {
+          setSkillPassed(true);
+          setGateStatus('eligible');
+        }
+      },
+      (err) => {
+        console.error('Error subscribing user tickets:', err);
+      }
+    );
 
     const restored = restorePersistedSkillAnswer();
     if (restored?.questionAnswerMap) {
@@ -235,6 +235,7 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       setResolvedQuestionId(restored.questionId || restored.questionAnswerMap.question_id || null);
       setSkillPassed(true);
       setGateStatus('eligible');
+      hasRestoredAnswer = true;
     }
 
     // Pre-load the skill gate question if verified
@@ -246,6 +247,8 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
 
           if (data.passed) {
             applyPassedSkillData(data);
+          } else if (hasRestoredAnswer) {
+            setGateStatus('eligible');
           } else if (data.question) {
             setActiveQuestion(data.question);
             setGateStatus('quiz_ready');
@@ -265,7 +268,11 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       preLoadGate();
     }
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+      unsubscribeReferrals();
+      unsubscribeTickets();
+    };
   }, [currentUser?.uid, userData?.is_verified, competition?.id]);
 
   const [ticketQuantity, setTicketQuantity] = useState(1);

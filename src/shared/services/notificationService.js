@@ -1,15 +1,54 @@
 import {
   collection,
   doc,
+  arrayUnion,
   onSnapshot,
-  orderBy,
-  query,
   serverTimestamp,
   setDoc,
-  updateDoc,
-  where,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+
+const parseRecipientPaths = (value) => {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => parseRecipientPaths(item));
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'object' && typeof value.path === 'string') {
+    return [value.path.trim()];
+  }
+
+  return [];
+};
+
+const normalizeReadFlag = (docData) => {
+  if (typeof docData?.is_read === 'boolean') return docData.is_read;
+  if (typeof docData?.isRead === 'boolean') return docData.isRead;
+  if (typeof docData?.read === 'boolean') return docData.read;
+
+  if (typeof docData?.is_read === 'string') {
+    return docData.is_read.toLowerCase() === 'true';
+  }
+
+  return false;
+};
+
+const normalizeReadIds = (value) => {
+  if (!value) return new Set();
+  if (Array.isArray(value)) return new Set(value.filter(Boolean).map(String));
+  if (typeof value === 'object') {
+    return new Set(Object.keys(value).filter((key) => value[key]));
+  }
+  return new Set();
+};
 
 /**
  * createAppNotification
@@ -112,39 +151,69 @@ export const fetchUserNotifications = (userUid, callback) => {
   if (!userUid) return () => {};
 
   const userPath = `user/${userUid}`;
-  const notificationsRef = collection(db, 'ff_user_push_notifications');
+  const userRef = doc(db, 'user', userUid);
+  let readIds = new Set();
+  let currentNotifications = [];
 
-  // We query for the user path.
-  // Note: Removing 'orderBy' temporarily to ensure all docs are fetched
-  // even if 'timestamp' field is missing or if an index hasn't been created yet.
-  const q = query(
-    notificationsRef,
-    where('user_refs', '==', userPath)
+  const emit = () => {
+    const merged = currentNotifications.map((notif) => ({
+      ...notif,
+      is_read: notif.is_read || readIds.has(notif.id),
+    }));
+
+    const sorted = merged.sort((a, b) => {
+      const timeA = a.timestamp?.toMillis?.() || a.created_at?.toMillis?.() || 0;
+      const timeB = b.timestamp?.toMillis?.() || b.created_at?.toMillis?.() || 0;
+      return timeB - timeA;
+    });
+
+    console.log(`[notificationService] Fetched ${sorted.length} notifications for user ${userUid}`);
+    callback(sorted);
+  };
+
+  const matchesRecipient = (docData) => {
+    const candidates = [docData.user_refs, docData.user_ref, docData.userRefs, docData.userRef];
+    const recipientPaths = candidates.flatMap((value) => parseRecipientPaths(value));
+    return recipientPaths.includes(userPath);
+  };
+
+  const unsubscribeUser = onSnapshot(
+    userRef,
+    (snap) => {
+      const data = snap.exists() ? snap.data() : {};
+      readIds = normalizeReadIds(data.notification_read_ids);
+      emit();
+    },
+    (error) => {
+      console.error('[notificationService] Error fetching user read-state:', error);
+    }
   );
 
-  return onSnapshot(
-    q,
+  const unsubscribeNotifications = onSnapshot(
+    collection(db, 'ff_user_push_notifications'),
     (snapshot) => {
-      const notifications = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      
-      // Sort manually in JS to avoid needing a composite index in Firestore
-      // while we are still debugging/developing.
-      const sorted = notifications.sort((a, b) => {
-        const timeA = a.timestamp?.toMillis?.() || a.created_at?.toMillis?.() || 0;
-        const timeB = b.timestamp?.toMillis?.() || b.created_at?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
+      currentNotifications = snapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            is_read: normalizeReadFlag(data),
+          };
+        })
+        .filter(matchesRecipient);
 
-      console.log(`[notificationService] Fetched ${sorted.length} notifications for user ${userUid}`);
-      callback(sorted);
+      emit();
     },
     (error) => {
       console.error('[notificationService] Error fetching notifications:', error);
     }
   );
+
+  return () => {
+    unsubscribeUser();
+    unsubscribeNotifications();
+  };
 };
 
 /**
@@ -157,10 +226,10 @@ export const fetchUserNotifications = (userUid, callback) => {
  */
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    const notifRef = doc(db, 'ff_user_push_notifications', notificationId);
-    await updateDoc(notifRef, {
-      is_read: true,
-    });
+    if (!notificationId) return;
+    // Backwards-compatible wrapper kept for callers that haven't been updated yet.
+    // We cannot write directly to `ff_user_push_notifications` from the client
+    // because the current Firestore rules deny it, so this no-ops safely.
   } catch (error) {
     console.error('[notificationService] Error marking notification as read:', error);
     throw error;
@@ -177,10 +246,59 @@ export const markNotificationAsRead = async (notificationId) => {
  */
 export const markAllAsRead = async (notifications) => {
   try {
-    const unread = notifications.filter((n) => !n.is_read);
-    const promises = unread.map((n) => markNotificationAsRead(n.id));
-    await Promise.all(promises);
+    void notifications;
+    // Kept for compatibility. Use markAllNotificationsAsReadForUser(userUid, notifications)
+    // so the read state is persisted on the writable user profile document.
   } catch (error) {
     console.error('[notificationService] Error marking all notifications as read:', error);
+  }
+};
+
+/**
+ * markNotificationAsReadForUser
+ *
+ * Stores the notification id in the authenticated user's profile document.
+ * This avoids writing to the locked push notification collection directly.
+ */
+export const markNotificationAsReadForUser = async (userUid, notificationId) => {
+  try {
+    if (!userUid || !notificationId) return;
+
+    const userRef = doc(db, 'user', userUid);
+    await setDoc(
+      userRef,
+      {
+        notification_read_ids: arrayUnion(notificationId),
+        notifications_last_read_at: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error('[notificationService] Error marking notification as read for user:', error);
+    throw error;
+  }
+};
+
+/**
+ * markAllNotificationsAsReadForUser
+ */
+export const markAllNotificationsAsReadForUser = async (userUid, notifications) => {
+  try {
+    if (!userUid) return;
+    const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
+    if (unreadIds.length === 0) return;
+
+    const userRef = doc(db, 'user', userUid);
+    await setDoc(
+      userRef,
+      {
+        notification_read_ids: arrayUnion(...unreadIds),
+        notifications_last_read_at: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    console.error('[notificationService] Error marking all notifications as read for user:', error);
+    throw error;
   }
 };

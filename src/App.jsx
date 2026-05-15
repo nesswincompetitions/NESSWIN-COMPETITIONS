@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { UserRoutes, AdminRoutes } from '@/routes';
 import { AuthProvider } from '@/shared/state/AuthContext';
+import { UserProvider } from '@/contexts/UserContext';
 import { Toaster } from 'react-hot-toast';
 
 const App = () => {
@@ -17,16 +18,18 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <Router>
-        <Toaster position="top-center" />
-        <Routes>
-          {UserRoutes}
-          {AdminRoutes}
+      <UserProvider>
+        <Router>
+          <Toaster position="top-center" />
+          <Routes>
+            {UserRoutes}
+            {AdminRoutes}
 
-          {/* If the route does not exist (404), redirect to Home */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+            {/* If the route does not exist (404), redirect to Home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </UserProvider>
     </AuthProvider>
   );
 };

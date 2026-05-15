@@ -25,7 +25,8 @@
     "drawPending": "Sorteo Pendiente",
     "soldOut": "Agotado",
     "buyMoreTickets": "Comprar Más Entradas",
-    "viewResults": "Ver Resultados"
+    "viewResults": "Ver Resultados",
+    "drawing": "Sorteo en curso"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",

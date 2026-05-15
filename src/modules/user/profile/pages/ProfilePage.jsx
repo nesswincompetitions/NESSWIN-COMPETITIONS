@@ -1,11 +1,12 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { uploadImages } from '@/shared/services/storageService';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
 import { createSupportChat } from '@/shared/services/supportChatService';
 import {
-  fetchAllReferrals,
+  subscribeAllReferrals,
 } from '@/modules/user/referrals/services/referralService';
 import { onActiveUserChatsSnapshot } from '@/shared/services/supportChatService';
 import { useNavigate, Link } from 'react-router-dom';
@@ -33,7 +34,8 @@ import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
+  const { userData } = useUserData();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -47,33 +49,35 @@ export default function ProfilePage() {
   const [editValue, setEditValue] = useState('');
   const [isSavingField, setIsSavingField] = useState(false);
 
-  const loadReferrals = useCallback(async () => {
+  useEffect(() => {
     if (!currentUser?.uid) {
       setReferrals([]);
       setReferralsLoading(false);
-      return;
+      return undefined;
     }
-    setReferralsLoading(true);
-    try {
-      const allReferrals = await fetchAllReferrals(currentUser.uid);
-      setReferrals(allReferrals);
-    } catch (error) {
-      console.warn('Failed to load referrals:', error);
-      setReferrals([]);
-    } finally {
-      setReferralsLoading(false);
-    }
-  }, [currentUser?.uid]);
 
-  useEffect(() => {
-    loadReferrals();
+    setReferralsLoading(true);
+    const unsubscribe = subscribeAllReferrals(
+      currentUser.uid,
+      (allReferrals) => {
+        setReferrals(allReferrals);
+        setReferralsLoading(false);
+      },
+      (error) => {
+        console.warn('Failed to subscribe referrals:', error);
+        setReferrals([]);
+        setReferralsLoading(false);
+      }
+    );
 
     if (window.location.hash === '#referrals') {
       setTimeout(() => {
         document.getElementById('referrals-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-  }, [loadReferrals]);
+
+    return unsubscribe;
+  }, [currentUser?.uid]);
 
   const handleStartEdit = (field) => {
     setEditingField(field);

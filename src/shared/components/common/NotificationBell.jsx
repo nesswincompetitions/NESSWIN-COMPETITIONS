@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCheck, Inbox, Ticket, ShoppingBag, Info, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/shared/state/AuthContext';
-import { fetchUserNotifications, markNotificationAsRead, markAllAsRead } from '@/shared/services/notificationService';
+import { fetchUserNotifications, markNotificationAsReadForUser, markAllNotificationsAsReadForUser } from '@/shared/services/notificationService';
 const formatTimeAgo = (date) => {
   if (!date) return '';
   const now = new Date();
@@ -56,22 +56,29 @@ export default function NotificationBell() {
   };
 
   const handleMarkAllRead = async () => {
-    await markAllAsRead(notifications);
+    try {
+      await markAllNotificationsAsReadForUser(currentUser?.uid, notifications);
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+    }
   };
 
   const handleNotificationClick = async (notif) => {
-    // 1. Mark as read immediately in UI for speed
+    // Mark as read in UI immediately, then persist to Firestore.
     if (!notif.is_read) {
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
-      // 2. Update Firestore in background
-      markNotificationAsRead(notif.id).catch(err => {
+
+      try {
+        await markNotificationAsReadForUser(currentUser?.uid, notif.id);
+      } catch (err) {
         console.error("Failed to mark as read:", err);
-        // Rollback UI if failed
+        // Roll back if update fails (permissions/network).
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: false } : n));
-      });
+      }
     }
 
-    // 3. Navigate based on type
+    // Navigate based on type.
     setIsOpen(false);
     
     if (notif.type === 'payment_success' || notif.type === 'ticket_issued') {

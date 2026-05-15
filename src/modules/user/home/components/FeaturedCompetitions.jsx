@@ -5,16 +5,17 @@ import Badge from '@/shared/components/ui/Badge';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
-import { fetchLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { subscribeLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 
 function CompetitionCard({ competition, onNavigate, hasTicket }) {
   const { t } = useTranslation();
   const { id, image, badgeType, badgeLabel, ticketPriceLabel, category, title, subTitle, priceLabel, sold, total, endsAt, status } = competition;
   const isReadyToDraw = status === 'ready_to_draw';
+  const isDrawing     = status === 'drawing';
   const isSoldOut     = status === 'sold_out';
   const isEnded       = status === 'end' || status === 'completed';
-  const isClosed      = isReadyToDraw || isSoldOut || isEnded;
+  const isClosed      = isReadyToDraw || isDrawing || isSoldOut || isEnded;
   const isDisabled    = isClosed;
   const progress      = Math.round((sold / total) * 100);
   const remaining     = total - sold;
@@ -46,8 +47,8 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
-          <Badge variant={(isClosed || isReadyToDraw || isSoldOut || isEnded) ? "ended" : badgeType}>
-            {(isClosed || isReadyToDraw || isSoldOut || isEnded) ? (
+          <Badge variant={(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? "ended" : badgeType}>
+            {(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? (
               <Lock className="w-3 h-3" aria-hidden="true" />
             ) : badgeType === "featured" ? (
               <Flame className="w-3 h-3" aria-hidden="true" />
@@ -56,6 +57,8 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
             )}
             {isEnded
               ? t("common.ended").toUpperCase()
+              : isDrawing
+              ? t("common.drawing").toUpperCase()
               : isSoldOut
               ? t("common.soldOut").toUpperCase()
               : isClosed || isReadyToDraw
@@ -112,13 +115,13 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
         </div>
 
         {/* CTA */}
-        {(isClosed || isReadyToDraw) ? (
+        {(isClosed || isReadyToDraw || isDrawing) ? (
           <button
             disabled
             className="mt-auto inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 bg-white/5 border border-white/10 text-muted-foreground cursor-default"
           >
             <Clock className="w-4 h-4" aria-hidden="true" />
-            {t("common.drawPending")}
+            {isDrawing ? t("common.drawing") : t("common.drawPending")}
           </button>
         ) : isSoldOut ? (
           <button
@@ -168,53 +171,46 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
   const { ticketedIds } = useUserTicketedCompetitions();
 
   useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        // Fetch all active competitions to handle the complex priority sorting in memory
-        const comps = await fetchLiveCompetitions();
-        
-        let allComps = comps.map(data => {
-          return {
-            id: data.id,
-            is_featured: data.is_featured || false,
-            sold: data.sold_tickets || 0,
-            image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
-            images: data.image || [],
-            created_at: data.created_at?.toMillis() || 0,
-            badgeType: data.is_featured ? 'featured' : 'new',
-            badgeLabel: data.is_featured ? 'Featured' : 'Active',
-            ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
-            category: data.category || 'Other',
-            title: data.title || 'Untitled',
-            subTitle: data.sub_title || '',
-            priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
-            total: data.total_tickets || 1000,
-            endsAt: data.countdown_end ? data.countdown_end.toMillis() : null,
-            status: data.status,
-          };
-        });
+    const unsubscribe = subscribeLiveCompetitions(
+      (comps) => {
+        const allComps = comps.map((data) => ({
+          id: data.id,
+          is_featured: data.is_featured || false,
+          sold: data.sold_tickets || 0,
+          image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
+          images: data.image || [],
+          created_at: data.created_at?.toMillis() || 0,
+          badgeType: data.is_featured ? 'featured' : 'new',
+          badgeLabel: data.is_featured ? 'Featured' : 'Active',
+          ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+          category: data.category || 'Other',
+          title: data.title || 'Untitled',
+          subTitle: data.sub_title || '',
+          priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+          total: data.total_tickets || 1000,
+          endsAt: data.draw_date ? data.draw_date.toMillis() : null,
+          status: data.status,
+        }));
 
-        // ── Selection Logic ──
-        // Only show competitions that are active, sold out, or ready to draw
-        const filtered = allComps.filter(c => ['active', 'sold_out', 'ready_to_draw'].includes(c.status));
-
-        // Sort: Featured first, then newest created_at
+        const filtered = allComps.filter((c) => ['active', 'sold_out', 'ready_to_draw'].includes(c.status));
         const sorted = filtered.sort((a, b) => {
           if (a.is_featured && !b.is_featured) return -1;
           if (!a.is_featured && b.is_featured) return 1;
           return b.created_at - a.created_at;
         });
 
-        // Limit to exactly 6 cards as requested
         setFeaturedComps(sorted.slice(0, 6));
-      } catch (err) {
-        console.error("Error fetching featured competitions:", err);
-      } finally {
+        setLoading(false);
+        if (onLoadComplete) onLoadComplete();
+      },
+      (err) => {
+        console.error('Error subscribing featured competitions:', err);
         setLoading(false);
         if (onLoadComplete) onLoadComplete();
       }
-    };
-    fetchFeatured();
+    );
+
+    return unsubscribe;
   }, []);
 
   const handleNavigate = (compId) => {

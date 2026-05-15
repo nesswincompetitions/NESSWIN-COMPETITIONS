@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
-import { fetchUserOrders, fetchOrderTickets } from '@/modules/user/profile/services/profileService';
+import { subscribeUserOrders, subscribeOrderTickets } from '@/modules/user/profile/services/profileService';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -50,14 +50,24 @@ function OrderCard({ order }) {
   } = order;
 
   useEffect(() => {
-    if (expanded && tickets.length === 0 && !loadingTickets) {
-      setLoadingTickets(true);
-      fetchOrderTickets(id)
-        .then(setTickets)
-        .catch(err => console.error('Failed to load order tickets', err))
-        .finally(() => setLoadingTickets(false));
-    }
-  }, [expanded, id, tickets.length, loadingTickets]);
+    if (!expanded) return undefined;
+
+    setLoadingTickets(true);
+    const unsubscribe = subscribeOrderTickets(
+      id,
+      (liveTickets) => {
+        setTickets(liveTickets);
+        setLoadingTickets(false);
+      },
+      (error) => {
+        console.error('Failed to subscribe order tickets', error);
+        setTickets([]);
+        setLoadingTickets(false);
+      }
+    );
+
+    return unsubscribe;
+  }, [expanded, id]);
 
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG[status === 'succeeded' ? 'completed' : 'default'];
   const StatusIcon = cfg.icon;
@@ -194,11 +204,27 @@ export default function OrderHistoryPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
-    fetchUserOrders(currentUser.uid)
-      .then(setOrders)
-      .catch((e) => console.error('Failed to load orders', e))
-      .finally(() => setLoading(false));
+    if (!currentUser?.uid) {
+      setOrders([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeUserOrders(
+      currentUser.uid,
+      (nextOrders) => {
+        setOrders(nextOrders);
+        setLoading(false);
+      },
+      (e) => {
+        console.error('Failed to subscribe orders', e);
+        setOrders([]);
+        setLoading(false);
+      }
+    );
+
+    return unsubscribe;
   }, [currentUser?.uid]);
 
   const totalSpent = orders.reduce((sum, o) => sum + (o.total_amount ?? 0), 0);

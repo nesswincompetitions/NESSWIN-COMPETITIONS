@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   increment,
   query,
   serverTimestamp,
@@ -173,6 +174,67 @@ export const fetchAllReferrals = async (uid) => {
   return referrals
     .filter((r) => r.reward_type !== 'admin_bonus')
     .sort((a, b) => b.created_at?.toMillis() - a.created_at?.toMillis());
+};
+
+/**
+ * Realtime subscription for all referrals of a user with resolved referred user details.
+ */
+export const subscribeAllReferrals = (uid, onData, onError) => {
+  if (!uid) {
+    onData([]);
+    return () => {};
+  }
+
+  const referrerRef = doc(db, USERS_COLLECTION, uid);
+  const q = query(
+    collection(db, REFERRALS_COLLECTION),
+    where('referrer_id', '==', referrerRef)
+  );
+
+  return onSnapshot(
+    q,
+    async (snapshot) => {
+      const userCache = new Map();
+
+      const referrals = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          const referredUserRef = data.referred_user_id;
+          let referredUser = { display_name: 'Unknown User' };
+
+          if (referredUserRef?.id) {
+            if (userCache.has(referredUserRef.id)) {
+              referredUser = userCache.get(referredUserRef.id);
+            } else {
+              try {
+                const userSnap = await getDoc(referredUserRef);
+                if (userSnap.exists()) {
+                  referredUser = userSnap.data();
+                }
+              } catch {
+                referredUser = { display_name: 'Unknown User' };
+              }
+              userCache.set(referredUserRef.id, referredUser);
+            }
+          }
+
+          return {
+            id: docSnap.id,
+            updateTime: docSnap.updateTime,
+            ...data,
+            referredUser,
+          };
+        })
+      );
+
+      const normalized = referrals
+        .filter((referral) => referral.reward_type !== 'admin_bonus')
+        .sort((a, b) => (b.created_at?.toMillis?.() || 0) - (a.created_at?.toMillis?.() || 0));
+
+      onData(normalized);
+    },
+    onError
+  );
 };
 
 /**

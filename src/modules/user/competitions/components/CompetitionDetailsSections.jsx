@@ -27,6 +27,7 @@ import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { FaInstagram } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 
 export function Breadcrumb({ title }) {
   const { t } = useTranslation();
@@ -52,9 +53,10 @@ export function ImageGallery({ images, title, status, endsAt }) {
   const { t } = useTranslation();
   const [active, setActive] = useState(0);
   const isReadyToDraw = status === "ready_to_draw";
+  const isDrawing = status === "drawing";
   const isSoldOut = status === "sold_out";
   const isEnded = status === "end" || status === "completed";
-  const isClosed = isReadyToDraw || isSoldOut || isEnded;
+  const isClosed = isReadyToDraw || isDrawing || isSoldOut || isEnded;
 
   return (
     <div className="space-y-3">
@@ -67,7 +69,15 @@ export function ImageGallery({ images, title, status, endsAt }) {
             : "bg-primary text-(--color-primary-foreground)"
             }`}
         >
-          {isEnded ? t("common.ended") : isClosed ? t("common.closed") : t("competitionDetails.ongoing")}
+          {isEnded 
+            ? t("common.ended") 
+            : isDrawing 
+            ? t("common.drawing") 
+            : isReadyToDraw 
+            ? t("common.drawPending") 
+            : isSoldOut 
+            ? t("common.soldOut") 
+            : t("competitionDetails.ongoing")}
         </span>
       </div>
 
@@ -433,7 +443,8 @@ export function TicketPurchaseCard({
   pendingReferralCount,
 }) {
   const { t } = useTranslation();
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
+  const { userData } = useUserData();
   const {
     sold,
     total,
@@ -445,10 +456,11 @@ export function TicketPurchaseCard({
   } = competition;
 
   const isReadyToDraw = status === "ready_to_draw";
+  const isDrawing = status === "drawing";
   const isSoldOut = status === "sold_out";
   const isEnded = status === "end" || status === "completed";
   const isActive = status === "active";
-  const isClosed = isReadyToDraw || isSoldOut || isEnded;
+  const isClosed = isReadyToDraw || isDrawing || isSoldOut || isEnded;
   const remaining = total - sold;
   const progress = Math.min(100, Math.round((sold / total) * 100));
 
@@ -601,14 +613,19 @@ export function TicketPurchaseCard({
         ) : (
           <div className="text-center py-2">
             {/* Status banners */}
+            {isDrawing && (
+              <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
+                Competition is ended, drawing is going on
+              </div>
+            )}
             {isReadyToDraw && (
               <div className="mb-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 text-sm font-semibold">
-                {t("common.competitionClosed")}
+                This competition is ended and draw is pending
               </div>
             )}
             {isSoldOut && (
               <div className="mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-semibold">
-                All tickets have been sold out.
+                Sold Out
               </div>
             )}
             {isEnded && (
@@ -625,6 +642,9 @@ export function TicketPurchaseCard({
               if (competition.gateStatus === 'loading') {
                 icon  = <LoadingSpinner fullScreen={false} size="w-4 h-4" message={null} />;
                 label = 'Checking eligibility...';
+              } else if (isDrawing) {
+                icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
+                label = t('common.drawing');
               } else if (isReadyToDraw || isClosed) {
                 icon  = <Clock className="w-4 h-4" aria-hidden="true" />;
                 label = t('common.drawPending');

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
-import { fetchUserOrders, fetchUserTickets } from '@/modules/user/profile/services/profileService';
+import { subscribeUserOrders, subscribeUserTickets } from '@/modules/user/profile/services/profileService';
 import {
   ArrowLeft,
   Ticket,
@@ -161,17 +161,56 @@ export default function MyTicketsPage() {
   const [selectedCompData, setSelectedCompData] = useState(null);
 
   useEffect(() => {
-    if (!currentUser?.uid) return;
-    
-    // Fetch both to support legacy data (tickets without orders) and new data
-    Promise.all([
-      fetchUserTickets(currentUser.uid),
-      fetchUserOrders(currentUser.uid)
-    ]).then(([ticketsRes, ordersRes]) => {
-      setTickets(ticketsRes);
-      setOrders(ordersRes);
-    }).catch(e => console.error('Failed to load tickets/orders', e))
-      .finally(() => setLoading(false));
+    if (!currentUser?.uid) {
+      setTickets([]);
+      setOrders([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    let ticketsReady = false;
+    let ordersReady = false;
+    const markReady = () => {
+      if (ticketsReady && ordersReady) {
+        setLoading(false);
+      }
+    };
+
+    const unsubscribeTickets = subscribeUserTickets(
+      currentUser.uid,
+      (ticketsRes) => {
+        setTickets(ticketsRes);
+        ticketsReady = true;
+        markReady();
+      },
+      (error) => {
+        console.error('Failed to subscribe tickets:', error);
+        setTickets([]);
+        ticketsReady = true;
+        markReady();
+      }
+    );
+
+    const unsubscribeOrders = subscribeUserOrders(
+      currentUser.uid,
+      (ordersRes) => {
+        setOrders(ordersRes);
+        ordersReady = true;
+        markReady();
+      },
+      (error) => {
+        console.error('Failed to subscribe orders:', error);
+        setOrders([]);
+        ordersReady = true;
+        markReady();
+      }
+    );
+
+    return () => {
+      unsubscribeTickets();
+      unsubscribeOrders();
+    };
   }, [currentUser?.uid]);
 
   // Calculate top stats

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Globe, Menu, X, Check, User, Settings, LogOut, Shield, Ticket, ShoppingBag, Pencil, Trash2, LifeBuoy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 import { logout } from '@/modules/user/auth/services/authService';
 import { deleteAccount } from '@/modules/user/profile/services/profileService';
 import { toast } from 'react-hot-toast';
@@ -20,7 +21,8 @@ const LANGUAGE_OPTIONS = [
 
 export default function Navbar() {
   const { t, i18n } = useTranslation();
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
+  const { userData } = useUserData();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

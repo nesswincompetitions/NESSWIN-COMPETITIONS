@@ -1,5 +1,5 @@
 import { MapPin, Phone, Building } from 'lucide-react';
-import { FaInstagram, FaTwitter, FaYoutube } from 'react-icons/fa';
+import { FaInstagram, FaTwitter, FaYoutube, FaGooglePlay } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 
 function LinkGroup({ heading, links }) {
@@ -71,7 +71,29 @@ export default function Footer() {
             <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mt-2">
               {t("footer.description")}
             </p>
-            <div className="flex items-center gap-3 pt-2">
+
+            {/* Play Store App Link */}
+            <div className="pt-2">
+              <a
+                href="https://play.google.com/store/apps/details?id=com.mycompany.nesswin"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 px-4 py-2 rounded-xl border border-border bg-card/30 hover:bg-accent hover:border-primary/30 transition-all group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                  <FaGooglePlay className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">Get it on</p>
+                  <p className="text-sm font-bold text-foreground leading-none">Google Play</p>
+                </div>
+              </a>
+              <p className="text-[11px] text-muted-foreground mt-2 ml-1 italic">
+                This is our app, you can click to install our app
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-4">
               {[
                 { icon: <FaInstagram className="w-4 h-4" aria-hidden="true" />, label: "Instagram" },
                 { icon: <FaTwitter className="w-4 h-4" aria-hidden="true" />, label: "Twitter" },
@@ -118,7 +140,7 @@ export default function Footer() {
         </div>
 
         {/* Copyright */}
-        <div className="mt-4 pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-2 pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
             {t("footer.rights")}
           </p>

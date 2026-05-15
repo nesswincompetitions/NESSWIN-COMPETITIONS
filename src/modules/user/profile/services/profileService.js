@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   setDoc,
@@ -167,4 +168,126 @@ export const fetchOrderTickets = async (orderId) => {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+};
+
+const resolveCompetitionMap = async (items) => {
+  const refs = items
+    .map((item) => item?.competition_id)
+    .filter((ref) => ref && typeof ref === 'object' && ref.id);
+
+  if (refs.length === 0) return {};
+
+  const uniqueRefs = Array.from(new Map(refs.map((ref) => [ref.id, ref])).values());
+  const entries = await Promise.all(
+    uniqueRefs.map(async (ref) => {
+      try {
+        const compSnap = await getDoc(ref);
+        if (!compSnap.exists()) return [ref.id, null];
+        return [ref.id, { id: compSnap.id, ...compSnap.data() }];
+      } catch {
+        return [ref.id, null];
+      }
+    })
+  );
+
+  return Object.fromEntries(entries);
+};
+
+/**
+ * Realtime orders feed for a user (with resolved competition data).
+ */
+export const subscribeUserOrders = (uid, onData, onError) => {
+  if (!uid) {
+    onData([]);
+    return () => {};
+  }
+
+  const userRef = doc(db, 'user', uid);
+  const q = query(
+    collection(db, 'order'),
+    where('user_ref', '==', userRef),
+    orderBy('created_at', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    async (snapshot) => {
+      const rawOrders = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const competitionMap = await resolveCompetitionMap(rawOrders);
+
+      const orders = rawOrders.map((order) => ({
+        ...order,
+        competition_id: order.competition_id?.id || order.competition_id || null,
+        competition:
+          competitionMap[order.competition_id?.id] ||
+          order.competition ||
+          null,
+      }));
+
+      onData(orders);
+    },
+    onError
+  );
+};
+
+/**
+ * Realtime tickets feed for a user (with resolved competition data).
+ */
+export const subscribeUserTickets = (uid, onData, onError) => {
+  if (!uid) {
+    onData([]);
+    return () => {};
+  }
+
+  const userRef = doc(db, 'user', uid);
+  const q = query(
+    collection(db, 'ticket'),
+    where('user_id', '==', userRef),
+    orderBy('created_at', 'desc')
+  );
+
+  return onSnapshot(
+    q,
+    async (snapshot) => {
+      const rawTickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const competitionMap = await resolveCompetitionMap(rawTickets);
+
+      const tickets = rawTickets.map((ticket) => ({
+        ...ticket,
+        competition_id: ticket.competition_id?.id || ticket.competition_id || null,
+        competition:
+          competitionMap[ticket.competition_id?.id] ||
+          ticket.competition ||
+          null,
+      }));
+
+      onData(tickets);
+    },
+    onError
+  );
+};
+
+/**
+ * Realtime tickets feed for a single order.
+ */
+export const subscribeOrderTickets = (orderId, onData, onError) => {
+  if (!orderId) {
+    onData([]);
+    return () => {};
+  }
+
+  const orderRef = doc(db, 'order', orderId);
+  const q = query(
+    collection(db, 'ticket'),
+    where('order_id', '==', orderRef),
+    orderBy('ticket_number', 'asc')
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      onData(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    },
+    onError
+  );
 };

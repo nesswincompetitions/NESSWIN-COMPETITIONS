@@ -3,7 +3,8 @@ import { Navigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
-import { fetchCompetitionWithParticipants } from '@/modules/user/competitions/services/competitionService';
+import { useUserData } from '@/contexts/UserContext';
+import { subscribeCompetitionWithParticipants } from '@/modules/user/competitions/services/competitionService';
 import Modal from '@/shared/components/ui/Modal';
 import { Ticket } from 'lucide-react';
 import {
@@ -27,7 +28,8 @@ export default function CompetitionDetails() {
   const { id } = useParams();
   const location = useLocation();
   const { t } = useTranslation();
-  const { currentUser, userData, initialLoading: authLoading } = useAuth();
+  const { currentUser } = useAuth();
+  const { userData, loading: userLoading } = useUserData();
   
   // Initial state from navigation if available
   const initialComp = location.state?.competition 
@@ -36,14 +38,14 @@ export default function CompetitionDetails() {
     
   const [c, setC] = useState(initialComp);
   // Only stop loading if we have initial data AND auth state is resolved
-  const [loading, setLoading] = useState(!initialComp || authLoading);
+  const [loading, setLoading] = useState(!initialComp || userLoading);
 
   // Sync loading state with auth loading
   useEffect(() => {
-    if (!authLoading && initialComp) {
+    if (!userLoading && initialComp) {
       setLoading(false);
     }
-  }, [authLoading, initialComp]);
+  }, [userLoading, initialComp]);
 
   // ── Skill Gate hook (manages quiz modal, eligibility check) ─────────────────
   const {
@@ -112,17 +114,26 @@ export default function CompetitionDetails() {
   // ── Fetch competition ────────────────────────────────────────────────────────
   useEffect(() => {
     window.scrollTo(0, 0);
-    const fetchCompetition = async () => {
-      try {
-        const competition = await fetchCompetitionWithParticipants(id);
-        if (competition) setC(competition);
-      } catch (err) {
-        console.error('Error fetching competition details:', err);
-      } finally {
+
+    if (!id) {
+      setLoading(false);
+      return undefined;
+    }
+
+    setLoading(true);
+    const unsubscribe = subscribeCompetitionWithParticipants(
+      id,
+      (competition) => {
+        setC(competition);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error subscribing competition details:', err);
         setLoading(false);
       }
-    };
-    if (id) fetchCompetition();
+    );
+
+    return unsubscribe;
   }, [id]);
 
   if (loading) {

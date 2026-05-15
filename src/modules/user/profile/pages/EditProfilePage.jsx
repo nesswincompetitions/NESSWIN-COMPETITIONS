@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 import {
   saveEditedProfile,
   updateProfile,
@@ -28,7 +29,7 @@ function Field({ label, id, type = 'text', placeholder, value, onChange, rightSl
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)]/50 outline-none"
+          className="flex-1 bg-transparent text-sm text-(--color-foreground) placeholder:text-[var(--color-muted-foreground)]/50 outline-none"
         />
         {rightSlot}
       </div>
@@ -37,7 +38,8 @@ function Field({ label, id, type = 'text', placeholder, value, onChange, rightSl
 }
 
 export default function EditProfilePage() {
-  const { currentUser, userData } = useAuth();
+  const { currentUser } = useAuth();
+  const { userData } = useUserData();
   const navigate = useNavigate();
   const fileInputRef = React.useRef(null);
 

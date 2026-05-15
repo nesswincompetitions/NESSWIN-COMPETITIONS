@@ -6,12 +6,47 @@ import {
   where,
   getDocs,
   getDoc,
+  onSnapshot,
   doc,
   getCountFromServer,
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080';
+
+const mapCompetitionCardData = (id, data = {}) => {
+  const rawDate = data.draw_date;
+  const drawDateObj = rawDate?.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
+
+  return {
+    id,
+    image: data.image?.[0] || FALLBACK_IMAGE,
+    images: data.image?.length > 0 ? data.image : [FALLBACK_IMAGE],
+    badgeType: data.status === 'active' ? 'new' : 'ended',
+    badgeLabel: data.is_featured ? 'Featured' : (data.status === 'active' ? 'Active' : data.status),
+    ticketPrice: data.ticket_price || 0,
+    ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+    category: data.category || 'Other',
+    tag: data.tag || '',
+    title: data.title || 'Untitled',
+    subTitle: data.sub_title || '',
+    priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+    sold: Number(data.sold_tickets || 0),
+    total: Number(data.total_tickets || 1000),
+    endsAt: data.draw_date ? data.draw_date.toMillis() : null,
+    drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
+    drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+    description: data.description || '',
+    included: data.included_things || [],
+    prizeVideoUrl: data.prize_video_url || '',
+    instagramLiveUrl: data.instagram_live_url || '',
+    status: data.status,
+    created_at: data.created_at?.toMillis ? data.created_at.toMillis() : 0,
+    is_featured: Boolean(data.is_featured),
+  };
+};
 
 // ─── Storage Helper ──────────────────────────────────────────────────────────
 
@@ -43,8 +78,7 @@ export const fetchCompetitionWithParticipants = async (id) => {
   if (!compDoc.exists()) return null;
 
   const data = compDoc.data();
-  const rawDate = data.draw_date;
-  const drawDateObj = rawDate?.toDate ? rawDate.toDate() : (rawDate ? new Date(rawDate) : null);
+  const baseData = mapCompetitionCardData(compDoc.id, data);
 
   // Keep the raw refs for isExistingBuyer / hasPassedQuiz checks in the hook
   const rawParticipants = data.participants || [];
@@ -93,28 +127,11 @@ export const fetchCompetitionWithParticipants = async (id) => {
   );
 
   return {
-    id: compDoc.id,
-    image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
-    images: data.image?.length > 0 ? data.image : ['https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080'],
-    badgeType: data.status === 'active' ? 'new' : 'ended',
-    badgeLabel: data.is_featured ? 'Featured' : (data.status === 'active' ? 'Active' : data.status),
-    ticketPrice: data.ticket_price || 0,
-    ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
-    category: data.category || 'Other',
-    tag: data.tag || '',
-    title: data.title || 'Untitled',
-    subTitle: data.sub_title || '',
-    priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
-    sold: Number(data.sold_tickets || 0),
-    total: Number(data.total_tickets || 1000),
-    endsAt: data.draw_date ? data.draw_date.toMillis() : null,
-    drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
-    drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-    description: data.description || '',
-    included: data.included_things || [],
-    prizeVideoUrl: data.prize_video_url || '',
-    instagramLiveUrl: data.instagram_live_url || '',
-    status: data.status,
+    ...baseData,
+    winner_ref: data.winner_ref || null,
+    winner_comment: data.winner_comment || '',
+    winner_rating: data.winner_rating || null,
+    winner_review_at: data.winner_review_at || null,
     docRef: compDoc.ref,
     rawParticipants,                                          // ← raw refs for membership check
     participants: resolvedParticipants.filter((p) => p !== null),
@@ -128,6 +145,54 @@ export const fetchLiveCompetitions = async () => {
   const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+/**
+ * Realtime listener for all non-draft competitions.
+ */
+export const subscribeLiveCompetitions = (onData, onError) => {
+  const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const competitions = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+      }));
+      onData(competitions);
+    },
+    onError
+  );
+};
+
+/**
+ * Realtime listener for a single competition with resolved participant previews.
+ */
+export const subscribeCompetitionWithParticipants = (competitionId, onData, onError) => {
+  const compRef = doc(db, 'competition', competitionId);
+
+  return onSnapshot(
+    compRef,
+    async (compSnap) => {
+      if (!compSnap.exists()) {
+        onData(null);
+        return;
+      }
+
+      try {
+        const competition = await fetchCompetitionWithParticipants(compSnap.id);
+        onData(competition);
+      } catch (err) {
+        if (onError) {
+          onError(err);
+        } else {
+          console.error('subscribeCompetitionWithParticipants error:', err);
+        }
+      }
+    },
+    onError
+  );
 };
 
 // ─── Skill Gate ───────────────────────────────────────────────────────────────

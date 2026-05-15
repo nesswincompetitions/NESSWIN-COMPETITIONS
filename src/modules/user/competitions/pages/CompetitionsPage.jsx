@@ -5,7 +5,7 @@ import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCi
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
-import { fetchLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { subscribeLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
@@ -21,6 +21,7 @@ function StatusBadge({ type, label }) {
   const isSoldOut = type === "sold_out";
   const isCompleted = type === "completed" || type === "end";
   const isDrawSoon = type === "ready_to_draw";
+  const isDrawing = type === "drawing";
 
   const isActive = type === "active";
 
@@ -32,6 +33,8 @@ function StatusBadge({ type, label }) {
     colorClasses = "bg-red-600/35 text-white border-red-500/50 shadow-[0_0_12px_rgba(220,38,38,0.3)]";
   } else if (isCompleted || isActive) {
     colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
+  } else if (isDrawing) {
+    colorClasses = "bg-amber-600/35 text-white border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]";
   } else if (type === "ended") {
     colorClasses = "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale";
   }
@@ -46,7 +49,7 @@ function StatusBadge({ type, label }) {
         <Lock className="w-3 h-3" aria-hidden="true" />
       ) : isHot ? (
         <Flame className="w-3 h-3" aria-hidden="true" />
-      ) : isDrawSoon ? (
+      ) : (isDrawSoon || isDrawing) ? (
         <Clock className="w-3 h-3" aria-hidden="true" />
       ) : (
         <Sparkles className="w-3 h-3" aria-hidden="true" />
@@ -77,8 +80,9 @@ function CompetitionCard({ competition, hasTicket }) {
   } = competition;
 
   const isReadyToDraw = status === 'ready_to_draw';
+  const isDrawing     = status === 'drawing';
   const isSoldOut     = status === 'sold_out';
-  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw;
+  const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw || isDrawing;
   const isEnded       = status === 'end';
   const remaining     = total - sold;
   const progress      = Math.min(100, Math.round((sold / total) * 100));
@@ -118,6 +122,7 @@ function CompetitionCard({ competition, hasTicket }) {
             type={status} 
             label={
               isEnded ? t("common.ended") : 
+              isDrawing ? t("common.drawing") :
               isReadyToDraw ? t("competitionsPage.statusFilters.drawSoon") : 
               isSoldOut ? t("common.soldOut") : 
               isClosed ? t("common.closed") : 
@@ -193,13 +198,13 @@ function CompetitionCard({ competition, hasTicket }) {
           </div>
 
           {/* CTA */}
-          {(isClosed || isReadyToDraw) ? (
+          {(isClosed || isReadyToDraw || isDrawing) ? (
             <button
               onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
             >
               <Clock className="w-4 h-4" aria-hidden="true" />
-              {t("common.drawPending")}
+              {isDrawing ? t("common.drawing") : t("common.drawPending")}
             </button>
           ) : isSoldOut ? (
             <button
@@ -302,10 +307,9 @@ export default function CompetitionsPage() {
   const { ticketedIds } = useUserTicketedCompetitions();
 
   useEffect(() => {
-    const fetchCompetitions = async () => {
-      try {
-        const comps = await fetchLiveCompetitions();
-        const fetchedComps = comps.map(data => {
+    const unsubscribe = subscribeLiveCompetitions(
+      (comps) => {
+        const fetchedComps = comps.map((data) => {
           const drawDateObj = data.draw_date ? data.draw_date.toDate() : null;
           return {
             id: data.id,
@@ -333,19 +337,17 @@ export default function CompetitionsPage() {
           };
         });
 
-        // Sorting Logic: newest created competitions first
-        const sorted = fetchedComps.sort((a, b) => {
-          return b.created_at - a.created_at;
-        });
-
+        const sorted = fetchedComps.sort((a, b) => b.created_at - a.created_at);
         setLiveCompetitions(sorted);
-      } catch (err) {
-        console.error("Error fetching competitions:", err);
-      } finally {
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Error subscribing competitions:', err);
         setLoading(false);
       }
-    };
-    fetchCompetitions();
+    );
+
+    return unsubscribe;
   }, []);
 
   // Client-side filtering logic

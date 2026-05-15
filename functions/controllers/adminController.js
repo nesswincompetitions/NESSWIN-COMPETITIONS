@@ -61,17 +61,24 @@ export const grantAdminBonus = onCall(async (request) => {
     // Notification (non-critical but included in batch for now)
     const notifRef = db.collection("ff_user_push_notifications").doc();
     batch.set(notifRef, {
-      user_refs: [userRef],
+      user_refs: userRef.path,
+      notification_title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
+      notification_text: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
+      notification_image_url: "",
+      notification_sound: "default",
       category: "rewards",
       type: "free_ticket_earned",
-      title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
-      message: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
-      data: {
-        quantity: qty,
-        reason: "admin_bonus",
-        admin_note: reason,
-      },
-      read: false,
+      cta_text: "View",
+      initial_page_name: "MyTickets",
+      parameter_data: JSON.stringify({ quantity: qty, reason: "admin_bonus", admin_note: reason }),
+      status: "",
+      is_read: false,
+      num_sent: 0,
+      sender: userRef,
+      chat_ref: null,
+      order_ref: null,
+      competition_ref: null,
+      timestamp: serverTs,
       created_at: serverTs,
     });
 

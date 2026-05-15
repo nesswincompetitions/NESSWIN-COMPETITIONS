@@ -1,13 +1,15 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
+import { useUserData } from '@/contexts/UserContext';
 import PhoneVerification from '@/modules/user/auth/components/PhoneVerification';
 import UsernameReferral from '@/modules/user/auth/components/UsernameReferral';
 
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 export default function OnboardingPage() {
-  const { userData, loading } = useAuth();
+  const { loading } = useAuth();
+  const { userData } = useUserData();
   const navigate = useNavigate();
 
   useEffect(() => {

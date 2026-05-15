@@ -86,20 +86,51 @@ export const processOrder = onCall(async (request) => {
       const competitionRef = db.collection("competition").doc(competitionId);
       const orderRef = db.collection("order").doc(result.orderId);
 
+      const buildNotificationPayload = ({
+        type,
+        title,
+        text,
+        category,
+        ctaText,
+        initialPageName,
+        parameterData,
+      }) => ({
+        user_refs: userRef.path,
+        notification_title: title,
+        notification_text: text,
+        notification_image_url: "",
+        notification_sound: "default",
+        initial_page_name: initialPageName || "",
+        parameter_data: parameterData || "{}",
+        category: category || "Orders",
+        type,
+        cta_text: ctaText || "View",
+        status: "",
+        is_read: false,
+        num_sent: 0,
+        order_ref: orderRef,
+        competition_ref: competitionRef,
+        sender: userRef,
+        chat_ref: null,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
       // 1) Order confirmed (total tickets allocated)
       const totalAllocated = result.tickets.length;
       const writes = [];
 
       writes.push(
         db.collection("ff_user_push_notifications").add({
-          user_ref: userRef,
-          competition_ref: competitionRef,
-          order_ref: orderRef,
-          type: "order_confirmed",
-          notification_title: "Tickets Confirmed! 🎟️",
-          notification_text: `Your ${totalAllocated} ticket${totalAllocated > 1 ? "s are" : " is"} in the draw.`,
-          is_read: false,
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
+          ...buildNotificationPayload({
+            type: "order_confirmed",
+            title: "Tickets Confirmed! 🎟️",
+            text: `Your ${totalAllocated} ticket${totalAllocated > 1 ? "s are" : " is"} in the draw.`,
+            category: "Orders",
+            ctaText: "View Tickets",
+            initialPageName: "MyTickets",
+            parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
+          }),
         })
       );
 
@@ -107,17 +138,15 @@ export const processOrder = onCall(async (request) => {
       if (typeof result.referralTicketsUsed === "number" && result.referralTicketsUsed > 0) {
         writes.push(
           db.collection("ff_user_push_notifications").add({
-            user_ref: userRef,
-            competition_ref: competitionRef,
-            order_ref: orderRef,
-            type: "referral_tickets_used",
-            category: "Rewards",
-            cta_text: "View",
-            initial_page_name: "Referral",
-            notification_title: "Referral Reward Used",
-            notification_text: `You used ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""} on this competition.`,
-            is_read: false,
-            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            ...buildNotificationPayload({
+              type: "referral_tickets_used",
+              title: "Referral Reward Used",
+              text: `You used ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""} on this competition.`,
+              category: "Rewards",
+              ctaText: "View",
+              initialPageName: "Referral",
+              parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
+            }),
           })
         );
       }
@@ -126,17 +155,15 @@ export const processOrder = onCall(async (request) => {
       if (typeof result.packBonusTickets === "number" && result.packBonusTickets > 0) {
         writes.push(
           db.collection("ff_user_push_notifications").add({
-            user_ref: userRef,
-            competition_ref: competitionRef,
-            order_ref: orderRef,
-            type: "bonus_tickets_added",
-            category: "Orders",
-            cta_text: "View Order",
-            initial_page_name: "OrderHistory",
-            notification_title: "Bonus Tickets Added",
-            notification_text: `You received ${result.packBonusTickets} bonus ticket${result.packBonusTickets > 1 ? "s" : ""} with your pack for Nesswin.`,
-            is_read: false,
-            created_at: admin.firestore.FieldValue.serverTimestamp(),
+            ...buildNotificationPayload({
+              type: "bonus_tickets_added",
+              title: "Bonus Tickets Added",
+              text: `You received ${result.packBonusTickets} bonus ticket${result.packBonusTickets > 1 ? "s" : ""} with your pack for Nesswin.`,
+              category: "Orders",
+              ctaText: "View Order",
+              initialPageName: "OrderHistory",
+              parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
+            }),
           })
         );
       }

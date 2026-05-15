@@ -25,7 +25,8 @@
     "drawPending": "Tirage en attente",
     "soldOut": "Épuisé",
     "buyMoreTickets": "Acheter plus de tickets",
-    "viewResults": "Voir les résultats"
+    "viewResults": "Voir les résultats",
+    "drawing": "Tirage en cours"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
