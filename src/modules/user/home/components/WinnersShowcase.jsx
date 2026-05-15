@@ -128,14 +128,14 @@ export default function WinnersShowcase() {
           </Reveal>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="flex flex-wrap justify-center gap-6">
           {loading ? (
              Array.from({ length: 4 }).map((_, i) => (
-               <div key={i} className="h-[300px] rounded-2xl bg-card animate-pulse border border-border/60" />
+               <div key={i} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] h-[300px] rounded-2xl bg-card animate-pulse border border-border/60" />
              ))
           ) : (
             winners.map((w, index) => (
-              <Reveal key={w.id} delay={index * 70}>
+              <Reveal key={w.id} delay={index * 70} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] min-w-[280px] max-w-[320px]">
                 <WinnerCard winner={w} />
               </Reveal>
             ))

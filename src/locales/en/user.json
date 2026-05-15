@@ -28,6 +28,8 @@
     "drawing": "Drawing",
     "winnerAnnounced": "Winner Announced",
     "completed": "Completed",
+    "drawCompleted": "Draw Completed",
+    "viewWinners": "View Winners",
     "active": "Active",
     "loading": "Loading..."
   },

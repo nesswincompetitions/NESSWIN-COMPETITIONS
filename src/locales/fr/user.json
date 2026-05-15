@@ -28,7 +28,9 @@
     "viewResults": "Voir les résultats",
     "drawing": "Tirage en cours",
     "winnerAnnounced": "Gagnant annoncé",
-    "completed": "Terminé"
+    "completed": "Terminé",
+    "drawCompleted": "Tirage terminé",
+    "viewWinners": "Voir les gagnants"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",

@@ -1,4 +1,5 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import i18n from '@/i18n';
 import { storage } from '@/config/firebase';
 import {
   collection,
@@ -301,10 +302,10 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
             amount: `${data.prize_value?.toLocaleString() || 0} €`, // For WinnersShowcase
             ticketNumber: ticketData?.ticket_sequence || '—',
             drawDate: data.draw_date?.toDate() 
-              ? data.draw_date.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              ? data.draw_date.toDate().toLocaleDateString(i18n.language || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
               : '—',
             date: data.draw_date?.toDate()
-              ? data.draw_date.toDate().toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+              ? data.draw_date.toDate().toLocaleDateString(i18n.language || 'en-GB', { month: 'short', year: 'numeric' })
               : '—', // For WinnersShowcase
             quote: data.winner_comment || "No comments",
             image: data.image?.[0] || FALLBACK_IMAGE,

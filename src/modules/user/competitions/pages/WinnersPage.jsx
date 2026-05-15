@@ -150,7 +150,7 @@ export default function WinnersPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = subscribeRecentWinners(3, (data) => {
+    const unsubscribe = subscribeRecentWinners(4, (data) => {
       setWinners(data);
       setLoading(false);
     }, (err) => {
@@ -180,9 +180,11 @@ export default function WinnersPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex flex-wrap justify-center gap-6">
               {winners.map((winner) => (
-                <WinnerCard key={winner.id} winner={winner} />
+                <div key={winner.id} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] min-w-[300px] max-w-[380px]">
+                  <WinnerCard winner={winner} />
+                </div>
               ))}
             </div>
           )}

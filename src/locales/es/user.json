@@ -28,7 +28,9 @@
     "viewResults": "Ver Resultados",
     "drawing": "Sorteo en curso",
     "winnerAnnounced": "Ganador anunciado",
-    "completed": "Completado"
+    "completed": "Completado",
+    "drawCompleted": "Sorteo completado",
+    "viewWinners": "Ver ganadores"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",

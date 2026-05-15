@@ -19,7 +19,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
   const isClosed      = isReadyToDraw || isDrawing || isSoldOut || isWinnerAnnounced || isCompleted;
   const isEnded       = status === 'end' || status === 'completed';
   const isDisabled    = isClosed;
-  const progress      = Math.round((sold / total) * 100);
+  const progress      = isClosed ? 100 : Math.round((sold / total) * 100);
   const remaining     = total - sold;
   const [hovered, setHovered] = useState(false);
 
@@ -58,7 +58,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
             {isWinnerAnnounced
               ? t("common.winnerAnnounced").toUpperCase()
               : isCompleted
-              ? t("common.completed").toUpperCase()
+              ? t("common.drawCompleted").toUpperCase()
               : isEnded
               ? t("common.ended").toUpperCase()
               : isDrawing
@@ -89,8 +89,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
         </div>
 
         {/* Progress */}
-        {!isWinnerAnnounced && !isCompleted && (
-          <div className="space-y-1.5">
+        <div className="space-y-1.5">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3" aria-hidden="true" />
@@ -110,17 +109,14 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
               />
             </div>
           </div>
-        )}
 
         {/* Countdown */}
-        {!isWinnerAnnounced && !isCompleted && (
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <CountdownTimer endsAt={endsAt} />
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
               {t("common.beforeDraw")}
             </span>
           </div>
-        )}
 
         {/* CTA */}
         {(isClosed || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted) ? (
@@ -136,7 +132,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
             ) : isCompleted ? (
               <>
                 <Sparkles className="w-4 h-4" aria-hidden="true" />
-                {t("common.completed")}
+                {t("common.viewWinners")}
               </>
             ) : (
               <>

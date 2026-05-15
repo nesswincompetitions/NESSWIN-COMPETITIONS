@@ -83,7 +83,7 @@ function CompetitionCard({ competition, hasTicket }) {
   const isClosed      = (status === 'active' && endsAt && endsAt < Date.now()) || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted;
   const isEnded       = status === 'end';
   const remaining     = total - sold;
-  const progress      = Math.min(100, Math.round((sold / total) * 100));
+  const progress      = isClosed ? 100 : Math.min(100, Math.round((sold / total) * 100));
 
   return (
     <article
@@ -120,7 +120,7 @@ function CompetitionCard({ competition, hasTicket }) {
             type={status} 
             label={
               isWinnerAnnounced ? t("common.winnerAnnounced") :
-              isCompleted ? t("common.completed") :
+              isCompleted ? t("common.drawCompleted") :
               isEnded ? t("common.ended") : 
               isDrawing ? t("common.drawing") :
               isReadyToDraw ? t("competitionsPage.statusFilters.drawSoon") : 
@@ -164,8 +164,7 @@ function CompetitionCard({ competition, hasTicket }) {
         {/* Push everything below to the bottom */}
         <div className="flex flex-col gap-3 flex-1 justify-end">
           {/* Progress block */}
-          {!isWinnerAnnounced && !isCompleted && (
-            <div className="space-y-1.5">
+          <div className="space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3" aria-hidden="true" />
@@ -191,17 +190,14 @@ function CompetitionCard({ competition, hasTicket }) {
                 />
               </div>
             </div>
-          )}
 
           {/* Countdown + label */}
-          {!isWinnerAnnounced && !isCompleted && (
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
               <CountdownTimer endsAt={endsAt} />
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
                 {t("common.beforeDraw")}
               </span>
             </div>
-          )}
 
           {/* CTA */}
           {(isClosed || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted) ? (
@@ -216,8 +212,8 @@ function CompetitionCard({ competition, hasTicket }) {
                 </>
               ) : isCompleted ? (
                 <>
-                  <CheckCircle className="w-4 h-4" aria-hidden="true" />
-                  {t("common.completed")}
+                  <Sparkles className="w-4 h-4" aria-hidden="true" />
+                  {t("common.viewWinners")}
                 </>
               ) : (
                 <>
