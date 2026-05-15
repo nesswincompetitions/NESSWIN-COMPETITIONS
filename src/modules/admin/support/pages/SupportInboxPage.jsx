@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { CheckCircle2, Circle, Inbox, Loader2, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle, Inbox, Loader2, MessageSquareText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/shared/state/AuthContext';
 import { db } from '@/config/firebase';
@@ -138,8 +138,8 @@ export default function SupportInboxPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-12">
-      <div className="rounded-3xl border border-border/60 bg-card p-6 shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
+    <div className={`mx-auto max-w-7xl ${selectedChatId ? 'space-y-0 xl:space-y-6 pb-0 xl:pb-12' : 'space-y-6 pb-12'}`}>
+      <div className={`${selectedChatId ? 'hidden xl:block' : 'block'} rounded-3xl border border-border/60 bg-card p-6 shadow-[0_20px_80px_rgba(0,0,0,0.22)]`}>
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-primary">
             <Inbox className="h-4 w-4" />
@@ -153,7 +153,7 @@ export default function SupportInboxPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <aside className="overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.18)]">
+        <aside className={`${selectedChatId ? 'hidden xl:block' : 'block'} overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.18)]`}>
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-(--color-foreground)">Active Tickets</h2>
@@ -229,7 +229,7 @@ export default function SupportInboxPage() {
           </div>
         </aside>
 
-        <section className="min-h-190 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
+        <section className={`${selectedChatId ? 'block' : 'hidden xl:block'} h-[calc(100dvh-120px)] xl:h-190 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.22)]`}>
           {selectedChat ? (
             <SupportChatWidget
               chatId={selectedChat.id}
@@ -242,11 +242,12 @@ export default function SupportInboxPage() {
               customerPhoto={selectedChat.customerPhoto}
               closeLabel="Resolve & Close"
               onCloseTicket={handleClosed}
+              onBack={handleClosed}
               unreadCount={selectedChat.unread_admin_count ?? 0}
               status={selectedChat.status ?? 'active'}
             />
           ) : (
-            <div className="flex min-h-190 flex-col items-center justify-center px-6 text-center">
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <div className="mb-4 flex h-18 w-18 items-center justify-center rounded-3xl bg-primary/10 text-primary">
                 <MessageSquareText className="h-7 w-7" />
               </div>
