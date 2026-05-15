@@ -9,7 +9,7 @@ import SearchInput from '@/shared/components/ui/SearchInput';
 import {
   Calendar, Download, Eye,
   ChevronDown, Users as UsersIcon, Loader2, CheckCircle2,
-  Ban
+  Ban, UserCheck, UserX
 } from 'lucide-react';
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { useAdminUsersFeed } from '@/shared/hooks/useAdminData';
@@ -76,7 +76,7 @@ const UsersList = () => {
     const newStatus = userToToggle.is_active === false;
     try {
       await updateUserStatus(userToToggle.id, newStatus);
-      toast.success(`User ${newStatus ? 'unsuspended' : 'suspended'} successfully`);
+      toast.success(`User ${newStatus ? 'activated' : 'suspended'} successfully`);
       setSuspendModalOpen(false);
     } catch (error) {
       console.error('Error updating user status:', error);
@@ -227,8 +227,12 @@ const UsersList = () => {
                       <TableCell className="text-gray-500 text-xs">{(currentPage - 1) * itemsPerPage + idx + 1}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                            {(user.display_name || user.name || '?').charAt(0)}
+                          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+                            {user.photo_url || user.profile_image ? (
+                              <img src={user.photo_url || user.profile_image} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (user.display_name || user.name || '?').charAt(0)
+                            )}
                           </div>
                           <div>
                             <p className="font-medium text-white text-sm">{user.display_name || user.name}</p>
@@ -252,9 +256,9 @@ const UsersList = () => {
                           <button 
                             onClick={() => handleSuspendClick(user)} 
                             className={`p-2 rounded-md transition-colors ${user.is_active === false ? 'hover:bg-emerald-500/10 text-emerald-500' : 'hover:bg-red-500/10 text-gray-400 hover:text-red-500'}`} 
-                            title={user.is_active === false ? "Unsuspend User" : "Suspend User"}
+                            title={user.is_active === false ? "Make Active" : "Suspend User"}
                           >
-                            <Ban size={16} />
+                            {user.is_active === false ? <UserCheck size={16} /> : <UserX size={16} />}
                           </button>
                         </div>
                       </TableCell>
@@ -302,12 +306,12 @@ const UsersList = () => {
         isOpen={suspendModalOpen}
         onClose={() => !isUpdating && setSuspendModalOpen(false)}
         onConfirm={confirmStatusToggle}
-        title={userToToggle?.is_active === false ? "Unsuspend User?" : "Suspend User?"}
-        description={`Are you sure you want to ${userToToggle?.is_active === false ? 'unsuspend' : 'suspend'} ${userToToggle?.display_name || userToToggle?.name || 'this user'}?`}
-        confirmLabel={userToToggle?.is_active === false ? 'Unsuspend' : 'Suspend'}
+        title={userToToggle?.is_active === false ? "Make User Active?" : "Suspend User?"}
+        description={`Are you sure you want to ${userToToggle?.is_active === false ? 'make this user active' : 'suspend'} ${userToToggle?.display_name || userToToggle?.name || 'this user'}?`}
+        confirmLabel={userToToggle?.is_active === false ? 'Make Active' : 'Suspend'}
         variant={userToToggle?.is_active === false ? 'primary' : 'danger'}
         loading={isUpdating}
-        icon={Ban}
+        icon={userToToggle?.is_active === false ? UserCheck : UserX}
       />
     </div>
   );

@@ -139,7 +139,18 @@ const WinnersList = () => {
                 {filteredWinners.map((winner, index) => (
                   <TableRow key={winner.id}>
                     <TableCell className="text-gray-500 font-medium">{index + 1}</TableCell>
-                    <TableCell className="font-medium text-white">{winner.winnerName}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs">
+                          {winner.winnerPhoto ? (
+                            <img src={winner.winnerPhoto} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            (winner.winnerName || '?').charAt(0)
+                          )}
+                        </div>
+                        <span className="font-medium text-white">{winner.winnerName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="text-gray-400">{winner.winnerEmail}</TableCell>
                     <TableCell>{winner.competition}</TableCell>
                     <TableCell>

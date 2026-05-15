@@ -112,7 +112,7 @@ export default function Navbar() {
       where('status', '==', 'active')
     );
     const unsub = onSnapshot(q, (snap) => {
-      const total = snap.docs.reduce((acc, d) => acc + (d.data().unread_sender_count ?? 0), 0);
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().unread_receiver_count ?? 0), 0);
       setUnreadSupportCount(total);
     }, () => {
       setUnreadSupportCount(0);

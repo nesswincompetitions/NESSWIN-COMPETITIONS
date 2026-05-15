@@ -9,7 +9,8 @@ import {
   getDocs,
   orderBy
 } from "firebase/firestore";
-import { db } from '@/config/firebase';
+import { db, functions } from '@/config/firebase';
+import { httpsCallable } from "firebase/functions";
 
 /**
  * Fetches instant aggregate metrics for the orders dashboard header.
@@ -67,8 +68,10 @@ export async function fetchOrderDetail(orderId) {
 }
 
 /**
- * Marks an order as Refunded.
+ * Marks an order as Refunded via Cloud Function (securely cancels tickets & notifies user).
  */
 export async function refundOrder(orderId) {
-  await updateDoc(doc(db, 'order', orderId), { status: 'Refunded' });
+  const refundOrderFn = httpsCallable(functions, 'refundOrder');
+  const result = await refundOrderFn({ orderId });
+  return result.data;
 }

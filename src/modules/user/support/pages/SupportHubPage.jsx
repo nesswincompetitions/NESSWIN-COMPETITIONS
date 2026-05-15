@@ -57,13 +57,15 @@ export default function SupportHubPage() {
       return;
     }
 
+    const toastId = toast.loading('Starting the ticket...');
     setIsCreating(true);
     try {
       const chatId = await createSupportChat(currentUser.uid);
+      toast.success('Support ticket started!', { id: toastId });
       navigate(`/profile/support/${chatId}`);
     } catch (error) {
       console.error('Failed to create support chat:', error);
-      toast.error(error.message || 'No support agents are available right now. Please try again later.');
+      toast.error(error.message || 'No support agents are available right now. Please try again later.', { id: toastId });
     } finally {
       setIsCreating(false);
     }
@@ -95,7 +97,7 @@ export default function SupportHubPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
           <div className="space-y-1">
             <button
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate('/profile', { replace: true })}
               className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-4 group"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />

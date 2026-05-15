@@ -25,7 +25,11 @@ export function toHttpsError(error, fallbackMessage = "An internal error occurre
     return error;
   }
 
-  return new HttpsError("internal", fallbackMessage);
+  // Preserve the message if it's a standard Error
+  const message = error?.message || fallbackMessage;
+  // logger.error("[toHttpsError] Original error:", error); // logger not imported here
+
+  return new HttpsError("internal", message);
 }
 
 export function toFirestoreTimestamp(admin, value) {

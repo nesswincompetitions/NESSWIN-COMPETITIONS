@@ -6,8 +6,7 @@ export const formatStatus = (status) => {
   if (!status) return '';
   
   // Handle specific known statuses if needed
-  if (status === 'ready_for_draw') return 'Ready To Draw';
-  if (status === 'ready_to_draw') return 'Ready To Draw';
+  if (status === 'ready_to_draw') return 'Draw Soon';
   if (status === 'drawing') return 'Drawing';
   if (status === 'winner_announced') return 'Winner Announced';
   if (status === 'completed') return 'Completed';

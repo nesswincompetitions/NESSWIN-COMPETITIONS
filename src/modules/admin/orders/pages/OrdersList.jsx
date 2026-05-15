@@ -242,13 +242,22 @@ const OrdersList = () => {
                         {`#${order.id.slice(-8).toUpperCase()}`}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-white">
-                            {order.userName || 'Unknown User'}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                              {order.userEmail || 'No email'}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs">
+                            {order.userPhoto ? (
+                              <img src={order.userPhoto} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (order.userName || '?').charAt(0)
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-white">
+                              {order.userName || 'Unknown User'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                                {order.userEmail || 'No email'}
+                            </span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-white font-medium">

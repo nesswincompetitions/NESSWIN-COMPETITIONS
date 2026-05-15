@@ -11,6 +11,8 @@ import {
   getCountFromServer,
   updateDoc,
   serverTimestamp,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
@@ -238,4 +240,85 @@ export const submitWinnerReview = async (competitionId, userId, comment, rating)
   });
   
   return { success: true };
+};
+
+/**
+ * Realtime listener for the most recent winners.
+ * Resolves winner user and ticket details.
+ */
+export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
+  const q = query(
+    collection(db, 'competition'),
+    where('winner_ref', '!=', null),
+    orderBy('winner_ref'), // Firestore requires orderBy on the field used in != inequality
+    orderBy('draw_date', 'desc'),
+    limit(limitCount)
+  );
+
+  return onSnapshot(
+    q,
+    async (snapshot) => {
+      try {
+        const winnersPromises = snapshot.docs.map(async (docSnap) => {
+          const data = docSnap.data();
+          const winnerRef = data.winner_ref;
+          const ticketRef = data.winner_ticket_ref;
+
+          let userData = null;
+          let ticketData = null;
+
+          try {
+            const [userSnap, ticketSnap] = await Promise.all([
+              winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
+              ticketRef ? getDoc(ticketRef) : Promise.resolve(null),
+            ]);
+
+            if (userSnap?.exists()) {
+              userData = userSnap.data();
+            }
+            if (ticketSnap?.exists()) {
+              ticketData = ticketSnap.data();
+            }
+          } catch (err) {
+            console.error('Error resolving winner/ticket refs:', err);
+          }
+
+          const name = userData?.display_name || userData?.name || 'Winner';
+          const initials = name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+
+          return {
+            id: docSnap.id,
+            initials,
+            name,
+            prizeName: data.prize_name || data.title || 'Unknown Prize',
+            competitionTitle: data.title || 'Untitled Competition',
+            priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+            amount: `${data.prize_value?.toLocaleString() || 0} €`, // For WinnersShowcase
+            ticketNumber: ticketData?.ticket_sequence || '—',
+            drawDate: data.draw_date?.toDate() 
+              ? data.draw_date.toDate().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              : '—',
+            date: data.draw_date?.toDate()
+              ? data.draw_date.toDate().toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+              : '—', // For WinnersShowcase
+            quote: data.winner_comment || "Une expérience inoubliable avec NessWin !",
+            image: data.image?.[0] || FALLBACK_IMAGE,
+            ticketPrice: `${data.ticket_price || 0} €`,
+          };
+        });
+
+        const resolvedWinners = await Promise.all(winnersPromises);
+        onData(resolvedWinners);
+      } catch (err) {
+        console.error('Error in subscribeRecentWinners:', err);
+        if (onError) onError(err);
+      }
+    },
+    onError
+  );
 };

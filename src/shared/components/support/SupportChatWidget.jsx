@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
   CheckCheck,
@@ -63,26 +64,28 @@ function MessageBubble({ message, isOwnMessage, isFirstInGroup, isLastInGroup })
     <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${isFirstInGroup ? 'mt-8' : 'mt-3'}`}>
       <div className={`max-w-[78%] md:max-w-[65%] flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} gap-0.5`}>
         {/* Bubble */}
-        <div
-          className={`px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-sm
-            ${isOwnMessage
-              ? 'bg-[var(--color-primary)] text-white'
-              : 'bg-[var(--color-muted)]/25 border border-[var(--color-border)]/50 text-[var(--color-foreground)]'
-            }
-            ${isOwnMessage
-              ? isFirstInGroup && isLastInGroup ? 'rounded-2xl rounded-br-sm'
-                : isFirstInGroup ? 'rounded-2xl rounded-br-sm'
-                  : isLastInGroup ? 'rounded-2xl rounded-tr-sm rounded-br-sm'
-                    : 'rounded-lg rounded-r-sm'
-              : isFirstInGroup && isLastInGroup ? 'rounded-2xl rounded-bl-sm'
-                : isFirstInGroup ? 'rounded-2xl rounded-bl-sm'
-                  : isLastInGroup ? 'rounded-2xl rounded-tl-sm rounded-bl-sm'
-                    : 'rounded-lg rounded-l-sm'
-            }
-          `}
-        >
-          {message.message || null}
-        </div>
+        {message.message && (
+          <div
+            className={`px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words shadow-sm
+              ${isOwnMessage
+                ? 'bg-[var(--color-primary)] text-white'
+                : 'bg-[var(--color-muted)]/25 border border-[var(--color-border)]/50 text-[var(--color-foreground)]'
+              }
+              ${isOwnMessage
+                ? (isFirstInGroup && isLastInGroup ? 'rounded-2xl rounded-br-sm'
+                  : isFirstInGroup ? 'rounded-2xl rounded-br-sm'
+                    : isLastInGroup ? 'rounded-2xl rounded-tr-sm rounded-br-sm'
+                      : 'rounded-lg rounded-r-sm')
+                : (isFirstInGroup && isLastInGroup ? 'rounded-2xl rounded-bl-sm'
+                  : isFirstInGroup ? 'rounded-2xl rounded-bl-sm'
+                    : isLastInGroup ? 'rounded-2xl rounded-tl-sm rounded-bl-sm'
+                      : 'rounded-lg rounded-l-sm')
+              }
+            `}
+          >
+            {message.message}
+          </div>
+        )}
 
         {/* Attached image */}
         {message.image && (
@@ -127,12 +130,15 @@ export default function SupportChatWidget({
   isCurrentUserAdmin = false,
   chatType = 'support',
   title = 'Support Chat',
+  customerId = '',
+  customerPhoto = '',
   closeLabel = 'Close Ticket',
   onCloseTicket,
   className = '',
   unreadCount = 0,
   status = 'active',
 }) {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [sending, setSending] = useState(false);
@@ -322,10 +328,22 @@ export default function SupportChatWidget({
     <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%', minHeight: '560px' }}>
       {/* ─── Header ─── */}
       <header className="flex-shrink-0 flex items-center justify-between gap-4 px-5 py-3.5 border-b border-[var(--color-border)]/50">
-        <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`group flex items-center gap-3 min-w-0 ${isCurrentUserAdmin && customerId ? 'cursor-pointer' : ''
+            }`}
+          onClick={() => {
+            if (isCurrentUserAdmin && customerId) {
+              navigate(`/admin/users/${customerId}`);
+            }
+          }}
+        >
           <div className="relative flex-shrink-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20">
-              {chatType === 'winner_chat' ? <Gift className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />}
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20 overflow-hidden transition-transform ${isCurrentUserAdmin && customerId ? 'group-hover:scale-105 group-hover:border-primary/40' : ''}`}>
+              {isCurrentUserAdmin && customerPhoto ? (
+                <img src={customerPhoto} alt="" className="h-full w-full object-cover" />
+              ) : (
+                chatType === 'winner_chat' ? <Gift className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />
+              )}
             </div>
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
@@ -334,12 +352,18 @@ export default function SupportChatWidget({
             )}
           </div>
           <div className="min-w-0">
-            <h3 className="truncate text-[15px] font-semibold text-[var(--color-foreground)]">{title}</h3>
-            {unreadCount > 0 && (
+            <h3 className={`truncate text-[15px] font-semibold text-[var(--color-foreground)] transition-colors ${isCurrentUserAdmin && customerId ? 'group-hover:text-primary' : ''}`}>
+              {title}
+            </h3>
+            {unreadCount > 0 ? (
               <p className="text-[11px] text-red-400 font-medium">
                 {unreadCount} unread {unreadCount === 1 ? 'message' : 'messages'}
               </p>
-            )}
+            ) : isCurrentUserAdmin && customerId ? (
+              <p className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                Click to view profile
+              </p>
+            ) : null}
           </div>
         </div>
 

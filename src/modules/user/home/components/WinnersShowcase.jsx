@@ -1,69 +1,40 @@
-import { Trophy, MapPin, Calendar, Quote } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Calendar, Quote, Loader2 } from 'lucide-react';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
+import { subscribeRecentWinners } from '../../competitions/services/competitionService';
 
-const winners = [
+const COLOR_THEMES = [
   {
-    initials: "DM",
-    name: "David M.",
-    location: "Tel Aviv, Israël",
-    prize: "Ferrari F8 Tributo",
-    amount: "280 000 €",
-    quote: "Je n'y croyais pas vraiment... jusqu'à ce que les clés soient dans ma main. Une expérience inoubliable !",
-    date: "Mars 2025",
-    ticketPrice: "50 €",
     accentFrom: "from-red-500/20",
     accentTo: "to-orange-500/10",
     trophyColor: "text-red-400",
     badgeColor: "text-red-400",
   },
   {
-    initials: "SL",
-    name: "Sarah L.",
-    location: "Paris, France",
-    prize: "Rolex Submariner Gold",
-    amount: "45 000 €",
-    quote: "Transparent, professionnel, le tirage en direct m'a convaincu dès le départ. Je recommande à 100%.",
-    date: "Fév. 2025",
-    ticketPrice: "25 €",
     accentFrom: "from-yellow-500/20",
     accentTo: "to-amber-500/10",
     trophyColor: "text-yellow-400",
     badgeColor: "text-yellow-400",
   },
   {
-    initials: "YK",
-    name: "Yoav K.",
-    location: "Haïfa, Israël",
-    prize: "Week-end Dubai 5 étoiles",
-    amount: "12 000 €",
-    quote: "Le tirage était en direct, tout le monde pouvait vérifier. NessWin a changé ma façon de voir les concours.",
-    date: "Jan. 2025",
-    ticketPrice: "20 €",
     accentFrom: "from-blue-500/20",
     accentTo: "to-cyan-500/10",
     trophyColor: "text-blue-400",
     badgeColor: "text-blue-400",
   },
   {
-    initials: "MB",
-    name: "Michel B.",
-    location: "Lyon, France",
-    prize: "BMW M4 Competition",
-    amount: "95 000 €",
-    quote: "Incroyable ! La BMW est dans mon garage depuis 3 mois. Chaque matin je n'en reviens toujours pas.",
-    date: "Déc. 2024",
-    ticketPrice: "40 €",
     accentFrom: "from-purple-500/20",
     accentTo: "to-violet-500/10",
     trophyColor: "text-purple-400",
     badgeColor: "text-purple-400",
-  },
+  }
 ];
+
 
 function WinnerCard({ winner }) {
   const { t } = useTranslation();
-  const { initials, name, location, prize, amount, quote, date, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
+  const { initials, name, prizeName, amount, quote, date, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
 
   return (
     <article className={`relative flex flex-col gap-4 p-5 rounded-2xl border border-border/60 bg-card overflow-hidden group`}>
@@ -79,20 +50,15 @@ function WinnerCard({ winner }) {
         </div>
         <div>
           <p className="font-semibold text-sm text-(--color-foreground)">{name}</p>
-          <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-            <MapPin className="w-2.5 h-2.5" aria-hidden="true" />
-            {location}
-          </p>
         </div>
       </div>
 
-      {/* Prize info */}
       <div className="relative z-10 space-y-1">
         <div className="flex items-center gap-1.5">
           <Trophy className={`w-3.5 h-3.5 ${trophyColor}`} aria-hidden="true" />
           <span className={`text-xs font-bold tracking-wide uppercase ${badgeColor}`}>{t("winnersShowcase.prizeWon")}</span>
         </div>
-        <p className="font-serif text-base font-bold leading-tight text-(--color-foreground)">{prize}</p>
+        <p className="font-serif text-base font-bold leading-tight text-(--color-foreground)">{prizeName}</p>
         <p className="text-primary font-semibold text-sm">{amount}</p>
       </div>
 
@@ -117,6 +83,28 @@ function WinnerCard({ winner }) {
 
 export default function WinnersShowcase() {
   const { t } = useTranslation();
+  const [winners, setWinners] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = subscribeRecentWinners(4, (data) => {
+      // Add theme colors back to the dynamic data
+      const themedWinners = data.map((w, index) => ({
+        ...w,
+        ...COLOR_THEMES[index % COLOR_THEMES.length]
+      }));
+      setWinners(themedWinners);
+      setLoading(false);
+    }, (err) => {
+      console.error('Failed to subscribe winners showcase:', err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (!loading && winners.length === 0) return null;
+
   return (
     <section id="winners" className="py-24 px-6 bg-(--color-background) scroll-mt-24">
       <div className="max-w-7xl mx-auto">
@@ -139,11 +127,17 @@ export default function WinnersShowcase() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {winners.map((w, index) => (
-            <Reveal key={w.name} delay={index * 70}>
-              <WinnerCard winner={w} />
-            </Reveal>
-          ))}
+          {loading ? (
+             Array.from({ length: 4 }).map((_, i) => (
+               <div key={i} className="h-[300px] rounded-2xl bg-card animate-pulse border border-border/60" />
+             ))
+          ) : (
+            winners.map((w, index) => (
+              <Reveal key={w.id} delay={index * 70}>
+                <WinnerCard winner={w} />
+              </Reveal>
+            ))
+          )}
         </div>
 
         {/* Social proof banner */}

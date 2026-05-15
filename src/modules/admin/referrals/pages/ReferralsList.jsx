@@ -9,7 +9,7 @@ import SearchInput from '@/shared/components/ui/SearchInput';
 import {
   Calendar, Download, Eye, ChevronDown, Users as UsersIcon, Loader2, Award, UserCheck
 } from 'lucide-react';
-import { useAdminUsersFeed } from '@/shared/hooks/useAdminData';
+import { useAdminReferralsFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
@@ -21,17 +21,16 @@ const ReferralsList = () => {
   const [sortBy, setSortBy] = useState('mostReferrals');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const { data: users, loading } = useAdminUsersFeed(100);
+  const { data: referrals, loading } = useAdminReferralsFeed();
   const data = useMemo(() => {
-    const referrals = (users || []).filter((user) => Number(user.referral_count || 0) > 0);
     return {
-      referrals,
+      referrals: referrals || [],
       stats: {
-        totalReferrals: referrals.reduce((sum, user) => sum + Number(user.referral_count || 0), 0),
-        totalRewards: referrals.reduce((sum, user) => sum + Number(user.total_free_tickets || user.free_tickets || 0), 0),
+        totalReferrals: (referrals || []).reduce((sum, r) => sum + Number(r.referral_count || 0), 0),
+        totalRewards: (referrals || []).reduce((sum, r) => sum + Number(r.total_free_tickets || 0), 0),
       },
     };
-  }, [users]);
+  }, [referrals]);
 
   const itemsPerPage = 20;
 
@@ -61,7 +60,6 @@ const ReferralsList = () => {
         const tB = (b.created_time || b.created_at)?.toMillis ? (b.created_time || b.created_at).toMillis() : 0;
         return tB - tA;
       }
-      if (sortBy === 'mostRewards') return (b.total_free_tickets || 0) - (a.total_free_tickets || 0);
       return 0;
     });
 
@@ -161,7 +159,6 @@ const ReferralsList = () => {
                 >
                   <option value="mostReferrals" className="bg-[#121212]">{t('referrals.sort.mostReferrals')}</option>
                   <option value="newest" className="bg-[#121212]">{t('referrals.sort.newest')}</option>
-                  <option value="mostRewards" className="bg-[#121212]">{t('referrals.sort.mostRewards')}</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
@@ -193,9 +190,18 @@ const ReferralsList = () => {
                     <TableRow key={user.id}>
                       <TableCell className="text-gray-500 font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-white">{user.display_name || user.name}</span>
-                          <span className="text-xs text-gray-500">{user.email}</span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs">
+                            {user.photo_url ? (
+                              <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              (user.display_name || user.name || '?').charAt(0)
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-white">{user.display_name || user.name}</span>
+                            <span className="text-xs text-gray-500">{user.email}</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

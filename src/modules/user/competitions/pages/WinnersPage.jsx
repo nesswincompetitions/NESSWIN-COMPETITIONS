@@ -1,52 +1,8 @@
-import { Trophy, MapPin, Ticket, Calendar, Quote } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Ticket, Calendar, Quote, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { subscribeRecentWinners } from '../services/competitionService';
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const winners = [
-  {
-    initials: "YK",
-    name: "Yoav K.",
-    location: "Haïfa",
-    prizeName: "Week-end Dubaï VIP pour 2 personnes",
-    competitionTitle: "Week-end VIP à Dubaï — 5 Étoiles",
-    priceLabel: "15 000 €",
-    ticketNumber: "512",
-    drawDate: "21 janvier 2026",
-    quote:
-      "Le tirage était en direct, tout le monde pouvait vérifier. NessWin a changé ma façon de voir les concours.",
-    image:
-      "https://images.unsplash.com/photo-1772176289717-cda2287be268?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080",
-  },
-  {
-    initials: "SL",
-    name: "Sarah L.",
-    location: "Paris",
-    prizeName: "Rolex Submariner Date 116618LV",
-    competitionTitle: "Rolex Submariner Gold 18k",
-    priceLabel: "48 000 €",
-    ticketNumber: "1 103",
-    drawDate: "15 février 2026",
-    quote:
-      "Transparent, professionnel, le tirage en direct m'a convaincu dès le départ. Je recommande à 100%.",
-    image:
-      "https://images.unsplash.com/photo-1572194812951-f9a56327d2f7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080",
-  },
-  {
-    initials: "DM",
-    name: "David M.",
-    location: "Tel Aviv",
-    prizeName: "Ferrari F8 Tributo",
-    competitionTitle: "Ferrari F8 Tributo",
-    priceLabel: "280 000 €",
-    ticketNumber: "2 847",
-    drawDate: "2 mars 2026",
-    quote:
-      "Je n'y croyais pas vraiment... jusqu'à ce que les clés soient dans ma main. Une expérience inoubliable !",
-    image:
-      "https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080",
-  },
-];
 
 // ─── WinnerCard ───────────────────────────────────────────────────────────────
 
@@ -55,7 +11,6 @@ function WinnerCard({ winner }) {
   const {
     initials,
     name,
-    location,
     prizeName,
     competitionTitle,
     priceLabel,
@@ -100,15 +55,11 @@ function WinnerCard({ winner }) {
             </div>
           </div>
 
-          {/* Name + location + prize */}
+          {/* Name + prize */}
           <div className="flex-1 min-w-0">
             <h3 className="font-serif text-lg font-bold leading-tight truncate text-[var(--color-foreground)]">
               {name}
             </h3>
-            <p className="text-xs text-[var(--color-muted-foreground)] flex items-center gap-1 mt-0.5">
-              <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
-              {location}
-            </p>
             <p className="text-[var(--color-primary)] font-semibold text-sm mt-1 line-clamp-1">
               {prizeName}
             </p>
@@ -193,6 +144,21 @@ function WinnersHero() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WinnersPage() {
+  const [winners, setWinners] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = subscribeRecentWinners(3, (data) => {
+      setWinners(data);
+      setLoading(false);
+    }, (err) => {
+      console.error('Failed to subscribe winners:', err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[var(--color-background)]">
       <div className="pt-16 lg:pt-20">
@@ -201,11 +167,23 @@ export default function WinnersPage() {
 
         {/* Winners grid */}
         <div className="max-w-7xl mx-auto px-6 lg:px-8 pb-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {winners.map((winner) => (
-              <WinnerCard key={winner.ticketNumber} winner={winner} />
-            ))}
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin" />
+            </div>
+          ) : winners.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-[var(--color-muted-foreground)] text-lg">
+                No winners announced yet. Check back soon!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {winners.map((winner) => (
+                <WinnerCard key={winner.id} winner={winner} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -21,11 +21,14 @@ const formatDate = (ts) => {
 };
 
 const STATUS_MAP = {
-  active:        { label: 'Active',      classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  ready_to_draw: { label: 'Ready To Draw',   classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  won:           { label: 'Winner!',     classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
-  lost:          { label: 'Ended',       classes: 'bg-white/5 text-white/40 border-white/10' },
-  default:       { label: 'Pending',     classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  active:           { label: 'Active',           classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  ready_to_draw:    { label: 'Draw Soon',    classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  sold_out:         { label: 'Sold Out',         classes: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+  winner_announced: { label: 'Draw Ended',       classes: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+  completed:        { label: 'Completed',        classes: 'bg-white/5 text-white/40 border-white/10' },
+  won:              { label: 'Winner!',          classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
+  lost:             { label: 'Ended',            classes: 'bg-white/5 text-white/40 border-white/10' },
+  default:          { label: 'Pending',          classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
 };
 
 function CompetitionGroupCard({ compData, onViewAll }) {
@@ -36,8 +39,16 @@ function CompetitionGroupCard({ compData, onViewAll }) {
   
   // Check if user won
   const isWinner = tickets.some(t => t.is_winner) || orders.some(o => o.is_winner);
-  const compStatus = competition?.status === 'active' ? 'active' : (competition?.status === 'ready_to_draw' ? 'ready_to_draw' : 'lost');
-  const displayStatus = isWinner ? STATUS_MAP.won : (STATUS_MAP[compStatus] ?? STATUS_MAP.default);
+  const rawStatus = competition?.status || 'active';
+  
+  let compStatusKey = 'default';
+  if (rawStatus === 'active') compStatusKey = 'active';
+  else if (rawStatus === 'ready_to_draw') compStatusKey = 'ready_to_draw';
+  else if (['sold_out', 'sold out'].includes(rawStatus)) compStatusKey = 'sold_out';
+  else if (rawStatus === 'winner_announced') compStatusKey = 'winner_announced';
+  else if (['completed', 'closed', 'end'].includes(rawStatus)) compStatusKey = 'completed';
+  
+  const displayStatus = isWinner ? STATUS_MAP.won : (STATUS_MAP[compStatusKey] ?? STATUS_MAP.default);
 
   // Stats
   const totalPaid = orders.reduce((sum, o) => sum + (o.total_ticket || 0), 0);
@@ -245,16 +256,36 @@ export default function MyTicketsPage() {
     const isWinner = group.tickets.some(t => t.is_winner) || group.orders.some(o => o.is_winner);
     
     if (activeTab === 'won') return isWinner;
-    if (activeTab === 'past') return compStatus === 'end' || compStatus === 'completed' || compStatus === 'sold_out';
-    return compStatus === 'active' || compStatus === 'ready_to_draw'; // 'active' tab
+    if (activeTab === 'past') return ['completed', 'closed', 'winner_announced', 'end'].includes(compStatus);
+    return !['completed', 'closed', 'winner_announced', 'end'].includes(compStatus); // everything else is 'active'
   });
+
+  // Pagination Logic
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  const totalPages = Math.ceil(filteredGroups.length / itemsPerPage);
+  const currentGroups = filteredGroups.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pt-24 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <button
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate('/profile', { replace: true })}
             className="w-10 h-10 rounded-full border border-[var(--color-border)]/60 flex items-center justify-center text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -303,15 +334,52 @@ export default function MyTicketsPage() {
           <div className="flex items-center justify-center py-20">
             <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
-        ) : filteredGroups.length > 0 ? (
-          <div className="space-y-6">
-            {filteredGroups.map(compData => (
-              <CompetitionGroupCard 
-                key={compData.competition.id} 
-                compData={compData} 
-                onViewAll={() => setSelectedCompData(compData)}
-              />
-            ))}
+        ) : currentGroups.length > 0 ? (
+          <div className="space-y-8">
+            <div className="space-y-6">
+              {currentGroups.map(compData => (
+                <CompetitionGroupCard 
+                  key={compData.competition.id} 
+                  compData={compData} 
+                  onViewAll={() => setSelectedCompData(compData)}
+                />
+              ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-10">
+                <button
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                >
+                  Prev
+                </button>
+                <div className="flex items-center gap-1 overflow-x-auto max-w-full px-2 hide-scrollbar">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`w-10 h-10 rounded-xl border font-bold text-sm transition-all shrink-0 ${
+                        currentPage === page
+                          ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
+                          : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl bg-[var(--color-card)]/50">

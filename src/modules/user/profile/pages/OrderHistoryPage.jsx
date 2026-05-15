@@ -227,13 +227,27 @@ export default function OrderHistoryPage() {
     return unsubscribe;
   }, [currentUser?.uid]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const totalSpent = orders.reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentOrders = orders.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pt-24 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
         <button
-          onClick={() => navigate('/profile')}
+          onClick={() => navigate('/profile', { replace: true })}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Profile
@@ -254,8 +268,45 @@ export default function OrderHistoryPage() {
             <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
         ) : orders.length > 0 ? (
-          <div className="space-y-4">
-            {orders.map((o) => <OrderCard key={o.id} order={o} />)}
+          <div className="space-y-6">
+            <div className="space-y-4">
+              {currentOrders.map((o) => <OrderCard key={o.id} order={o} />)}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-10">
+                <button
+                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                >
+                  Prev
+                </button>
+                <div className="flex items-center gap-1 overflow-x-auto max-w-full px-2 hide-scrollbar">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`w-10 h-10 rounded-xl border font-bold text-sm transition-all shrink-0 ${
+                        currentPage === page
+                          ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
+                          : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl">

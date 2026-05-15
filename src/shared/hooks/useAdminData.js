@@ -275,6 +275,7 @@ export const useAdminOrdersFeed = (limitCount = 50) => {
       userName: user?.display_name || user?.name || 'Unknown User',
       userEmail: user?.email || 'N/A',
       competitionName: competition?.title || competition?.name || 'Unknown Competition',
+      userPhoto: user?.photo_url || user?.profile_image || '',
     };
   }), [orders, userMap, compMap]);
 
@@ -282,6 +283,50 @@ export const useAdminOrdersFeed = (limitCount = 50) => {
     data: enrichedOrders,
     loading: ordersLoading || resolving,
     error: ordersError,
+  };
+};
+
+export const useAdminReferralsFeed = () => {
+  const queryConstraints = useMemo(() => [], []);
+  const { data: referrals, loading: referralsLoading, error: referralsError } = useRealtimeCollection('referrals', queryConstraints);
+  const { userMap, resolving } = useEnrichment(referrals, 'referrer_id', null);
+
+  const aggregatedData = useMemo(() => {
+    const referrerMap = {};
+
+    // Filter out admin_bonus client-side to ensure docs with missing reward_type are included
+    const organicReferrals = referrals.filter(ref => ref.reward_type !== 'admin_bonus');
+
+    organicReferrals.forEach((ref) => {
+      const rId = getReferenceId(ref.referrer_id);
+      if (!rId) return;
+
+      if (!referrerMap[rId]) {
+        const user = userMap[rId];
+        referrerMap[rId] = {
+          id: rId,
+          display_name: user?.display_name || user?.name || 'Unknown User',
+          name: user?.display_name || user?.name || 'Unknown User',
+          email: user?.email || 'N/A',
+          referral_code: user?.referral_code || '—',
+          referral_count: 0,
+          total_free_tickets: 0,
+          created_time: user?.created_time || user?.created_at || null,
+          photo_url: user?.photo_url || user?.profile_image || '',
+        };
+      }
+
+      referrerMap[rId].referral_count += 1;
+      referrerMap[rId].total_free_tickets += Number(ref.reward_value || 0);
+    });
+
+    return Object.values(referrerMap).sort((a, b) => b.referral_count - a.referral_count);
+  }, [referrals, userMap]);
+
+  return {
+    data: aggregatedData,
+    loading: referralsLoading || resolving,
+    error: referralsError,
   };
 };
 
@@ -421,6 +466,7 @@ export const useWinnerCompetitionsFeed = () => {
           drawDate: competition.draw_date || null,
           winnerName: winnerUser?.display_name || winnerUser?.name || 'Unknown User',
           winnerEmail: winnerUser?.email || 'N/A',
+          winnerPhoto: winnerUser?.photo_url || winnerUser?.profile_image || '',
           ticket: winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A',
           status: competition.status || 'winner_announced',
         };
@@ -557,15 +603,17 @@ export const useUserReferralsRealtime = (userId) => {
   const { data: referrals, loading: referralsLoading, error: referralsError } = useRealtimeCollection('referrals', queryConstraints);
   const { userMap, resolving } = useEnrichment(referrals, 'referred_user_id', null);
 
-  const enrichedReferrals = useMemo(() => referrals.map((ref) => {
-    const uId = getReferenceId(ref.referred_user_id);
-    const user = userMap[uId];
-    return {
-      ...ref,
-      referredName: user?.display_name || user?.name || 'Unknown User',
-      referredEmail: user?.email || 'N/A',
-    };
-  }), [referrals, userMap]);
+  const enrichedReferrals = useMemo(() => referrals
+    .filter(ref => ref.reward_type !== 'admin_bonus')
+    .map((ref) => {
+      const uId = getReferenceId(ref.referred_user_id);
+      const user = userMap[uId];
+      return {
+        ...ref,
+        referredName: user?.display_name || user?.name || 'Unknown User',
+        referredEmail: user?.email || 'N/A',
+      };
+    }), [referrals, userMap]);
 
   return { data: enrichedReferrals, loading: referralsLoading || resolving, error: referralsError };
 };
@@ -579,14 +627,16 @@ export const useUserBonusLogsRealtime = (userId) => {
   const { data: logs, loading: logsLoading, error: logsError } = useRealtimeCollection('free_ticket_log', queryConstraints);
   const { compMap, resolving } = useEnrichment(logs, null, 'competition_id');
 
-  const enrichedLogs = useMemo(() => logs.map((log) => {
-    const competitionId = getReferenceId(log.competition_id);
-    const competition = compMap[competitionId];
-    return {
-      ...log,
-      competitionTitle: competition?.title || competition?.name || 'N/A',
-    };
-  }), [logs, compMap]);
+  const enrichedLogs = useMemo(() => logs
+    .filter(log => log.reward_type === 'admin_bonus')
+    .map((log) => {
+      const competitionId = getReferenceId(log.competition_id);
+      const competition = compMap[competitionId];
+      return {
+        ...log,
+        competitionTitle: competition?.title || competition?.name || 'N/A',
+      };
+    }), [logs, compMap]);
 
   return { data: enrichedLogs, loading: logsLoading || resolving, error: logsError };
 };

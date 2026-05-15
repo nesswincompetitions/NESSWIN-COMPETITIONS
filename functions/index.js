@@ -1,4 +1,5 @@
-export { processOrder } from "./controllers/orderController.js";
+export { processOrder, initiateOrder } from "./controllers/orderController.js";
+export { paymentPendingWorker } from "./controllers/orderNotificationCloudTasksController.js";
 export {
 	notifyWinnerOnFirstAdminMessage,
 	selectCompetitionWinner,
@@ -14,7 +15,7 @@ export { softDeleteUser } from "./controllers/userController.js";
 export { getSkillQuestion, submitSkillAnswer } from "./controllers/skillGateController.js";
 
 // Admin & Dashboard
-export { grantAdminBonus } from "./controllers/adminController.js";
+export { grantAdminBonus, refundOrder } from "./controllers/adminController.js";
 export {
 	onCompetitionChangeDashboard,
 	onCompetitionCreatedDashboard,

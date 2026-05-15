@@ -314,7 +314,7 @@ const CompetitionDetail = () => {
   const handleStartLiveDraw = async () => {
     if (!competition?.id) return;
     if (competition.status !== 'ready_to_draw') {
-      toast.error('Only competitions with status Ready To Draw can start live draw.');
+      toast.error('Only competitions with status Draw Soon can start live draw.');
       return;
     }
 
@@ -477,7 +477,7 @@ const CompetitionDetail = () => {
                   return isStatusEnded ? (
                     <p className="text-sm text-emerald-400 font-bold uppercase tracking-wider">COMPLETED</p>
                   ) : (
-                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">READY TO DRAW</p>
+                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">Draw Soon</p>
                   );
                 }
 
@@ -738,7 +738,7 @@ const CompetitionDetail = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
                   <p className="text-gray-400 mt-2 max-w-md mx-auto">
-                    {`This competition is currently ${formatStatus(drawStatus).toLowerCase()}. Draw controls are only available when the status is Ready To Draw.`}
+                    {`This competition is currently ${formatStatus(drawStatus).toLowerCase()}. Draw controls are only available when the status is Draw Soon.`}
                   </p>
                 </div>
 
@@ -917,7 +917,7 @@ const CompetitionDetail = () => {
               const isTimeUp = competition.status === 'active' && competition.draw_date && competition.draw_date.toMillis() <= now.getTime();
               
               if (isTimeUp) {
-                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready To Draw</Badge>;
+                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Draw Soon</Badge>;
               }
 
               if (competition.status === 'drawing') {

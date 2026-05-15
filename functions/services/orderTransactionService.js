@@ -70,6 +70,7 @@ export async function runOrderTransaction(
     questionAnswer,
     freeTicketsToUse = 0,
     referralsToBurn = [],
+    orderId = null,
   }
 ) {
   // ── Input validation ─────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ export async function runOrderTransaction(
   // ── Pre-build document refs (safe to do outside the transaction) ─────────────
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
-  const orderRef = db.collection("order").doc(); // auto-id
+  const orderRef = orderId ? db.collection("order").doc(orderId) : db.collection("order").doc();
 
   // ── Pricing math (pure — no I/O) ─────────────────────────────────────────────
   const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(qty);
@@ -168,6 +169,24 @@ export async function runOrderTransaction(
       if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
         throw new Error("You must pass the skill-gate quiz before entering this competition.");
       }
+
+    // Fetch unused logs for potential unification
+    let unusedLogs = [];
+    if (clampedReferralTickets > 0) {
+      const unusedLogsSnap = await transaction.get(
+        db.collection("free_ticket_log")
+          .where("user_id", "==", userRef)
+          .where("competition_id", "==", null)
+      );
+      // Sort in memory to avoid missing index errors in transaction
+      unusedLogs = unusedLogsSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), ref: d.ref }))
+        .sort((a, b) => {
+          const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+          const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+          return tA - tB;
+        });
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // PHASE 2 — MATH & VALIDATION (no I/O — pure computation)
@@ -292,7 +311,8 @@ export async function runOrderTransaction(
 
     // Write 4 — Audit log: pack bonus tickets
     if (packBonusTickets > 0) {
-      transaction.set(logRef, {
+      const packLogRef = db.collection("free_ticket_log").doc();
+      transaction.set(packLogRef, {
         user_id: userRef,
         order_id: orderRef,
         competition_id: competitionRef,
@@ -308,9 +328,9 @@ export async function runOrderTransaction(
     if (clampedReferralTickets > 0) {
       // Group referrals by reward_type for separate audit logging
       const referralsByType = {
-        admin_bonus: [],
-        referral: [],
-        other: []
+        admin_bonus: 0,
+        referral: 0,
+        other: 0
       };
 
       referralSnaps.forEach((snap, idx) => {
@@ -323,52 +343,73 @@ export async function runOrderTransaction(
           reward_issued_at: serverNow,
         });
 
-        // Track for audit logging
+        // Track count for audit logging
         if (rewardType === 'admin_bonus') {
-          referralsByType.admin_bonus.push(1);
+          referralsByType.admin_bonus++;
         } else if (rewardType === 'referral') {
-          referralsByType.referral.push(1);
+          referralsByType.referral++;
         } else {
-          referralsByType.other.push(1);
+          referralsByType.other++;
         }
       });
 
-      // Create separate audit logs for each reward type
-      if (referralsByType.admin_bonus.length > 0) {
-        transaction.set(adminBonusLogRef, {
-          user_id: userRef,
-          order_id: orderRef,
-          competition_id: competitionRef,
-          quantity: referralsByType.admin_bonus.length,
-          reason: "admin_bonus",
-          reward_type: "admin_bonus",
-          created_at: serverNow,
-        });
-      }
+      // Helper to process unification or create new log
+      const processAuditLog = (type, quantity, defaultReason) => {
+        if (quantity <= 0) return;
+        
+        let remaining = quantity;
+        const matchingLogs = unusedLogs.filter(l => l.reward_type === type);
 
-      if (referralsByType.referral.length > 0) {
-        transaction.set(referralLogRef, {
-          user_id: userRef,
-          order_id: orderRef,
-          competition_id: competitionRef,
-          quantity: referralsByType.referral.length,
-          reason: "referral",
-          reward_type: "referral",
-          created_at: serverNow,
-        });
-      }
+        for (const oldLog of matchingLogs) {
+          if (remaining <= 0) break;
 
-      if (referralsByType.other.length > 0) {
-        transaction.set(otherLogRef, {
-          user_id: userRef,
-          order_id: orderRef,
-          competition_id: competitionRef,
-          quantity: referralsByType.other.length,
-          reason: "free_ticket",
-          reward_type: "other",
-          created_at: serverNow,
-        });
-      }
+          if (oldLog.quantity <= remaining) {
+            // Use entire log
+            transaction.update(oldLog.ref, {
+              competition_id: competitionRef,
+              order_id: orderRef,
+              updated_at: serverNow
+            });
+            remaining -= oldLog.quantity;
+          } else {
+            // Partial log usage - Split it
+            transaction.update(oldLog.ref, {
+              quantity: oldLog.quantity - remaining,
+              updated_at: serverNow
+            });
+            
+            const usedLogRef = db.collection("free_ticket_log").doc();
+            transaction.set(usedLogRef, {
+              user_id: userRef,
+              order_id: orderRef,
+              competition_id: competitionRef,
+              quantity: remaining,
+              reason: oldLog.reason || defaultReason,
+              reward_type: type,
+              created_at: serverNow
+            });
+            remaining = 0;
+          }
+        }
+
+        // If no matching logs found or quantity remains, create new entry
+        if (remaining > 0) {
+          const newLogRef = db.collection("free_ticket_log").doc();
+          transaction.set(newLogRef, {
+            user_id: userRef,
+            order_id: orderRef,
+            competition_id: competitionRef,
+            quantity: remaining,
+            reason: defaultReason,
+            reward_type: type,
+            created_at: serverNow,
+          });
+        }
+      };
+
+      processAuditLog('admin_bonus', referralsByType.admin_bonus, 'admin_bonus');
+      processAuditLog('referral', referralsByType.referral, 'referral');
+      processAuditLog('other', referralsByType.other, 'free_ticket');
     }
 
     // Write 6 — Update user stats

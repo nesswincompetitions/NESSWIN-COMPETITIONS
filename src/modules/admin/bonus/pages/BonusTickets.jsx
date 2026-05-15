@@ -19,12 +19,17 @@ const BonusTickets = () => {
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const { data: ticketsRaw, loading: ticketsLoading } = useRealtimeCollection('free_ticket_log', [orderBy('created_at', 'desc')]);
-  const { data: rewardLogs, loading: rewardsLoading } = useRealtimeCollection('referrals', [where('reward_type', '==', 'admin_bonus')]);
+  const { data: ticketsRaw, loading: ticketsLoading } = useRealtimeCollection('free_ticket_log', [
+    orderBy('created_at', 'desc')
+  ]);
   const { data: users, loading: usersLoading } = useRecentUsers(100);
   const { data: competitions, loading: competitionsLoading } = useRealtimeCollection('competition', []);
-  const loading = ticketsLoading || rewardsLoading || usersLoading || competitionsLoading;
-  const totalIssued = rewardLogs.length;
+  const loading = ticketsLoading || usersLoading || competitionsLoading;
+  const totalIssued = useMemo(() => {
+    return ticketsRaw
+      .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
+      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+  }, [ticketsRaw]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modal Form State
@@ -41,29 +46,23 @@ const BonusTickets = () => {
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
   const competitionMap = useMemo(() => Object.fromEntries(competitions.map((competition) => [competition.id, competition])), [competitions]);
 
-  const tickets = useMemo(() => ticketsRaw.map((ticket) => {
-    const userId = ticket.user_id?.id || (typeof ticket.user_id === 'string' ? ticket.user_id : null);
-    const competitionId = ticket.competition_id?.id || (typeof ticket.competition_id === 'string' ? ticket.competition_id : null);
-    const user = userMap[userId];
-    const competition = competitionMap[competitionId];
+  const tickets = useMemo(() => ticketsRaw
+    .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
+    .map((ticket) => {
+      const userId = ticket.user_id?.id || (typeof ticket.user_id === 'string' ? ticket.user_id : null);
+      const competitionId = ticket.competition_id?.id || (typeof ticket.competition_id === 'string' ? ticket.competition_id : null);
+      const user = userMap[userId];
+      const competition = competitionMap[competitionId];
 
-    const rewardTypeMap = {
-      'admin_bonus': 'admin_bonus',
-      'referral_auto_reward': 'referral',
-      'ticket_bonus': 'pack_bonus',
-      'referral': 'referral',
-      'free_ticket': 'other'
-    };
-
-    const resolvedRewardType = ticket.reward_type || rewardTypeMap[ticket.reason] || 'admin_bonus';
-
-    return {
-      ...ticket,
-      userName: user?.display_name || user?.name || 'Unknown User',
-      competitionTitle: competition?.title || 'N/A',
-      resolvedRewardType
-    };
-  }), [ticketsRaw, userMap, competitionMap]);
+      return {
+        ...ticket,
+        userName: user?.display_name || user?.name || 'Unknown User',
+        competitionTitle: competition?.title || 'General Bonus',
+        quantity: ticket.quantity || 1,
+        reason: ticket.admin_note || ticket.reason || 'Admin Bonus',
+        resolvedRewardType: 'admin_bonus'
+      };
+    }), [ticketsRaw, userMap, competitionMap]);
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -72,11 +71,12 @@ const BonusTickets = () => {
       (ticket.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.competitionTitle || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    // 2. Status Filter (Since we don't have a status field in log, we might assume 'Active' or handle based on reason)
-    // For now, if activeStatus is 'all', show everything.
+    // 2. Status Filter
     if (activeStatus === 'all') return matchesSearch;
+    if (activeStatus === 'used') return matchesSearch && ticket.reward_issued;
+    if (activeStatus === 'active') return matchesSearch && !ticket.reward_issued;
     
-    // Logic for used/active/expired could be added here if fields were available
+    // For 'expired', we don't have an expiry field yet, so just return matchesSearch
     return matchesSearch;
   });
 
@@ -318,9 +318,7 @@ const BonusTickets = () => {
                   <TableRow>
                     <TableHead>{t('bonusTickets.table.user')}</TableHead>
                     <TableHead className="text-center">{t('bonusTickets.table.tickets')}</TableHead>
-                    <TableHead>Reward Type</TableHead>
                     <TableHead>{t('bonusTickets.table.reason')}</TableHead>
-                    <TableHead>Competition</TableHead>
                     <TableHead>{t('bonusTickets.table.date')}</TableHead>
                     <TableHead className="text-right">{t('common.status')}</TableHead>
                   </TableRow>
@@ -335,24 +333,18 @@ const BonusTickets = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {ticket.resolvedRewardType.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
                         <div className="flex items-center gap-1.5 text-gray-300">
                           <span className="truncate max-w-50">{ticket.reason}</span>
                           <HelpCircle size={14} className="text-gray-500 cursor-help" title={ticket.reason} />
                         </div>
                       </TableCell>
-                      <TableCell className="text-gray-400">
-                        <span className="truncate max-w-37.5 block" title={ticket.competitionTitle}>
-                          {ticket.competitionTitle}
-                        </span>
-                      </TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="success">Granted</Badge>
+                        {ticket.reward_issued ? (
+                          <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">Used</Badge>
+                        ) : (
+                          <Badge variant="success">Available</Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

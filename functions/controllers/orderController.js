@@ -3,6 +3,66 @@ import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
 import { runOrderTransaction } from "../services/orderTransactionService.js";
+import { buildNotificationPayload } from "../services/orderNotificationService.js";
+import { CloudTasksClient } from "@google-cloud/tasks";
+
+const tasksClient = new CloudTasksClient();
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const REGION = "us-central1";
+const QUEUE_NAME = "order-notification-queue";
+const DELAY_MINUTES = 30;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getProjectId() {
+  return process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || admin.app().options.projectId;
+}
+
+function getQueuePath() {
+  return `projects/${getProjectId()}/locations/${REGION}/queues/${QUEUE_NAME}`;
+}
+
+function getWorkerUrl() {
+  return `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentPendingWorker`;
+}
+
+async function getServiceAccountEmail() {
+  return `${getProjectId()}@appspot.gserviceaccount.com`;
+}
+
+/**
+ * Schedules a Cloud Task to check for abandoned cart (payment_pending).
+ */
+async function schedulePaymentPendingTask(orderId, userId) {
+  const queuePath = getQueuePath();
+  const workerUrl = getWorkerUrl();
+  const serviceAccountEmail = await getServiceAccountEmail();
+
+  const scheduleTime = Math.floor(Date.now() / 1000) + (DELAY_MINUTES * 60);
+
+  const payload = { orderId, userId };
+  const body = Buffer.from(JSON.stringify({ data: payload })).toString("base64");
+
+  try {
+    await tasksClient.createTask({
+      parent: queuePath,
+      task: {
+        scheduleTime: { seconds: scheduleTime },
+        httpRequest: {
+          httpMethod: "POST",
+          url: workerUrl,
+          headers: { "Content-Type": "application/json" },
+          oidcToken: { serviceAccountEmail },
+          body: body,
+        },
+      },
+    });
+    logger.info(`[schedulePaymentPendingTask] Scheduled task for order=${orderId} in ${DELAY_MINUTES}m`);
+  } catch (error) {
+    logger.error(`[schedulePaymentPendingTask] Failed to schedule task for order=${orderId}:`, error.message);
+  }
+}
 
 // ─── processOrder ─────────────────────────────────────────────────────────────
 
@@ -31,6 +91,44 @@ import { runOrderTransaction } from "../services/orderTransactionService.js";
  *   freeTickets: number,
  * }
  */
+
+/**
+ * Callable: initiateOrder
+ * Creates a "pending" order document and schedules a Cloud Task for abandoned cart notification.
+ */
+export const initiateOrder = onCall(async (request) => {
+  const uid = assertAuthenticated(request);
+  const { competitionId } = request.data;
+
+  if (!competitionId) {
+    throw new HttpsError("invalid-argument", "competitionId is required.");
+  }
+
+  try {
+    const orderRef = db.collection("order").doc();
+    const userRef = db.collection("user").doc(uid);
+    const competitionRef = db.collection("competition").doc(competitionId);
+
+    // Basic pending doc
+    await orderRef.set({
+      user_ref: userRef,
+      competition_id: competitionRef,
+      status: "pending",
+      total_amount: 0, // Placeholder until processed
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Schedule Sniper Task
+    await schedulePaymentPendingTask(orderRef.id, uid);
+
+    return { orderId: orderRef.id };
+  } catch (err) {
+    logger.error("[initiateOrder] Error:", err.message);
+    throw toHttpsError(err, "Failed to initiate order.");
+  }
+});
+
 export const processOrder = onCall(async (request) => {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   const uid = assertAuthenticated(request);
@@ -41,6 +139,7 @@ export const processOrder = onCall(async (request) => {
     questionAnswer,
     freeTicketsToUse = 0,
     referralsToBurn = [],
+    orderId = null, // Optional: if coming from initiateOrder
   } = request.data;
 
   // ── Input validation ────────────────────────────────────────────────────────
@@ -75,6 +174,7 @@ export const processOrder = onCall(async (request) => {
       questionAnswer,
       freeTicketsToUse: Number(freeTicketsToUse) || 0,
       referralsToBurn: Array.isArray(referralsToBurn) ? referralsToBurn : [],
+      orderId, // Pass through if exists
     });
 
     logger.info(`[processOrder] ✅ Order ${result.orderId} created — ${result.tickets.length} tickets`);
@@ -83,88 +183,73 @@ export const processOrder = onCall(async (request) => {
     // Fire-and-forget — notification failures must never roll back the order.
     try {
       const userRef = db.collection("user").doc(uid);
-      const competitionRef = db.collection("competition").doc(competitionId);
+      const competitionSnap = await db.collection("competition").doc(competitionId).get();
+      const compTitle = competitionSnap.data()?.title || "Competition";
       const orderRef = db.collection("order").doc(result.orderId);
+      const competitionRef = db.collection("competition").doc(competitionId);
 
-      const buildNotificationPayload = ({
-        type,
-        title,
-        text,
-        category,
-        ctaText,
-        initialPageName,
-        parameterData,
-      }) => ({
-        user_refs: userRef.path,
-        notification_title: title,
-        notification_text: text,
-        notification_image_url: "",
-        notification_sound: "default",
-        initial_page_name: initialPageName || "",
-        parameter_data: parameterData || "{}",
-        category: category || "Orders",
-        type,
-        cta_text: ctaText || "View",
-        status: "",
-        is_read: false,
-        num_sent: 0,
-        order_ref: orderRef,
-        competition_ref: competitionRef,
-        sender: userRef,
-        chat_ref: null,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        created_at: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // 1) Order confirmed (total tickets allocated)
-      const totalAllocated = result.tickets.length;
       const writes = [];
 
+      // 1) payment_success (Order confirmed)
+      const totalAllocated = result.tickets.length;
       writes.push(
-        db.collection("ff_user_push_notifications").add({
-          ...buildNotificationPayload({
-            type: "order_confirmed",
-            title: "Tickets Confirmed! 🎟️",
-            text: `Your ${totalAllocated} ticket${totalAllocated > 1 ? "s are" : " is"} in the draw.`,
-            category: "Orders",
+        db.collection("ff_user_push_notifications").add(
+          buildNotificationPayload({
+            type: "payment_success",
+            title: "Payment Successful 🎟️",
+            text: `Your payment was successful and your entry for ${compTitle} is confirmed.`,
+            status: "succeeded",
+            userRefs: userRef.path,
+            userRef: userRef,
+            orderRef: orderRef,
+            competitionRef: competitionRef,
+            senderRef: userRef,
             ctaText: "View Tickets",
-            initialPageName: "MyTickets",
-            parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
-          }),
-        })
+            pageName: "OrderHistory",
+            parameterData: { orderId: result.orderId, competitionId },
+          })
+        )
       );
 
-      // 2) Referral tickets used (if any)
+      // 2) referral_tickets_applied
       if (typeof result.referralTicketsUsed === "number" && result.referralTicketsUsed > 0) {
         writes.push(
-          db.collection("ff_user_push_notifications").add({
-            ...buildNotificationPayload({
-              type: "referral_tickets_used",
-              title: "Referral Reward Used",
-              text: `You used ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""} on this competition.`,
-              category: "Rewards",
-              ctaText: "View",
-              initialPageName: "Referral",
-              parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
-            }),
-          })
+          db.collection("ff_user_push_notifications").add(
+            buildNotificationPayload({
+              type: "referral_tickets_applied",
+              title: "Referral Discount Applied",
+              text: `You successfully checked out using ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""}.`,
+              status: "succeeded",
+              userRefs: userRef.path,
+              userRef: userRef,
+              orderRef: orderRef,
+              competitionRef: competitionRef,
+              senderRef: userRef,
+              pageName: "OrderHistory",
+              parameterData: { orderId: result.orderId, competitionId },
+            })
+          )
         );
       }
 
-      // 3) Pack bonus tickets added (if any)
+      // 3) bonus_tickets_added
       if (typeof result.packBonusTickets === "number" && result.packBonusTickets > 0) {
         writes.push(
-          db.collection("ff_user_push_notifications").add({
-            ...buildNotificationPayload({
+          db.collection("ff_user_push_notifications").add(
+            buildNotificationPayload({
               type: "bonus_tickets_added",
               title: "Bonus Tickets Added",
-              text: `You received ${result.packBonusTickets} bonus ticket${result.packBonusTickets > 1 ? "s" : ""} with your pack for Nesswin.`,
-              category: "Orders",
-              ctaText: "View Order",
-              initialPageName: "OrderHistory",
-              parameterData: JSON.stringify({ orderId: result.orderId, competitionId }),
-            }),
-          })
+              text: `You received ${result.packBonusTickets} bonus ticket${result.packBonusTickets > 1 ? "s" : ""} with your bundle!`,
+              status: "succeeded",
+              userRefs: userRef.path,
+              userRef: userRef,
+              orderRef: orderRef,
+              competitionRef: competitionRef,
+              senderRef: userRef,
+              pageName: "OrderHistory",
+              parameterData: { orderId: result.orderId, competitionId },
+            })
+          )
         );
       }
 

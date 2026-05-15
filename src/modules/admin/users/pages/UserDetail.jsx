@@ -193,7 +193,7 @@ const UserDetail = () => {
         { label: t('users.detail.stats.totalSpend'), value: `£${(profile.total_spent || 0).toFixed(2)}`, color: "text-emerald-400" },
         { label: t('users.detail.stats.compsEntered'), value: competitions.length, color: "text-white" },
         { label: t('users.detail.stats.ticketsBought'), value: tickets.length, color: "text-white" },
-        { label: t('users.detail.stats.referrals'), value: profile.referral_count || 0, color: "text-white" },
+        { label: t('users.detail.stats.referrals'), value: referralsList?.length || 0, color: "text-white" },
         { label: t('users.detail.stats.bonusBalance'), value: profile.free_tickets || 0, color: "text-primary" },
       ].map((stat, i) => (
         <Card key={i} className="bg-white/[0.02]">
@@ -459,9 +459,15 @@ const UserDetail = () => {
         <CardContent className="p-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-6">
-              <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white relative">
-                {(profile.display_name || profile.name || '?').charAt(0)}
-                <div className="absolute -bottom-1 -right-1">
+              <div className="relative group">
+                <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white overflow-hidden relative">
+                  {profile.photo_url || profile.profile_image ? (
+                    <img src={profile.photo_url || profile.profile_image} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (profile.display_name || profile.name || '?').charAt(0)
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 z-10 scale-90 origin-bottom-right shadow-lg">
                   {renderStatusBadge(profile)}
                 </div>
               </div>

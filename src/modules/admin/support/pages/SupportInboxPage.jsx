@@ -48,19 +48,30 @@ export default function SupportInboxPage() {
 
             let customerName = 'Unknown User';
             let customerEmail = '';
+            let customerPhoto = '';
+            let customerId = '';
 
             if (customerRef) {
               const cached = participantCacheRef.current.get(getRefPath(customerRef));
               if (cached) {
                 customerName = cached.customerName;
                 customerEmail = cached.customerEmail;
+                customerPhoto = cached.customerPhoto;
+                customerId = cached.customerId;
               } else {
                 const customerSnap = await getDoc(customerRef);
                 if (customerSnap.exists()) {
                   const customerData = customerSnap.data();
                   customerName = customerData.display_name || customerData.user_name || customerData.name || 'Unknown User';
                   customerEmail = customerData.email || '';
-                  participantCacheRef.current.set(getRefPath(customerRef), { customerName, customerEmail });
+                  customerPhoto = customerData.photo_url || customerData.profile_image || '';
+                  customerId = customerSnap.id;
+                  participantCacheRef.current.set(getRefPath(customerRef), {
+                    customerName,
+                    customerEmail,
+                    customerPhoto,
+                    customerId,
+                  });
                 }
               }
             }
@@ -70,6 +81,8 @@ export default function SupportInboxPage() {
               ...chatData,
               customerName,
               customerEmail,
+              customerPhoto,
+              customerId,
             };
           }));
 
@@ -172,8 +185,12 @@ export default function SupportInboxPage() {
                         }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary">
-                          {chat.customerName?.slice(0, 2).toUpperCase() || 'U'}
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary overflow-hidden">
+                          {chat.customerPhoto ? (
+                            <img src={chat.customerPhoto} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            chat.customerName?.slice(0, 2).toUpperCase() || 'U'
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -221,6 +238,8 @@ export default function SupportInboxPage() {
               assignedAdminRef={selectedChat.assigned_admin_id}
               isCurrentUserAdmin={true}
               title={selectedChat.customerName}
+              customerId={selectedChat.customerId}
+              customerPhoto={selectedChat.customerPhoto}
               closeLabel="Resolve & Close"
               onCloseTicket={handleClosed}
               unreadCount={selectedChat.unread_admin_count ?? 0}
