@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import {
+  ArrowLeft,
   CheckCheck,
   Check as CheckIcon,
   Image as ImageIcon,
@@ -134,6 +135,7 @@ export default function SupportChatWidget({
   customerPhoto = '',
   closeLabel = 'Close Ticket',
   onCloseTicket,
+  onBack,
   className = '',
   unreadCount = 0,
   status = 'active',
@@ -328,28 +330,40 @@ export default function SupportChatWidget({
     <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%', minHeight: '560px' }}>
       {/* ─── Header ─── */}
       <header className="flex-shrink-0 flex items-center justify-between gap-4 px-5 py-3.5 border-b border-[var(--color-border)]/50">
-        <div
-          className={`group flex items-center gap-3 min-w-0 ${isCurrentUserAdmin && customerId ? 'cursor-pointer' : ''
+        <div className="flex items-center gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="xl:hidden flex-shrink-0 -ml-2 mr-0.5 p-1.5 rounded-lg text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 transition-colors"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+          <div
+            className={`group flex items-center gap-3 min-w-0 ${isCurrentUserAdmin && customerId ? 'cursor-pointer' : ''
             }`}
-          onClick={() => {
-            if (isCurrentUserAdmin && customerId) {
-              navigate(`/admin/users/${customerId}`);
-            }
-          }}
-        >
-          <div className="relative flex-shrink-0">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20 overflow-hidden transition-transform ${isCurrentUserAdmin && customerId ? 'group-hover:scale-105 group-hover:border-primary/40' : ''}`}>
-              {isCurrentUserAdmin && customerPhoto ? (
-                <img src={customerPhoto} alt="" className="h-full w-full object-cover" />
-              ) : (
-                chatType === 'winner_chat' ? <Gift className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />
+            onClick={() => {
+              if (isCurrentUserAdmin && customerId) {
+                navigate(`/admin/users/${customerId}`);
+              }
+            }}
+          >
+            <div className="relative flex-shrink-0">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20 overflow-hidden transition-transform ${isCurrentUserAdmin && customerId ? 'group-hover:scale-105 group-hover:border-primary/40' : ''}`}>
+                {isCurrentUserAdmin && customerPhoto ? (
+                  <img src={customerPhoto} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  chatType === 'winner_chat' ? <Gift className="h-5 w-5" /> : <LifeBuoy className="h-5 w-5" />
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
               )}
             </div>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-sm">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </span>
-            )}
           </div>
           <div className="min-w-0">
             <h3 className={`truncate text-[15px] font-semibold text-[var(--color-foreground)] transition-colors ${isCurrentUserAdmin && customerId ? 'group-hover:text-primary' : ''}`}>
@@ -372,10 +386,11 @@ export default function SupportChatWidget({
             type="button"
             onClick={handleCloseChat}
             disabled={closing}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/8 hover:bg-red-500/15 px-3.5 py-2 text-xs font-semibold text-red-400 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/8 hover:bg-red-500/15 px-2 py-2 sm:px-3.5 text-xs font-semibold text-red-400 transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            title={closeLabel}
           >
             {closing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            {closeLabel}
+            <span className="hidden sm:inline">{closeLabel}</span>
           </button>
         )}
       </header>
