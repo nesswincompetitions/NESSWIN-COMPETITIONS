@@ -21,7 +21,8 @@ const BonusTickets = () => {
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const { data: ticketsRaw, loading: ticketsLoading } = useRealtimeCollection('free_ticket_log', [
+  const { data: ticketsRaw, loading: ticketsLoading } = useRealtimeCollection('referrals', [
+    where('reward_type', '==', 'admin_bonus'),
     orderBy('created_at', 'desc')
   ]);
   const { data: users, loading: usersLoading } = useRecentUsers(100);
@@ -45,22 +46,43 @@ const BonusTickets = () => {
 
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
 
-  const tickets = useMemo(() => ticketsRaw
-    .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
-    .map((ticket) => {
-      const userId = ticket.user_id?.id || (typeof ticket.user_id === 'string' ? ticket.user_id : null);
-      const user = userMap[userId];
-      const competition = null;
+  const tickets = useMemo(() => {
+    const groups = {};
+    
+    ticketsRaw.forEach((ticket) => {
+        // In admin_bonus referrals, the user receiving the tickets is the referrer_id
+        const userId = ticket.referrer_id?.id || (typeof ticket.referrer_id === 'string' ? ticket.referrer_id : null);
+        const reason = ticket.admin_note || ticket.reason || 'Admin Bonus';
+        const time = ticket.created_at?.toMillis ? Math.floor(ticket.created_at.toMillis() / 2000) : 0; // Tighter 2s window
+        
+        const key = `${userId}_${reason}_${time}`;
+        
+        if (!groups[key]) {
+          const user = userMap[userId];
+          groups[key] = {
+            ...ticket,
+            userId,
+            userName: user?.display_name || user?.name || 'Unknown User',
+            quantity: 0,
+            used_quantity: 0,
+            reason,
+            ids: []
+          };
+        }
+        
+        const val = Number(ticket.reward_value || ticket.quantity || 1);
+        groups[key].quantity += val;
+        if (ticket.reward_issued) {
+          groups[key].used_quantity += val;
+        }
+        groups[key].ids.push(ticket.id);
+      });
 
-      return {
-        ...ticket,
-        userName: user?.display_name || user?.name || 'Unknown User',
-        competitionTitle: competition?.title || 'General Bonus',
-        quantity: ticket.quantity || 1,
-        reason: ticket.admin_note || ticket.reason || 'Admin Bonus',
-        resolvedRewardType: 'admin_bonus'
-      };
-    }), [ticketsRaw, userMap]);
+    return Object.values(groups).map(g => ({
+      ...g,
+      reward_issued: g.used_quantity >= g.quantity
+    }));
+  }, [ticketsRaw, userMap]);
 
   const filteredTickets = tickets.filter(ticket => {
     // 1. Search Filter (User Name or Reason)
@@ -338,6 +360,10 @@ const BonusTickets = () => {
                       <TableCell className="text-right">
                         {ticket.reward_issued ? (
                           <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">Used</Badge>
+                        ) : ticket.used_quantity > 0 ? (
+                          <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">
+                            Used {ticket.used_quantity}
+                          </Badge>
                         ) : (
                           <Badge variant="success">Available</Badge>
                         )}

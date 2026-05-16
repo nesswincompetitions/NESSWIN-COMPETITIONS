@@ -60,8 +60,9 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
   const totalBonus = orders.reduce((sum, o) => sum + (o.free_ticket || 0), 0);
   const hasOrderStats = totalPaid > 0 || totalBonus > 0;
   
-  // Use actual tickets length if available, otherwise fallback to order totals (just in case)
-  const totalTickets = tickets.length > 0 ? tickets.length : totalPaid + totalBonus;
+  // Always use total count from allTickets for stats, regardless of tab filtering
+  const totalTicketsCount = allTickets.length > 0 ? allTickets.length : totalPaid + totalBonus;
+  const winningTicket = allTickets.find(t => t.is_winner);
   
   const displayTickets = tickets.slice(0, 5);
 
@@ -102,7 +103,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
             <div className="flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
               <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
                 <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
-                {totalTickets} Tickets
+                {totalTicketsCount} Tickets
               </span>
               <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
               <span className="flex items-center gap-1.5">
@@ -166,8 +167,8 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
           </button>
         )}
 
-        <div className="mt-1 text-xs text-[var(--color-muted-foreground)] flex items-center gap-2">
-          <span className="font-semibold text-[var(--color-foreground)]">{totalTickets} Total Tickets</span>
+        <div className="mt-1 text-xs text-[var(--color-muted-foreground)] flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-[var(--color-foreground)]">{totalTicketsCount} Total Tickets</span>
           {hasOrderStats && (
             <>
               <span className="text-[var(--color-border)]/50">|</span>
@@ -178,6 +179,12 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
                   <span className="text-[var(--color-primary)] font-semibold">+{totalBonus} Bonus</span>
                 </>
               )}
+            </>
+          )}
+          {isWinner && winningTicket && (
+            <>
+              <span className="text-[var(--color-border)]/50">|</span>
+              <span className="text-yellow-500 font-bold uppercase tracking-tighter">Winning Ticket: {winningTicket.ticket_sequence}</span>
             </>
           )}
         </div>

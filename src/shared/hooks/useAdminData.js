@@ -621,17 +621,43 @@ export const useUserReferralsRealtime = (userId) => {
 export const useUserBonusLogsRealtime = (userId) => {
   const userRef = useMemo(() => (userId ? doc(db, 'user', userId) : null), [userId]);
   const queryConstraints = useMemo(
-    () => [where('user_id', 'in', [userId, userRef, `/user/${userId}`].filter(Boolean))],
+    () => [
+      where('referrer_id', 'in', [userId, userRef, `/user/${userId}`].filter(Boolean)),
+      where('reward_type', '==', 'admin_bonus'),
+      orderBy('created_at', 'desc')
+    ],
     [userId, userRef]
   );
-  const { data: logs, loading: logsLoading, error: logsError } = useRealtimeCollection('free_ticket_log', queryConstraints);
+  const { data: logs, loading: logsLoading, error: logsError } = useRealtimeCollection('referrals', queryConstraints);
 
-  const enrichedLogs = useMemo(() => logs
-    .filter(log => log.reward_type === 'admin_bonus')
-    .map((log) => ({
-      ...log,
-      competitionTitle: 'N/A', // No longer needed
-    })), [logs]);
+  const enrichedLogs = useMemo(() => {
+    const groups = {};
+    logs.forEach(log => {
+      const reason = log.admin_note || log.reason || 'Admin Bonus';
+      const time = log.created_at?.toMillis ? Math.floor(log.created_at.toMillis() / 2000) : 0;
+      const key = `${reason}_${time}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          ...log,
+          quantity: 0,
+          used_quantity: 0,
+          ids: []
+        };
+      }
+      const val = Number(log.reward_value || log.quantity || 1);
+      groups[key].quantity += val;
+      if (log.reward_issued) groups[key].used_quantity += val;
+      groups[key].ids.push(log.id);
+    });
+
+    return Object.values(groups)
+      .map(g => ({
+        ...g,
+        reward_issued: g.used_quantity >= g.quantity,
+        competitionTitle: 'N/A',
+      }));
+  }, [logs]);
 
   return { data: enrichedLogs, loading: logsLoading, error: logsError };
 };

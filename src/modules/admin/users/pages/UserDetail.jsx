@@ -362,14 +362,14 @@ const UserDetail = () => {
                       <span className="text-emerald-400 font-bold">+{log.quantity}</span>
                     </TableCell>
                     <TableCell>
-                      {log.reason === 'Referral_auto_reward' ? (
-                        log.reward_issued ? (
-                          <Badge variant="success" className="bg-emerald-500/10 text-emerald-400">Used</Badge>
-                        ) : (
-                          <Badge variant="warning">Pending</Badge>
-                        )
+                      {log.reward_issued ? (
+                        <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">Used</Badge>
+                      ) : log.used_quantity > 0 ? (
+                        <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">
+                          Used {log.used_quantity}
+                        </Badge>
                       ) : (
-                        <Badge variant="success" className="bg-emerald-500/10 text-emerald-400">Used</Badge>
+                        <Badge variant="success">Available</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-gray-400 text-sm whitespace-nowrap">

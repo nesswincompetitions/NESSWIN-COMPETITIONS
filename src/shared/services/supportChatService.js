@@ -171,7 +171,7 @@ export const sendMessage = async (chatId, senderRefLike, receiverRefLike, textMe
       notification_image_url: imageUrl || "",
       notification_sound: "default",
       notification_text: trimmedMessage || (imageUrl ? "Sent an image" : "New message"),
-      notification_title: "New Message",
+      notification_title: "New message from support",
       num_sent: 0,
       order_ref: null,
       parameter_data: JSON.stringify({

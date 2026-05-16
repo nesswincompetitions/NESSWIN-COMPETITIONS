@@ -126,7 +126,7 @@ export const createAppNotification = async ({
     // createAppNotification is ever called more than once (e.g. React re-render),
     // the second setDoc is a silent overwrite and does NOT trigger
     // onDocumentCreated again.
-    const notifRef = doc(db, 'ff_user_push_notifications', `order_${orderRef.id}`);
+    const notifRef = doc(collection(db, 'ff_user_push_notifications'));
     await setDoc(notifRef, notificationPayload);
 
     console.log(
