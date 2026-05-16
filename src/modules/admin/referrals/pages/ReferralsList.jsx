@@ -17,7 +17,6 @@ const ReferralsList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   
-  // -- State --
   const [sortBy, setSortBy] = useState('mostReferrals');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,9 +39,7 @@ const ReferralsList = () => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  // -- Computed Data --
   const { currentReferrals, totalPages, totalFiltered } = useMemo(() => {
-    // 1. Filter
     const filtered = data.referrals.filter(u => {
       const search = searchTerm.toLowerCase();
       const nameMatch = (u.display_name || u.name || '').toLowerCase().includes(search);
@@ -52,7 +49,6 @@ const ReferralsList = () => {
       return nameMatch || emailMatch || codeMatch;
     });
 
-    // 2. Sort
     filtered.sort((a, b) => {
       if (sortBy === 'mostReferrals') return (b.referral_count || 0) - (a.referral_count || 0);
       if (sortBy === 'newest') {
@@ -63,7 +59,6 @@ const ReferralsList = () => {
       return 0;
     });
 
-    // 3. Paginate
     const start = (currentPage - 1) * itemsPerPage;
     const paginated = filtered.slice(start, start + itemsPerPage);
     const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
@@ -101,7 +96,6 @@ const ReferralsList = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-      {/* Header */}
       <header className="flex flex-col gap-6 md:flex-row md:items-center justify-between pb-2">
         <div>
           <h1 className="text-3xl font-serif font-bold text-white">{t('referrals.title')}</h1>
@@ -141,7 +135,6 @@ const ReferralsList = () => {
 
       <Card>
         <CardContent className="p-0">
-          {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <SearchInput
               value={searchTerm}
@@ -165,7 +158,6 @@ const ReferralsList = () => {
             </div>
           </div>
 
-          {/* Table Area */}
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">

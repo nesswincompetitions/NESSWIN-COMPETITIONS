@@ -319,8 +319,6 @@ export default function CompetitionsPage() {
   const [activeStatusKey, setActiveStatusKey] = useState("all");
   const [activeCategoryKey, setActiveCategoryKey] = useState("allCategories");
   const [nowTs] = useState(() => Date.now());
-  // Pre-populate from cache for instant restore on back-navigation.
-  // The live subscriber will update this as soon as it connects.
   const [liveCompetitions, setLiveCompetitions] = useState(() => getCachedCompetitionList('all_competitions') || []);
   const [loading, setLoading] = useState(() => !getCachedCompetitionList('all_competitions'));
   const { ticketedIds } = useUserTicketedCompetitions();
@@ -365,7 +363,6 @@ export default function CompetitionsPage() {
         });
 
         const sorted = fetchedComps.sort((a, b) => b.created_at - a.created_at);
-        // Save to cache so next navigation back to this page is instant
         cacheCompetitionList('all_competitions', sorted);
         setLiveCompetitions(sorted);
         setLoading(false);
@@ -379,7 +376,7 @@ export default function CompetitionsPage() {
     return unsubscribe;
   }, []);
 
-  // Client-side filtering logic
+
   const filtered = liveCompetitions.filter((c) => {
     const statusMatch =
       activeStatusKey === "all" ||

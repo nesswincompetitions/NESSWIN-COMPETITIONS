@@ -16,21 +16,9 @@ const REFERRALS_COLLECTION = 'referrals';
 const USERS_COLLECTION = 'user';
 
 /**
- * @typedef {Object} ReferralDoc
- * @property {import('firebase/firestore').DocumentReference} referrer_id
- * @property {import('firebase/firestore').DocumentReference} referred_user_id
- * @property {string} referral_code
- * @property {'free_ticket'} reward_type
- * @property {number} reward_value
- * @property {boolean} reward_issued
- * @property {import('firebase/firestore').Timestamp|null} reward_issued_at
- * @property {import('firebase/firestore').Timestamp} created_at
- */
-
-/**
  * Fetch pending referral rewards for a referrer.
  * @param {string} uid
- * @returns {Promise<Array<{id: string; updateTime: import('firebase/firestore').Timestamp} & ReferralDoc>>}
+ * @returns {Promise<Array<any>>}
  */
 export const fetchPendingReferralRewards = async (uid) => {
   if (!uid) throw new Error('Missing user id.');
@@ -130,7 +118,7 @@ export const claimPendingReferralRewards = async (uid) => {
 };
 
 /**
- * Fetch all referrals for a user (both pending and claimed) and resolve referred user details.
+ * Fetch all referrals for a user.
  * @param {string} uid
  * @returns {Promise<Array<any>>}
  */
@@ -177,7 +165,7 @@ export const fetchAllReferrals = async (uid) => {
 };
 
 /**
- * Realtime subscription for all referrals of a user with resolved referred user details.
+ * Realtime subscription for all referrals of a user.
  */
 export const subscribeAllReferrals = (uid, onData, onError) => {
   if (!uid) {
@@ -191,8 +179,6 @@ export const subscribeAllReferrals = (uid, onData, onError) => {
     where('referrer_id', '==', referrerRef)
   );
 
-  // Cache referred user profiles outside the callback so they survive
-  // across snapshot updates (e.g. when reward_issued flips to true).
   const userCache = new Map();
 
   return onSnapshot(

@@ -18,7 +18,6 @@ const OrdersList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   
-  // -- State --
   const [activeStatus, setActiveStatus] = useState('all');
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,7 +85,6 @@ const OrdersList = () => {
     }
   };
 
-  // Extract unique competitions for the dropdown
   const uniqueCompetitions = useMemo(() => {
     const comps = new Set();
     orders.forEach(o => {
@@ -95,9 +93,7 @@ const OrdersList = () => {
     return Array.from(comps);
   }, [orders]);
 
-  // -- Computed Data --
   const { currentOrders, totalFiltered, totalPages } = useMemo(() => {
-    // 1. Filter
     const filtered = orders.filter(o => {
       const compTitle = o.competitionName || '';
       const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
@@ -130,7 +126,6 @@ const OrdersList = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-      {/* Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
           <h1 className="text-3xl font-serif font-bold text-white">{t('orders.title')}</h1>
@@ -163,10 +158,7 @@ const OrdersList = () => {
 
       <Card>
         <CardContent className="p-0">
-          {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-
-            {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {[
                 { key: 'all', label: t('common.all') },
@@ -190,7 +182,6 @@ const OrdersList = () => {
               ))}
             </div>
 
-            {/* Search & Selects */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <SearchInput
                 value={searchTerm}
@@ -214,7 +205,6 @@ const OrdersList = () => {
             </div>
           </div>
 
-          {/* Table Area */}
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 flex flex-col items-center justify-center">
@@ -275,11 +265,6 @@ const OrdersList = () => {
                           >
                             <Eye size={16} />
                           </button>
-                          {(order.status || '').toLowerCase() === 'paid' && (
-                            <button className="cursor-pointer p-2 hover:bg-gray-500/10 rounded-md text-gray-400 hover:text-white transition-colors" title={t('orders.tooltips.refundOrder')}>
-                              <RefreshCcw size={16} />
-                            </button>
-                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -287,7 +272,6 @@ const OrdersList = () => {
                 </TableBody>
               </Table>
             ) : (
-              /* Empty State */
               <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
                   <ShoppingBag className="text-gray-500" size={32} />
@@ -302,7 +286,6 @@ const OrdersList = () => {
             )}
           </div>
 
-          {/* Pagination */}
           {!loading && currentOrders.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-xs text-gray-400">

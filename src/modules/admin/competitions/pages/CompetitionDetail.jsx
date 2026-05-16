@@ -88,8 +88,6 @@ const CompetitionDetail = () => {
 
     const competitionRef = doc(db, 'competition', id);
 
-    // Cache winner details between snapshot calls so that updates to sold_tickets
-    // don't trigger unnecessary winner/ticket Firestore reads.
     let lastWinnerRefId = null;
     let lastTicketRefId = null;
     let cachedWinnerDetails = null;
@@ -131,7 +129,6 @@ const CompetitionDetail = () => {
         lastWinnerRefId = null;
         lastTicketRefId = null;
       }
-      // If refs unchanged: cachedWinnerDetails reused, 0 extra reads
 
       const sold = compDoc.sold_tickets || 0;
       const total = compDoc.total_tickets || 1000;
@@ -153,7 +150,6 @@ const CompetitionDetail = () => {
     return () => unsub();
   }, [id, navigate]);
 
-  // Separate listener for questions
   useEffect(() => {
     if (!id) return undefined;
 
@@ -164,10 +160,9 @@ const CompetitionDetail = () => {
 
     const unsub = onSnapshot(questionsQuery, (snapshot) => {
       const qs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      console.log(`[CompetitionDetail] Loaded ${qs.length} questions for ${id}`);
       setQuestions(qs);
       setLoadingQuestions(false);
-      setLoading(false); // Both competition and questions are now ready
+      setLoading(false);
     }, (err) => {
       console.error('Error listening to questions:', err);
       setLoadingQuestions(false);
@@ -208,7 +203,6 @@ const CompetitionDetail = () => {
     setIsSaving(true);
     const loadingToast = toast.loading(isDraft ? 'Saving draft...' : 'Saving changes...');
     try {
-      // 1. Upload competition images
       const imageUrls = await uploadImages(formData.images, 'competitions');
 
       const drawDateTimeStr = formData.drawEndDate && formData.drawEndTime
@@ -228,12 +222,8 @@ const CompetitionDetail = () => {
         status: isDraft ? 'draft' : (() => {
           const totalTickets = parseInt(formData.maxTickets) || 0;
           const soldTickets = competition.sold_tickets || 0;
-          
-          // If admin makes max tickets <= sold tickets, it's sold out
           if (totalTickets > 0 && totalTickets <= soldTickets) return 'sold_out';
           if (totalTickets === 0) return 'sold_out';
-          
-          // Otherwise keep existing status or move to active if it was draft
           return competition.status === 'draft' ? 'active' : competition.status;
         })(),
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
@@ -243,12 +233,9 @@ const CompetitionDetail = () => {
         is_featured: formData.isFeatured || false,
       };
 
-      // 2. Sync questions with image uploads
       if (formData.questions && formData.questions.length > 0) {
         const qsToSync = await Promise.all(formData.questions.map(async (qData, idx) => {
           const timestamp = Date.now();
-          
-          // CRITICAL: Upload question images (handles both File objects and existing URLs)
           const uploadedQuestionImages = await uploadImages(qData.questionImages || [], 'questions');
 
           const answers = qData.answers.map((ans, i) => {
@@ -276,7 +263,6 @@ const CompetitionDetail = () => {
         await syncCompetitionQuestions(id, qsToSync);
       }
 
-      // 3. Update main competition doc
       await updateCompetition(id, {
         ...updateData,
         sub_title: deleteField(),
@@ -298,10 +284,7 @@ const CompetitionDetail = () => {
     }
   };
 
-
-
   const handleDelete = async () => {
-    // Edge Case: Prevent deletion if users have already bought tickets
     if ((competition.last_ticket_sequence || 0) > 0 || (competition.sold_tickets || 0) > 0) {
       toast.error('This competition already has participants and cannot be deleted.');
       setDeleteModalOpen(false);
@@ -323,10 +306,6 @@ const CompetitionDetail = () => {
     }
   };
 
-  const refreshCompetition = async () => {
-    return undefined;
-  };
-
   const handleStartLiveDraw = async () => {
     if (!competition?.id) return;
 
@@ -345,7 +324,6 @@ const CompetitionDetail = () => {
     try {
       await startCompetitionLiveDraw(competition.id);
       toast.success('Live draw started', { id: loadingToast });
-      await refreshCompetition();
     } catch (err) {
       console.error('Error starting live draw:', err);
       toast.error(err.message || 'Failed to start the live draw', { id: loadingToast });
@@ -374,7 +352,6 @@ const CompetitionDetail = () => {
         ticket: result.winnerTicketSequence,
         date: new Date().toISOString(),
       });
-      await refreshCompetition();
     } catch (err) {
       console.error('Error selecting winner:', err);
       toast.error(err.message || 'Failed to select winner', { id: loadingToast });
@@ -391,7 +368,6 @@ const CompetitionDetail = () => {
     try {
       await updateCompetitionHandover(competition.id, stage);
       toast.success('Handover updated', { id: loadingToast });
-      await refreshCompetition();
     } catch (err) {
       console.error('Error updating handover:', err);
       toast.error(err.message || 'Failed to update handover', { id: loadingToast });
@@ -799,7 +775,6 @@ const CompetitionDetail = () => {
                     })()}
                   </div>
                 )}
-
               </div>
             );
           }
@@ -1020,9 +995,6 @@ const CompetitionDetail = () => {
         {activeTab === 'draw' && renderDraw()}
       </div>
 
-
-
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
@@ -1058,7 +1030,6 @@ const CompetitionDetail = () => {
         </div>
       </Modal>
 
-      {/* Participant Tickets Modal */}
       <Modal
         isOpen={participantTicketsModalOpen}
         onClose={() => {
@@ -1095,7 +1066,6 @@ const CompetitionDetail = () => {
         </div>
       </Modal>
 
-      {/* Winner Ticket Modal */}
       <Modal
         isOpen={winnerModalOpen}
         onClose={() => setWinnerModalOpen(false)}

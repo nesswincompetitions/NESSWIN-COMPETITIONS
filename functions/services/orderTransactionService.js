@@ -1,15 +1,7 @@
 import { getOrderPricing } from "./orderPricingService.js";
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
 /**
  * Derives a short uppercase prefix from a competition title.
- * Each word's first letter is taken and uppercased.
- *
- * @example
- * generateTicketPrefix("Mega Diamond Draw") // → "MDD"
- * generateTicketPrefix("Tesla Model 3")     // → "TM3"
- *
  * @param {string} title
  * @returns {string}
  */
@@ -27,37 +19,19 @@ export function generateTicketPrefix(title) {
 
 /**
  * Builds the formatted ticket sequence string.
- * @param {string} prefix   e.g. "MDD"
- * @param {number} sequence e.g. 7
- * @returns {string}        e.g. "MDD007"
+ * @param {string} prefix
+ * @param {number} sequence
+ * @returns {string}
  */
 export function formatTicketSequence(prefix, sequence) {
   return `${prefix}${String(sequence).padStart(3, "0")}`;
 }
 
-// ─── Main Transaction ──────────────────────────────────────────────────────────
-
 /**
- * runOrderTransaction
- *
  * Executes the complete ticket purchase as an atomic Firestore transaction.
- * ALL reads happen before ALL writes (enforced by Firebase SDK).
- *
- * Flow:
- *   READS  → competition, user, referral docs
- *   MATH   → pricing, stock check, sequence generation (no I/O)
- *   WRITES → competition update, order doc, ticket docs, free_ticket_log, user update
- *
  * @param {FirebaseFirestore.Firestore} db
  * @param {import('firebase-admin').firestore.Firestore} admin
  * @param {Object} params
- * @param {string}   params.uid
- * @param {string}   params.competitionId
- * @param {number}   params.ticketQuantity       Paid ticket count
- * @param {Object}   params.questionAnswer        question_answer Map embedded on the order
- * @param {number}   [params.freeTicketsToUse=0]  Referral tickets to burn
- * @param {Array}    [params.referralsToBurn=[]]  Array of { id } referral objects
- *
  * @returns {Promise<{ orderId, tickets, totalAmount, packType, freeTickets }>}
  */
 export async function runOrderTransaction(
@@ -73,7 +47,6 @@ export async function runOrderTransaction(
     orderId = null,
   }
 ) {
-  // ── Input validation ─────────────────────────────────────────────────────────
   const qty = Number(ticketQuantity);
   if (!Number.isInteger(qty) || qty < 0) {
     throw new Error("Quantity must be a non-negative integer.");
@@ -85,14 +58,11 @@ export async function runOrderTransaction(
     throw new Error("competitionId and uid are required.");
   }
 
-  // ── Pre-build document refs (safe to do outside the transaction) ─────────────
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
   const orderRef = orderId ? db.collection("order").doc(orderId) : db.collection("order").doc();
 
-  // ── Pricing math (pure — no I/O) ─────────────────────────────────────────────
   const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(qty);
-
   const clampedReferralTickets = Math.max(0, Math.floor(freeTicketsToUse));
   const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets;
 
@@ -100,30 +70,19 @@ export async function runOrderTransaction(
     throw new Error("At least one ticket must be requested (paid or free).");
   }
 
-  // Pre-build ticket refs outside the transaction (auto-ids don't require I/O)
   const ticketRefs = Array.from({ length: totalTicketsToGenerate }, () =>
     db.collection("ticket").doc()
   );
 
-  // ── Referral refs ─────────────────────────────────────────────────────────────
   const referralRefs = (referralsToBurn || [])
     .slice(0, clampedReferralTickets)
     .map((r) => db.collection("referrals").doc(r.id));
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // FIRESTORE TRANSACTION
-  // ═══════════════════════════════════════════════════════════════════════════════
   const result = await db.runTransaction(async (transaction) => {
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // PHASE 1 — READS (all before any write)
-    // ══════════════════════════════════════════════════════════════════════════
-
     const compSnap = await transaction.get(competitionRef);
     if (!compSnap.exists) throw new Error("Competition not found.");
 
     const compData = compSnap.data();
-
     if (compData.status !== "active") {
       throw new Error("This competition is no longer accepting entries.");
     }
@@ -137,7 +96,6 @@ export async function runOrderTransaction(
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) throw new Error("User not found.");
 
-    // Validate each referral doc
     let validReferralCount = 0;
     const referralSnaps = await Promise.all(
       referralRefs.map((ref) => transaction.get(ref))
@@ -161,16 +119,14 @@ export async function runOrderTransaction(
       throw new Error("Not enough valid referral tickets found.");
     }
 
-      // ── Skill Gate Verification ──────────────────────────────────────────
-      // Enforce that the user has passed the quiz for this competition.
-      const attemptRef = db.collection("skill_attempts").doc(`${uid}_${competitionId}`);
-      const attemptSnap = await transaction.get(attemptRef);
+    // Enforce that the user has passed the quiz for this competition.
+    const attemptRef = db.collection("skill_attempts").doc(`${uid}_${competitionId}`);
+    const attemptSnap = await transaction.get(attemptRef);
 
-      if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
-        throw new Error("You must pass the skill-gate quiz before entering this competition.");
-      }
+    if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
+      throw new Error("You must pass the skill-gate quiz before entering this competition.");
+    }
 
-    // Fetch unused logs for potential unification
     let unusedLogs = [];
     if (clampedReferralTickets > 0) {
       const unusedLogsSnap = await transaction.get(
@@ -188,10 +144,6 @@ export async function runOrderTransaction(
         });
     }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // PHASE 2 — MATH & VALIDATION (no I/O — pure computation)
-    // ══════════════════════════════════════════════════════════════════════════
-
     const currentStock = Number(compData.stock_quantity || 0);
     if (currentStock < totalTicketsToGenerate) {
       throw new Error(
@@ -199,15 +151,12 @@ export async function runOrderTransaction(
       );
     }
 
-    // Ticket sequence allocation
     const lastSeq = Number(compData.last_ticket_sequence) || 0;
     const startSeq = lastSeq + 1;
     const endSeq = lastSeq + totalTicketsToGenerate;
 
-    // Competition title prefix (e.g. "Mega Diamond Draw" → "MDD")
     const prefix = generateTicketPrefix(compData.title || "");
 
-    // Pricing computation
     const ticketPrice = Number(compData.ticket_price || 0);
     const subtotal = qty * ticketPrice;
     const discountAmount = subtotal * discount;
@@ -216,13 +165,8 @@ export async function runOrderTransaction(
     const newStock = currentStock - totalTicketsToGenerate;
     const newStatus = newStock === 0 ? "sold_out" : "active";
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // PHASE 3 — WRITES (atomic — any failure rolls back everything)
-    // ══════════════════════════════════════════════════════════════════════════
-
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
 
-    // Write 1 — Update competition
     transaction.update(competitionRef, {
       stock_quantity: admin.firestore.FieldValue.increment(-totalTicketsToGenerate),
       sold_tickets: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
@@ -232,7 +176,6 @@ export async function runOrderTransaction(
       updated_at: serverNow,
     });
 
-    // Write 2 — Create the order document
     transaction.set(orderRef, {
       competition_id: competitionRef,
       user_ref: userRef,
@@ -251,16 +194,14 @@ export async function runOrderTransaction(
       stripe_payment_intent_id: "",
       stripe_status: totalAmount === 0 ? "free" : "mock",
       question_answer: (() => {
-        // Explicitly build the Map from the client payload — never blindly trust the shape.
+        // Build the Map from the client payload
         const qa = questionAnswer || {};
         return {
           question_id: typeof qa.question_id === 'string' ? qa.question_id : '',
           question:    typeof qa.question    === 'string' ? qa.question    : '',
-          // image — ensure it's an array of strings
           image: Array.isArray(qa.image)
             ? qa.image.filter((v) => typeof v === 'string')
             : [],
-          // option — ensure it's an array of { option_id, option } maps
           option: Array.isArray(qa.option)
             ? qa.option
                 .filter((o) => o && typeof o === 'object')
@@ -269,7 +210,6 @@ export async function runOrderTransaction(
                   option:    typeof o.option    === 'string' ? o.option    : '',
                 }))
             : [],
-          // answer — the specific option the user selected
           answer: (() => {
             const a = qa.answer;
             if (!a || typeof a !== 'object') return { option_id: '', option: '' };
@@ -284,7 +224,6 @@ export async function runOrderTransaction(
       paid_at: serverNow,
     });
 
-    // Write 3 — Create individual ticket documents
     const ticketResults = [];
     for (let i = 0; i < totalTicketsToGenerate; i++) {
       const ticketNumber = startSeq + i;
@@ -309,7 +248,6 @@ export async function runOrderTransaction(
       });
     }
 
-    // Write 4 — Audit log: pack bonus tickets
     if (packBonusTickets > 0) {
       const packLogRef = db.collection("free_ticket_log").doc();
       transaction.set(packLogRef, {
@@ -324,9 +262,7 @@ export async function runOrderTransaction(
       });
     }
 
-    // Write 5 — Burn referrals + audit logs (grouped by reward_type for proper audit trail)
     if (clampedReferralTickets > 0) {
-      // Group referrals by reward_type for separate audit logging
       const referralsByType = {
         admin_bonus: 0,
         referral: 0,
@@ -337,13 +273,11 @@ export async function runOrderTransaction(
         const refData = snap.data();
         const rewardType = refData.reward_type || 'referral';
         
-        // Mark referral as issued
         transaction.update(referralRefs[idx], {
           reward_issued: true,
           reward_issued_at: serverNow,
         });
 
-        // Track count for audit logging
         if (rewardType === 'admin_bonus') {
           referralsByType.admin_bonus++;
         } else if (rewardType === 'referral') {
@@ -353,7 +287,6 @@ export async function runOrderTransaction(
         }
       });
 
-      // Helper to process unification or create new log
       const processAuditLog = (type, quantity, defaultReason) => {
         if (quantity <= 0) return;
         
@@ -364,7 +297,6 @@ export async function runOrderTransaction(
           if (remaining <= 0) break;
 
           if (oldLog.quantity <= remaining) {
-            // Use entire log
             transaction.update(oldLog.ref, {
               competition_id: competitionRef,
               order_id: orderRef,
@@ -392,7 +324,6 @@ export async function runOrderTransaction(
           }
         }
 
-        // If no matching logs found or quantity remains, create new entry
         if (remaining > 0) {
           const newLogRef = db.collection("free_ticket_log").doc();
           transaction.set(newLogRef, {
@@ -412,15 +343,12 @@ export async function runOrderTransaction(
       processAuditLog('other', referralsByType.other, 'free_ticket');
     }
 
-    // Write 6 — Update user stats
     transaction.update(userRef, {
       total_tickets_bought: admin.firestore.FieldValue.increment(qty),
       total_spent: admin.firestore.FieldValue.increment(totalAmount),
-      // Deduct referral wallet balance only when referral tickets are burned
       ...(clampedReferralTickets > 0 && {
         free_tickets: admin.firestore.FieldValue.increment(-clampedReferralTickets),
       }),
-      // Lifetime free ticket counter — always increment by pack bonus
       ...(packBonusTickets > 0 && {
         total_free_tickets: admin.firestore.FieldValue.increment(packBonusTickets),
       }),
@@ -432,9 +360,7 @@ export async function runOrderTransaction(
       tickets: ticketResults,
       totalAmount,
       packType,
-      // Total free tickets awarded/used (pack bonus + referrals)
       freeTickets: packBonusTickets + clampedReferralTickets,
-      // Expose components separately so callers can craft distinct notifications
       packBonusTickets,
       referralTicketsUsed: clampedReferralTickets,
     };

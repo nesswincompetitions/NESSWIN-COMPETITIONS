@@ -34,7 +34,6 @@ const BonusTickets = () => {
   }, [ticketsRaw]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal Form State
   const [assignUser, setAssignUser] = useState('');
   const [assignUserId, setAssignUserId] = useState('');
   const [assignAmount, setAssignAmount] = useState(1);
@@ -50,10 +49,9 @@ const BonusTickets = () => {
     const groups = {};
     
     ticketsRaw.forEach((ticket) => {
-        // In admin_bonus referrals, the user receiving the tickets is the referrer_id
         const userId = ticket.referrer_id?.id || (typeof ticket.referrer_id === 'string' ? ticket.referrer_id : null);
         const reason = ticket.admin_note || ticket.reason || 'Admin Bonus';
-        const time = ticket.created_at?.toMillis ? Math.floor(ticket.created_at.toMillis() / 2000) : 0; // Tighter 2s window
+        const time = ticket.created_at?.toMillis ? Math.floor(ticket.created_at.toMillis() / 2000) : 0;
         
         const key = `${userId}_${reason}_${time}`;
         
@@ -85,13 +83,11 @@ const BonusTickets = () => {
   }, [ticketsRaw, userMap]);
 
   const filteredTickets = tickets.filter(ticket => {
-    // 1. Search Filter (User Name or Reason)
     const matchesSearch = 
       ticket.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.reason || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.competitionTitle || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-    // 2. Status Filter
     if (activeStatus === 'all') return matchesSearch;
     if (activeStatus === 'used') return matchesSearch && ticket.reward_issued;
     if (activeStatus === 'active') return matchesSearch && !ticket.reward_issued;
@@ -131,11 +127,10 @@ const BonusTickets = () => {
     toast.success('Bonus tickets list exported to CSV');
   };
 
-  // Handle user search
   const handleUserSearch = async (e) => {
     const value = e.target.value;
     setAssignUser(value);
-    setAssignUserId(''); // Clear user ID when search term changes
+    setAssignUserId('');
     
     if (value.length < 2) {
       setUserSearchResults([]);
@@ -161,42 +156,27 @@ const BonusTickets = () => {
     }
   };
 
-  // Handle user selection from dropdown
   const handleSelectUser = (user) => {
     setAssignUser(user.display_name || user.name || user.email);
     setAssignUserId(user.id);
     setUserSearchResults([]);
   };
 
-  // Handle quantity input - validate no negative numbers
   const handleAmountChange = (e) => {
     let value = e.target.value;
-    
-    // Allow empty input while user is typing
     if (value === '') {
       setAssignAmount('');
       return;
     }
-    
-    // Convert to number and validate
     let num = parseInt(value, 10);
-    
-    // If not a valid number, keep current value
-    if (isNaN(num)) {
-      return;
-    }
-    
-    // Clamp to valid range (1-1000)
+    if (isNaN(num)) return;
     if (num < 1) num = 1;
     if (num > 1000) num = 1000;
-    
     setAssignAmount(num);
   };
 
   const handleAssignSubmit = async (e) => {
     e.preventDefault();
-
-    // Validation
     if (!assignUserId) {
       toast.error('Please select a user');
       return;
@@ -216,19 +196,14 @@ const BonusTickets = () => {
     setIsSubmitting(true);
     try {
       const result = await grantAdminBonus(assignUserId, qty, assignReason);
-      
       if (result.success) {
         toast.success(result.message);
-        
-        // Reset form
         setAssignUser('');
         setAssignUserId('');
         setAssignAmount(1);
         setAssignReason('');
         setAssignExpiry('');
         setIsAssignModalOpen(false);
-
-        // Realtime listeners update the list automatically.
       }
     } catch (error) {
       console.error('Error granting bonus:', error);
@@ -241,7 +216,6 @@ const BonusTickets = () => {
   const handleCloseModal = () => {
     if (!isSubmitting) {
       setIsAssignModalOpen(false);
-      // Reset form
       setAssignUser('');
       setAssignUserId('');
       setAssignAmount(1);
@@ -253,8 +227,6 @@ const BonusTickets = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-
-      {/* 1. Header */}
       <header className="flex flex-col gap-4 md:flex-row md:items-center justify-between pb-2">
         <div>
           <h1 className="text-3xl font-serif font-bold text-white">{t('bonusTickets.title')}</h1>
@@ -273,7 +245,6 @@ const BonusTickets = () => {
         </div>
       </header>
 
-      {/* 2. Action Buttons */}
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsAssignModalOpen(true)}>
           <Plus size={16} /> {t('bonusTickets.issueTickets')}
@@ -285,10 +256,7 @@ const BonusTickets = () => {
 
       <Card>
         <CardContent className="p-0">
-          {/* 4. Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-
-            {/* Status Tabs */}
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {[
                 { key: 'all', label: t('common.all') },
@@ -308,7 +276,6 @@ const BonusTickets = () => {
               ))}
             </div>
 
-            {/* Search */}
             <div className="relative w-full lg:w-80">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -321,7 +288,6 @@ const BonusTickets = () => {
             </div>
           </div>
 
-          {/* 5. Ledger Table */}
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-20 text-center">
@@ -373,7 +339,6 @@ const BonusTickets = () => {
                 </TableBody>
               </Table>
             ) : (
-              /* Empty State */
               <div className="p-12 text-center flex flex-col items-center justify-center space-y-4">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
                   <Ticket className="text-gray-500" size={32} />
@@ -390,14 +355,12 @@ const BonusTickets = () => {
         </CardContent>
       </Card>
 
-      {/* 3. Assign Modal */}
       <Modal
         isOpen={isAssignModalOpen}
         onClose={handleCloseModal}
         title={t('bonusTickets.issueTickets')}
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
-          {/* User Search */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.searchUser')}</label>
             <div className="relative">
@@ -413,7 +376,6 @@ const BonusTickets = () => {
                 autoComplete="off"
               />
               
-              {/* Search Results Dropdown */}
               {assignUser && (userSearchResults.length > 0 || isSearching) && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg z-50 max-h-48 overflow-y-auto">
                   {isSearching ? (
@@ -447,7 +409,6 @@ const BonusTickets = () => {
             )}
           </div>
 
-          {/* Quantity Input */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.numberOfTickets')}</label>
             <input
@@ -463,8 +424,6 @@ const BonusTickets = () => {
             />
           </div>
 
-
-          {/* Reason */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.reasonNote')} <span className="text-gray-500">(optional)</span></label>
             <textarea
@@ -476,7 +435,6 @@ const BonusTickets = () => {
             />
           </div>
 
-          {/* Buttons */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
             <Button 
               type="button" 
@@ -504,7 +462,6 @@ const BonusTickets = () => {
           </div>
         </form>
       </Modal>
-
     </div>
   );
 };

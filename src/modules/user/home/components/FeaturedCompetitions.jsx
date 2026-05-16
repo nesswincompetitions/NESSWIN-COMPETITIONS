@@ -185,8 +185,6 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
 export default function FeaturedCompetitions({ onLoadComplete }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  // Pre-populate from cache for instant render on home page revisit.
-  // The live subscriber refreshes this as soon as it connects.
   const [featuredComps, setFeaturedComps] = useState(() => getCachedCompetitionList('featured_competitions') || []);
   const [loading, setLoading] = useState(() => !getCachedCompetitionList('featured_competitions'));
   const { ticketedIds } = useUserTicketedCompetitions();
@@ -221,7 +219,6 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
         });
 
         const sliced = sorted.slice(0, 6);
-        // Save to cache so next visit to home page shows comps instantly
         cacheCompetitionList('featured_competitions', sliced);
         setFeaturedComps(sliced);
         setLoading(false);

@@ -28,7 +28,7 @@ const WinnerDetail = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [isUploading, setIsUploading] = useState(null); // 'id_proof', 'photo', 'video'
+  const [isUploading, setIsUploading] = useState(null);
   const [handoverLoading, setHandoverLoading] = useState(null);
   const [attachmentFile, setAttachmentFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -39,12 +39,9 @@ const WinnerDetail = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // 1. Listen to Competition Data
   useEffect(() => {
     if (!competitionId) return;
 
-    // Cache winner details between snapshot calls.
-    // Winner user/ticket are only re-fetched when their refs actually change.
     let lastWinnerRefId = null;
     let lastTicketRefId = null;
     let cachedWinnerDetails = null;
@@ -53,7 +50,6 @@ const WinnerDetail = () => {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Compute ref IDs to detect if they've changed
         const winnerRef = data.winner_ref;
         const winnerTicketRef = data.winner_ticket_ref;
         const currentWinnerId = winnerRef?.id ?? (typeof winnerRef === 'string' ? winnerRef : null);
@@ -62,7 +58,6 @@ const WinnerDetail = () => {
         const winnerChanged = currentWinnerId !== lastWinnerRefId || currentTicketId !== lastTicketRefId;
 
         if (winnerChanged && (winnerRef || winnerTicketRef)) {
-          // Only hit Firestore when winner or ticket reference actually changes
           try {
             const [winnerSnap, ticketSnap] = await Promise.all([
               winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
@@ -79,12 +74,10 @@ const WinnerDetail = () => {
             console.error('Error resolving winner refs:', err);
           }
         } else if (!winnerRef && !winnerTicketRef) {
-          // No winner set — clear the cache
           cachedWinnerDetails = null;
           lastWinnerRefId = null;
           lastTicketRefId = null;
         }
-        // If refs haven't changed: cachedWinnerDetails is reused, 0 extra reads
 
         setCompetition({ id: docSnap.id, ...data, winnerDetails: cachedWinnerDetails });
       } else {
@@ -97,7 +90,6 @@ const WinnerDetail = () => {
     return () => unsub();
   }, [competitionId]);
 
-  // 2. Listen to Chat Messages
   useEffect(() => {
     if (!competitionId) return;
 
@@ -113,7 +105,6 @@ const WinnerDetail = () => {
       setMessages(msgs);
       scrollToBottom();
 
-      // Mark as read if there are unread messages for admin
       if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
         if (!lastMsg.is_seen && lastMsg.receiver_id?.id === currentUser?.uid) {
@@ -146,7 +137,7 @@ const WinnerDetail = () => {
         winnerRef,
         newMessage,
         imageUrl,
-        true // isSenderAdmin
+        true
       );
       setNewMessage('');
       setAttachmentFile(null);
@@ -196,7 +187,6 @@ const WinnerDetail = () => {
 
     setIsUploading(type);
     try {
-      console.log(`[HandoverUpload] Uploading ${type}:`, { name: file.name, size: file.size, type: file.type });
       const [url] = await uploadImages([file], `handover/${competitionId}/${type}`);
 
       const payload = {};
@@ -321,8 +311,6 @@ const WinnerDetail = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <button
@@ -348,7 +336,6 @@ const WinnerDetail = () => {
         </div>
       </div>
 
-      {/* Winner Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardContent className="p-6">
@@ -386,7 +373,6 @@ const WinnerDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Handover Quick Status */}
         <Card>
           <CardContent className="p-6 space-y-4">
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-2">Handover Status</h3>
@@ -433,7 +419,6 @@ const WinnerDetail = () => {
         </Card>
       </div>
 
-      {/* Status Timeline */}
       <Card>
         <CardContent className="p-8">
           <div className="relative">
@@ -469,10 +454,7 @@ const WinnerDetail = () => {
         </CardContent>
       </Card>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-8">
-
-        {/* LEFT: Communication */}
         <div className="space-y-6" id="communication-hub">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Mail size={20} className="text-primary" />
@@ -589,7 +571,6 @@ const WinnerDetail = () => {
           </Card>
         </div>
 
-        {/* RIGHT: Proof Uploads */}
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Upload size={20} className="text-primary" />
@@ -598,8 +579,6 @@ const WinnerDetail = () => {
 
           <Card className="h-[600px] overflow-y-auto bg-[#0a0a0a] border-white/5">
             <CardContent className="p-6 space-y-6">
-
-              {/* ID Proof */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
                   <span className="flex items-center gap-2"><FileText size={16} className="text-primary" /> Winner ID Proof</span>
@@ -650,7 +629,6 @@ const WinnerDetail = () => {
                 )}
               </div>
 
-              {/* Handover Video */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
                   <span className="flex items-center gap-2"><Video size={16} className="text-primary" /> Handover Video</span>
@@ -697,11 +675,9 @@ const WinnerDetail = () => {
                   </label>
                 )}
               </div>
-
             </CardContent>
           </Card>
         </div>
-
       </div>
     </div>
   );

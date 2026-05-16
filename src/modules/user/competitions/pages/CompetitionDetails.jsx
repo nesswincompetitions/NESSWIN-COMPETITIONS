@@ -59,7 +59,6 @@ const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, ratin
       </div>
       
       <div className={`grid ${hasTestimonial ? 'md:grid-cols-2' : 'grid-cols-1'} divide-y md:divide-y-0 md:divide-x divide-white/10`}>
-        {/* Left Side: The Announcement */}
         <div className="p-8 flex flex-col items-center justify-center text-center space-y-4">
           <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${
             isWinner ? 'bg-primary/10 border border-primary/20' : 'bg-white/5 border border-white/10'
@@ -80,7 +79,6 @@ const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, ratin
           </div>
         </div>
 
-        {/* Right Side: The Testimonial (Only if exists) */}
         {hasTestimonial && (
           <div className="p-8 bg-white/[0.02] flex flex-col justify-center relative">
             <Quote className="absolute top-6 right-8 text-primary/5 w-16 h-16 pointer-events-none" />
@@ -113,30 +111,24 @@ const CompetitionSkeleton = () => {
   return (
     <div className="min-h-screen bg-(--color-background) pt-24 pb-20">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        {/* Breadcrumb Skeleton */}
         <div className="flex gap-2 mb-8 items-center">
           <div className="h-4 w-20 bg-white/5 rounded animate-pulse" />
           <div className="h-4 w-4 bg-white/5 rounded animate-pulse" />
           <div className="h-4 w-32 bg-white/5 rounded animate-pulse" />
         </div>
 
-        {/* Winner Announcement Skeleton */}
         <div className="h-48 w-full bg-white/5 border border-white/5 rounded-[2rem] mb-12 animate-pulse" />
 
         <div className="grid lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2 space-y-12">
-            {/* Gallery Skeleton */}
             <div className="aspect-4/3 w-full bg-white/5 rounded-3xl animate-pulse" />
-            {/* Description Skeleton */}
             <div className="space-y-4">
               <div className="h-8 w-3/4 bg-white/5 rounded animate-pulse" />
               <div className="h-20 w-full bg-white/5 rounded animate-pulse" />
             </div>
           </div>
           <div className="space-y-8">
-            {/* Sidebar Card Skeleton */}
             <div className="h-[400px] w-full bg-white/5 border border-white/5 rounded-3xl animate-pulse" />
-            {/* Stats Skeleton */}
             <div className="h-32 w-full bg-white/5 border border-white/5 rounded-3xl animate-pulse" />
           </div>
         </div>
@@ -185,23 +177,19 @@ export default function CompetitionDetails() {
   const { currentUser } = useAuth();
   const { userData, loading: userLoading } = useUserData();
   
-  // Initial state from navigation if available
   const initialComp = location.state?.competition 
     ? { ...location.state.competition, participants: location.state.competition.participants || [] }
     : null;
     
   const [c, setC] = useState(initialComp);
-  // Only stop loading if we have initial data AND auth state is resolved
   const [loading, setLoading] = useState(!initialComp || userLoading);
 
-  // Sync loading state with auth loading
   useEffect(() => {
     if (!userLoading && initialComp) {
       setLoading(false);
     }
   }, [userLoading, initialComp]);
 
-  // ── Skill Gate hook (manages quiz modal, eligibility check) ─────────────────
   const {
     isModalOpen,
     setIsModalOpen,
@@ -228,9 +216,7 @@ export default function CompetitionDetails() {
     setCompetition: setC,
   });
 
-  // ── Checkout hook (manages ticket selection + order submission) ─────────────
   const onOrderSuccess = useCallback((result) => {
-    // Optimistically update competition stats in UI
     setC((prev) => prev ? ({
       ...prev,
       sold: prev.sold + result.tickets.length,
@@ -265,7 +251,6 @@ export default function CompetitionDetails() {
 
   const [isTicketsModalOpen, setIsTicketsModalOpen] = useState(false);
 
-  // ── Fetch competition ────────────────────────────────────────────────────────
   useEffect(() => {
     window.scrollTo(0, 0);
 
@@ -290,10 +275,6 @@ export default function CompetitionDetails() {
     return unsubscribe;
   }, [id]);
 
-  if (loading && !c) {
-    // Show nothing here, as we render the skeleton inside the main layout now
-  }
-
   if (!c) {
     return <Navigate to="/competitions" replace />;
   }
@@ -312,7 +293,6 @@ export default function CompetitionDetails() {
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <Breadcrumb title={c.title} />
           
-          {/* Winner & Tickets Section (Top Priority for Completed/Winner Announced) */}
           {(loading || c?.status === 'completed' || c?.status === 'winner_announced' || c?.status === 'end') ? (
             <>
               <WinnerAnnouncement 
@@ -334,7 +314,6 @@ export default function CompetitionDetails() {
             </>
           ) : null}
           
-          {/* Winner Review Section */}
           {currentUser && c?.status === 'completed' && (
             (() => {
               const winnerId = typeof c.winner_ref === 'string' ? c.winner_ref : c.winner_ref?.id;
@@ -386,7 +365,6 @@ export default function CompetitionDetails() {
                 <TicketPurchaseCard
                   competition={{ ...c, onParticipate: handleParticipateClick, gateStatus }}
                   skillPassed={skillPassed}
-                  // useCheckout props
                   paidTicketQty={paidTicketQty}
                   setPaidTicketQty={handleSetPaidQty}
                   referralTicketsToUse={referralTicketsToUse}
@@ -438,7 +416,6 @@ export default function CompetitionDetails() {
         </div>
       </div>
 
-      {/* Skill Gate Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -459,7 +436,6 @@ export default function CompetitionDetails() {
         </div>
       </Modal>
 
-      {/* User Tickets Modal */}
       <Modal
         isOpen={isTicketsModalOpen}
         onClose={() => setIsTicketsModalOpen(false)}

@@ -18,7 +18,6 @@ const Dashboard = () => {
   const { t } = useTranslation('admin');
   const { data: stats, loading: loadingStats } = useAdminDashboardData();
 
-  // Force re-render every minute to update relative times and countdowns
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 60000);
@@ -35,7 +34,6 @@ const Dashboard = () => {
   ];
 
   const activeCompetitions = stats.activeCompetitionsList || [];
-
   const recentOrders = stats.recentOrdersList || [];
 
   const formatRelativeTime = (date) => {
@@ -78,7 +76,6 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {kpiData.map((stat, i) => {
           const Icon = stat.icon;
@@ -107,10 +104,7 @@ const Dashboard = () => {
       </div>
 
       <div className="flex flex-col xl:flex-row gap-6">
-        {/* LEFT SIDE (70%) */}
         <div className="xl:w-[70%] space-y-6">
-
-          {/* Active Competitions Table */}
           <Card>
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
               <h2 className="text-lg font-semibold">{t('dashboard.activeCompetitions')}</h2>
@@ -190,7 +184,6 @@ const Dashboard = () => {
             </Table>
           </Card>
 
-          {/* Recent Orders Table */}
           <Card>
             <div className="p-6 border-b border-white/10">
               <h2 className="text-lg font-semibold">{t('dashboard.recentOrders')}</h2>
@@ -240,13 +233,9 @@ const Dashboard = () => {
               </TableBody>
             </Table>
           </Card>
-
         </div>
 
-        {/* RIGHT SIDE (30%) */}
         <div className="xl:w-[30%] space-y-6">
-
-          {/* Quick Actions */}
           <Card>
             <div className="p-6 border-b border-white/10">
               <h2 className="text-lg font-semibold">{t('dashboard.quickActions')}</h2>
@@ -289,7 +278,6 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Upcoming Draws */}
           <Card>
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
               <h2 className="text-lg font-semibold">{t('dashboard.upcomingDraws')}</h2>
@@ -333,7 +321,6 @@ const Dashboard = () => {
               ))}
             </div>
           </Card>
-
         </div>
       </div>
     </div>

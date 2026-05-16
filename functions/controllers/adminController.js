@@ -7,11 +7,8 @@ import { buildNotificationPayload } from "../services/orderNotificationService.j
 /**
  * Callable: grantAdminBonus
  * Payload: { userId: string, quantity: number, reason?: string }
- * Performs the same actions as the client-side helper but using Admin SDK
- * so it can write to protected collections regardless of client-side rules.
  */
 export const grantAdminBonus = onCall(async (request) => {
-  // Ensure caller is admin
   await assertAdmin(request);
 
     const { userId, quantity, reason = "" } = request.data || {};
@@ -34,11 +31,9 @@ export const grantAdminBonus = onCall(async (request) => {
         throw new HttpsError("not-found", "User not found.");
       }
 
-
       const batch = db.batch();
       const serverTs = admin.firestore.FieldValue.serverTimestamp();
 
-      // Create referral docs for audit / free ticket allocation
       const adminRef = db.collection("user").doc(request.auth.uid);
       for (let i = 0; i < qty; i++) {
         const referralRef = db.collection("referrals").doc();
@@ -53,14 +48,12 @@ export const grantAdminBonus = onCall(async (request) => {
         });
       }
 
-      // Update user counters
       batch.update(userRef, {
         free_tickets: admin.firestore.FieldValue.increment(qty),
         total_free_tickets: admin.firestore.FieldValue.increment(qty),
         updated_at: serverTs,
       });
 
-      // Notification
       const notifRef = db.collection("ff_user_push_notifications").doc();
       batch.set(notifRef, {
         user_refs: userRef.path,
@@ -85,16 +78,15 @@ export const grantAdminBonus = onCall(async (request) => {
         created_at: serverTs,
       });
 
-      // Audit log
       const logRef = db.collection("free_ticket_log").doc();
       batch.set(logRef, {
         user_id: userRef,
         quantity: qty,
-        reason: reason || "Admin Bonus", // User requested to take from here
+        reason: reason || "Admin Bonus",
         reward_type: "admin_bonus",
         admin_note: reason,
         competition_id: null,
-        reward_issued: false, // Initially false until redeemed in an order
+        reward_issued: false,
         type: "grant",
         created_at: serverTs,
       });
@@ -113,7 +105,6 @@ export const grantAdminBonus = onCall(async (request) => {
 /**
  * Callable: refundOrder
  * Marks an order as Refunded and CANCELS all associated tickets.
- * Sends a refund_processed notification to the user.
  */
 export const refundOrder = onCall(async (request) => {
   const adminUid = await assertAdmin(request);
@@ -140,7 +131,6 @@ export const refundOrder = onCall(async (request) => {
     const competitionRef = orderData.competition_id;
     const adminRef = db.collection("user").doc(adminUid);
 
-    // 1. Fetch all tickets for this order
     const ticketsSnap = await db.collection("ticket")
       .where("order_id", "==", orderRef)
       .get();
@@ -148,13 +138,11 @@ export const refundOrder = onCall(async (request) => {
     const batch = db.batch();
     const now = admin.firestore.FieldValue.serverTimestamp();
 
-    // 2. Mark order as Refunded
     batch.update(orderRef, {
       status: "Refunded",
       updated_at: now,
     });
 
-    // 3. Cancel each ticket
     ticketsSnap.docs.forEach((ticketDoc) => {
       batch.update(ticketDoc.ref, {
         status: "cancelled",
@@ -162,7 +150,6 @@ export const refundOrder = onCall(async (request) => {
       });
     });
 
-    // 4. Send refund_processed notification
     const notifRef = db.collection("ff_user_push_notifications").doc();
     batch.set(notifRef, buildNotificationPayload({
       type: "refund_processed",

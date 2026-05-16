@@ -52,11 +52,6 @@ const mapCompetitionCardData = (id, data = {}) => {
   };
 };
 
-// ─── Storage Helper ──────────────────────────────────────────────────────────
-
-/**
- * Uploads an array of File objects to Firebase Storage and returns download URLs.
- */
 export const uploadImages = async (files, folderPath) => {
   if (!files || files.length === 0) return [];
   const uploadPromises = files.map(async (file) => {
@@ -71,20 +66,12 @@ export const uploadImages = async (files, folderPath) => {
   return await Promise.all(uploadPromises);
 };
 
-// ─── Competition Fetch ────────────────────────────────────────────────────────
-
-/**
- * Fetches a single live competition by ID with resolved participants.
- * Also returns `rawParticipants` (raw DocumentReference[]) for membership checks.
- */
 export const fetchCompetitionWithParticipants = async (id) => {
   const compDoc = await getDoc(doc(db, 'competition', id));
   if (!compDoc.exists()) return null;
 
   const data = compDoc.data();
   const baseData = mapCompetitionCardData(compDoc.id, data);
-
-  // Keep the raw refs for isExistingBuyer / hasPassedQuiz checks in the hook
   const rawParticipants = data.participants || [];
 
   const resolvedParticipants = await Promise.all(
@@ -107,7 +94,7 @@ export const fetchCompetitionWithParticipants = async (id) => {
             const countSnap = await getCountFromServer(ticketsQuery);
             ticketsCount = countSnap.data().count;
             
-            // Fallback for older string-based IDs if count is 0
+            // Fallback for legacy string-based competition/user IDs
             if (ticketsCount === 0) {
               const strQuery = query(
                 collection(db, 'ticket'),
@@ -163,23 +150,17 @@ export const fetchCompetitionWithParticipants = async (id) => {
     winner_rating: data.winner_rating || null,
     winner_review_at: data.winner_review_at || null,
     docRef: compDoc.ref,
-    rawParticipants,                                          // ← raw refs for membership check
+    rawParticipants,
     participants: resolvedParticipants.filter((p) => p !== null),
   };
 };
 
-/**
- * Fetches all live competitions (excluding drafts and deleted).
- */
 export const fetchLiveCompetitions = async () => {
   const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-/**
- * Realtime listener for all non-draft competitions.
- */
 export const subscribeLiveCompetitions = (onData, onError) => {
   const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
 
@@ -196,17 +177,6 @@ export const subscribeLiveCompetitions = (onData, onError) => {
   );
 };
 
-/**
- * Realtime listener for a single competition with resolved participant previews.
- *
- * Performance fix: Previously every snapshot update (e.g. sold_tickets++)
- * triggered a full re-fetch of all participants and winner details (up to 33
- * sequential Firestore round trips). Now we track which expensive fields have
- * actually changed and only re-fetch when they do.
- *
- * - Live fields (sold_tickets, status, draw_date) update instantly, 0 extra reads.
- * - Enrichment fields (participants, winner name) only re-fetched when refs change.
- */
 export const subscribeCompetitionWithParticipants = (competitionId, onData, onError) => {
   const compRef = doc(db, 'competition', competitionId);
 
@@ -264,6 +234,7 @@ export const subscribeCompetitionWithParticipants = (competitionId, onData, onEr
                       );
                       const cs = await getCountFromServer(tq);
                       ticketsCount = cs.data().count;
+                      // Fallback for legacy string-based competition/user IDs
                       if (ticketsCount === 0) {
                         const sq = query(
                           collection(db, 'ticket'),
@@ -327,21 +298,9 @@ export const subscribeCompetitionWithParticipants = (competitionId, onData, onEr
 };
 
 // ─── Skill Gate ───────────────────────────────────────────────────────────────
-// NOTE: All skill gate logic (question selection, answer grading, attempt tracking)
-// is now handled server-side via Cloud Functions:
-//   - getSkillQuestion  (functions/controllers/skillGateController.js)
-//   - submitSkillAnswer (functions/controllers/skillGateController.js)
-//
-// The frontend calls these via httpsCallable — see useCompetitionCheckout.js.
+// Handled server-side via Cloud Functions (skillGateController.js).
+// Frontend calls via httpsCallable — see useCompetitionCheckout.js.
 
-/**
- * Submits a winner review for a completed competition.
- * 
- * @param {string} competitionId 
- * @param {string} userId 
- * @param {string} comment 
- * @param {number} rating 
- */
 export const submitWinnerReview = async (competitionId, userId, comment, rating) => {
   const compRef = doc(db, 'competition', competitionId);
   const compSnap = await getDoc(compRef);
@@ -371,9 +330,6 @@ export const submitWinnerReview = async (competitionId, userId, comment, rating)
   return { success: true };
 };
 
-/**
- * Fetches the total number of winners across the platform.
- */
 export const getPlatformWinnersCount = async () => {
   try {
     const q = query(collection(db, 'ticket'), where('is_winner', '==', true));
@@ -385,10 +341,6 @@ export const getPlatformWinnersCount = async () => {
   }
 };
 
-/**
- * Realtime listener for the most recent winners.
- * Resolves winner user and ticket details.
- */
 export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
   const q = query(
     collection(db, 'competition'),
@@ -412,31 +364,22 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
           let ticketData = null;
 
           try {
-            // ─── Cache-first user lookup ───────────────────────────────────
-            // Check if we've already fetched this winner's profile this session.
-            // This prevents re-fetching on every snapshot update (e.g. when
-            // sold_tickets changes), while still allowing the competition data
-            // itself to update in real-time from the snapshot.
             const cachedUser = winnerId ? getCachedUser(winnerId) : null;
 
             if (cachedUser) {
-              // Use cached profile — no Firestore read needed
               userData = {
                 display_name: cachedUser.name,
                 photo_url: cachedUser.photo,
               };
             } else {
-              // Not in cache — fetch from Firestore and store for next time
               const userSnap = winnerRef ? await getDoc(winnerRef) : null;
               if (userSnap?.exists()) {
                 userData = userSnap.data();
-                if (winnerId) {
-                  cacheUser(winnerId, userData);
-                }
+                if (winnerId) cacheUser(winnerId, userData);
               }
             }
 
-            // Tickets are unique per-competition so we always fetch them
+            // Tickets are unique per-competition so we always fetch them fresh
             const ticketSnap = ticketRef ? await getDoc(ticketRef) : null;
             if (ticketSnap?.exists()) {
               ticketData = ticketSnap.data();

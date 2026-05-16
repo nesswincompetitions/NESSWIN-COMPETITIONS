@@ -21,7 +21,6 @@ const UsersList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   
-  // -- State --
   const [activeStatus, setActiveStatus] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,7 +28,6 @@ const UsersList = () => {
   const { data: usersData, loading } = useAdminUsersFeed(50);
   const users = useMemo(() => usersData || [], [usersData]);
 
-  // -- Suspend Modal State --
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
   const [userToToggle, setUserToToggle] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -88,7 +86,6 @@ const UsersList = () => {
   };
 
   const renderStatusBadge = (user) => {
-    // If user is suspended (is_active is false) and not deleted
     if (user.is_active === false) {
       return <Badge variant="danger">{t('common.suspended')}</Badge>;
     }
@@ -100,12 +97,8 @@ const UsersList = () => {
     totalPages,
     totalFiltered,
   } = useMemo(() => {
-    // 1. Filter
     const filtered = users.filter((u) => {
-      // Filter out deleted users completely from the admin view
       if (u.is_deleted === true) return false;
-      
-      // Filter out admin accounts
       if (u.role === 'admin') return false;
 
       const isActiveUser = u.is_active !== false;
@@ -120,7 +113,6 @@ const UsersList = () => {
       return matchesStatus && (nameMatch || emailMatch);
     });
 
-    // 2. Sort
     filtered.sort((a, b) => {
       if (sortBy === 'Newest') {
         const tA = (a.created_time || a.created_at)?.toMillis ? (a.created_time || a.created_at).toMillis() : 0;
@@ -131,7 +123,6 @@ const UsersList = () => {
       return 0;
     });
 
-    // 3. Paginate
     const start = (currentPage - 1) * itemsPerPage;
     const paginated = filtered.slice(start, start + itemsPerPage);
     const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
@@ -165,7 +156,6 @@ const UsersList = () => {
 
       <Card>
         <CardContent className="p-0">
-          {/* Filter Bar */}
           <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex bg-white/5 p-1 rounded-lg overflow-x-auto hide-scrollbar">
               {['All', 'ACTIVE', 'SUSPENDED'].map((key) => (
@@ -301,7 +291,6 @@ const UsersList = () => {
         </CardContent>
       </Card>
 
-      {/* Suspend Confirmation Modal */}
       <ConfirmationModal
         isOpen={suspendModalOpen}
         onClose={() => !isUpdating && setSuspendModalOpen(false)}

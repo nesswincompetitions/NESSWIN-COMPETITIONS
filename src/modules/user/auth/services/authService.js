@@ -116,7 +116,6 @@ export const signInWithApple = async () => {
 };
 
 export const logout = async () => {
-  // Clear the in-memory enrichment cache so the next user starts fresh
   try {
     const { clearAllCaches } = await import('@/shared/services/competitionCache');
     clearAllCaches();
