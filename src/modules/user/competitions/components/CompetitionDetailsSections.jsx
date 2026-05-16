@@ -22,12 +22,50 @@ import {
   MessageSquare,
   Star,
   Quote,
+  Trophy,
 } from "lucide-react";
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { FaInstagram } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { useUserData } from '@/contexts/UserContext';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const Confetti = () => {
+  const particles = Array.from({ length: 40 });
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {particles.map((_, i) => (
+        <motion.div
+          key={i}
+          initial={{
+            top: "50%",
+            left: "50%",
+            scale: 0,
+            rotate: 0,
+            opacity: 1
+          }}
+          animate={{
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+            scale: Math.random() * 1.5,
+            rotate: Math.random() * 360,
+            opacity: 0
+          }}
+          transition={{
+            duration: 2 + Math.random() * 2,
+            ease: "easeOut",
+            delay: Math.random() * 0.5
+          }}
+          className="absolute w-2 h-2 rounded-sm"
+          style={{
+            backgroundColor: ['#f9ce34', '#ee2a7b', '#6228d7', '#FFD700', '#FFFFFF'][Math.floor(Math.random() * 5)]
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 export function Breadcrumb({ title }) {
   const { t } = useTranslation();
@@ -71,11 +109,11 @@ export function ImageGallery({ images, title, status, endsAt }) {
             : "bg-primary text-(--color-primary-foreground)"
             }`}
         >
-          {isActive 
+          {isActive
             ? t("common.active")
-            : isSoldOut 
-            ? t("common.soldOut") 
-            : t("common.ended")}
+            : isSoldOut
+              ? t("common.soldOut")
+              : t("common.ended")}
         </span>
       </div>
 
@@ -155,9 +193,9 @@ function SelectTicketPanel({
 
   const PACKS = [
     { id: 'prestige', name: 'Pack Prestige', tickets: 15, discount: 10, popular: false },
-    { id: 'elite',    name: 'Pack Elite',    tickets: 20, discount: 15, popular: false },
-    { id: 'gold',     name: 'Pack Gold',     tickets: 25, discount: 20, popular: true  },
-    { id: 'diamond',  name: 'Pack Diamond',  tickets: 50, discount: 25, popular: false },
+    { id: 'elite', name: 'Pack Elite', tickets: 20, discount: 15, popular: false },
+    { id: 'gold', name: 'Pack Gold', tickets: 25, discount: 20, popular: true },
+    { id: 'diamond', name: 'Pack Diamond', tickets: 50, discount: 25, popular: false },
   ];
 
   return (
@@ -195,11 +233,10 @@ function SelectTicketPanel({
                   key={num}
                   onClick={() => setReferralQty(num)}
                   aria-pressed={isActive}
-                  className={`w-11 h-12 rounded-xl border font-black text-sm transition-all duration-200 cursor-pointer ${
-                    isActive
+                  className={`w-11 h-12 rounded-xl border font-black text-sm transition-all duration-200 cursor-pointer ${isActive
                       ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
                       : 'bg-white/3 border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {num}
                 </button>
@@ -234,11 +271,10 @@ function SelectTicketPanel({
                 <button
                   key={num}
                   onClick={() => setPaidQty(num)}
-                  className={`h-12 rounded-xl border font-bold text-sm transition-all duration-200 cursor-pointer ${
-                    isActive
+                  className={`h-12 rounded-xl border font-bold text-sm transition-all duration-200 cursor-pointer ${isActive
                       ? 'bg-primary/20 border-primary text-primary shadow-[0_0_14px_rgba(var(--primary-rgb),0.2)]'
                       : 'bg-white/3 border-white/5 text-muted-foreground hover:border-white/20 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {num}
                 </button>
@@ -267,11 +303,10 @@ function SelectTicketPanel({
                 <button
                   key={pack.id}
                   onClick={() => setPaidQty(pack.tickets)}
-                  className={`relative p-4 rounded-2xl border text-left transition-all duration-300 cursor-pointer group ${
-                    isActive
+                  className={`relative p-4 rounded-2xl border text-left transition-all duration-300 cursor-pointer group ${isActive
                       ? 'bg-primary/5 border-primary shadow-[0_0_28px_rgba(var(--primary-rgb),0.12)]'
                       : 'bg-white/2 border-white/5 hover:border-white/15'
-                  }`}
+                    }`}
                 >
                   {pack.popular && (
                     <div className="absolute -top-px -right-px px-2.5 py-1 bg-primary rounded-bl-xl rounded-tr-2xl">
@@ -281,9 +316,8 @@ function SelectTicketPanel({
                     </div>
                   )}
                   <div className="space-y-1">
-                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold border ${
-                      isActive ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-muted-foreground'
-                    }`}>
+                    <span className={`inline-block px-2 py-0.5 rounded-lg text-[9px] font-bold border ${isActive ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-muted-foreground'
+                      }`}>
                       -{pack.discount}%
                     </span>
                     <p className="text-sm font-bold text-white pt-1">{pack.name}</p>
@@ -303,9 +337,8 @@ function SelectTicketPanel({
       {/* ── REAL-TIME SUMMARY BAR ─────────────────────────────────────────── */}
       <div className="bg-white/2 border border-white/8 rounded-2xl overflow-hidden">
         {/* Ticket breakdown strip */}
-        <div className={`grid divide-x divide-white/5 border-b border-white/5 ${
-          pendingReferralCount > 0 ? 'grid-cols-3' : 'grid-cols-2'
-        }`}>
+        <div className={`grid divide-x divide-white/5 border-b border-white/5 ${pendingReferralCount > 0 ? 'grid-cols-3' : 'grid-cols-2'
+          }`}>
           {[
             { label: 'Paid', value: paidQty, color: 'text-primary' },
             ...(pendingReferralCount > 0 ? [{ label: 'Referral', value: referralQty, color: 'text-emerald-400' }] : []),
@@ -389,11 +422,10 @@ function SelectTicketPanel({
         id="checkout-submit-btn"
         onClick={onSubmit}
         disabled={isProcessing}
-        className={`group/btn relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer ${
-          (referralQty > 0 && paidQty === 0)
+        className={`group/btn relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100 cursor-pointer ${(referralQty > 0 && paidQty === 0)
             ? 'bg-emerald-500'
             : 'bg-primary'
-        }`}
+          }`}
       >
         <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
         <div className="relative flex items-center justify-center gap-3">
@@ -616,8 +648,43 @@ export function TicketPurchaseCard({
         ) : (
           <div className="text-center py-2">
             {!isActive && (
-              <div className={`mb-3 px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                {isSoldOut ? "This competition is sold out" : "This competition is ended"}
+              <div className="space-y-4">
+                {isEnded && competition.winner_name ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="relative bg-linear-to-b from-primary/10 to-transparent border border-primary/20 rounded-2xl p-6 text-center overflow-hidden"
+                  >
+                    <Confetti />
+                    <div className="relative z-10 space-y-3">
+                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)]">
+                        <Trophy size={24} className="text-black" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Official Winner</p>
+                        <h4 className="text-xl font-bold text-white">{competition.winner_name}</h4>
+                      </div>
+                      <div className="inline-block px-4 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Winning Ticket</p>
+                        <p className="text-lg font-mono font-black text-primary">#{competition.winner_ticket_number}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : isEnded ? (
+                  /* Celebratory Skeleton while loading winner details */
+                  <div className="animate-pulse bg-white/2 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3">
+                    <div className="w-10 h-10 bg-white/5 rounded-full" />
+                    <div className="space-y-2 flex flex-col items-center">
+                      <div className="w-24 h-2 bg-white/5 rounded" />
+                      <div className="w-32 h-4 bg-white/5 rounded" />
+                    </div>
+                    <div className="w-28 h-10 bg-white/5 rounded-xl mt-2" />
+                  </div>
+                ) : (
+                  <div className={`px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                    {isSoldOut ? "This competition is sold out" : "This competition is ended"}
+                  </div>
+                )}
               </div>
             )}
 
@@ -626,13 +693,13 @@ export function TicketPurchaseCard({
 
               let icon, label;
               if (competition.gateStatus === 'loading') {
-                icon  = <LoadingSpinner fullScreen={false} size="w-4 h-4" message={null} />;
+                icon = <LoadingSpinner fullScreen={false} size="w-4 h-4" message={null} />;
                 label = 'Checking eligibility...';
               } else if (userHasTickets) {
-                icon  = <ShoppingCart className="w-4 h-4" aria-hidden="true" />;
+                icon = <ShoppingCart className="w-4 h-4" aria-hidden="true" />;
                 label = t('common.buyMoreTickets');
               } else {
-                icon  = <Ticket className="w-4 h-4" aria-hidden="true" />;
+                icon = <Ticket className="w-4 h-4" aria-hidden="true" />;
                 label = t('common.participate');
               }
 
@@ -654,10 +721,10 @@ export function TicketPurchaseCard({
           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-3.5 h-3.5" />
-              <span>{t("competitionDetails.left")}</span>
+              <span>{isActive ? t("competitionDetails.left") : "Tickets Sold"}</span>
             </div>
             <div className="text-white">
-              <span className="text-primary">{remaining.toLocaleString()}</span>
+              <span className="text-primary">{(isActive ? remaining : sold).toLocaleString()}</span>
               <span className="text-muted-foreground opacity-50"> / {total.toLocaleString()}</span>
             </div>
           </div>
@@ -698,7 +765,7 @@ export function BigCountdown({ endsAt }) {
 
   useEffect(() => {
     if (!endsAt) return;
-    
+
     const calculate = () => {
       const diff = Math.max(0, endsAt - Date.now());
       const s = Math.floor(diff / 1000) % 60;
@@ -730,7 +797,7 @@ export function BigCountdown({ endsAt }) {
         </div>
         <h3 className="font-serif font-bold text-lg text-(--color-foreground)">Draw Countdown</h3>
       </div>
-      
+
       <div className="grid grid-cols-4 gap-3">
         {segments.map((seg) => (
           <div key={seg.label} className="relative group">
@@ -868,7 +935,7 @@ export function ParticipantsSection({ participants }) {
 
 export function InstagramLiveCard({ url }) {
   const { t } = useTranslation();
-  
+
   return (
     <div className="bg-[#121212] border border-white/5 rounded-3xl p-6 shadow-2xl">
       <div className="flex items-center gap-4 mb-6">
@@ -894,11 +961,11 @@ export function InstagramLiveCard({ url }) {
               </p>
             </div>
           </div>
-          
+
           {url ? (
-            <a 
-              href={url} 
-              target="_blank" 
+            <a
+              href={url}
+              target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-black text-primary uppercase tracking-widest hover:scale-105 transition-transform cursor-pointer"
             >
@@ -910,7 +977,7 @@ export function InstagramLiveCard({ url }) {
             </span>
           )}
         </div>
-        
+
         {!url && (
           <div className="mt-4 pt-4 border-t border-white/5">
             <p className="text-[10px] font-medium text-muted-foreground/40 italic">
@@ -924,52 +991,55 @@ export function InstagramLiveCard({ url }) {
 }
 
 
-export function ReviewSection({ winnerName, comment, rating, date }) {
+export function WinnerHallOfFame({ status, winnerName, ticketNumber, comment, rating, date }) {
   const { t } = useTranslation();
+  const isCompleted = status === 'completed';
 
-  if (!comment) return null;
+  if (!isCompleted || !comment) return null;
 
   return (
     <div className="mt-16 relative">
-      {/* Decorative background */}
+      {/* Decorative background glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-primary/5 blur-[120px] rounded-full -z-10" />
-      
+
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-10 space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
-            <Sparkles size={12} />
+            <Quote size={12} />
             Winner's Experience
           </div>
-          <h2 className="text-3xl font-serif font-bold text-white">What the winner said</h2>
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-white">What the winner said</h2>
         </div>
 
-        <div className="relative bg-card border border-border/60 rounded-[2.5rem] p-8 md:p-12 shadow-2xl overflow-hidden">
-          {/* Quote icon decoration */}
-          <Quote className="absolute top-8 left-8 text-primary/10 w-24 h-24 z-0" />
-          
-          <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-            {/* Rating Stars */}
-            <div className="flex gap-1.5">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  size={20}
-                  className={i < Math.floor(rating) ? "fill-amber-500 text-amber-500" : "text-border"}
-                />
-              ))}
-            </div>
+        <div className="relative group">
+          <div className="relative bg-[#121212] border border-white/10 rounded-[2.5rem] p-8 md:p-12 shadow-2xl overflow-hidden transition-all duration-500 hover:border-primary/30">
+            <Quote className="absolute top-8 left-8 text-primary/10 w-24 h-24 z-0" />
 
-            {/* Comment */}
-            <p className="text-xl md:text-2xl font-medium text-white italic leading-relaxed">
-              "{comment}"
-            </p>
+            <div className="relative z-10 flex flex-col items-center text-center space-y-8">
+              <div className="space-y-6 w-full">
+                {/* Rating Stars */}
+                <div className="flex justify-center gap-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      size={24}
+                      className={i < Math.floor(rating || 5) ? "fill-amber-500 text-amber-500" : "text-white/10"}
+                    />
+                  ))}
+                </div>
 
-            {/* Winner Info */}
-            <div className="pt-6 border-t border-border/40 w-full max-w-xs">
-              <p className="font-bold text-white">{winnerName || "The Winner"}</p>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
-                Verified Winner · {date ? new Date(date).toLocaleDateString() : ""}
-              </p>
+                {/* Comment */}
+                <p className="text-lg md:text-xl font-medium text-white/90 italic leading-relaxed max-w-2xl mx-auto">
+                  "{comment}"
+                </p>
+
+                <div className="pt-8 border-t border-white/5 flex flex-col items-center">
+                  <p className="font-bold text-white mb-1">{winnerName}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Verified Winner · {date ? new Date(date).toLocaleDateString() : "Recent"}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -86,6 +86,7 @@
     "subtitle": "De vraies personnes, de vrais lots. Consultez leurs témoignages.",
     "prizeWon": "Lot gagné",
     "tickets": "Tickets",
+    "noComments": "Aucun commentaire",
     "launchTitle": "1 247 gagnants depuis notre lancement",
     "launchText": "Chaque tirage est filmé en direct et les vidéos sont accessibles publiquement. La transparence n'est pas une option, c'est notre engagement."
   },
@@ -197,6 +198,7 @@
     "hallOfFame": "Hall of Fame",
     "title": "Nos gagnants",
     "subtitle": "Ils ont participé, ils ont gagné. Découvrez les heureux gagnants de nos concours et leurs témoignages.",
-    "ticket": "Ticket"
+    "ticket": "Ticket",
+    "noComments": "Aucun commentaire"
   }
 }

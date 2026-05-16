@@ -16,7 +16,7 @@ import {
   BigCountdown,
   InstagramLiveCard,
   WhatsIncluded,
-  ReviewSection,
+  WinnerHallOfFame,
 } from '@/modules/user/competitions/components/CompetitionDetailsSections';
 import WinnerReviewForm from '@/modules/user/competitions/components/WinnerReviewForm';
 import { SkillGateModalContent } from '@/modules/user/competitions/components/SkillGateModalContent';
@@ -249,14 +249,14 @@ export default function CompetitionDetails() {
 
           <ParticipantsSection participants={c.participants} />
 
-          {c.status === 'completed' && c.winner_comment && (
-            <ReviewSection 
-              winnerName={c.participants?.find(p => p.id === (typeof c.winner_ref === 'string' ? c.winner_ref : c.winner_ref?.id))?.name || 'The Winner'}
-              comment={c.winner_comment}
-              rating={c.winner_rating}
-              date={c.winner_review_at?.toMillis ? c.winner_review_at.toMillis() : c.winner_review_at}
-            />
-          )}
+          <WinnerHallOfFame 
+            status={c.status}
+            winnerName={c.winner_name}
+            ticketNumber={c.winner_ticket_number}
+            comment={c.winner_comment}
+            rating={c.winner_rating}
+            date={c.winner_review_at?.toMillis ? c.winner_review_at.toMillis() : c.winner_review_at}
+          />
 
           <div className="pb-20" />
         </div>

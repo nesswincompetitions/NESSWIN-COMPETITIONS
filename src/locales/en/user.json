@@ -87,6 +87,7 @@
     "subtitle": "Real people, real prizes. Read their testimonials.",
     "prizeWon": "Prize Won",
     "tickets": "Tickets",
+    "noComments": "No comments",
     "launchTitle": "1,247 winners since our launch",
     "launchText": "Every draw is filmed live and videos are publicly available. Transparency is not optional - it is our commitment."
   },
@@ -199,6 +200,7 @@
     "hallOfFame": "Hall of Fame",
     "title": "Our Winners",
     "subtitle": "They participated, they won. Discover the lucky winners of our competitions and their testimonials.",
-    "ticket": "Ticket"
+    "ticket": "Ticket",
+    "noComments": "No comments"
   }
 }

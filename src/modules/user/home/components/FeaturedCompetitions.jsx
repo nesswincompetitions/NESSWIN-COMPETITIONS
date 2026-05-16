@@ -67,7 +67,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
               ? t("common.soldOut").toUpperCase()
               : isClosed || isReadyToDraw
               ? t("common.drawPending").toUpperCase()
-              : badgeLabel.toUpperCase()}
+              : t("common.active").toUpperCase()}
           </Badge>
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary">
@@ -199,7 +199,7 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
           images: data.image || [],
           created_at: data.created_at?.toMillis() || 0,
           badgeType: 'new',
-          badgeLabel: 'Active',
+          badgeLabel: data.status,
           ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
           category: data.category || 'Other',
           title: data.title || 'Untitled',

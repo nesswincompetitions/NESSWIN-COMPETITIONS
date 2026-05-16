@@ -313,6 +313,12 @@ const CompetitionDetail = () => {
 
   const handleStartLiveDraw = async () => {
     if (!competition?.id) return;
+
+    if (!competition.instagram_live_url) {
+      toast.error('Instagram Live URL is required to start the draw. Please add it in the Edit tab.');
+      return;
+    }
+
     if (competition.status !== 'ready_to_draw') {
       toast.error('Only competitions with status Draw Soon can start live draw.');
       return;

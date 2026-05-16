@@ -15,10 +15,18 @@ function WinnerCard({ winner }) {
     competitionTitle,
     priceLabel,
     ticketNumber,
-    drawDate,
+    drawDateRaw,
     quote,
     image,
   } = winner;
+
+  const { i18n } = useTranslation();
+  const noCommentsLabel = t("winnersPage.noComments") || t("winnersShowcase.noComments");
+  const isNoQuote = !quote || quote === "";
+
+  const formattedDate = drawDateRaw 
+    ? new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' }).format(drawDateRaw)
+    : "—";
 
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] hover:border-[var(--color-primary)]/30 hover:shadow-xl hover:shadow-[var(--color-primary)]/10 transition-all duration-300">
@@ -81,21 +89,21 @@ function WinnerCard({ winner }) {
             </span>
             <span className="flex items-center gap-1 text-[var(--color-muted-foreground)]">
               <Calendar className="w-3 h-3" aria-hidden="true" />
-              {drawDate}
+              {formattedDate}
             </span>
           </div>
         </div>
 
         {/* Testimonial quote */}
-        <div className="relative pl-4">
-          {quote !== "No comments" && (
+        <div className="relative pl-4 flex-1">
+          {!isNoQuote && (
             <Quote
               className="absolute top-0 left-0 w-3.5 h-3.5 text-[var(--color-primary)]/40"
               aria-hidden="true"
             />
           )}
-          <p className={`text-sm leading-relaxed ${quote === "No comments" ? "text-[var(--color-muted-foreground)]/50 not-italic" : "text-[var(--color-muted-foreground)] italic"}`}>
-            {quote}
+          <p className={`text-sm leading-relaxed ${isNoQuote ? "text-[var(--color-muted-foreground)]/50 not-italic" : "text-[var(--color-muted-foreground)] italic"}`}>
+            {isNoQuote ? noCommentsLabel : quote}
           </p>
         </div>
 

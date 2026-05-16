@@ -33,15 +33,24 @@ const COLOR_THEMES = [
 
 
 function WinnerCard({ winner }) {
-  const { t } = useTranslation();
-  const { initials, name, prizeName, amount, quote, date, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
+  const { i18n, t } = useTranslation();
+  const { initials, name, prizeName, amount, quote, drawDateRaw, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
+
+  // Localized placeholder
+  const noCommentsLabel = t("winnersShowcase.noComments");
+  const isNoQuote = !quote || quote === "";
+
+  // Localized date
+  const formattedDate = drawDateRaw 
+    ? new Intl.DateTimeFormat(i18n.language, { month: 'short', year: 'numeric' }).format(drawDateRaw)
+    : "—";
 
   return (
     <article className={`relative flex flex-col gap-4 p-5 rounded-2xl border border-border/60 bg-card overflow-hidden group`}>
       {/* Hover gradient */}
       <div className={`absolute inset-0 bg-linear-to-br ${accentFrom} ${accentTo} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
-      {quote !== "No comments" && (
+      {!isNoQuote && (
         <Quote className="w-6 h-6 text-primary/20 absolute top-4 right-4" aria-hidden="true" />
       )}
 
@@ -65,15 +74,15 @@ function WinnerCard({ winner }) {
       </div>
 
       {/* Quote */}
-      <p className={`text-sm leading-relaxed relative z-10 flex-1 ${quote === "No comments" ? "text-muted-foreground/50 not-italic" : "text-muted-foreground italic"}`}>
-        {quote === "No comments" ? quote : `"${quote}"`}
+      <p className={`text-sm leading-relaxed relative z-10 flex-1 ${isNoQuote ? "text-muted-foreground/50 not-italic" : "text-muted-foreground italic"}`}>
+        {isNoQuote ? noCommentsLabel : `"${quote}"`}
       </p>
 
       {/* Footer */}
       <div className="flex items-center justify-between text-[10px] text-muted-foreground relative z-10 pt-2 border-t border-border/40">
         <span className="flex items-center gap-1">
           <Calendar className="w-2.5 h-2.5" aria-hidden="true" />
-          {date}
+          {formattedDate}
         </span>
         <span>
           {t("winnersShowcase.tickets")}: <span className="text-(--color-foreground) font-medium">{ticketPrice}</span>

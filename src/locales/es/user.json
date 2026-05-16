@@ -86,6 +86,7 @@
     "subtitle": "Gente real, premios reales. Lee sus testimonios.",
     "prizeWon": "Premio Ganado",
     "tickets": "Entradas",
+    "noComments": "Sin comentarios",
     "launchTitle": "1,247 ganadores desde nuestro lanzamiento",
     "launchText": "Cada sorteo se filma en vivo y los videos están disponibles públicamente. La transparencia no es opcional, es nuestro compromiso."
   },
@@ -192,6 +193,7 @@
     "hallOfFame": "Salón de la Fama",
     "title": "Nuestros Ganadores",
     "subtitle": "Participaron, ganaron. Descubre a los afortunados ganadores de nuestros sorteos y sus testimonios.",
-    "ticket": "Entrada"
+    "ticket": "Entrada",
+    "noComments": "Sin comentarios"
   }
 }

@@ -28,7 +28,7 @@ const mapCompetitionCardData = (id, data = {}) => {
     image: data.image?.[0] || FALLBACK_IMAGE,
     images: data.image?.length > 0 ? data.image : [FALLBACK_IMAGE],
     badgeType: data.status === 'active' ? 'new' : 'ended',
-    badgeLabel: data.status === 'active' ? 'Active' : data.status,
+    badgeLabel: data.status,
     ticketPrice: data.ticket_price || 0,
     ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
     category: data.category || 'Other',
@@ -129,9 +129,35 @@ export const fetchCompetitionWithParticipants = async (id) => {
     })
   );
 
+  let winnerName = null;
+  let winnerTicketNumber = null;
+
+  try {
+    const promises = [];
+    if (data.winner_ref) promises.push(getDoc(data.winner_ref));
+    else promises.push(Promise.resolve(null));
+
+    if (data.winner_ticket_ref) promises.push(getDoc(data.winner_ticket_ref));
+    else promises.push(Promise.resolve(null));
+
+    const [winnerSnap, ticketSnap] = await Promise.all(promises);
+
+    if (winnerSnap?.exists()) {
+      const wData = winnerSnap.data();
+      winnerName = wData.display_name || wData.name || 'Winner';
+    }
+    if (ticketSnap?.exists()) {
+      winnerTicketNumber = ticketSnap.data().ticket_sequence;
+    }
+  } catch (err) {
+    console.error('Error resolving winner details:', err);
+  }
+
   return {
     ...baseData,
     winner_ref: data.winner_ref || null,
+    winner_name: winnerName,
+    winner_ticket_number: winnerTicketNumber,
     winner_comment: data.winner_comment || '',
     winner_rating: data.winner_rating || null,
     winner_review_at: data.winner_review_at || null,
@@ -301,13 +327,9 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
             priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
             amount: `${data.prize_value?.toLocaleString() || 0} €`, // For WinnersShowcase
             ticketNumber: ticketData?.ticket_sequence || '—',
-            drawDate: data.draw_date?.toDate() 
-              ? data.draw_date.toDate().toLocaleDateString(i18n.language || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-              : '—',
-            date: data.draw_date?.toDate()
-              ? data.draw_date.toDate().toLocaleDateString(i18n.language || 'en-GB', { month: 'short', year: 'numeric' })
-              : '—', // For WinnersShowcase
-            quote: data.winner_comment || "No comments",
+            ticketNumber: ticketData?.ticket_sequence || '—',
+            drawDateRaw: data.draw_date?.toDate() || null,
+            quote: data.winner_comment || "",
             image: data.image?.[0] || FALLBACK_IMAGE,
             ticketPrice: `${data.ticket_price || 0} €`,
           };

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import Modal from '@/shared/components/ui/Modal';
+import WinnerReviewForm from '@/modules/user/competitions/components/WinnerReviewForm';
+import { Sparkles, Star } from 'lucide-react';
 
 const formatDate = (ts) => {
   if (!ts) return 'N/A';
@@ -26,14 +28,17 @@ const STATUS_MAP = {
   sold_out:         { label: 'Sold Out',         classes: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
   winner_announced: { label: 'Draw Ended',       classes: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
   completed:        { label: 'Completed',        classes: 'bg-white/5 text-white/40 border-white/10' },
-  won:              { label: 'Winner!',          classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
+  won:              { label: 'Winner',           classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
   lost:             { label: 'Ended',            classes: 'bg-white/5 text-white/40 border-white/10' },
   default:          { label: 'Pending',          classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
 };
 
-function CompetitionGroupCard({ compData, onViewAll }) {
+function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
   const navigate = useNavigate();
-  const { competition, tickets, orders } = compData;
+  const { competition, tickets: allTickets, orders } = compData;
+  
+  const isWonTab = activeTab === 'won';
+  const tickets = isWonTab ? allTickets.filter(t => t.is_winner) : allTickets;
   
   const image = competition?.image?.[0];
   
@@ -93,19 +98,38 @@ function CompetitionGroupCard({ compData, onViewAll }) {
             </span>
           </div>
 
-          <div className="mt-auto flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
-            <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
-              <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
-              {totalTickets} Tickets
-            </span>
-            <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4" />
-              Draw: {competition?.draw_date ? formatDate(competition.draw_date) : 'TBC'}
-            </span>
-            <div className="ml-auto flex items-center gap-1 text-[var(--color-primary)] font-semibold text-xs">
-              View <ChevronRight className="w-3.5 h-3.5" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-auto">
+            <div className="flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
+              <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
+                <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
+                {totalTickets} Tickets
+              </span>
+              <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-4 h-4" />
+                Draw: {competition?.draw_date ? formatDate(competition.draw_date) : 'TBC'}
+              </span>
             </div>
+
+            {isWinner && rawStatus === 'completed' && !competition?.winner_comment && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddReview(competition.id);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-primary to-amber-500 rounded-xl text-black font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all cursor-pointer whitespace-nowrap"
+              >
+                <Sparkles size={14} className="animate-pulse" />
+                Share Your Victory
+              </button>
+            )}
+
+            {isWinner && competition?.winner_comment && (
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-[10px] uppercase tracking-widest">
+                <Star size={12} className="fill-emerald-400" />
+                Experience Shared
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -170,6 +194,7 @@ export default function MyTicketsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('active');
   const [selectedCompData, setSelectedCompData] = useState(null);
+  const [reviewCompId, setReviewCompId] = useState(null);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -341,7 +366,18 @@ export default function MyTicketsPage() {
                 <CompetitionGroupCard 
                   key={compData.competition.id} 
                   compData={compData} 
-                  onViewAll={() => setSelectedCompData(compData)}
+                  activeTab={activeTab}
+                  onAddReview={(id) => setReviewCompId(id)}
+                  onViewAll={() => {
+                    if (activeTab === 'won') {
+                      setSelectedCompData({
+                        ...compData,
+                        tickets: compData.tickets.filter(t => t.is_winner)
+                      });
+                    } else {
+                      setSelectedCompData(compData);
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -428,6 +464,22 @@ export default function MyTicketsPage() {
             >
               Close
             </button>
+          </div>
+        </Modal>
+
+        {/* Winner Review Modal */}
+        <Modal
+          isOpen={!!reviewCompId}
+          onClose={() => setReviewCompId(null)}
+          title="Share Your Experience"
+          description="Congratulations on your win! We'd love to hear about your experience."
+        >
+          <div className="py-2">
+            <WinnerReviewForm 
+              competitionId={reviewCompId}
+              userId={currentUser.uid}
+              onReviewSubmitted={() => setReviewCompId(null)}
+            />
           </div>
         </Modal>
       </div>

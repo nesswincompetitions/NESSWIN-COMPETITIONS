@@ -126,7 +126,7 @@ function CompetitionCard({ competition, hasTicket }) {
               isReadyToDraw ? t("competitionsPage.statusFilters.drawSoon") : 
               isSoldOut ? t("common.soldOut") : 
               isClosed ? t("common.closed") : 
-              badgeLabel
+              t("common.active")
             } 
           />
         </div>
@@ -332,7 +332,7 @@ export default function CompetitionsPage() {
             image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
             images: data.image || [],
             badgeType: data.status === 'active' ? 'new' : 'ended',
-            badgeLabel: data.status === 'active' ? 'Active' : (data.status === 'ready_to_draw' ? 'Draw Soon' : (data.status === 'sold_out' ? 'Sold Out' : (data.status === 'winner_announced' ? 'Winner Announced' : (data.status === 'completed' ? 'Completed' : data.status)))),
+            badgeLabel: data.status,
             ticketPrice: data.ticket_price || 0,
             ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
             category: data.category || 'Other',
