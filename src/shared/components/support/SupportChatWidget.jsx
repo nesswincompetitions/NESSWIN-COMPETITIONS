@@ -202,7 +202,10 @@ export default function SupportChatWidget({
   }, []);
 
   const scrollToBottom = useCallback((behavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+    const el = scrollAreaRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior });
+    }
   }, []);
 
   useEffect(() => {
@@ -286,26 +289,31 @@ export default function SupportChatWidget({
   const handleSendMessage = async (event) => {
     event.preventDefault();
     const trimmed = draftMessage.trim();
-    if (!trimmed && !attachmentFile) return;
+    const currentAttachment = attachmentFile;
+    
+    if (!trimmed && !currentAttachment) return;
     if (!chatId || !currentUserRef || !receiverRef) {
       toast.error('Support chat is not ready yet.');
       return;
     }
 
-    // Force scroll to bottom when user sends
+    // Clear UI immediately for an "instant" feel
+    setDraftMessage('');
+    clearAttachment();
     isNearBottomRef.current = true;
 
     setSending(true);
     try {
       let imageUrl = '';
-      if (attachmentFile) {
-        const [uploadedImage] = await uploadImages([attachmentFile], 'support-chats');
+      if (currentAttachment) {
+        const [uploadedImage] = await uploadImages([currentAttachment], 'support-chats');
         imageUrl = uploadedImage ?? '';
       }
       await sendMessage(chatId, currentUserRef, receiverRef, trimmed, imageUrl, isCurrentUserAdmin);
-      setDraftMessage('');
-      clearAttachment();
     } catch (error) {
+      // Restore the content if it failed so the user doesn't lose their message
+      setDraftMessage(trimmed);
+      setAttachmentFile(currentAttachment);
       toast.error(error.message || 'Failed to send message.');
     } finally {
       setSending(false);

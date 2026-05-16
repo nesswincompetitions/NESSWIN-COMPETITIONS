@@ -87,7 +87,7 @@
     "prizeWon": "Premio Ganado",
     "tickets": "Entradas",
     "noComments": "Sin comentarios",
-    "launchTitle": "1,247 ganadores desde nuestro lanzamiento",
+    "launchTitle": "{{count}} ganadores desde nuestro lanzamiento",
     "launchText": "Cada sorteo se filma en vivo y los videos están disponibles públicamente. La transparencia no es opcional, es nuestro compromiso."
   },
   "trust": {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Trophy, Calendar, Quote, Loader2 } from 'lucide-react';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
-import { subscribeRecentWinners } from '../../competitions/services/competitionService';
+import { subscribeRecentWinners, getPlatformWinnersCount } from '../../competitions/services/competitionService';
 
 const COLOR_THEMES = [
   {
@@ -96,6 +96,15 @@ export default function WinnersShowcase() {
   const { t } = useTranslation();
   const [winners, setWinners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalWinnersCount, setTotalWinnersCount] = useState(1247);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const count = await getPlatformWinnersCount();
+      if (count > 0) setTotalWinnersCount(count);
+    };
+    fetchCount();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeRecentWinners(4, (data) => {
@@ -156,7 +165,7 @@ export default function WinnersShowcase() {
           <div className="mt-14 rounded-2xl border border-primary/20 bg-linear-to-br from-primary/8 to-primary/3 p-8 sm:p-12 text-center">
             <Trophy className="w-10 h-10 text-primary mx-auto mb-4" aria-hidden="true" />
             <h3 className="font-serif text-2xl sm:text-3xl font-bold mb-3 text-(--color-foreground)">
-              {t("winnersShowcase.launchTitle")}
+              {t("winnersShowcase.launchTitle", { count: totalWinnersCount.toLocaleString() })}
             </h3>
             <p className="text-muted-foreground max-w-lg mx-auto text-sm leading-relaxed">
               {t("winnersShowcase.launchText")}

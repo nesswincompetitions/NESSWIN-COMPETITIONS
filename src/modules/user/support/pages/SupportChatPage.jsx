@@ -80,7 +80,7 @@ export default function SupportChatPage() {
             chatType={chatData.chat_type}
             title={chatData.chat_type === 'winner_chat' ? 'Prize Handover Chat' : 'Support Chat'}
             closeLabel={chatData.chat_type === 'winner_chat' ? 'End Conversation' : 'Close Ticket'}
-            onCloseTicket={() => navigate('/profile')}
+            onCloseTicket={() => navigate('/profile/support')}
             unreadCount={chatData.unread_receiver_count ?? 0}
             status={chatData.status ?? 'active'}
           />

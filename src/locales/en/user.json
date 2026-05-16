@@ -88,7 +88,7 @@
     "prizeWon": "Prize Won",
     "tickets": "Tickets",
     "noComments": "No comments",
-    "launchTitle": "1,247 winners since our launch",
+    "launchTitle": "{{count}} winners since our launch",
     "launchText": "Every draw is filmed live and videos are publicly available. Transparency is not optional - it is our commitment."
   },
   "trust": {
@@ -150,6 +150,7 @@
       "ongoing": "Active",
       "drawSoon": "Draw Soon",
       "soldOut": "Sold Out",
+      "drawing": "Drawing",
       "completed": "Completed"
     },
     "categoryFilters": {

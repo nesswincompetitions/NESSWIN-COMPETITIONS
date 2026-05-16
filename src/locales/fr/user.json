@@ -87,7 +87,7 @@
     "prizeWon": "Lot gagné",
     "tickets": "Tickets",
     "noComments": "Aucun commentaire",
-    "launchTitle": "1 247 gagnants depuis notre lancement",
+    "launchTitle": "{{count}} gagnants depuis notre lancement",
     "launchText": "Chaque tirage est filmé en direct et les vidéos sont accessibles publiquement. La transparence n'est pas une option, c'est notre engagement."
   },
   "trust": {

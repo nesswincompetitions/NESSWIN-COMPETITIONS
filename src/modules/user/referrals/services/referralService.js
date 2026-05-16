@@ -191,11 +191,13 @@ export const subscribeAllReferrals = (uid, onData, onError) => {
     where('referrer_id', '==', referrerRef)
   );
 
+  // Cache referred user profiles outside the callback so they survive
+  // across snapshot updates (e.g. when reward_issued flips to true).
+  const userCache = new Map();
+
   return onSnapshot(
     q,
     async (snapshot) => {
-      const userCache = new Map();
-
       const referrals = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
           const data = docSnap.data();

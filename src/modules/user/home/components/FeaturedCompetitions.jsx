@@ -6,6 +6,7 @@ import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { subscribeLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { getCachedCompetitionList, cacheCompetitionList } from '@/shared/services/competitionCache';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 
 function CompetitionCard({ competition, onNavigate, hasTicket }) {
@@ -184,8 +185,10 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
 export default function FeaturedCompetitions({ onLoadComplete }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [featuredComps, setFeaturedComps] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Pre-populate from cache for instant render on home page revisit.
+  // The live subscriber refreshes this as soon as it connects.
+  const [featuredComps, setFeaturedComps] = useState(() => getCachedCompetitionList('featured_competitions') || []);
+  const [loading, setLoading] = useState(() => !getCachedCompetitionList('featured_competitions'));
   const { ticketedIds } = useUserTicketedCompetitions();
 
   useEffect(() => {
@@ -217,7 +220,10 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
           return b.created_at - a.created_at;
         });
 
-        setFeaturedComps(sorted.slice(0, 6));
+        const sliced = sorted.slice(0, 6);
+        // Save to cache so next visit to home page shows comps instantly
+        cacheCompetitionList('featured_competitions', sliced);
+        setFeaturedComps(sliced);
         setLoading(false);
         if (onLoadComplete) onLoadComplete();
       },

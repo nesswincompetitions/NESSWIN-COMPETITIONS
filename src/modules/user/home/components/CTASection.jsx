@@ -1,5 +1,5 @@
 import { Trophy, LogIn } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
@@ -7,7 +7,11 @@ import { useAuth } from '@/shared/state/AuthContext';
 export default function CTASection() {
   const { t } = useTranslation();
   const { currentUser } = useAuth();
-  
+  const navigate = useNavigate();
+
+  const handleWatchNextDraw = () => {
+    navigate('/competitions?status=drawing');
+  };
   return (
     <section className="py-24 px-6 bg-(--color-background) relative overflow-hidden">
       {/* Decorative background */}
@@ -52,7 +56,9 @@ export default function CTASection() {
                   {t("cta.signIn")}
                 </Link>
               )}
-              <button className={`inline-flex items-center justify-center gap-2 text-base font-medium px-8 py-3 rounded-md border transition-all cursor-pointer ${
+              <button 
+                onClick={handleWatchNextDraw}
+                className={`inline-flex items-center justify-center gap-2 text-base font-medium px-8 py-3 rounded-md border transition-all cursor-pointer ${
                 currentUser 
                   ? 'bg-primary text-(--color-primary-foreground) border-primary hover:opacity-90' 
                   : 'border-border hover:border-primary/40 hover:bg-primary/5 text-(--color-foreground)'

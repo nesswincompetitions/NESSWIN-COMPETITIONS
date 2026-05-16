@@ -115,7 +115,16 @@ export const signInWithApple = async () => {
   return userCredential.user;
 };
 
-export const logout = () => signOut(auth);
+export const logout = async () => {
+  // Clear the in-memory enrichment cache so the next user starts fresh
+  try {
+    const { clearAllCaches } = await import('@/shared/services/competitionCache');
+    clearAllCaches();
+  } catch (e) {
+    // Non-critical — proceed with logout regardless
+  }
+  return signOut(auth);
+};
 
 export const passwordReset = async (email) => {
   await sendPasswordResetEmail(auth, email);

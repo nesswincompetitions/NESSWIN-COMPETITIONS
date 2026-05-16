@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react'; 
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCircle } from 'lucide-react';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { subscribeLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
+import { getCachedCompetitionList, cacheCompetitionList } from '@/shared/services/competitionCache';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const STATUS_FILTER_KEYS = ["all", "ongoing", "drawSoon", "soldOut", "completed"];
+const STATUS_FILTER_KEYS = ["all", "ongoing", "drawSoon", "soldOut", "drawing", "completed"];
 const CATEGORY_FILTER_KEYS = ["allCategories", "cars", "watches", "travel", "realEstate", "tech", "other"];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -318,9 +319,19 @@ export default function CompetitionsPage() {
   const [activeStatusKey, setActiveStatusKey] = useState("all");
   const [activeCategoryKey, setActiveCategoryKey] = useState("allCategories");
   const [nowTs] = useState(() => Date.now());
-  const [liveCompetitions, setLiveCompetitions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Pre-populate from cache for instant restore on back-navigation.
+  // The live subscriber will update this as soon as it connects.
+  const [liveCompetitions, setLiveCompetitions] = useState(() => getCachedCompetitionList('all_competitions') || []);
+  const [loading, setLoading] = useState(() => !getCachedCompetitionList('all_competitions'));
   const { ticketedIds } = useUserTicketedCompetitions();
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+
+  useEffect(() => {
+    if (statusParam && STATUS_FILTER_KEYS.includes(statusParam)) {
+      setActiveStatusKey(statusParam);
+    }
+  }, [statusParam]);
 
   useEffect(() => {
     const unsubscribe = subscribeLiveCompetitions(
@@ -354,6 +365,8 @@ export default function CompetitionsPage() {
         });
 
         const sorted = fetchedComps.sort((a, b) => b.created_at - a.created_at);
+        // Save to cache so next navigation back to this page is instant
+        cacheCompetitionList('all_competitions', sorted);
         setLiveCompetitions(sorted);
         setLoading(false);
       },
@@ -373,6 +386,7 @@ export default function CompetitionsPage() {
       (activeStatusKey === "ongoing" && c.status === "active") ||
       (activeStatusKey === "drawSoon" && c.status === "ready_to_draw") ||
       (activeStatusKey === "soldOut" && c.status === "sold_out") ||
+      (activeStatusKey === "drawing" && c.status === "drawing") ||
       (activeStatusKey === "completed" && (c.status === "completed" || c.status === "end"));
 
     const categoryMap = {

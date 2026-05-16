@@ -130,6 +130,11 @@ export async function selectWinnerTransaction(
   const ticketSnap = ticketsSnap.docs[0];
   const ticketRef = ticketSnap.ref;
   const ticketData = ticketSnap.data();
+
+  if (normalizeStatus(ticketData.status) === "invalid") {
+    throw new HttpsError("failed-precondition", "The selected ticket is invalid and cannot be selected as a winner.");
+  }
+
   const { winnerRef, orderRef } = extractWinnerAndOrderRefs(ticketData);
 
   if (!winnerRef) {

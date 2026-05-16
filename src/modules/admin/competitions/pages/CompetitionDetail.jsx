@@ -88,6 +88,12 @@ const CompetitionDetail = () => {
 
     const competitionRef = doc(db, 'competition', id);
 
+    // Cache winner details between snapshot calls so that updates to sold_tickets
+    // don't trigger unnecessary winner/ticket Firestore reads.
+    let lastWinnerRefId = null;
+    let lastTicketRefId = null;
+    let cachedWinnerDetails = null;
+
     const unsub = onSnapshot(competitionRef, async (docSnap) => {
       if (!docSnap.exists()) {
         toast.error('Competition not found');
@@ -100,31 +106,41 @@ const CompetitionDetail = () => {
       const winnerRef = compDoc.winner_ref;
       const winnerTicketRef = compDoc.winner_ticket_ref;
 
-      let winnerDetails = null;
-      try {
-        if (winnerRef || winnerTicketRef) {
+      const currentWinnerId = winnerRef?.id ?? (typeof winnerRef === 'string' ? winnerRef : null);
+      const currentTicketId = winnerTicketRef?.id ?? (typeof winnerTicketRef === 'string' ? winnerTicketRef : null);
+      const winnerChanged = currentWinnerId !== lastWinnerRefId || currentTicketId !== lastTicketRefId;
+
+      if (winnerChanged && (winnerRef || winnerTicketRef)) {
+        try {
           const [winnerSnap, ticketSnap] = await Promise.all([
             winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
             winnerTicketRef ? getDoc(winnerTicketRef) : Promise.resolve(null),
           ]);
 
-          winnerDetails = {
+          cachedWinnerDetails = {
             user: winnerSnap?.exists() ? { id: winnerSnap.id, ...winnerSnap.data() } : null,
             ticket: ticketSnap?.exists() ? { id: ticketSnap.id, ...ticketSnap.data() } : null,
           };
+          lastWinnerRefId = currentWinnerId;
+          lastTicketRefId = currentTicketId;
+        } catch (err) {
+          console.error('Error resolving winner refs:', err);
         }
-      } catch (err) {
-        console.error('Error resolving winner refs:', err);
+      } else if (!winnerRef && !winnerTicketRef) {
+        cachedWinnerDetails = null;
+        lastWinnerRefId = null;
+        lastTicketRefId = null;
       }
+      // If refs unchanged: cachedWinnerDetails reused, 0 extra reads
 
       const sold = compDoc.sold_tickets || 0;
       const total = compDoc.total_tickets || 1000;
       const price = compDoc.ticket_price || 0;
-      const hydratedWinner = hydrateWinnerSummary({ ...compDoc, winnerDetails });
+      const hydratedWinner = hydrateWinnerSummary({ ...compDoc, winnerDetails: cachedWinnerDetails });
 
       setCompetition({
         ...compDoc,
-        winnerDetails,
+        winnerDetails: cachedWinnerDetails,
         price,
         prizeValue: compDoc.prize_value || 0,
         ticketsSold: sold,
@@ -320,7 +336,7 @@ const CompetitionDetail = () => {
     }
 
     if (competition.status !== 'ready_to_draw') {
-      toast.error('Only competitions with status Draw Soon can start live draw.');
+      toast.error('Only competitions with status Ready to Draw can start live draw.');
       return;
     }
 
@@ -483,7 +499,7 @@ const CompetitionDetail = () => {
                   return isStatusEnded ? (
                     <p className="text-sm text-emerald-400 font-bold uppercase tracking-wider">COMPLETED</p>
                   ) : (
-                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">Draw Soon</p>
+                    <p className="text-sm text-yellow-500 font-bold uppercase tracking-wider">Ready to Draw</p>
                   );
                 }
 
@@ -744,7 +760,7 @@ const CompetitionDetail = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-white">{t('competitions.detail.draw.title')}</h2>
                   <p className="text-gray-400 mt-2 max-w-md mx-auto">
-                    {`This competition is currently ${formatStatus(drawStatus).toLowerCase()}. Draw controls are only available when the status is Draw Soon.`}
+                    {`This competition is currently ${formatStatus(drawStatus).toLowerCase()}. Draw controls are only available when the status is Ready to Draw.`}
                   </p>
                 </div>
 
@@ -845,44 +861,53 @@ const CompetitionDetail = () => {
             </div>
 
             <div className="pt-4 space-y-4">
-              <label className="flex items-center justify-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={isDrawConfirmed}
-                    onChange={(e) => setIsDrawConfirmed(e.target.checked)}
-                    className="w-5 h-5 appearance-none border-2 border-gray-500 rounded bg-[#121212] checked:border-primary checked:bg-primary transition-colors peer"
-                  />
-                  <CheckCircle2 size={14} className="absolute text-black opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" strokeWidth={3} />
+              {competition.status === 'ready_to_draw' ? (
+                <>
+                  <label className="flex items-center justify-center gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        type="checkbox"
+                        checked={isDrawConfirmed}
+                        onChange={(e) => setIsDrawConfirmed(e.target.checked)}
+                        className="w-5 h-5 appearance-none border-2 border-gray-500 rounded bg-[#121212] checked:border-primary checked:bg-primary transition-colors peer"
+                      />
+                      <CheckCircle2 size={14} className="absolute text-black opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" strokeWidth={3} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+                      {t('competitions.detail.draw.confirmLabel')}
+                    </span>
+                  </label>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                      variant="primary"
+                      disabled={!isDrawConfirmed || isStartingDraw}
+                      onClick={handleStartLiveDraw}
+                      loading={isStartingDraw}
+                      className="w-full sm:w-auto px-8 py-4 text-lg font-bold"
+                    >
+                      Start Live Draw
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-4">Once started, the competition will be closed and you can select the winner.</p>
+                </>
+              ) : competition.status === 'drawing' ? (
+                <div className="flex flex-col items-center gap-4">
+                  <Button
+                    variant="primary"
+                    onClick={() => setWinnerModalOpen(true)}
+                    className="w-full sm:w-auto px-12 py-5 text-xl font-bold transition-all shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]"
+                  >
+                    Enter Winning Ticket
+                  </Button>
+                  <div className="text-sm text-emerald-400 font-medium animate-pulse flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    Live Draw in Progress
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
-                  {t('competitions.detail.draw.confirmLabel')}
-                </span>
-              </label>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Button
-                  variant="outline"
-                  disabled={isStartingDraw || competition.status !== 'ready_to_draw'}
-                  onClick={handleStartLiveDraw}
-                  loading={isStartingDraw}
-                >
-                  Start Live Draw
-                </Button>
-
-                <Button
-                  variant="primary"
-                  disabled={!isDrawConfirmed || competition.status !== 'drawing'}
-                  onClick={() => setWinnerModalOpen(true)}
-                  className={`w-full sm:w-auto px-8 py-4 text-lg font-bold transition-all ${isDrawConfirmed && competition.status === 'drawing'
-                    ? 'shadow-[0_0_20px_rgba(var(--color-primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(var(--color-primary-rgb),0.5)]'
-                    : 'opacity-50 cursor-not-allowed'
-                    }`}
-                >
-                  Enter Winning Ticket
-                </Button>
-              </div>
-              <p className="text-xs text-gray-500 mt-4">Start the draw first, then confirm the winning ticket sequence.</p>
+              ) : (
+                <p className="text-gray-500 italic">Competition is currently {competition.status.replace('_', ' ')}.</p>
+              )}
             </div>
           </>
           );
@@ -923,7 +948,7 @@ const CompetitionDetail = () => {
               const isTimeUp = competition.status === 'active' && competition.draw_date && competition.draw_date.toMillis() <= now.getTime();
               
               if (isTimeUp) {
-                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Draw Soon</Badge>;
+                return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready to Draw</Badge>;
               }
 
               if (competition.status === 'drawing') {
@@ -1084,7 +1109,7 @@ const CompetitionDetail = () => {
               type="text"
               value={winnerTicketSequence}
               onChange={(e) => setWinnerTicketSequence(e.target.value.toUpperCase())}
-              placeholder="Enter ticket number (eg. DT007)"
+              placeholder="Enter ticket number"
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-500 outline-none focus:border-primary"
               autoComplete="off"
             />

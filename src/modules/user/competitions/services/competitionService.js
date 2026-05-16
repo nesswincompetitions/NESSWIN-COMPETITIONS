@@ -1,4 +1,5 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { cacheUser, getCachedUser, cacheCompetitionList } from '@/shared/services/competitionCache';
 import i18n from '@/i18n';
 import { storage } from '@/config/firebase';
 import {
@@ -197,9 +198,24 @@ export const subscribeLiveCompetitions = (onData, onError) => {
 
 /**
  * Realtime listener for a single competition with resolved participant previews.
+ *
+ * Performance fix: Previously every snapshot update (e.g. sold_tickets++)
+ * triggered a full re-fetch of all participants and winner details (up to 33
+ * sequential Firestore round trips). Now we track which expensive fields have
+ * actually changed and only re-fetch when they do.
+ *
+ * - Live fields (sold_tickets, status, draw_date) update instantly, 0 extra reads.
+ * - Enrichment fields (participants, winner name) only re-fetched when refs change.
  */
 export const subscribeCompetitionWithParticipants = (competitionId, onData, onError) => {
   const compRef = doc(db, 'competition', competitionId);
+
+  let lastParticipantsSignature = null;
+  let lastWinnerRefId = null;
+  let cachedParticipants = [];
+  let cachedWinnerName = null;
+  let cachedWinnerTicketNumber = null;
+  let initialFetchDone = false;
 
   return onSnapshot(
     compRef,
@@ -209,16 +225,102 @@ export const subscribeCompetitionWithParticipants = (competitionId, onData, onEr
         return;
       }
 
-      try {
-        const competition = await fetchCompetitionWithParticipants(compSnap.id);
-        onData(competition);
-      } catch (err) {
-        if (onError) {
-          onError(err);
-        } else {
-          console.error('subscribeCompetitionWithParticipants error:', err);
+      const data = compSnap.data();
+      const baseData = mapCompetitionCardData(compSnap.id, data);
+      const rawParticipants = data.participants || [];
+
+      const participantsSignature = rawParticipants
+        .slice(0, 15)
+        .map((r) => (typeof r === 'string' ? r : r?.path ?? r?.id ?? ''))
+        .join(',');
+
+      const winnerRef = data.winner_ref;
+      const winnerRefId = winnerRef
+        ? (typeof winnerRef === 'string' ? winnerRef : (winnerRef?.id ?? winnerRef?.path ?? null))
+        : null;
+
+      const participantsChanged = participantsSignature !== lastParticipantsSignature;
+      const winnerChanged = winnerRefId !== lastWinnerRefId;
+      const needsEnrichment = !initialFetchDone || participantsChanged || winnerChanged;
+
+      if (needsEnrichment) {
+        try {
+          const participantsPromise = (!initialFetchDone || participantsChanged)
+            ? Promise.all(
+                rawParticipants.slice(0, 15).map(async (participantRef) => {
+                  try {
+                    const userRef = typeof participantRef === 'string'
+                      ? (participantRef.includes('/') ? doc(db, participantRef) : doc(db, 'user', participantRef))
+                      : participantRef;
+                    const userSnap = await getDoc(userRef);
+                    if (!userSnap.exists()) return null;
+                    const userData = userSnap.data();
+                    let ticketsCount = 1;
+                    try {
+                      const tq = query(
+                        collection(db, 'ticket'),
+                        where('competition_id', '==', compSnap.ref),
+                        where('user_id', '==', userRef)
+                      );
+                      const cs = await getCountFromServer(tq);
+                      ticketsCount = cs.data().count;
+                      if (ticketsCount === 0) {
+                        const sq = query(
+                          collection(db, 'ticket'),
+                          where('competition_id', '==', competitionId),
+                          where('user_id', '==', userRef.id)
+                        );
+                        const sc = await getCountFromServer(sq);
+                        ticketsCount = sc.data().count;
+                      }
+                    } catch (e) {
+                      console.error('Ticket count error:', e);
+                    }
+                    return { name: userData.display_name || userData.name || 'Anonymous User', tickets: ticketsCount };
+                  } catch (e) {
+                    return null;
+                  }
+                })
+              ).then((res) => res.filter(Boolean))
+            : Promise.resolve(cachedParticipants);
+
+          const winnerPromise = (!initialFetchDone || winnerChanged)
+            ? Promise.all([
+                winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
+                data.winner_ticket_ref ? getDoc(data.winner_ticket_ref) : Promise.resolve(null),
+              ]).then(([ws, ts]) => ({
+                winnerName: ws?.exists() ? (ws.data().display_name || ws.data().name || 'Winner') : null,
+                winnerTicketNumber: ts?.exists() ? ts.data().ticket_sequence : null,
+              }))
+            : Promise.resolve({ winnerName: cachedWinnerName, winnerTicketNumber: cachedWinnerTicketNumber });
+
+          const [resolvedParticipants, resolvedWinner] = await Promise.all([participantsPromise, winnerPromise]);
+
+          cachedParticipants = resolvedParticipants;
+          cachedWinnerName = resolvedWinner.winnerName;
+          cachedWinnerTicketNumber = resolvedWinner.winnerTicketNumber;
+          lastParticipantsSignature = participantsSignature;
+          lastWinnerRefId = winnerRefId;
+          initialFetchDone = true;
+        } catch (err) {
+          if (onError) onError(err);
+          else console.error('subscribeCompetitionWithParticipants error:', err);
+          return;
         }
       }
+
+      onData({
+        ...baseData,
+        winner_ref: data.winner_ref || null,
+        winner_name: cachedWinnerName,
+        winner_ticket_number: cachedWinnerTicketNumber,
+        winner_comment: data.winner_comment || '',
+        winner_rating: data.winner_rating || null,
+        winner_review_at: data.winner_review_at || null,
+        docRef: compSnap.ref,
+        rawParticipants,
+        participants: cachedParticipants,
+      });
     },
     onError
   );
@@ -270,6 +372,20 @@ export const submitWinnerReview = async (competitionId, userId, comment, rating)
 };
 
 /**
+ * Fetches the total number of winners across the platform.
+ */
+export const getPlatformWinnersCount = async () => {
+  try {
+    const q = query(collection(db, 'ticket'), where('is_winner', '==', true));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+  } catch (error) {
+    console.error("Failed to fetch winners count:", error);
+    return 0;
+  }
+};
+
+/**
  * Realtime listener for the most recent winners.
  * Resolves winner user and ticket details.
  */
@@ -290,19 +406,38 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
           const data = docSnap.data();
           const winnerRef = data.winner_ref;
           const ticketRef = data.winner_ticket_ref;
+          const winnerId = winnerRef?.id || (typeof winnerRef === 'string' ? winnerRef : null);
 
           let userData = null;
           let ticketData = null;
 
           try {
-            const [userSnap, ticketSnap] = await Promise.all([
-              winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
-              ticketRef ? getDoc(ticketRef) : Promise.resolve(null),
-            ]);
+            // ─── Cache-first user lookup ───────────────────────────────────
+            // Check if we've already fetched this winner's profile this session.
+            // This prevents re-fetching on every snapshot update (e.g. when
+            // sold_tickets changes), while still allowing the competition data
+            // itself to update in real-time from the snapshot.
+            const cachedUser = winnerId ? getCachedUser(winnerId) : null;
 
-            if (userSnap?.exists()) {
-              userData = userSnap.data();
+            if (cachedUser) {
+              // Use cached profile — no Firestore read needed
+              userData = {
+                display_name: cachedUser.name,
+                photo_url: cachedUser.photo,
+              };
+            } else {
+              // Not in cache — fetch from Firestore and store for next time
+              const userSnap = winnerRef ? await getDoc(winnerRef) : null;
+              if (userSnap?.exists()) {
+                userData = userSnap.data();
+                if (winnerId) {
+                  cacheUser(winnerId, userData);
+                }
+              }
             }
+
+            // Tickets are unique per-competition so we always fetch them
+            const ticketSnap = ticketRef ? await getDoc(ticketRef) : null;
             if (ticketSnap?.exists()) {
               ticketData = ticketSnap.data();
             }
@@ -325,8 +460,7 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
             prizeName: data.prize_name || data.title || 'Unknown Prize',
             competitionTitle: data.title || 'Untitled Competition',
             priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
-            amount: `${data.prize_value?.toLocaleString() || 0} €`, // For WinnersShowcase
-            ticketNumber: ticketData?.ticket_sequence || '—',
+            amount: `${data.prize_value?.toLocaleString() || 0} €`,
             ticketNumber: ticketData?.ticket_sequence || '—',
             drawDateRaw: data.draw_date?.toDate() || null,
             quote: data.winner_comment || "",

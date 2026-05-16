@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import SearchInput from '@/shared/components/ui/SearchInput';
-import { Calendar, Download, Eye, ExternalLink, Trophy } from 'lucide-react';
+import { Calendar, Download, Eye, ExternalLink, Trophy, Loader2 } from 'lucide-react';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import { useSearch } from '@/shared/hooks/useSearch';
@@ -120,7 +120,10 @@ const WinnersList = () => {
           </div>
 
           {loading ? (
-            <div className="p-12 text-center text-gray-400">Loading winners...</div>
+            <div className="p-20 flex flex-col items-center justify-center text-center">
+              <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
+              <p className="text-gray-400 text-sm font-medium">{t('common.loading')}...</p>
+            </div>
           ) : filteredWinners.length > 0 ? (
             <Table>
               <TableHeader>

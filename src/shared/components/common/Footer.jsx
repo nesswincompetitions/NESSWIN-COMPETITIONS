@@ -1,6 +1,7 @@
 import { MapPin, Phone, Building } from 'lucide-react';
 import { FaInstagram, FaTwitter, FaYoutube, FaGooglePlay } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 function LinkGroup({ heading, links }) {
   return (
@@ -11,12 +12,12 @@ function LinkGroup({ heading, links }) {
       <ul className="space-y-2.5">
         {links.map((link) => (
           <li key={link.label}>
-            <a
-              href={link.href}
+            <Link
+              to={link.href}
               className="text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               {link.label}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -28,9 +29,9 @@ export default function Footer() {
   const { t } = useTranslation();
   const platformLinks = [
     { label: t("footer.links.competitions"), href: "/competitions" },
-    { label: t("footer.links.howItWorks"), href: "/#how-it-works" },
+    { label: t("footer.links.howItWorks"), href: "/how-it-works" },
     { label: t("footer.links.winners"), href: "/winners" },
-    { label: t("footer.links.liveDraws"), href: "/live-draws" },
+    { label: t("footer.links.liveDraws"), href: "/competitions?status=drawing" },
   ];
 
   const companyLinks = [
@@ -55,7 +56,7 @@ export default function Footer() {
           <div className="lg:col-span-2 space-y-4">
             
             {/* Updated Logo Alignment & Sizing */}
-            <a href="/" className="inline-flex items-center gap-0 transition-opacity hover:opacity-90">
+            <Link to="/" className="inline-flex items-center gap-0 transition-opacity hover:opacity-90">
               <img
                 src="/nesswin_logo.svg"
                 alt="NessWin Icon"
@@ -66,7 +67,7 @@ export default function Footer() {
                 alt="NessWin Text"
                 className="h-10 lg:h-12 w-auto object-contain shrink-0 translate-y-1 lg:translate-y-1.5 -ml-1 lg:-ml-2"
               />
-            </a>
+            </Link>
 
             <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mt-2">
               {t("footer.description")}

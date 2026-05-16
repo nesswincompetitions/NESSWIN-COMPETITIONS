@@ -43,32 +43,50 @@ const WinnerDetail = () => {
   useEffect(() => {
     if (!competitionId) return;
 
+    // Cache winner details between snapshot calls.
+    // Winner user/ticket are only re-fetched when their refs actually change.
+    let lastWinnerRefId = null;
+    let lastTicketRefId = null;
+    let cachedWinnerDetails = null;
+
     const unsub = onSnapshot(doc(db, 'competition', competitionId), async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
-        // Resolve winner and ticket refs into usable objects so the UI shows full details
-        let winnerDetails = null;
-        try {
-          const winnerRef = data.winner_ref;
-          const winnerTicketRef = data.winner_ticket_ref;
+        // Compute ref IDs to detect if they've changed
+        const winnerRef = data.winner_ref;
+        const winnerTicketRef = data.winner_ticket_ref;
+        const currentWinnerId = winnerRef?.id ?? (typeof winnerRef === 'string' ? winnerRef : null);
+        const currentTicketId = winnerTicketRef?.id ?? (typeof winnerTicketRef === 'string' ? winnerTicketRef : null);
 
-          if (winnerRef || winnerTicketRef) {
+        const winnerChanged = currentWinnerId !== lastWinnerRefId || currentTicketId !== lastTicketRefId;
+
+        if (winnerChanged && (winnerRef || winnerTicketRef)) {
+          // Only hit Firestore when winner or ticket reference actually changes
+          try {
             const [winnerSnap, ticketSnap] = await Promise.all([
               winnerRef ? getDoc(winnerRef) : Promise.resolve(null),
               winnerTicketRef ? getDoc(winnerTicketRef) : Promise.resolve(null),
             ]);
 
-            winnerDetails = {
+            cachedWinnerDetails = {
               user: winnerSnap && winnerSnap.exists() ? { id: winnerSnap.id, ...winnerSnap.data() } : null,
               ticket: ticketSnap && ticketSnap.exists() ? { id: ticketSnap.id, ...ticketSnap.data() } : null,
             };
+            lastWinnerRefId = currentWinnerId;
+            lastTicketRefId = currentTicketId;
+          } catch (err) {
+            console.error('Error resolving winner refs:', err);
           }
-        } catch (err) {
-          console.error('Error resolving winner refs:', err);
+        } else if (!winnerRef && !winnerTicketRef) {
+          // No winner set — clear the cache
+          cachedWinnerDetails = null;
+          lastWinnerRefId = null;
+          lastTicketRefId = null;
         }
+        // If refs haven't changed: cachedWinnerDetails is reused, 0 extra reads
 
-        setCompetition({ id: docSnap.id, ...data, winnerDetails });
+        setCompetition({ id: docSnap.id, ...data, winnerDetails: cachedWinnerDetails });
       } else {
         toast.error('Competition not found');
         navigate('/admin/winners');
@@ -280,8 +298,9 @@ const WinnerDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={32} className="animate-spin text-primary" />
+      <div className="py-24 flex flex-col items-center justify-center text-center">
+        <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
+        <p className="text-gray-400 text-sm font-medium">{t('common.loading')}...</p>
       </div>
     );
   }

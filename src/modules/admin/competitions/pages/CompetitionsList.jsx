@@ -34,11 +34,10 @@ const CompetitionsList = () => {
   const tabs = [
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
-    { key: 'Ready', label: 'Draw Soon' },
+    { key: 'Ready', label: 'Ready to Draw' },
     { key: 'SoldOut', label: 'Sold Out' },
     { key: 'Completed', label: 'Completed' },
     { key: 'Drafts', label: 'Drafts' },
-    { key: 'Archived', label: t('common.archived') },
   ];
 
   const { data: competitions, loading } = useAdminCompetitionsFeed();
@@ -100,7 +99,7 @@ const CompetitionsList = () => {
 
   const filteredCompetitions = competitions.filter(c => {
     const now = new Date();
-    const isTimeUp = c.status === 'active' && c.countdownEnd && c.countdownEnd <= now;
+    const isTimeUp = c.status === 'active' && c.drawDate && c.drawDate.toMillis() <= now.getTime();
 
     // 1. Status Filter
     let statusMatch = true;
@@ -109,7 +108,6 @@ const CompetitionsList = () => {
     else if (activeTab === 'SoldOut') statusMatch = c.status === 'sold_out';
     else if (activeTab === 'Completed') statusMatch = c.status === 'completed' || c.status === 'end';
     else if (activeTab === 'Drafts') statusMatch = c.status === 'draft';
-    else if (activeTab === 'Archived') statusMatch = c.status === 'cancelled' || c.status === 'paused';
 
     // 2. Search Filter
     const searchMatch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -264,10 +262,10 @@ const CompetitionsList = () => {
                   <TableCell>
                     {(() => {
                       const now = new Date();
-                      const isTimeUp = comp.status === 'active' && comp.countdownEnd && comp.countdownEnd <= now;
+                      const isTimeUp = comp.status === 'active' && comp.drawDate && comp.drawDate.toMillis() <= now.getTime();
                       
                       if (isTimeUp) {
-                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Draw Soon</Badge>;
+                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready to Draw</Badge>;
                       }
                       
                       return (
