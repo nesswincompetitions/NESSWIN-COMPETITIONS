@@ -235,8 +235,9 @@ export default function FeaturedCompetitions({ onLoadComplete }) {
   }, []);
 
   const handleNavigate = (compId) => {
+    const competition = featuredComps.find(c => c.id === compId);
     const path = `/competitions/${compId}`;
-    navigate(path);
+    navigate(path, { state: { competition } });
   };
 
   return (

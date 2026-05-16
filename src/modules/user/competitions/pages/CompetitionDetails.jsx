@@ -275,8 +275,12 @@ export default function CompetitionDetails() {
     return unsubscribe;
   }, [id]);
 
-  if (!c) {
+  if (!c && !loading) {
     return <Navigate to="/competitions" replace />;
+  }
+
+  if (loading && !c) {
+    return <CompetitionSkeleton />;
   }
 
   return (
