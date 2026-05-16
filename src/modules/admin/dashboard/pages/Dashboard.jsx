@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAdminDashboardData } from '@/shared/hooks/useAdminData';
+import { formatStatus } from '@/shared/utils/formatters';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -147,9 +148,28 @@ const Dashboard = () => {
                     <TableRow key={i}>
                       <TableCell className="font-medium text-white">{comp.title}</TableCell>
                       <TableCell>
-                        <Badge variant="success">
-                          {t('common.active')}
-                        </Badge>
+                        {(() => {
+                          const now = new Date();
+                          const drawTime = comp.draw_date?.toMillis ? comp.draw_date.toMillis() : (comp.draw_date ? new Date(comp.draw_date).getTime() : null);
+                          const isTimeUp = comp.status === 'active' && drawTime && drawTime <= now.getTime();
+                          
+                          if (isTimeUp) {
+                            return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready to Draw</Badge>;
+                          }
+                          
+                          return (
+                            <Badge variant={
+                              comp.status === 'active' ? 'success' :
+                                comp.status === 'completed' || comp.status === 'end' ? 'success' :
+                                  comp.status === 'sold_out' ? 'danger' : 'warning'
+                            }>
+                              {comp.status === 'active' ? t('common.active') :
+                                comp.status === 'completed' || comp.status === 'end' ? 'Completed' :
+                                  comp.status === 'sold_out' ? 'Sold Out' :
+                                    formatStatus(comp.status)}
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">

@@ -360,15 +360,12 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
       }
       const selectedDateTime = new Date(`${formData.drawEndDate}T${formData.drawEndTime}`);
       
-      /* 
-      // TEMPORARILY DISABLED FOR TESTING
       const minAllowedTime = new Date(Date.now() + 12 * 60 * 60 * 1000);
       
       if (selectedDateTime < minAllowedTime) {
         toast.error("Draw date and time must be at least 12 hours from now");
         return;
       }
-      */
     }
 
     if (currentStep < steps.length - 1) setCurrentStep(prev => prev + 1);
