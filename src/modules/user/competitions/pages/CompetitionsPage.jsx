@@ -379,6 +379,7 @@ export default function CompetitionsPage() {
       cars: ["Cars", "Luxury Car"],
       watches: ["Watches", "Luxury Watch", "Jewellery"],
       travel: ["Travel", "Dream Travel", "Experiences"],
+      realEstate: ["Real Estate", "Luxury Home"],
       tech: ["Tech", "High-Tech", "Fashion"],
       allCategories: null,
     };

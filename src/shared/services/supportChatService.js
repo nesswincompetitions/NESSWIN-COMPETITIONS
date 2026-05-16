@@ -158,6 +158,35 @@ export const sendMessage = async (chatId, senderRefLike, receiverRefLike, textMe
       : { unread_sender_count: increment(1) }),
   });
 
+  if (isSenderAdmin) {
+    const notificationRef = doc(collection(db, 'ff_user_push_notifications'));
+    batch.set(notificationRef, {
+      category: "Messages",
+      chat_ref: chatRef,
+      competition_ref: null,
+      created_at: serverTimestamp(),
+      cta_text: "Open Chat",
+      initial_page_name: "chats",
+      is_read: false,
+      notification_image_url: imageUrl || "",
+      notification_sound: "default",
+      notification_text: trimmedMessage || (imageUrl ? "Sent an image" : "New message"),
+      notification_title: "New Message",
+      num_sent: 0,
+      order_ref: null,
+      parameter_data: JSON.stringify({
+        senderId: senderRef.id,
+        receiverId: receiverRef.id,
+        chatRef: `chats/${chatId}`
+      }),
+      sender: senderRef,
+      status: "",
+      timestamp: serverTimestamp(),
+      type: "new_message",
+      user_refs: receiverRef.path,
+    });
+  }
+
   await batch.commit();
 };
 
@@ -223,6 +252,38 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
     transaction.update(assignedAdminRef, {
       active_chats: nextActiveChats,
     });
+
+    // Create Push Notification for user
+    const chatData = chatSnap.data();
+    const userRef = chatData.sender_id;
+    if (userRef) {
+      const notificationRef = doc(collection(db, 'ff_user_push_notifications'));
+      transaction.set(notificationRef, {
+        category: "Messages",
+        chat_ref: chatRef,
+        competition_ref: null,
+        created_at: serverTimestamp(),
+        cta_text: "Open Chat",
+        initial_page_name: "chats",
+        is_read: false,
+        notification_image_url: "",
+        notification_sound: "default",
+        notification_text: "Your support ticket has been closed.",
+        notification_title: "Issue Resolved",
+        num_sent: 0,
+        order_ref: null,
+        parameter_data: JSON.stringify({
+          senderId: closedByRef.id,
+          receiverId: userRef.id,
+          chatRef: `chats/${chatId}`
+        }),
+        sender: closedByRef,
+        status: "",
+        timestamp: serverTimestamp(),
+        type: "issue_resolved",
+        user_refs: userRef.path,
+      });
+    }
   });
 };
 

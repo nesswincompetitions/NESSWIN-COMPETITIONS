@@ -5,6 +5,10 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
+  query,
+  where,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
@@ -147,27 +151,29 @@ export const createAppNotification = async ({
  * @param {Function} callback - Success callback receiving the notifications array
  * @returns {Function} - Unsubscribe function
  */
-export const fetchUserNotifications = (userUid, callback) => {
+export const fetchUserNotifications = (userUid, callback, isAdmin = false) => {
   if (!userUid) return () => {};
 
   const userPath = `user/${userUid}`;
   const userRef = doc(db, 'user', userUid);
   let readIds = new Set();
-  let currentNotifications = [];
+  let broadcastNotifications = [];
+  let userNotifications = [];
 
   const emit = () => {
-    const merged = currentNotifications.map((notif) => ({
+    const allNotifications = [...userNotifications, ...broadcastNotifications];
+    
+    const merged = allNotifications.map((notif) => ({
       ...notif,
       is_read: notif.is_read || readIds.has(notif.id),
     }));
 
     const sorted = merged.sort((a, b) => {
-      const timeA = a.timestamp?.toMillis?.() || a.created_at?.toMillis?.() || 0;
-      const timeB = b.timestamp?.toMillis?.() || b.created_at?.toMillis?.() || 0;
+      const timeA = a.timestamp?.toMillis?.() || a.created_at?.toMillis?.() || a.scheduled_time?.toMillis?.() || 0;
+      const timeB = b.timestamp?.toMillis?.() || b.created_at?.toMillis?.() || b.scheduled_time?.toMillis?.() || 0;
       return timeB - timeA;
     });
 
-    console.log(`[notificationService] Fetched ${sorted.length} notifications for user ${userUid}`);
     callback(sorted);
   };
 
@@ -189,10 +195,10 @@ export const fetchUserNotifications = (userUid, callback) => {
     }
   );
 
-  const unsubscribeNotifications = onSnapshot(
+  const unsubscribeUserNotifications = onSnapshot(
     collection(db, 'ff_user_push_notifications'),
     (snapshot) => {
-      currentNotifications = snapshot.docs
+      userNotifications = snapshot.docs
         .map((docSnap) => {
           const data = docSnap.data();
           return {
@@ -206,13 +212,40 @@ export const fetchUserNotifications = (userUid, callback) => {
       emit();
     },
     (error) => {
-      console.error('[notificationService] Error fetching notifications:', error);
+      console.error('[notificationService] Error fetching user notifications:', error);
     }
   );
 
+  let unsubscribeBroadcastNotifications = () => {};
+  if (!isAdmin) {
+    unsubscribeBroadcastNotifications = onSnapshot(
+      query(
+        collection(db, 'ff_push_notifications'),
+        where('target_audience', '==', 'All'),
+        limit(20)
+      ),
+      (snapshot) => {
+        broadcastNotifications = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            is_read: false,
+          };
+        });
+
+        emit();
+      },
+      (error) => {
+        console.error('[notificationService] Error fetching broadcast notifications:', error);
+      }
+    );
+  }
+
   return () => {
     unsubscribeUser();
-    unsubscribeNotifications();
+    unsubscribeUserNotifications();
+    unsubscribeBroadcastNotifications();
   };
 };
 

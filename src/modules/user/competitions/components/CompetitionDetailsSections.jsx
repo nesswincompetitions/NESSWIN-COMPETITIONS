@@ -31,7 +31,7 @@ import { useAuth } from '@/shared/state/AuthContext';
 import { useUserData } from '@/contexts/UserContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Confetti = () => {
+export const Confetti = () => {
   const particles = Array.from({ length: 40 });
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -521,6 +521,36 @@ export function TicketPurchaseCard({
       </div>
 
       <div className="p-6 space-y-5">
+        {/* Your Tickets - Visible only for active competitions */}
+        {currentUser && userTickets.length > 0 && status === 'active' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Ticket className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Your Tickets</span>
+              </div>
+              <button
+                onClick={onViewAllTickets}
+                className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
+              >
+                View All ({userTickets.length})
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {userTickets.slice(0, 4).map((tk) => (
+                <div key={tk.id} className="h-10 rounded-lg bg-white/3 border border-white/5 flex items-center justify-center">
+                  <span className="text-[10px] font-mono font-bold text-muted-foreground">{tk.ticket_sequence}</span>
+                </div>
+              ))}
+              {userTickets.length > 4 && (
+                <button onClick={onViewAllTickets} className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all">
+                  <span className="text-[10px] font-bold text-primary">+{userTickets.length - 4} more</span>
+                </button>
+              )}
+            </div>
+            <div className="h-px bg-border/40" />
+          </div>
+        )}
         {!currentUser ? (
           <>
             <div className="text-center space-y-2">
@@ -595,36 +625,6 @@ export function TicketPurchaseCard({
           </div>
         ) : ((skillPassed || competition.gateStatus === 'eligible') && !isClosed && isActive) ? (
           <div className="space-y-5">
-            {/* Existing tickets strip */}
-            {userTickets.length > 0 && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Ticket className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Your Tickets</span>
-                  </div>
-                  <button
-                    onClick={onViewAllTickets}
-                    className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
-                  >
-                    View All ({userTickets.length})
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {userTickets.slice(0, 4).map((tk) => (
-                    <div key={tk.id} className="h-10 rounded-lg bg-white/3 border border-white/5 flex items-center justify-center">
-                      <span className="text-[10px] font-mono font-bold text-muted-foreground">{tk.ticket_sequence}</span>
-                    </div>
-                  ))}
-                  {userTickets.length > 4 && (
-                    <button onClick={onViewAllTickets} className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all">
-                      <span className="text-[10px] font-bold text-primary">+{userTickets.length - 4} more</span>
-                    </button>
-                  )}
-                </div>
-                <div className="h-px bg-border/40" />
-              </div>
-            )}
 
             {/* Hybrid ticket selection panel */}
             <SelectTicketPanel
@@ -649,42 +649,9 @@ export function TicketPurchaseCard({
           <div className="text-center py-2">
             {!isActive && (
               <div className="space-y-4">
-                {isEnded && competition.winner_name ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="relative bg-linear-to-b from-primary/10 to-transparent border border-primary/20 rounded-2xl p-6 text-center overflow-hidden"
-                  >
-                    <Confetti />
-                    <div className="relative z-10 space-y-3">
-                      <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)]">
-                        <Trophy size={24} className="text-black" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Official Winner</p>
-                        <h4 className="text-xl font-bold text-white">{competition.winner_name}</h4>
-                      </div>
-                      <div className="inline-block px-4 py-1.5 rounded-lg bg-white/5 border border-white/10">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Winning Ticket</p>
-                        <p className="text-lg font-mono font-black text-primary">#{competition.winner_ticket_number}</p>
-                      </div>
-                    </div>
-                  </motion.div>
-                ) : isEnded ? (
-                  /* Celebratory Skeleton while loading winner details */
-                  <div className="animate-pulse bg-white/2 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center space-y-3">
-                    <div className="w-10 h-10 bg-white/5 rounded-full" />
-                    <div className="space-y-2 flex flex-col items-center">
-                      <div className="w-24 h-2 bg-white/5 rounded" />
-                      <div className="w-32 h-4 bg-white/5 rounded" />
-                    </div>
-                    <div className="w-28 h-10 bg-white/5 rounded-xl mt-2" />
-                  </div>
-                ) : (
-                  <div className={`px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                    {isSoldOut ? "This competition is sold out" : "This competition is ended"}
-                  </div>
-                )}
+                <div className={`px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                  {isSoldOut ? "This competition is sold out" : "This competition is ended"}
+                </div>
               </div>
             )}
 

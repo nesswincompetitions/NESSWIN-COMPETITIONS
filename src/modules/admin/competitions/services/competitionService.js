@@ -91,27 +91,32 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
       updated_at: serverTimestamp(),
     };
 
-    await setDoc(competitionRef, competitionPayload);
+    const isTransitioningToActive = !isDraft && (!existingData || existingData.status === "draft");
 
-    if (!isDraft) {
+    const batch = writeBatch(db);
+    batch.set(competitionRef, competitionPayload);
+
+    if (isTransitioningToActive) {
       // Broadcast notification for new competition
       const broadcastNotifRef = doc(collection(db, "ff_push_notifications"));
-      await setDoc(broadcastNotifRef, {
-        notification_title: "New Competition Launched! 🚀",
+      batch.set(broadcastNotifRef, {
+        initial_page_name: "Competitions",
         notification_text: `A new competition for ${formData.prizeName} is now live! Join now.`,
-        notification_image_url: competitionImages[0] || "",
-        scheduled_time: null,
-        notification_sound: "default",
-        parameter_data: JSON.stringify({ compitation: competitionRef.path }),
-        target_audience: "all_users",
-        initial_page_name: "detailsPage",
-        user_refs: "",
-        batch_index: 0,
-        num_batches: 1,
-        status: "",
+        notification_title: "New Competition Launched! 🚀",
         num_sent: 0,
+        parameter_data: JSON.stringify({
+          compitation: competitionRef.path,
+          competition_ref: competitionRef.path,
+          competitionId: competitionRef.id,
+        }),
+        status: "",
+        target_audience: "All",
+        timestamp: serverTimestamp(),
+        user_refs: "",
       });
     }
+
+    await batch.commit();
 
     if (Array.isArray(formData.questions)) {
       const existingQuestionsQuery = query(

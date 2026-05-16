@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
-import { 
-  ArrowLeft, RefreshCw, ExternalLink, CheckCircle2, 
+import {
+  ArrowLeft, RefreshCw, ExternalLink, CheckCircle2,
   Send, Mail, Upload, FileText, Image as ImageIcon, Video, Link as LinkIcon, Trash2,
-  Loader2, User, Ticket as TicketIcon, Calendar, Trophy, MessageSquare, Paperclip, X
+  Loader2, User, Ticket as TicketIcon, Calendar, Trophy, MessageSquare, Paperclip, X, Download
 } from 'lucide-react';
-import { doc, onSnapshot, collection, query, orderBy, limit, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, limit, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/shared/state/AuthContext';
 import { updateCompetitionHandover } from '@/modules/admin/competitions/services/winnerWorkflowService';
@@ -94,7 +94,7 @@ const WinnerDetail = () => {
       const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setMessages(msgs);
       scrollToBottom();
-      
+
       // Mark as read if there are unread messages for admin
       if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
@@ -115,7 +115,7 @@ const WinnerDetail = () => {
     try {
       const chatId = `winner-chat-${competitionId}`;
       const winnerRef = competition.winner_ref;
-      
+
       let imageUrl = '';
       if (attachmentFile) {
         const [uploadedUrl] = await uploadImages([attachmentFile], `winner-chats/${competitionId}`);
@@ -150,18 +150,39 @@ const WinnerDetail = () => {
     }
   };
 
+  const handleDownloadImage = async (url, filename) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename || `nesswin-proof-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download failed:', error);
+      if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+        toast.error('CORS Error: Cannot download image. Configuration required on Firebase.');
+      } else {
+        toast.error('Failed to download image');
+      }
+    }
+  };
+
   const handleFileUpload = async (e, type) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(type);
     try {
       console.log(`[HandoverUpload] Uploading ${type}:`, { name: file.name, size: file.size, type: file.type });
       const [url] = await uploadImages([file], `handover/${competitionId}/${type}`);
-      
+
       const payload = {};
       if (type === 'id_proof') payload.idProofUrl = url;
-      if (type === 'photo') payload.handoverPhotoUrl = url;
       if (type === 'video') payload.handoverVideoUrl = url;
 
       await updateCompetitionHandover(competitionId, null, payload);
@@ -174,6 +195,46 @@ const WinnerDetail = () => {
     }
   };
 
+  const handleDropAsset = async (e, type) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary/50');
+
+    const imageUrl = e.dataTransfer.getData('image-url') || e.dataTransfer.getData('text/plain');
+
+    if (imageUrl && imageUrl.startsWith('http')) {
+      setIsUploading(type);
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const filename = imageUrl.split('/').pop().split('?')[0] || `${type}_proof.jpg`;
+        const file = new File([blob], filename, { type: blob.type });
+
+        const [url] = await uploadImages([file], `handover/${competitionId}/${type}`);
+
+        const payload = {};
+        if (type === 'id_proof') payload.idProofUrl = url;
+        if (type === 'video') payload.handoverVideoUrl = url;
+
+        await updateCompetitionHandover(competitionId, null, payload);
+        toast.success(`${type === 'id_proof' ? 'ID Proof' : 'Asset'} added via drag-and-drop!`);
+      } catch (error) {
+        console.error('Drop upload error:', error);
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+          toast.error('CORS Error: Please ensure Firebase Storage CORS is configured for this domain.');
+        } else {
+          toast.error('Failed to process dropped image. Try uploading manually.');
+        }
+      } finally {
+        setIsUploading(null);
+      }
+    } else {
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        handleFileUpload({ target: { files: [file] } }, type);
+      }
+    }
+  };
+
   const handleHandoverAction = async (stage) => {
     if (stage === 'completed') {
       if (!handover.id_proof_url) {
@@ -181,7 +242,7 @@ const WinnerDetail = () => {
         return;
       }
       if (!handover.handover_video_url) {
-        toast.error('Handover Video is required before completing handover.');
+        toast.error('Handover Ceremony Video is required before completing handover.');
         return;
       }
     }
@@ -192,6 +253,26 @@ const WinnerDetail = () => {
     } catch (error) {
       console.error('Action error:', error);
       toast.error(`Failed to update handover status: ${error.message}`);
+    } finally {
+      setHandoverLoading(null);
+    }
+  };
+
+  const handleDeleteAsset = async (type) => {
+    if (!window.confirm(`Are you sure you want to remove this ${type.replace('_', ' ')}?`)) return;
+
+    setHandoverLoading(type);
+    try {
+      const compRef = doc(db, 'competition', competitionId);
+      const updates = {};
+      if (type === 'id_proof') updates['handover_details.id_proof_url'] = null;
+      if (type === 'video') updates['handover_details.handover_video_url'] = null;
+
+      await updateDoc(compRef, updates);
+      toast.success('File removed successfully');
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to remove file');
     } finally {
       setHandoverLoading(null);
     }
@@ -221,11 +302,11 @@ const WinnerDetail = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-white/10 pb-6">
         <div>
-          <button 
+          <button
             onClick={() => navigate('/admin/winners')}
             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm mb-3"
           >
@@ -239,16 +320,8 @@ const WinnerDetail = () => {
             </Badge>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <Button 
-            variant="primary" 
-            className="flex items-center gap-2" 
-            onClick={() => document.getElementById('communication-hub')?.scrollIntoView({ behavior: 'smooth' })}
-          >
-            <Mail size={16} />
-            Chat with Winner
-          </Button>
           <Button variant="outline" className="flex items-center gap-2" onClick={() => navigate(`/admin/competitions/${competitionId}`)}>
             <ExternalLink size={16} />
             View Competition
@@ -266,7 +339,7 @@ const WinnerDetail = () => {
                   <User size={12} /> Winner
                 </p>
                 <p className="text-lg font-bold text-white flex items-center gap-2">
-                  {winnerUser.display_name || winnerUser.name || 'Unknown User'} 
+                  {winnerUser.display_name || winnerUser.name || 'Unknown User'}
                   <span className="text-xs font-normal px-2 py-0.5 rounded bg-white/5 border border-white/10 text-gray-400">{winnerUser.email}</span>
                 </p>
               </div>
@@ -297,41 +370,46 @@ const WinnerDetail = () => {
         {/* Handover Quick Status */}
         <Card>
           <CardContent className="p-6 space-y-4">
-             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-2">Handover Status</h3>
-             <div className="space-y-3">
-               <div className="flex justify-between items-center text-sm">
-                 <span className="text-gray-500">Contacted</span>
-                 <Badge variant={handover.is_contacted ? 'success' : 'neutral'}>{handover.is_contacted ? 'Yes' : 'No'}</Badge>
-               </div>
-               <div className="flex justify-between items-center text-sm">
-                 <span className="text-gray-500">Prize Sent</span>
-                 <Badge variant={handover.prize_sent ? 'success' : 'neutral'}>{handover.prize_sent ? 'Yes' : 'No'}</Badge>
-               </div>
-               <div className="flex justify-between items-center text-sm">
-                 <span className="text-gray-500">Completed</span>
-                 <Badge variant={handover.handover_completed ? 'success' : 'neutral'}>{handover.handover_completed ? 'Completed' : 'Pending'}</Badge>
-               </div>
-             </div>
-             
-             {!handover.handover_completed && (
-               <div className="pt-4 space-y-2">
-                 {!handover.is_contacted && (
-                   <Button variant="outline" className="w-full text-xs h-9" onClick={() => handleHandoverAction('contacted')} loading={handoverLoading === 'contacted'}>
-                     Mark as Contacted
-                   </Button>
-                 )}
-                 {handover.is_contacted && !handover.prize_sent && (
-                   <Button variant="outline" className="w-full text-xs h-9" onClick={() => handleHandoverAction('prize_sent')} loading={handoverLoading === 'prize_sent'}>
-                     Mark as Prize Sent
-                   </Button>
-                 )}
-                 {handover.prize_sent && !handover.handover_completed && (
-                   <Button variant="primary" className="w-full text-xs h-9" onClick={() => handleHandoverAction('completed')} loading={handoverLoading === 'completed'}>
-                     Complete Handover
-                   </Button>
-                 )}
-               </div>
-             )}
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-2">Handover Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Contacted</span>
+                <Badge variant={handover.is_contacted ? 'success' : 'neutral'}>{handover.is_contacted ? 'Yes' : 'No'}</Badge>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Prize Sent</span>
+                <Badge variant={handover.prize_sent ? 'success' : 'neutral'}>{handover.prize_sent ? 'Yes' : 'No'}</Badge>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">Completed</span>
+                <Badge variant={handover.handover_completed ? 'success' : 'neutral'}>{handover.handover_completed ? 'Completed' : 'Pending'}</Badge>
+              </div>
+            </div>
+
+            {!handover.handover_completed && (
+              <div className="pt-4 space-y-2">
+                {!handover.is_contacted && (
+                  <Button variant="primary" className="w-full text-xs h-9" onClick={() => handleHandoverAction('contacted')} loading={handoverLoading === 'contacted'}>
+                    Mark as Contacted
+                  </Button>
+                )}
+                {handover.is_contacted && !handover.prize_sent && (
+                  <Button variant="primary" className="w-full text-xs h-9" onClick={() => handleHandoverAction('prize_sent')} loading={handoverLoading === 'prize_sent'}>
+                    Mark as Prize Sent
+                  </Button>
+                )}
+                {handover.prize_sent && !handover.handover_completed && (
+                  <Button 
+                    variant="primary" 
+                    className="w-full text-xs h-9" 
+                    onClick={() => handleHandoverAction('completed')} 
+                    loading={handoverLoading === 'completed'}
+                  >
+                    Complete Handover
+                  </Button>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -341,7 +419,7 @@ const WinnerDetail = () => {
         <CardContent className="p-8">
           <div className="relative">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-white/10 -z-10 rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-emerald-500 transition-all duration-500 ease-in-out"
                 style={{ width: `${(displayStageIndex / (stages.length - 1)) * 100}%` }}
               ></div>
@@ -353,18 +431,15 @@ const WinnerDetail = () => {
                 const isCurrent = index === displayStageIndex + 1;
                 return (
                   <div key={index} className="relative flex flex-col items-center gap-3">
-                    <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-4 transition-colors duration-300 bg-[#121212] ${
-                      isCompleted 
-                        ? 'border-emerald-500 text-emerald-500' 
+                    <div className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center border-4 transition-colors duration-300 bg-[#121212] ${isCompleted
+                        ? 'border-emerald-500 text-emerald-500'
                         : isCurrent ? 'border-primary text-primary' : 'border-white/10 text-gray-600'
-                    }`}>
+                      }`}>
                       {isCompleted ? <CheckCircle2 size={20} /> : <span className="w-2.5 h-2.5 rounded-full bg-gray-600"></span>}
                     </div>
-                    <span className={`text-xs font-medium whitespace-nowrap absolute -bottom-8 ${
-                      index === 0 ? 'left-0' : index === stages.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
-                    } ${
-                      isCompleted ? 'text-emerald-400' : isCurrent ? 'text-white' : 'text-gray-500'
-                    }`}>
+                    <span className={`text-xs font-medium whitespace-nowrap absolute -bottom-8 ${index === 0 ? 'left-0' : index === stages.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
+                      } ${isCompleted ? 'text-emerald-400' : isCurrent ? 'text-white' : 'text-gray-500'
+                      }`}>
                       {stage.label}
                     </span>
                   </div>
@@ -377,37 +452,54 @@ const WinnerDetail = () => {
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-8">
-        
+
         {/* LEFT: Communication */}
         <div className="space-y-6" id="communication-hub">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Mail size={20} className="text-primary" />
             Communication Hub
           </h2>
-          
+
           <Card className="flex flex-col h-[600px] border-white/5 bg-[#0a0a0a]">
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12">
-                   <Mail className="text-gray-700 mb-4" size={48} />
-                   <p className="text-gray-500 text-sm">No messages yet. Start the conversation with the winner!</p>
+                  <Mail className="text-gray-700 mb-4" size={48} />
+                  <p className="text-gray-500 text-sm">No messages yet. Start the conversation with the winner!</p>
                 </div>
               ) : messages.map((msg) => {
                 const isMe = msg.sender_id?.id === currentUser?.uid || msg.is_sender_admin;
                 return (
                   <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     <p className="text-[10px] text-gray-500 mb-1 px-1">{isMe ? 'You' : (winnerUser.name || 'Winner')} • {msg.created_at?.toDate()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                    <div className={`px-4 py-3 rounded-2xl max-w-[85%] break-words ${
-                      isMe 
-                        ? 'bg-primary/20 text-white rounded-tr-none border border-primary/30' 
+                    <div className={`px-4 py-3 rounded-2xl max-w-[85%] break-words ${isMe
+                        ? 'bg-primary/20 text-white rounded-tr-none border border-primary/30'
                         : 'bg-white/5 text-gray-200 rounded-tl-none border border-white/10'
-                    }`}>
+                      }`}>
                       {msg.message && <p className="mb-0">{msg.message}</p>}
                       {msg.image && (
-                        <div className={`${msg.message ? 'mt-2 pt-2 border-t border-white/5' : ''}`}>
-                          <a href={msg.image} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-white/10 hover:border-primary/50 transition-colors">
-                            <img src={msg.image} alt="Attached" className="max-h-64 w-full object-contain bg-black/20" />
-                          </a>
+                        <div className={`relative group/img ${msg.message ? 'mt-2 pt-2 border-t border-white/5' : ''}`}>
+                          <div className="relative">
+                            <a href={msg.image} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-white/10 hover:border-primary/50 transition-colors">
+                              <img
+                                src={msg.image}
+                                alt="Attached"
+                                className="max-h-64 w-full object-contain bg-black/20"
+                                draggable="true"
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', msg.image);
+                                  e.dataTransfer.setData('image-url', msg.image);
+                                }}
+                              />
+                            </a>
+                            <button
+                              onClick={() => handleDownloadImage(msg.image)}
+                              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
+                              title="Download Image"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -427,8 +519,8 @@ const WinnerDetail = () => {
                     <p className="text-xs text-white font-medium truncate">{attachmentFile.name}</p>
                     <p className="text-[10px] text-gray-500">{(attachmentFile.size / 1024).toFixed(0)} KB</p>
                   </div>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => { setAttachmentFile(null); if (chatFileInputRef.current) chatFileInputRef.current.value = ''; }}
                     className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
                   >
@@ -436,7 +528,7 @@ const WinnerDetail = () => {
                   </button>
                 </div>
               )}
-              
+
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -446,24 +538,24 @@ const WinnerDetail = () => {
                 >
                   <Paperclip size={20} />
                 </button>
-                <input 
-                  type="file" 
-                  ref={chatFileInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleAttachmentChange} 
+                <input
+                  type="file"
+                  ref={chatFileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAttachmentChange}
                 />
-                
-                <input 
-                  type="text" 
+
+                <input
+                  type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message to the winner..." 
+                  placeholder="Type a message to the winner..."
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-all"
                   disabled={isSending || handover.handover_completed}
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={(!newMessage.trim() && !attachmentFile) || isSending || handover.handover_completed}
                   className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center transition-all hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none shadow-[0_0_20px_oklch(0.78_0.14_78/0.3)]"
                 >
@@ -484,10 +576,10 @@ const WinnerDetail = () => {
             <Upload size={20} className="text-primary" />
             Handover Assets & Proof
           </h2>
-          
+
           <Card className="h-[600px] overflow-y-auto bg-[#0a0a0a] border-white/5">
             <CardContent className="p-6 space-y-6">
-              
+
               {/* ID Proof */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
@@ -505,13 +597,28 @@ const WinnerDetail = () => {
                         <a href={handover.id_proof_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">View Document</a>
                       </div>
                     </div>
-                    <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors">
-                      <RefreshCw size={16} />
-                      <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'id_proof')} disabled={isUploading === 'id_proof'} />
-                    </label>
+                    <div className="flex items-center gap-1">
+                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title="Update File">
+                        <RefreshCw size={16} />
+                        <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'id_proof')} disabled={isUploading === 'id_proof'} />
+                      </label>
+                      <button
+                        onClick={() => handleDeleteAsset('id_proof')}
+                        className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Delete File"
+                        disabled={handoverLoading === 'id_proof'}
+                      >
+                        {handoverLoading === 'id_proof' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <label className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                  <label
+                    className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary/50', 'bg-primary/5'); }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove('border-primary/50', 'bg-primary/5'); }}
+                    onDrop={(e) => handleDropAsset(e, 'id_proof')}
+                  >
                     <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'id_proof')} disabled={!!isUploading} />
                     <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
                       {isUploading === 'id_proof' ? <Loader2 size={24} className="animate-spin text-primary" /> : <FileText className="text-gray-500" size={24} />}
@@ -523,7 +630,6 @@ const WinnerDetail = () => {
                   </label>
                 )}
               </div>
-
 
               {/* Handover Video */}
               <div className="space-y-3">
@@ -542,18 +648,33 @@ const WinnerDetail = () => {
                         <a href={handover.handover_video_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Watch Video</a>
                       </div>
                     </div>
-                    <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors">
-                      <RefreshCw size={16} />
-                      <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')} disabled={!!isUploading} />
-                    </label>
+                    <div className="flex items-center gap-1">
+                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title="Update File">
+                        <RefreshCw size={16} />
+                        <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')} disabled={!!isUploading} />
+                      </label>
+                      <button
+                        onClick={() => handleDeleteAsset('video')}
+                        className="p-2 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Delete File"
+                        disabled={handoverLoading === 'video'}
+                      >
+                        {handoverLoading === 'video' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <label className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                  <label
+                    className="block border-2 border-dashed border-white/10 rounded-xl p-8 flex flex-col items-center justify-center gap-3 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-primary/50', 'bg-primary/5'); }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove('border-primary/50', 'bg-primary/5'); }}
+                    onDrop={(e) => handleDropAsset(e, 'video')}
+                  >
                     <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')} disabled={!!isUploading} />
                     <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
                       {isUploading === 'video' ? <Loader2 size={24} className="animate-spin text-primary" /> : <Video className="text-gray-500" size={24} />}
                     </div>
-                    <p className="text-sm text-white font-medium">Click to upload handover video</p>
+                    <p className="text-sm text-white font-medium">Click or drag handover proof</p>
                   </label>
                 )}
               </div>

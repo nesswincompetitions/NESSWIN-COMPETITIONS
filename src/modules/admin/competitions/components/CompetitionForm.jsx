@@ -359,12 +359,16 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
         return;
       }
       const selectedDateTime = new Date(`${formData.drawEndDate}T${formData.drawEndTime}`);
+      
+      /* 
+      // TEMPORARILY DISABLED FOR TESTING
       const minAllowedTime = new Date(Date.now() + 12 * 60 * 60 * 1000);
       
       if (selectedDateTime < minAllowedTime) {
         toast.error("Draw date and time must be at least 12 hours from now");
         return;
       }
+      */
     }
 
     if (currentStep < steps.length - 1) setCurrentStep(prev => prev + 1);
@@ -438,7 +442,7 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
                 type="text"
                 value={thing}
                 onChange={(e) => handleIncludedThingChange(index, e.target.value)}
-                placeholder="e.g. Free Insurance for 1 Year"
+                placeholder=""
                 className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
               />
               <button
@@ -459,7 +463,7 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">Tag <span className="text-red-400">*</span></label>
             <input
-              type="text" name="tag" value={formData.tag} onChange={handleChange} placeholder="e.g. Supercar, Luxury, Tech"
+              type="text" name="tag" value={formData.tag} onChange={handleChange} placeholder="Enter the tag"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-colors"
             />
           </div>
@@ -470,10 +474,10 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
               onChange={(e) => handleChange({ target: { name: 'category', value: e.target.value } })}
               options={[
                 { value: 'Tech', label: t('competitions.form.step1.categories.tech') },
-                { value: 'Jewellery', label: t('competitions.form.step1.categories.jewellery') },
-                { value: 'Fashion', label: t('competitions.form.step1.categories.fashion') },
+                { value: 'Watches', label: t('competitions.form.step1.categories.watches') },
+                { value: 'Real Estate', label: t('competitions.form.step1.categories.realEstate') },
                 { value: 'Cars', label: t('competitions.form.step1.categories.cars') },
-                { value: 'Experiences', label: t('competitions.form.step1.categories.experiences') },
+                { value: 'Travel', label: t('competitions.form.step1.categories.travel') },
                 { value: 'Other', label: t('competitions.form.step1.categories.other') }
               ]}
             />

@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
   Gift,
+  Download,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { db } from '@/config/firebase';
@@ -27,6 +28,24 @@ const getRefPath = (refLike) => {
   if (!refLike) return '';
   if (typeof refLike === 'string') return `user/${refLike}`;
   return refLike.path ?? '';
+};
+
+const handleDownloadImage = async (url, filename) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename || `nesswin-image-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Download failed:', error);
+    toast.error('Failed to download image');
+  }
 };
 
 const formatMessageTime = (timestamp) => {
@@ -90,15 +109,33 @@ function MessageBubble({ message, isOwnMessage, isFirstInGroup, isLastInGroup })
 
         {/* Attached image */}
         {message.image && (
-          <a
-            href={message.image}
-            target="_blank"
-            rel="noreferrer"
-            className={`overflow-hidden border shadow-sm max-w-xs rounded-2xl ${isOwnMessage ? 'border-[var(--color-primary)]/30' : 'border-[var(--color-border)]/40'
-              }`}
-          >
-            <img src={message.image} alt="Attached" className="max-h-56 w-full object-cover" />
-          </a>
+          <div className="relative group/img">
+            <a
+              href={message.image}
+              target="_blank"
+              rel="noreferrer"
+              className={`block overflow-hidden border shadow-sm max-w-xs rounded-2xl ${isOwnMessage ? 'border-[var(--color-primary)]/30' : 'border-[var(--color-border)]/40'
+                }`}
+            >
+              <img
+                src={message.image}
+                alt="Attached"
+                className="max-h-56 w-full object-cover"
+                draggable="true"
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', message.image);
+                  e.dataTransfer.setData('image-url', message.image);
+                }}
+              />
+            </a>
+            <button
+              onClick={() => handleDownloadImage(message.image)}
+              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity"
+              title="Download Image"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
         )}
 
         {/* Timestamp + delivery status — only on last bubble in group */}
@@ -344,7 +381,7 @@ export default function SupportChatWidget({
           )}
           <div
             className={`group flex items-center gap-3 min-w-0 ${isCurrentUserAdmin && customerId ? 'cursor-pointer' : ''
-            }`}
+              }`}
             onClick={() => {
               if (isCurrentUserAdmin && customerId) {
                 navigate(`/admin/users/${customerId}`);

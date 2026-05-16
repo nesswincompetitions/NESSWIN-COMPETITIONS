@@ -14,6 +14,8 @@ import { useRecentUsers } from '@/shared/hooks/useAdminData';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
+import Tooltip from '@/shared/components/ui/Tooltip';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const BonusTickets = () => {
   const { t } = useTranslation('admin');
@@ -327,7 +329,9 @@ const BonusTickets = () => {
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-gray-300">
                           <span className="truncate max-w-50">{ticket.reason}</span>
-                          <HelpCircle size={14} className="text-gray-500 cursor-help" title={ticket.reason} />
+                          <Tooltip content={ticket.reason} position="top">
+                            <HelpCircle size={14} className="text-gray-500 cursor-help" />
+                          </Tooltip>
                         </div>
                       </TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
@@ -431,9 +435,6 @@ const BonusTickets = () => {
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
               disabled={isSubmitting}
             />
-            <p className="text-xs text-gray-400">
-              Note: {assignAmount > 1 ? `${assignAmount} separate referral documents` : 'Creates 1 referral document'} will be created
-            </p>
           </div>
 
 

@@ -225,10 +225,10 @@
         "category": "Category",
         "categories": {
           "tech": "Tech",
-          "jewellery": "Jewellery",
-          "fashion": "Fashion",
+          "watches": "Watches",
+          "realEstate": "Real Estate",
           "cars": "Cars",
-          "experiences": "Experiences",
+          "travel": "Travel",
           "other": "Other"
         },
         "images": "Images",

@@ -16,23 +16,24 @@ const formatTimeAgo = (date) => {
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function NotificationBell() {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const dropdownRef = useRef(null);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const isAdmin = userData?.role === 'admin';
 
   useEffect(() => {
     if (!currentUser?.uid) return;
     
     const unsubscribe = fetchUserNotifications(currentUser.uid, (data) => {
       setNotifications(data);
-    });
+    }, isAdmin);
 
     return () => unsubscribe();
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, isAdmin]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -81,9 +82,45 @@ export default function NotificationBell() {
     // Navigate based on type.
     setIsOpen(false);
     
-    if (notif.type === 'payment_success' || notif.type === 'ticket_issued') {
+    // Give the dropdown a moment to start closing before navigating
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    if (notif.type === 'payment_success' || notif.type === 'ticket_issued' || notif.initial_page_name === 'MyTickets') {
       navigate('/profile/tickets');
-    } else if (notif.category === 'messages' || notif.type === 'support_replied' || notif.category === 'Support') {
+    } else if (notif.initial_page_name === 'detailsPage' || notif.initial_page_name === 'participants') {
+      let compId = null;
+      if (notif.parameter_data) {
+        try {
+          const params = typeof notif.parameter_data === 'string' 
+            ? JSON.parse(notif.parameter_data) 
+            : notif.parameter_data;
+          
+          // Try multiple possible keys based on inconsistent backend patterns
+          const path = params.compitation || params.competition_ref || params.competitionref || params.compitationRef || params.compitation_ref;
+          
+          if (path && typeof path === 'string') {
+            compId = path.split('/').pop();
+          } else if (params.competitionId) {
+            compId = params.competitionId;
+          }
+        } catch (e) {
+          console.warn('Failed to parse notification parameter_data:', e);
+        }
+      }
+      
+      if (compId) {
+        navigate(`/competitions/${compId}`);
+      } else {
+        navigate('/competitions');
+      }
+    } else if (
+      notif.category === 'Messages' || 
+      notif.category === 'messages' || 
+      notif.type === 'support_replied' || 
+      notif.category === 'Support' || 
+      notif.initial_page_name === 'SupportChat' ||
+      notif.initial_page_name === 'chats'
+    ) {
       // Extract chatId from multiple possible sources
       let chatId = null;
       
@@ -93,7 +130,13 @@ export default function NotificationBell() {
           const params = typeof notif.parameter_data === 'string' 
             ? JSON.parse(notif.parameter_data) 
             : notif.parameter_data;
+          
           chatId = params.chatId || params.chat_id;
+          
+          // Check for chatRef path (e.g. "chats/ID")
+          if (!chatId && params.chatRef && typeof params.chatRef === 'string') {
+            chatId = params.chatRef.split('/').pop();
+          }
         } catch (e) {
           console.warn('Failed to parse notification parameter_data:', e);
         }
@@ -109,7 +152,7 @@ export default function NotificationBell() {
       if (!chatId && notif.chat_id) {
         chatId = notif.chat_id;
       }
-
+  
       if (chatId) {
         navigate(`/profile/support/${chatId}`);
       } else {

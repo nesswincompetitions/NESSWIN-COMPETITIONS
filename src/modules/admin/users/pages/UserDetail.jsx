@@ -5,19 +5,19 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
-import { 
-  ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard, 
+import {
+  ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard,
   ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2,
   Phone, User, Share2
 } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { doc, getDoc, where } from 'firebase/firestore';
-import { 
-  useUserRealtime, 
-  useUserOrdersRealtime, 
-  useUserTicketsRealtime, 
-  useUserReferralsRealtime, 
-  useUserBonusLogsRealtime 
+import {
+  useUserRealtime,
+  useUserOrdersRealtime,
+  useUserTicketsRealtime,
+  useUserReferralsRealtime,
+  useUserBonusLogsRealtime
 } from '@/shared/hooks/useAdminData';
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
@@ -33,7 +33,7 @@ const UserDetail = () => {
   const { t } = useTranslation('admin');
   const [activeTab, setActiveTab] = useState('overview');
   const [noteText, setNoteText] = useState('');
-  
+
   const { data: profile, loading: profileLoading } = useUserRealtime(id);
   const { data: orders, loading: ordersLoading } = useUserOrdersRealtime(id);
   const { data: tickets, loading: ticketsLoading } = useUserTicketsRealtime(id);
@@ -50,7 +50,7 @@ const UserDetail = () => {
 
   useEffect(() => {
     if (!tickets || tickets.length === 0) return;
-    
+
     const missingIds = new Set();
     tickets.forEach(tk => {
       const cId = tk.competition_id?.id || (typeof tk.competition_id === 'string' ? tk.competition_id : null);
@@ -89,9 +89,9 @@ const UserDetail = () => {
       if (!cId) return;
       if (!map[cId]) {
         const details = compDetails[cId] || {};
-        map[cId] = { 
-          id: cId, 
-          tickets: [], 
+        map[cId] = {
+          id: cId,
+          tickets: [],
           title: details.title || 'Unknown Competition',
           status: details.status || 'active',
           drawDate: details.draw_date || null
@@ -334,7 +334,7 @@ const UserDetail = () => {
             {t('users.detail.bonusTab.assignBonus')}
           </Button>
         </div>
-        
+
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -384,7 +384,7 @@ const UserDetail = () => {
       </div>
     );
   };
-  
+
   const renderWins = () => (
     <Card className="fade-in">
       <CardContent className="py-20 flex flex-col items-center text-center gap-4">
@@ -408,10 +408,10 @@ const UserDetail = () => {
               <span className="text-gray-400 font-medium">AD</span>
             </div>
             <div className="flex-1 space-y-3">
-              <textarea 
+              <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
-                placeholder={t('users.detail.notesTab.placeholder')} 
+                placeholder={t('users.detail.notesTab.placeholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 min-h-[100px] resize-none"
               />
               <div className="flex justify-end">
@@ -430,7 +430,7 @@ const UserDetail = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
       <div>
-        <button 
+        <button
           onClick={() => navigate('/admin/users')}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm mb-4 w-fit"
         >
@@ -480,7 +480,7 @@ const UserDetail = () => {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-2">
               {/* Actions removed as per request */}
             </div>
@@ -498,11 +498,10 @@ const UserDetail = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`cursor-pointer flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${
-                  isActive 
-                    ? 'border-primary text-primary' 
+                className={`cursor-pointer flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors border-b-2 ${isActive
+                    ? 'border-primary text-primary'
                     : 'border-transparent text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Icon size={16} />
                 {tab.label}
@@ -556,16 +555,16 @@ const UserDetail = () => {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setIsBonusModalOpen(false)}
               disabled={isSubmittingBonus}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               variant="primary"
               disabled={isSubmittingBonus}
               className="flex items-center gap-2"
