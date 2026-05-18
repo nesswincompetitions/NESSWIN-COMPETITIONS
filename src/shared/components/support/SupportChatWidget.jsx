@@ -296,6 +296,7 @@ export default function SupportChatWidget({
     
     if (!trimmed && !currentAttachment) return;
     if (!chatId || !currentUserRef || !receiverRef) {
+      console.error('SupportChatWidget handleSendMessage missing refs: ' + JSON.stringify({ chatId, currentUserRef, receiverRef: !!receiverRef }, null, 2));
       toast.error(t('profile.support.widget.chatNotReady', 'Support chat is not ready yet.'));
       return;
     }
@@ -332,6 +333,7 @@ export default function SupportChatWidget({
 
   const handleCloseChat = async () => {
     if (!chatId || !currentUserRef || !assignedAdminRef) {
+      console.error('SupportChatWidget handleCloseChat missing refs: ' + JSON.stringify({ chatId, currentUserRef, assignedAdminRef: !!assignedAdminRef }, null, 2));
       toast.error(t('profile.support.widget.chatNotReady', 'Support chat is not ready yet.'));
       return;
     }
@@ -376,7 +378,7 @@ export default function SupportChatWidget({
   const canClose = !isClosed && (isCurrentUserAdmin || chatType !== 'winner_chat');
 
   return (
-    <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%', minHeight: '560px' }}>
+    <div className={`flex flex-col overflow-hidden bg-[var(--color-card)] ${className}`} style={{ height: '100%' }}>
       {/* ─── Header ─── */}
       <header className="flex-shrink-0 flex items-center justify-between gap-4 px-5 py-3.5 border-b border-[var(--color-border)]/50">
         <div className="flex items-center gap-3 min-w-0">

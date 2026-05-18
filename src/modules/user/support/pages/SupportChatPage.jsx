@@ -73,19 +73,21 @@ export default function SupportChatPage() {
             <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
           </div>
         ) : chatData ? (
-          <SupportChatWidget
-            chatId={chatId}
-            currentUserRef={currentUser?.uid}
-            receiverRef={chatData.assigned_admin_id}
-            assignedAdminRef={chatData.assigned_admin_id}
-            isCurrentUserAdmin={false}
-            chatType={chatData.chat_type}
-            title={chatData.chat_type === 'winner_chat' ? t('profile.support.prizeHandoverChat') : t('profile.support.supportChat')}
-            closeLabel={chatData.chat_type === 'winner_chat' ? t('profile.support.endConversation') : t('profile.support.closeTicket')}
-            onCloseTicket={() => navigate('/profile/support')}
-            unreadCount={chatData.unread_receiver_count ?? 0}
-            status={chatData.status ?? 'active'}
-          />
+          <div className="h-[65vh] md:h-[600px] w-full rounded-3xl border border-[var(--color-border)]/60 shadow-lg overflow-hidden flex flex-col bg-[var(--color-card)]">
+            <SupportChatWidget
+              chatId={chatId}
+              currentUserRef={currentUser?.uid}
+              receiverRef={chatData.assigned_admin_id || (chatData.chat_type === 'winner_chat' ? chatData.sender_id : chatData.receiver_id)}
+              assignedAdminRef={chatData.assigned_admin_id || (chatData.chat_type === 'winner_chat' ? chatData.sender_id : chatData.receiver_id)}
+              isCurrentUserAdmin={false}
+              chatType={chatData.chat_type}
+              title={chatData.chat_type === 'winner_chat' ? t('profile.support.prizeHandoverChat') : t('profile.support.supportChat')}
+              closeLabel={chatData.chat_type === 'winner_chat' ? t('profile.support.endConversation') : t('profile.support.closeTicket')}
+              onCloseTicket={() => navigate('/profile/support')}
+              unreadCount={chatData.unread_receiver_count ?? 0}
+              status={chatData.status ?? 'active'}
+            />
+          </div>
         ) : (
           <div className="flex min-h-[440px] flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--color-border)]/60 bg-[var(--color-card)] px-6 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
