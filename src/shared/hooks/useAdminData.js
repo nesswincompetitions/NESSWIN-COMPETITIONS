@@ -6,9 +6,6 @@ import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 const ACTIVE_COMPETITION_STATUSES = [
   'active',
   'ready_to_draw',
-  'winner_announced',
-  'sold out',
-  'sod out',
   'drawing',
 ];
 
@@ -466,9 +463,12 @@ export const useAdminDashboardData = () => {
     [recentOrders, userMap, compMap]
   );
 
-  const pendingWinners = useMemo(
-    () => activeCompetitionsList.filter((c) => !c.winner_ref).length,
-    [activeCompetitionsList]
+  const totalWinners = useMemo(
+    () => competitions.filter((competition) => {
+      const status = String(competition.status || '').toLowerCase();
+      return Boolean(competition.winner_ref) || WINNER_COMPETITION_STATUSES.includes(status);
+    }).length,
+    [competitions]
   );
 
   const drawsEndingSoon = useMemo(() => {
@@ -476,8 +476,8 @@ export const useAdminDashboardData = () => {
     const sevenDaysMs = now + (7 * 24 * 60 * 60 * 1000);
 
     return activeCompetitionsList.filter((competition) => {
-      // Use drawDate (from draw_date) or fallback to countdown_end
-      const endTimestamp = toMillis(competition.drawDate || competition.countdown_end);
+      // Use draw_date from mapped competition summary, fallback to countdown_end.
+      const endTimestamp = toMillis(competition.drawDate || competition.draw_date || competition.countdown_end);
       return endTimestamp > now && endTimestamp <= sevenDaysMs;
     }).length;
   }, [activeCompetitionsList]);
@@ -490,7 +490,7 @@ export const useAdminDashboardData = () => {
       ticketsSoldToday: dashboardStats.data?.tickets_sold_today || 0,
       revenueToday: (dashboardStats.data?.tickets_sold_today || 0) * 5, // fallback calculation based on tickets sold today
       activeCompetitions: dashboardStats.data?.total_active_competitions || activeCompetitionsList.length,
-      pendingWinners: dashboardStats.data?.pending_winners || pendingWinners,
+      totalWinners: dashboardStats.data?.total_winners || dashboardStats.data?.pending_winners || totalWinners,
       drawsEndingSoon: dashboardStats.data?.draws_ending_soon || drawsEndingSoon,
       activeCompetitionsList,
       upcomingDrawsList,

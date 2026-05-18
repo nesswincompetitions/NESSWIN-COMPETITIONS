@@ -9,7 +9,7 @@ import {
   subscribeAllReferrals,
 } from '@/modules/user/referrals/services/referralService';
 import { onActiveUserChatsSnapshot } from '@/shared/services/supportChatService';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Users,
@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const { currentUser } = useAuth();
   const { userData } = useUserData();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
@@ -72,14 +73,17 @@ export default function ProfilePage() {
       }
     );
 
-    if (window.location.hash === '#referrals') {
+
+    return unsubscribe;
+  }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (location.hash === '#referrals') {
       setTimeout(() => {
         document.getElementById('referrals-section')?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-
-    return unsubscribe;
-  }, [currentUser?.uid]);
+  }, [location.hash]);
 
   const handleStartEdit = (field) => {
     setEditingField(field);

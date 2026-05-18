@@ -307,8 +307,18 @@ const UserDetail = () => {
                     <Badge variant="success" className="w-fit">Available</Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-gray-400">
-                  {formatDate(ref.created_at)}
+                <TableCell className="text-gray-400 text-sm whitespace-nowrap">
+                  {ref.reward_issued ? (
+                    <span className="flex flex-col">
+                      <span className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Used At</span>
+                      <span>{formatDate(ref.reward_issued_at || ref.updated_at || ref.created_at)}</span>
+                    </span>
+                  ) : (
+                    <span className="flex flex-col">
+                      <span className="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Granted At</span>
+                      <span>{formatDate(ref.created_at)}</span>
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

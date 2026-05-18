@@ -200,7 +200,30 @@ export default function NotificationBell() {
     // Give the dropdown a moment to start closing before navigating
     await new Promise(resolve => setTimeout(resolve, 50));
     
-    if (notif.type === 'payment_success' || notif.type === 'ticket_issued' || notif.initial_page_name === 'MyTickets') {
+    const cleanTitle = (notif.notification_title || '').trim().toLowerCase();
+    const cleanText = (notif.notification_text || '').trim().toLowerCase();
+
+    const isWon = cleanTitle.includes('congratulation') || cleanTitle.includes('won') || cleanText.includes('won');
+    const isReferralOrBonus = 
+      notif.type === 'referral_reward_received' ||
+      notif.type === 'free_ticket_earned' ||
+      cleanTitle.includes('referral reward') || 
+      cleanTitle.includes('referral') || 
+      cleanText.includes('referral') ||
+      cleanTitle.includes('bonus ticket') ||
+      cleanTitle.includes('admin bonus') ||
+      cleanTitle.includes('free ticket');
+
+    if (isWon) {
+      navigate('/profile/tickets', { state: { tab: 'won' } });
+    } else if (isReferralOrBonus) {
+      navigate('/profile#referrals');
+    } else if (
+      notif.type === 'payment_success' || 
+      notif.type === 'ticket_issued' || 
+      notif.initial_page_name === 'MyTickets' ||
+      cleanTitle.includes('discount')
+    ) {
       navigate('/profile/tickets');
     } else if (notif.initial_page_name === 'detailsPage' || notif.initial_page_name === 'participants') {
       let compId = null;

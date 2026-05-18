@@ -335,9 +335,10 @@
       "status": {
         "active": "En cours",
         "ready_to_draw": "Tirage bientôt",
+        "drawing": "Tirage en cours",
         "sold_out": "Guichet fermé",
-        "winner_announced": "Tirage terminé",
-        "completed": "Terminé",
+        "winner_announced": "Gagnant annoncé",
+        "completed": "Tirage effectué",
         "won": "Gagnant",
         "lost": "Terminé",
         "default": "En attente"

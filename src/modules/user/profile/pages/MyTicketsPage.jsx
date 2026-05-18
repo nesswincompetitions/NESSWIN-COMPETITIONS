@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
 import { subscribeUserOrders, subscribeUserTickets } from '@/modules/user/profile/services/profileService';
 import { useTranslation } from 'react-i18next';
@@ -26,10 +26,11 @@ const formatDate = (ts, langCode) => {
 
 const STATUS_MAP = {
   active:           { label: 'Active',           classes: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  ready_to_draw:    { label: 'Draw Soon',    classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  ready_to_draw:    { label: 'Draw Soon',        classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  drawing:          { label: 'Drawing',          classes: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
   sold_out:         { label: 'Sold Out',         classes: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
-  winner_announced: { label: 'Draw Ended',       classes: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
-  completed:        { label: 'Completed',        classes: 'bg-white/5 text-white/40 border-white/10' },
+  winner_announced: { label: 'Winner Announced', classes: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+  completed:        { label: 'Draw Completed',   classes: 'bg-white/5 text-white/40 border-white/10' },
   won:              { label: 'Winner',           classes: 'bg-yellow-400/10 text-yellow-400 border-yellow-400/20' },
   lost:             { label: 'Ended',            classes: 'bg-white/5 text-white/40 border-white/10' },
   default:          { label: 'Pending',          classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -52,6 +53,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
   let compStatusKey = 'default';
   if (rawStatus === 'active') compStatusKey = 'active';
   else if (rawStatus === 'ready_to_draw') compStatusKey = 'ready_to_draw';
+  else if (rawStatus === 'drawing') compStatusKey = 'drawing';
   else if (['sold_out', 'sold out'].includes(rawStatus)) compStatusKey = 'sold_out';
   else if (rawStatus === 'winner_announced') compStatusKey = 'winner_announced';
   else if (['completed', 'closed', 'end'].includes(rawStatus)) compStatusKey = 'completed';
@@ -80,7 +82,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
         className="flex flex-col sm:flex-row cursor-pointer"
         onClick={() => navigate(`/competitions/${competition?.id}`)}
       >
-        <div className="sm:w-40 sm:shrink-0 h-36 sm:h-auto relative overflow-hidden">
+        <div className="sm:w-40 sm:shrink-0 h-36 sm:h-36 relative overflow-hidden">
           {image ? (
             <img src={image} alt={competition?.title} className="w-full h-full object-cover" loading="lazy" />
           ) : (
@@ -203,10 +205,11 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
 export default function MyTicketsPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tickets, setTickets] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('active');
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'active');
   const [selectedCompData, setSelectedCompData] = useState(null);
   const [reviewCompId, setReviewCompId] = useState(null);
 

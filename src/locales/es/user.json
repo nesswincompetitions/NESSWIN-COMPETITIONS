@@ -333,11 +333,12 @@
       "shareExperience": "Compartir tu experiencia",
       "shareExperienceDesc": "¡Felicidades por tu victoria! Nos encantaría conocer tu experiencia.",
       "status": {
-        "active": "Activas",
+        "active": "Activo",
         "ready_to_draw": "Sorteo pronto",
+        "drawing": "Sorteo en curso",
         "sold_out": "Agotado",
-        "winner_announced": "Sorteo finalizado",
-        "completed": "Completado",
+        "winner_announced": "Ganador anunciado",
+        "completed": "Sorteo completado",
         "won": "Ganador",
         "lost": "Finalizado",
         "default": "Pendiente"

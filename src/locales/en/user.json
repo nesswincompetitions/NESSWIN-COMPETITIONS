@@ -336,9 +336,10 @@
       "status": {
         "active": "Active",
         "ready_to_draw": "Draw Soon",
+        "drawing": "Drawing",
         "sold_out": "Sold Out",
-        "winner_announced": "Draw Ended",
-        "completed": "Completed",
+        "winner_announced": "Winner Announced",
+        "completed": "Draw Completed",
         "won": "Winner",
         "lost": "Ended",
         "default": "Pending"

@@ -9,6 +9,8 @@ const DASHBOARD_DOC_PATH = "system_metrics/dashboard";
 const DAILY_HISTORY_PATH = "system_metrics/dashboard/daily_history";
 const EVENT_LOGS_PATH = "system_metrics/dashboard/event_logs";
 const TIMEZONE = "Europe/Paris";
+const ACTIVE_COMPETITION_STATUSES = new Set(["active", "ready_to_draw", "drawing"]);
+const WINNER_COMPETITION_STATUSES = new Set(["winner_announced", "completed", "closed"]);
 
 function getTodayStr() {
   return new Date().toLocaleDateString("en-CA", { timeZone: TIMEZONE });
@@ -60,21 +62,24 @@ async function runFullRecalculation() {
 
   const compSnap = await db.collection("competition").get();
   let totalActive = 0;
-  let pendingWinners = 0;
+  let totalWinners = 0;
   let endingSoon = 0;
 
   compSnap.forEach(doc => {
     const data = doc.data();
     const status = (data.status || "").toLowerCase();
+    const hasWinner = Boolean(data.winner_ref);
     
-    if (status === "active") {
+    if (ACTIVE_COMPETITION_STATUSES.has(status)) {
       totalActive++;
       const drawDate = data.draw_date?.toDate?.() || (data.draw_date ? new Date(data.draw_date) : null);
       if (drawDate && drawDate > now && drawDate <= sevenDaysFromNow) {
         endingSoon++;
       }
-    } else if (status === "winner_announced") {
-      pendingWinners++;
+    }
+
+    if (hasWinner || WINNER_COMPETITION_STATUSES.has(status)) {
+      totalWinners++;
     }
   });
 
@@ -122,7 +127,9 @@ async function runFullRecalculation() {
     tickets_sold_today: ticketsSoldToday,
     total_revenue: totalRevenue,
     registered_users: registeredUsers,
-    pending_winners: pendingWinners,
+    total_winners: totalWinners,
+    // Kept for backward compatibility with any older clients still reading this field.
+    pending_winners: totalWinners,
     draws_ending_soon: endingSoon,
     open_support_chats: openSupportChats,
     closed_support_chats: closedSupportChats,
@@ -229,36 +236,50 @@ export const onOrderChangeDashboard = onDocumentUpdated("order/{orderId}", async
   const before = event.data.before.data();
   const after = event.data.after.data();
 
-  if (before.status !== "paid" && after.status === "paid") {
-    const amount = Number(after.total_amount || 0);
-    const tickets = Number(after.total_ticket || 0);
-    const todayStr = getTodayStr();
+  const wasPaid = before.status === "paid";
+  const isPaid = after.status === "paid";
 
-    const batch = db.batch();
-    
-    const dashRef = db.doc(DASHBOARD_DOC_PATH);
-    batch.set(dashRef, {
-      total_revenue: admin.firestore.FieldValue.increment(amount),
-      tickets_sold_today: admin.firestore.FieldValue.increment(tickets),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    const globalRef = db.doc("system_metrics/global_stats");
-    batch.set(globalRef, {
-      total_revenue: admin.firestore.FieldValue.increment(amount),
-      total_tickets_sold: admin.firestore.FieldValue.increment(tickets)
-    }, { merge: true });
-
-    const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(todayStr);
-    batch.set(dailyRef, {
-      revenue: admin.firestore.FieldValue.increment(amount),
-      tickets_sold: admin.firestore.FieldValue.increment(tickets),
-      date: todayStr,
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    await batch.commit();
+  if (wasPaid === isPaid) {
+    return;
   }
+
+  const incrementSign = isPaid ? 1 : -1;
+  const source = isPaid ? after : before;
+  const amount = Number(source.total_amount || 0) * incrementSign;
+  const tickets = Number(source.total_ticket || 0) * incrementSign;
+  const orderDate = source.created_at?.toDate?.() || new Date(source.created_at);
+  const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+  const todayStr = getTodayStr();
+
+  const batch = db.batch();
+
+  const dashRef = db.doc(DASHBOARD_DOC_PATH);
+  const dashUpdates = {
+    total_revenue: admin.firestore.FieldValue.increment(amount),
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (orderDateStr === todayStr) {
+    dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(tickets);
+  }
+
+  batch.set(dashRef, dashUpdates, { merge: true });
+
+  const globalRef = db.doc("system_metrics/global_stats");
+  batch.set(globalRef, {
+    total_revenue: admin.firestore.FieldValue.increment(amount),
+    total_tickets_sold: admin.firestore.FieldValue.increment(tickets)
+  }, { merge: true });
+
+  const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
+  batch.set(dailyRef, {
+    revenue: admin.firestore.FieldValue.increment(amount),
+    tickets_sold: admin.firestore.FieldValue.increment(tickets),
+    date: orderDateStr,
+    updated_at: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  await batch.commit();
 });
 
 export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", async (event) => {

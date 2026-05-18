@@ -100,6 +100,7 @@
       "totalRevenue": "Total Revenue",
       "registeredUsers": "Registered Users",
       "pendingWinners": "Pending Winners",
+      "totalWinners": "Total Winners",
       "drawsEndingSoon": "Draws Ending Soon (7d)"
     },
     "activeCompetitions": "Active Competitions",

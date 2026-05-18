@@ -95,7 +95,7 @@ export async function fetchDashboardStats() {
     totalRegisteredUsers:  globalData.total_registered_users  || dashboardData.registered_users || 0,
     ticketsSoldToday:      dashboardData.tickets_sold_today   || 0,
     activeCompetitions:    activeCount,
-    pendingWinners:        pendingWinnersCount,
+    totalWinners:          dashboardData.total_winners || pendingWinnersCount,
     drawsEndingSoon:       drawsEndingSoonCount,
     activeCompetitionsList: endingSnap?.docs ? endingSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) : [],
     upcomingDrawsList,

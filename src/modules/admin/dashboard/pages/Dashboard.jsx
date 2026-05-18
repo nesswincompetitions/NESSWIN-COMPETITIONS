@@ -30,7 +30,7 @@ const Dashboard = () => {
     { title: t('dashboard.kpi.ticketsSoldToday'), value: stats.ticketsSoldToday.toLocaleString(), icon: Ticket, color: 'text-emerald-400' },
     { title: t('dashboard.kpi.totalRevenue'), value: `€${stats.totalRevenue.toLocaleString()}`, icon: PoundSterling, color: 'text-yellow-400' },
     { title: t('dashboard.kpi.registeredUsers'), value: stats.totalRegisteredUsers.toLocaleString(), icon: Users, color: 'text-blue-400' },
-    { title: t('dashboard.kpi.pendingWinners'), value: stats.pendingWinners.toLocaleString(), icon: CheckCircle, color: 'text-orange-400' },
+    { title: t('dashboard.kpi.totalWinners'), value: stats.totalWinners.toLocaleString(), icon: CheckCircle, color: 'text-orange-400' },
     { title: t('dashboard.kpi.drawsEndingSoon'), value: stats.drawsEndingSoon.toLocaleString(), icon: Clock, color: 'text-red-400' },
   ];
 

@@ -116,6 +116,9 @@ export const notifyWinnerOnFirstAdminMessage = onDocumentCreated(
         const winnerRef = chatData.receiver_id || (Array.isArray(chatData.participants) ? chatData.participants[1] : null);
         const notificationRef = getWinnerMessageNotificationRef(chatId);
 
+        const winnerDocPath = winnerRef?.path ? (winnerRef.path.startsWith("user/") ? winnerRef.path : `user/${winnerRef.path}`) : (winnerRef?.id ? `user/${winnerRef.id}` : "");
+        const adminDocPath = adminRef?.path ? (adminRef.path.startsWith("user/") ? adminRef.path : `user/${adminRef.path}`) : (adminRef?.id ? `user/${adminRef.id}` : "");
+
         transaction.update(chatRef, {
           winner_first_admin_message_notified: true,
           updated_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -128,14 +131,19 @@ export const notifyWinnerOnFirstAdminMessage = onDocumentCreated(
             notification_text: "The admin has sent you a message about your prize handover.",
             notification_sound: "default",
             user_ref: winnerRef,
-            user_refs: winnerRef?.path || "",
+            user_refs: winnerDocPath,
             sender: adminRef,
             chat_ref: chatRef,
             category: "messages",
             type: "support_replied",
             cta_text: "Open chat",
             initial_page_name: "SupportChat",
-            parameter_data: JSON.stringify({ chatId }),
+            parameter_data: JSON.stringify({
+              chatId,
+              senderId: adminDocPath,
+              receiverId: winnerDocPath,
+              chatRef: `chats/${chatId}`,
+            }),
             is_read: false,
             status: "",
             num_sent: 0,

@@ -29,6 +29,23 @@ const getUserRef = (userRefLike) => {
 
 const getRefPath = (refLike) => refLike?.path ?? '';
 
+const getUserDocPath = (userRefLike) => {
+  if (!userRefLike) return '';
+  if (typeof userRefLike === 'string') {
+    const trimmed = userRefLike.trim();
+    return trimmed.startsWith('user/') ? trimmed : `user/${trimmed}`;
+  }
+  if (userRefLike.path && typeof userRefLike.path === 'string') {
+    const trimmed = userRefLike.path.trim();
+    return trimmed.startsWith('user/') ? trimmed : `user/${trimmed}`;
+  }
+  if (userRefLike.id && typeof userRefLike.id === 'string') {
+    const trimmed = userRefLike.id.trim();
+    return `user/${trimmed}`;
+  }
+  return '';
+};
+
 
 export const createSupportChat = async (currentUserRefLike) => {
   const currentUserRef = getUserRef(currentUserRefLike);
@@ -160,6 +177,8 @@ export const sendMessage = async (chatId, senderRefLike, receiverRefLike, textMe
 
   if (isSenderAdmin) {
     const notificationRef = doc(collection(db, 'ff_user_push_notifications'));
+    const senderDocPath = getUserDocPath(senderRef);
+    const receiverDocPath = getUserDocPath(receiverRef);
     batch.set(notificationRef, {
       category: "Messages",
       chat_ref: chatRef,
@@ -175,15 +194,15 @@ export const sendMessage = async (chatId, senderRefLike, receiverRefLike, textMe
       num_sent: 0,
       order_ref: null,
       parameter_data: JSON.stringify({
-        senderId: senderRef.path,
-        receiverId: receiverRef.path,
+        senderId: senderDocPath,
+        receiverId: receiverDocPath,
         chatRef: `chats/${chatId}`
       }),
       sender: senderRef,
       status: "",
       timestamp: serverTimestamp(),
       type: "new_message",
-      user_refs: receiverRef.path,
+      user_refs: receiverDocPath,
     });
   }
 
@@ -257,6 +276,8 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
     const chatData = chatSnap.data();
     const userRef = chatData.sender_id;
     if (userRef) {
+      const closedByDocPath = getUserDocPath(closedByRef);
+      const userDocPath = getUserDocPath(userRef);
       const notificationRef = doc(collection(db, 'ff_user_push_notifications'));
       transaction.set(notificationRef, {
         category: "Messages",
@@ -273,15 +294,15 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
         num_sent: 0,
         order_ref: null,
         parameter_data: JSON.stringify({
-          senderId: closedByRef.path,
-          receiverId: userRef.path,
+          senderId: closedByDocPath,
+          receiverId: userDocPath,
           chatRef: `chats/${chatId}`
         }),
         sender: closedByRef,
         status: "",
         timestamp: serverTimestamp(),
         type: "issue_resolved",
-        user_refs: userRef.path,
+        user_refs: userDocPath,
       });
     }
   });
