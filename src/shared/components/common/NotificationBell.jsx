@@ -226,7 +226,12 @@ export default function NotificationBell() {
       navigate('/profile/tickets');
     } else if (isReferralOrBonus) {
       navigate('/profile#referrals');
-    } else if (notif.initial_page_name === 'detailsPage' || notif.initial_page_name === 'participants') {
+    } else if (
+      notif.initial_page_name === 'detailsPage' || 
+      notif.initial_page_name === 'participants' || 
+      notif.initial_page_name === 'Competitions' ||
+      cleanTitle.includes('new competition')
+    ) {
       let compId = null;
       if (notif.parameter_data) {
         try {
