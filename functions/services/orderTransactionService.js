@@ -64,7 +64,8 @@ export async function runOrderTransaction(
 
   const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(qty);
   const clampedReferralTickets = Math.max(0, Math.floor(freeTicketsToUse));
-  const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets;
+  const referralBonusTickets = Math.floor(clampedReferralTickets / 10);
+  const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets + referralBonusTickets;
 
   if (totalTicketsToGenerate <= 0) {
     throw new Error("At least one ticket must be requested (paid or free).");
@@ -181,7 +182,7 @@ export async function runOrderTransaction(
       user_ref: userRef,
       total_ticket: totalTicketsToGenerate,
       paid_ticket: qty,
-      free_ticket: packBonusTickets,
+      free_ticket: packBonusTickets + referralBonusTickets,
       free_used: clampedReferralTickets,
       pack_type: packType,
       discount_percent: Math.round(discount * 100),
@@ -258,6 +259,19 @@ export async function runOrderTransaction(
         reason: "ticket_bonus",
         reward_type: "pack_bonus",
         pack_type: packType,
+        created_at: serverNow,
+      });
+    }
+
+    if (referralBonusTickets > 0) {
+      const refBonusLogRef = db.collection("free_ticket_log").doc();
+      transaction.set(refBonusLogRef, {
+        user_id: userRef,
+        order_id: orderRef,
+        competition_id: competitionRef,
+        quantity: referralBonusTickets,
+        reason: "ticket_bonus",
+        reward_type: "referral_use_bonus",
         created_at: serverNow,
       });
     }
@@ -349,8 +363,8 @@ export async function runOrderTransaction(
       ...(clampedReferralTickets > 0 && {
         free_tickets: admin.firestore.FieldValue.increment(-clampedReferralTickets),
       }),
-      ...(packBonusTickets > 0 && {
-        total_free_tickets: admin.firestore.FieldValue.increment(packBonusTickets),
+      ...((packBonusTickets > 0 || referralBonusTickets > 0) && {
+        total_free_tickets: admin.firestore.FieldValue.increment(packBonusTickets + referralBonusTickets),
       }),
       updated_at: serverNow,
     });
@@ -360,8 +374,8 @@ export async function runOrderTransaction(
       tickets: ticketResults,
       totalAmount,
       packType,
-      freeTickets: packBonusTickets + clampedReferralTickets,
-      packBonusTickets,
+      freeTickets: packBonusTickets + clampedReferralTickets + referralBonusTickets,
+      packBonusTickets: packBonusTickets + referralBonusTickets,
       referralTicketsUsed: clampedReferralTickets,
     };
   });

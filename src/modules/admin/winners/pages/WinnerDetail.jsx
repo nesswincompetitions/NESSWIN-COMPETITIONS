@@ -90,12 +90,14 @@ const WinnerDetail = () => {
     return () => unsub();
   }, [competitionId]);
 
-  useEffect(() => {
-    if (!competitionId) return;
+  // Resolve the dynamic winner chat ID: loaded from competition.handover_details?.chat_ref or legacy fallback
+  const resolvedChatId = competition?.handover_details?.chat_ref?.id || (competitionId ? `winner-chat-${competitionId}` : null);
 
-    const chatId = `winner-chat-${competitionId}`;
+  useEffect(() => {
+    if (!resolvedChatId) return;
+
     const q = query(
-      collection(db, 'chats', chatId, 'messages'),
+      collection(db, 'chats', resolvedChatId, 'messages'),
       orderBy('created_at', 'asc'),
       limit(100)
     );
@@ -108,21 +110,20 @@ const WinnerDetail = () => {
       if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
         if (!lastMsg.is_seen && lastMsg.receiver_id?.id === currentUser?.uid) {
-          markMessagesAsRead(chatId, currentUser.uid, true);
+          markMessagesAsRead(resolvedChatId, currentUser.uid, true);
         }
       }
     });
 
     return () => unsub();
-  }, [competitionId, currentUser]);
+  }, [resolvedChatId, currentUser]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !attachmentFile) || isSending) return;
+    if ((!newMessage.trim() && !attachmentFile) || isSending || !resolvedChatId) return;
 
     setIsSending(true);
     try {
-      const chatId = `winner-chat-${competitionId}`;
       const winnerRef = competition.winner_ref;
 
       let imageUrl = '';
@@ -132,7 +133,7 @@ const WinnerDetail = () => {
       }
 
       await sendMessage(
-        chatId,
+        resolvedChatId,
         currentUser.uid,
         winnerRef,
         newMessage,
@@ -244,6 +245,12 @@ const WinnerDetail = () => {
   };
 
   const handleHandoverAction = async (stage) => {
+    if (stage === 'prize_sent') {
+      if (!handover.id_proof_url) {
+        toast.error('Winner ID Proof is required before marking the prize as sent.');
+        return;
+      }
+    }
     if (stage === 'completed') {
       if (!handover.id_proof_url) {
         toast.error('Winner ID Proof is required before completing handover.');

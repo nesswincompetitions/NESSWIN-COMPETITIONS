@@ -62,7 +62,10 @@ export function useCheckout({
 
   // ── Derived / computed values ─────────────────────────────────────────────────
   const ticketPrice = Number(competition?.ticketPrice || 0);
-  const { discount, freeTickets: bonusTickets } = getOrderPricing(paidTicketQty);
+  const { discount, freeTickets: packBonusTickets } = getOrderPricing(paidTicketQty);
+
+  const referralBonusTickets = Math.floor(referralTicketsToUse / 10);
+  const bonusTickets  = packBonusTickets + referralBonusTickets;
 
   const subtotal      = paidTicketQty * ticketPrice;
   const discountAmt   = subtotal * discount;

@@ -20,11 +20,11 @@ export async function fetchDashboardStats() {
   const sevenDaysMs = now.getTime() + (7 * 24 * 60 * 60 * 1000);
 
   const [
-    globalResult, dailyResult, activeResult,
+    globalResult, dashboardResult, activeResult,
     pendingResult, endingResult, upcomingResult, ordersResult
   ] = await Promise.allSettled([
     getDoc(doc(db, "system_metrics", "global_stats")),
-    getDoc(doc(db, "daily_metrics", todayStr)),
+    getDoc(doc(db, "system_metrics", "dashboard")),
     getCountFromServer(query(collection(db, "competition"), where("status", "==", "active"))),
     getDocs(query(collection(db, "competition"), where("status", "==", "ended"))),
     getDocs(query(collection(db, "competition"), where("status", "==", "active"))),
@@ -38,16 +38,16 @@ export async function fetchDashboardStats() {
     return fallback;
   };
 
-  const globalSnap  = ok(globalResult,  null);
-  const dailySnap   = ok(dailyResult,   null);
-  const activeSnap  = ok(activeResult,  null);
-  const pendingSnap  = ok(pendingResult,  null);
-  const endingSnap   = ok(endingResult,   null);
-  const upcomingSnap = ok(upcomingResult, null);
-  const ordersSnap   = ok(ordersResult,   null);
+  const globalSnap    = ok(globalResult,    null);
+  const dashboardSnap = ok(dashboardResult, null);
+  const activeSnap    = ok(activeResult,    null);
+  const pendingSnap   = ok(pendingResult,   null);
+  const endingSnap    = ok(endingResult,    null);
+  const upcomingSnap  = ok(upcomingResult,  null);
+  const ordersSnap    = ok(ordersResult,    null);
 
-  const globalData = globalSnap?.exists?.() ? globalSnap.data() : {};
-  const dailyData  = dailySnap?.exists?.()  ? dailySnap.data()  : {};
+  const globalData    = globalSnap?.exists?.() ? globalSnap.data() : {};
+  const dashboardData = dashboardSnap?.exists?.()  ? dashboardSnap.data()  : {};
 
   const activeCount = activeSnap ? activeSnap.data().count : 0;
 
@@ -91,9 +91,9 @@ export async function fetchDashboardStats() {
   }
 
   return {
-    totalRevenue:          globalData.total_revenue           || 0,
-    totalRegisteredUsers:  globalData.total_registered_users  || 0,
-    ticketsSoldToday:      dailyData.tickets_sold             || 0,
+    totalRevenue:          globalData.total_revenue           || dashboardData.total_revenue || 0,
+    totalRegisteredUsers:  globalData.total_registered_users  || dashboardData.registered_users || 0,
+    ticketsSoldToday:      dashboardData.tickets_sold_today   || 0,
     activeCompetitions:    activeCount,
     pendingWinners:        pendingWinnersCount,
     drawsEndingSoon:       drawsEndingSoonCount,

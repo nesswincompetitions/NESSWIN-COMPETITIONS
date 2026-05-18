@@ -8,7 +8,7 @@ import Badge from '@/shared/components/ui/Badge';
 import {
   ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard,
   ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2,
-  Phone, User, Share2
+  Phone, User, Share2, Eye
 } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { doc, getDoc, where } from 'firebase/firestore';
@@ -17,7 +17,8 @@ import {
   useUserOrdersRealtime,
   useUserTicketsRealtime,
   useUserReferralsRealtime,
-  useUserBonusLogsRealtime
+  useUserBonusLogsRealtime,
+  useUserWinsRealtime
 } from '@/shared/hooks/useAdminData';
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
@@ -39,6 +40,7 @@ const UserDetail = () => {
   const { data: tickets, loading: ticketsLoading } = useUserTicketsRealtime(id);
   const { data: referralsList, loading: referralsLoading } = useUserReferralsRealtime(id);
   const { data: bonusLogs, loading: bonusLoading } = useUserBonusLogsRealtime(id);
+  const { data: wins, loading: winsLoading } = useUserWinsRealtime(id);
 
   const [compDetails, setCompDetails] = useState({});
   const [resolvingComps, setResolvingComps] = useState(false);
@@ -102,7 +104,7 @@ const UserDetail = () => {
     return Object.values(map);
   }, [tickets, compDetails]);
 
-  const loading = profileLoading || ordersLoading || ticketsLoading || referralsLoading || bonusLoading || resolvingComps;
+  const loading = profileLoading || ordersLoading || ticketsLoading || referralsLoading || bonusLoading || winsLoading || resolvingComps;
 
   const handleStatusUpdate = async (newStatus) => {
     try {
@@ -298,11 +300,11 @@ const UserDetail = () => {
                 </TableCell>
                 <TableCell>
                   {ref.reward_issued ? (
-                    <Badge variant="success" className="bg-emerald-500/10 text-emerald-400 flex items-center gap-1 w-fit">
-                      <CheckCircle2 size={10} /> Issued
+                    <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50 flex items-center gap-1 w-fit">
+                      <CheckCircle2 size={10} /> Used
                     </Badge>
                   ) : (
-                    <Badge variant="warning" className="w-fit">Pending</Badge>
+                    <Badge variant="success" className="w-fit">Available</Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-gray-400">
@@ -387,14 +389,51 @@ const UserDetail = () => {
 
   const renderWins = () => (
     <Card className="fade-in">
-      <CardContent className="py-20 flex flex-col items-center text-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-          <Trophy size={32} className="text-amber-500" />
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-white">No wins yet</p>
-          <p className="text-sm text-gray-400 mt-1">When this user wins a competition, the details will appear here.</p>
-        </div>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Competition</TableHead>
+              <TableHead>Winning Ticket</TableHead>
+              <TableHead>Draw Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!wins || wins.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-12 text-center text-gray-500 italic">No wins yet</TableCell>
+              </TableRow>
+            ) : wins.map(comp => (
+              <TableRow key={comp.id}>
+                <TableCell className="font-medium text-white">{comp.title || 'Unknown Competition'}</TableCell>
+                <TableCell>
+                  <Badge variant="popular">
+                    {comp.ticket || 'N/A'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-gray-400">
+                  {formatDate(comp.draw_date)}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={comp.status === 'completed' || comp.status === 'winner_announced' ? 'success' : 'neutral'} className={comp.status === 'completed' || comp.status === 'winner_announced' ? '' : 'bg-white/5 border-white/10 opacity-70'}>
+                    {formatStatus(comp.status)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <button
+                    onClick={() => navigate(`/admin/competitions/${comp.id}`)}
+                    className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white cursor-pointer"
+                    title="View Competition"
+                  >
+                    <Eye size={16} />
+                  </button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

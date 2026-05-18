@@ -430,9 +430,7 @@ export const useAdminUsersFeed = (limitCount = 50) => {
 };
 
 export const useAdminDashboardData = () => {
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const globalStats = useRealtimeDocument(['system_metrics', 'global_stats']);
-  const dailyStats = useRealtimeDocument(['daily_metrics', todayStr]);
+  const dashboardStats = useRealtimeDocument(['system_metrics', 'dashboard']);
   const { data: competitions, loading: competitionsLoading, error: competitionsError } = useRealtimeCollection('competition', []);
   const { data: recentOrders, loading: ordersLoading, error: ordersError } = useRecentOrders(5);
   const { data: allOrders, loading: allOrdersLoading, error: allOrdersError } = useRealtimeCollection('order', []);
@@ -487,19 +485,19 @@ export const useAdminDashboardData = () => {
   return {
     data: {
       totalOrders: allOrders.length,
-      totalRevenue: globalStats.data?.total_revenue || 0,
-      totalRegisteredUsers: globalStats.data?.total_registered_users || 0,
-      ticketsSoldToday: dailyStats.data?.daily_tickets_sold || 0,
-      revenueToday: dailyStats.data?.daily_revenue || 0,
-      activeCompetitions: activeCompetitionsList.length,
-      pendingWinners,
-      drawsEndingSoon,
+      totalRevenue: dashboardStats.data?.total_revenue || 0,
+      totalRegisteredUsers: dashboardStats.data?.registered_users || 0,
+      ticketsSoldToday: dashboardStats.data?.tickets_sold_today || 0,
+      revenueToday: (dashboardStats.data?.tickets_sold_today || 0) * 5, // fallback calculation based on tickets sold today
+      activeCompetitions: dashboardStats.data?.total_active_competitions || activeCompetitionsList.length,
+      pendingWinners: dashboardStats.data?.pending_winners || pendingWinners,
+      drawsEndingSoon: dashboardStats.data?.draws_ending_soon || drawsEndingSoon,
       activeCompetitionsList,
       upcomingDrawsList,
       recentOrdersList,
     },
-    loading: globalStats.loading || dailyStats.loading || competitionsLoading || ordersLoading || allOrdersLoading || resolving,
-    error: globalStats.error || dailyStats.error || competitionsError || ordersError || allOrdersError,
+    loading: dashboardStats.loading || competitionsLoading || ordersLoading || allOrdersLoading || resolving,
+    error: dashboardStats.error || competitionsError || ordersError || allOrdersError,
   };
 };
 
@@ -535,7 +533,7 @@ export const useWinnerCompetitionsFeed = () => {
           winnerName: winnerUser?.display_name || winnerUser?.name || 'Unknown User',
           winnerEmail: winnerUser?.email || 'N/A',
           winnerPhoto: winnerUser?.photo_url || winnerUser?.profile_image || '',
-          ticket: winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A',
+          ticket: winnerTicket?.ticket_sequence || (winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A'),
           status: competition.status || 'winner_announced',
         };
       }));
@@ -661,6 +659,48 @@ export const useUserTicketsRealtime = (userId) => {
     [userId, userRef]
   );
   return useRealtimeCollection('ticket', queryConstraints);
+};
+
+export const useUserWinsRealtime = (userId) => {
+  const userRef = useMemo(() => (userId ? doc(db, 'user', userId) : null), [userId]);
+  const queryConstraints = useMemo(
+    () => [
+      where('winner_ref', 'in', [userId, userRef, `/user/${userId}`].filter(Boolean)),
+    ],
+    [userId, userRef]
+  );
+  
+  const { data: competitions, loading, error } = useRealtimeCollection('competition', queryConstraints);
+  const [rows, setRows] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const resolveRows = async () => {
+      const resolved = await Promise.all(competitions.map(async (comp) => {
+        const winnerTicketRef = comp.winner_ticket_ref;
+        const winnerTicketSnap = winnerTicketRef ? await getDoc(winnerTicketRef).catch(() => null) : null;
+        const winnerTicket = winnerTicketSnap?.exists() ? winnerTicketSnap.data() : null;
+
+        return {
+          ...comp,
+          ticket: winnerTicket?.ticket_sequence || (winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A'),
+        };
+      }));
+
+      if (isMounted) setRows(resolved);
+    };
+
+    if (!loading) {
+      void resolveRows();
+    } else {
+      setRows([]);
+    }
+
+    return () => { isMounted = false; };
+  }, [competitions, loading]);
+
+  return { data: rows, loading, error };
 };
 
 export const useUserReferralsRealtime = (userId) => {

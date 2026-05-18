@@ -103,6 +103,20 @@ async function runFullRecalculation() {
     ticketsSoldToday += Number(doc.data().total_ticket || 0);
   });
 
+  const openChatsSnap = await db.collection("chats")
+    .where("chat_type", "in", ["support", "winner_chat"])
+    .where("status", "==", "active")
+    .count()
+    .get();
+  const openSupportChats = openChatsSnap.data().count;
+
+  const closedChatsSnap = await db.collection("chats")
+    .where("chat_type", "in", ["support", "winner_chat"])
+    .where("status", "==", "closed")
+    .count()
+    .get();
+  const closedSupportChats = closedChatsSnap.data().count;
+
   const dashboardData = {
     total_active_competitions: totalActive,
     tickets_sold_today: ticketsSoldToday,
@@ -110,6 +124,8 @@ async function runFullRecalculation() {
     registered_users: registeredUsers,
     pending_winners: pendingWinners,
     draws_ending_soon: endingSoon,
+    open_support_chats: openSupportChats,
+    closed_support_chats: closedSupportChats,
   };
 
   await updateDashboard(dashboardData);
@@ -153,10 +169,6 @@ export const onUserChangeDashboard = onDocumentUpdated("user/{userId}", async (e
     await updateDashboard({
       registered_users: admin.firestore.FieldValue.increment(1)
     });
-    const todayStr = getTodayStr();
-    await updateDailyHistory(todayStr, {
-      new_users: admin.firestore.FieldValue.increment(1)
-    });
   } else if (before.is_deleted === false && after.is_deleted === true && after.is_verified) {
     await updateDashboard({
       registered_users: admin.firestore.FieldValue.increment(-1)
@@ -172,6 +184,42 @@ export const onUserDeletedDashboard = onDocumentDeleted("user/{userId}", async (
     await updateDashboard({
       registered_users: admin.firestore.FieldValue.increment(-1)
     });
+  }
+});
+
+export const onOrderCreatedDashboard = onDocumentCreated("order/{orderId}", async (event) => {
+  if (await markEventProcessed(event.id)) return;
+  const data = event.data.data();
+
+  if (data.status === "paid") {
+    const amount = Number(data.total_amount || 0);
+    const tickets = Number(data.total_ticket || 0);
+    const todayStr = getTodayStr();
+
+    const batch = db.batch();
+    
+    const dashRef = db.doc(DASHBOARD_DOC_PATH);
+    batch.set(dashRef, {
+      total_revenue: admin.firestore.FieldValue.increment(amount),
+      tickets_sold_today: admin.firestore.FieldValue.increment(tickets),
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    const globalRef = db.doc("system_metrics/global_stats");
+    batch.set(globalRef, {
+      total_revenue: admin.firestore.FieldValue.increment(amount),
+      total_tickets_sold: admin.firestore.FieldValue.increment(tickets)
+    }, { merge: true });
+
+    const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(todayStr);
+    batch.set(dailyRef, {
+      revenue: admin.firestore.FieldValue.increment(amount),
+      tickets_sold: admin.firestore.FieldValue.increment(tickets),
+      date: todayStr,
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    await batch.commit();
   }
 });
 
@@ -231,7 +279,6 @@ export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", asyn
       total_revenue: admin.firestore.FieldValue.increment(-amount),
       updated_at: admin.firestore.FieldValue.serverTimestamp()
     };
-    // Only decrement "today" tickets if the order was actually from today
     if (orderDateStr === todayStr) {
       dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(-tickets);
     }
@@ -269,4 +316,32 @@ export const onDayChangeSync = onSchedule({
 export const syncDashboardMetrics = onCall(async (request) => {
   await assertAdmin(request);
   return await runFullRecalculation();
+});
+
+export const onChatCreatedDashboard = onDocumentCreated("chats/{chatId}", async (event) => {
+  if (await markEventProcessed(event.id)) return;
+  const data = event.data.data();
+  if (data.status === "active") {
+    await updateDashboard({
+      open_support_chats: admin.firestore.FieldValue.increment(1)
+    });
+  }
+});
+
+export const onChatUpdatedDashboard = onDocumentUpdated("chats/{chatId}", async (event) => {
+  if (await markEventProcessed(event.id)) return;
+  const before = event.data.before.data();
+  const after = event.data.after.data();
+
+  if (before.status === "active" && after.status === "closed") {
+    await updateDashboard({
+      open_support_chats: admin.firestore.FieldValue.increment(-1),
+      closed_support_chats: admin.firestore.FieldValue.increment(1)
+    });
+  } else if (before.status === "closed" && after.status === "active") {
+    await updateDashboard({
+      open_support_chats: admin.firestore.FieldValue.increment(1),
+      closed_support_chats: admin.firestore.FieldValue.increment(-1)
+    });
+  }
 });

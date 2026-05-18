@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Trophy, Calendar, Quote, Loader2 } from 'lucide-react';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
@@ -7,21 +8,39 @@ import { subscribeRecentWinners, getPlatformWinnersCount } from '../../competiti
 // ─── VideoModal ─────────────────────────────────────────────────────────────
 
 function VideoModal({ videoUrl, onClose }) {
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
       onClick={onClose}
+      style={{
+        animation: 'fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+      }}
     >
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
       <div 
-        className="relative w-full max-w-3xl rounded-2xl border border-border/50 bg-card overflow-hidden shadow-2xl"
+        className="relative w-full max-w-3xl rounded-3xl border border-border/40 bg-card overflow-hidden shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: 'scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
-          <h3 className="font-serif text-lg font-bold text-foreground">Prize Handover Video 🎁</h3>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 bg-muted/10">
+          <h3 className="font-serif text-lg font-bold text-foreground flex items-center gap-2">
+            <span>Prize Handover Video</span> 🎁
+          </h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer bg-muted/40 hover:scale-105 active:scale-95"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -35,12 +54,14 @@ function VideoModal({ videoUrl, onClose }) {
             src={videoUrl}
             controls
             autoPlay
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain shadow-inner"
           />
         </div>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }
 
 const COLOR_THEMES = [

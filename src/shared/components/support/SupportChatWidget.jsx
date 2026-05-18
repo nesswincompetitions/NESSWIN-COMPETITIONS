@@ -448,7 +448,7 @@ export default function SupportChatWidget({
       <div
         ref={scrollAreaRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-5"
+        className="flex-1 overflow-y-auto overscroll-auto px-4 py-4 md:px-5"
         style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--color-border) transparent' }}
       >
         {loadingMessages ? (

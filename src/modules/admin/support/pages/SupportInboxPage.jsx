@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { ArrowLeft, CheckCircle2, Circle, Inbox, Loader2, MessageSquareText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Circle, Inbox, Loader2, MessageSquareText, Trophy, Gift, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/shared/state/AuthContext';
 import { db } from '@/config/firebase';
@@ -9,9 +10,97 @@ import { markMessagesAsRead } from '@/shared/services/supportChatService';
 
 const getRefPath = (refLike) => refLike?.path ?? '';
 
+function WinnerChatBanner({ competitionRef }) {
+  const navigate = useNavigate();
+  const [compData, setCompData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!competitionRef) return;
+    setLoading(true);
+    getDoc(competitionRef).then(snap => {
+      if (snap.exists()) {
+        setCompData(snap.data());
+      }
+      setLoading(false);
+    }).catch(err => {
+      console.error("Error loading competition for banner:", err);
+      setLoading(false);
+    });
+  }, [competitionRef]);
+
+  if (loading) {
+    return (
+      <div className="bg-amber-500/5 border-b border-amber-500/20 px-6 py-3 flex items-center justify-between animate-pulse">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <Trophy className="h-5 w-5 text-amber-500/50" />
+          </div>
+          <div>
+            <div className="h-4 w-32 bg-white/10 rounded mb-1.5" />
+            <div className="h-3 w-48 bg-white/5 rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!compData) return null;
+
+  return (
+    <div 
+      className="relative bg-gradient-to-r from-amber-950/30 via-amber-900/5 to-transparent border-b border-amber-500/20 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden"
+      style={{
+        animation: 'bannerSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+      }}
+    >
+      <style>{`
+        @keyframes bannerSlideDown {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      {/* Decorative ambient glow */}
+      <div className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full pointer-events-none" />
+
+      <div className="flex items-center gap-4 relative z-10">
+        <div className="w-12 h-12 shrink-0 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+          <Trophy className="h-6 w-6 text-amber-400" />
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+              Handover Chat
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              ID: {competitionRef.id.slice(0, 8)}...
+            </span>
+          </div>
+          <h4 className="text-sm font-semibold text-foreground truncate mt-1">{compData.title || "Prize Handover"}</h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+            <Gift className="h-3 w-3 text-amber-500" />
+            <span>Handover details and assets are ready to manage</span>
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => navigate(`/admin/winners/${competitionRef.id}`)}
+        className="shrink-0 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-neutral-950 text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-[0_4px_20px_rgba(245,158,11,0.2)] hover:shadow-[0_4px_25px_rgba(245,158,11,0.35)] hover:scale-102 active:scale-98 cursor-pointer relative z-10"
+      >
+        <span>Manage Handover</span>
+        <ExternalLink className="h-3.5 w-3.5 stroke-[2.5]" />
+      </button>
+    </div>
+  );
+}
+
 export default function SupportInboxPage() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
+  const [globalOpenCount, setGlobalOpenCount] = useState(0);
+  const [globalClosedCount, setGlobalClosedCount] = useState(0);
   const [loadingChats, setLoadingChats] = useState(true);
   const [selectedChatId, setSelectedChatId] = useState(null);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -88,10 +177,14 @@ export default function SupportInboxPage() {
 
           if (!isMounted) return;
 
-          setChats(rows);
+          const filteredRows = rows.filter(
+            (chat) => chat.last_message && chat.last_message.trim() !== ''
+          );
+
+          setChats(filteredRows);
           setLoadingChats(false);
 
-          if (selectedChatIdRef.current && !rows.some((row) => row.id === selectedChatIdRef.current)) {
+          if (selectedChatIdRef.current && !filteredRows.some((row) => row.id === selectedChatIdRef.current)) {
             setSelectedChatId(null);
             setSelectedChat(null);
           }
@@ -117,9 +210,24 @@ export default function SupportInboxPage() {
       }
     );
 
+    const dashboardRef = doc(db, 'system_metrics', 'dashboard');
+    const unsubscribeDashboard = onSnapshot(
+      dashboardRef,
+      (snapshot) => {
+        if (!isMounted) return;
+        const data = snapshot.data() || {};
+        setGlobalOpenCount(data.open_support_chats || 0);
+        setGlobalClosedCount(data.closed_support_chats || 0);
+      },
+      (error) => {
+        console.error('Error fetching dashboard support metrics:', error);
+      }
+    );
+
     return () => {
       isMounted = false;
       unsubscribe();
+      unsubscribeDashboard();
     };
   }, [currentUser?.uid]);
 
@@ -157,7 +265,14 @@ export default function SupportInboxPage() {
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold text-(--color-foreground)">Active Tickets</h2>
-              <p className="text-sm text-muted-foreground">{chats.length} open conversation{chats.length === 1 ? '' : 's'}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="inline-flex items-center rounded-lg bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                  {globalOpenCount} Open
+                </span>
+                <span className="inline-flex items-center rounded-lg bg-muted/20 px-2 py-0.5 text-xs font-semibold text-muted-foreground border border-border/30">
+                  {globalClosedCount} Resolved
+                </span>
+              </div>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <MessageSquareText className="h-5 w-5" />
@@ -173,6 +288,7 @@ export default function SupportInboxPage() {
               <div className="space-y-2">
                 {chats.map((chat) => {
                   const isSelected = chat.id === selectedChatId;
+                  const isWinnerChat = chat.chat_type === 'winner_chat';
 
                   return (
                     <button
@@ -180,12 +296,18 @@ export default function SupportInboxPage() {
                       type="button"
                       onClick={() => handleSelectChat(chat)}
                       className={`w-full rounded-2xl border px-4 py-4 text-left transition ${isSelected
-                        ? 'border-primary/30 bg-primary/10 shadow-[0_12px_35px_rgba(0,0,0,0.14)]'
+                        ? isWinnerChat
+                          ? 'border-amber-500/40 bg-amber-500/10 shadow-[0_12px_35px_rgba(245,158,11,0.08)]'
+                          : 'border-primary/30 bg-primary/10 shadow-[0_12px_35px_rgba(0,0,0,0.14)]'
                         : 'border-border/50 bg-muted/10 hover:border-primary/20 hover:bg-primary/5'
                         }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-bold text-primary overflow-hidden">
+                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold overflow-hidden ${
+                          isWinnerChat && !chat.customerPhoto
+                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25 animate-pulse'
+                            : 'bg-primary/10 text-primary'
+                        }`}>
                           {chat.customerPhoto ? (
                             <img src={chat.customerPhoto} alt="" className="h-full w-full object-cover" />
                           ) : (
@@ -195,7 +317,14 @@ export default function SupportInboxPage() {
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="truncate font-semibold text-(--color-foreground)">{chat.customerName}</p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="truncate font-semibold text-(--color-foreground)">{chat.customerName}</p>
+                              {isWinnerChat && (
+                                <span className="inline-flex items-center gap-1 shrink-0 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-400 border border-amber-500/20">
+                                  🏆 Winner
+                                </span>
+                              )}
+                            </div>
                             {chat.unread_sender_count > 0 ? (
                               <span className="inline-flex h-3 w-3 shrink-0 rounded-full bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.14)]" />
                             ) : (
@@ -229,23 +358,30 @@ export default function SupportInboxPage() {
           </div>
         </aside>
 
-        <section className={`${selectedChatId ? 'block' : 'hidden xl:block'} h-[calc(100dvh-120px)] xl:h-190 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.22)]`}>
+        <section className={`${selectedChatId ? 'block' : 'hidden xl:block'} h-[calc(100dvh-120px)] xl:h-190 overflow-hidden rounded-3xl border border-border/60 bg-card shadow-[0_20px_80px_rgba(0,0,0,0.22)] flex flex-col`}>
           {selectedChat ? (
-            <SupportChatWidget
-              chatId={selectedChat.id}
-              currentUserRef={currentUser?.uid}
-              receiverRef={selectedChat.sender_id}
-              assignedAdminRef={selectedChat.assigned_admin_id}
-              isCurrentUserAdmin={true}
-              title={selectedChat.customerName}
-              customerId={selectedChat.customerId}
-              customerPhoto={selectedChat.customerPhoto}
-              closeLabel="Resolve & Close"
-              onCloseTicket={handleClosed}
-              onBack={handleClosed}
-              unreadCount={selectedChat.unread_admin_count ?? 0}
-              status={selectedChat.status ?? 'active'}
-            />
+            <>
+              {selectedChat.chat_type === 'winner_chat' && (
+                <WinnerChatBanner competitionRef={selectedChat.competition_ref} />
+              )}
+              <div className="flex-1 min-h-0">
+                <SupportChatWidget
+                  chatId={selectedChat.id}
+                  currentUserRef={currentUser?.uid}
+                  receiverRef={selectedChat.sender_id}
+                  assignedAdminRef={selectedChat.assigned_admin_id}
+                  isCurrentUserAdmin={true}
+                  title={selectedChat.customerName}
+                  customerId={selectedChat.customerId}
+                  customerPhoto={selectedChat.customerPhoto}
+                  closeLabel="Resolve & Close"
+                  onCloseTicket={handleClosed}
+                  onBack={handleClosed}
+                  unreadCount={selectedChat.unread_admin_count ?? 0}
+                  status={selectedChat.status ?? 'active'}
+                />
+              </div>
+            </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">
               <div className="mb-4 flex h-18 w-18 items-center justify-center rounded-3xl bg-primary/10 text-primary">

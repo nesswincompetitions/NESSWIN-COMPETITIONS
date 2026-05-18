@@ -7,6 +7,7 @@ const HANDOOVER_KEYS = [
   "is_contacted",
   "prize_sent",
   "handover_completed",
+  "chat_ref",
 ];
 
 export function normalizeText(value) {
@@ -156,7 +157,7 @@ export async function selectWinnerTransaction(
   }
 
   const now = admin.firestore.FieldValue.serverTimestamp();
-  const chatRef = db.collection("chats").doc(buildWinnerChatId(competitionId));
+  const chatRef = db.collection("chats").doc(); // Clean auto-generated ID!
   const winnerNotificationRef = db.collection("ff_user_push_notifications").doc(buildWinnerNotificationId(competitionId));
   const broadcastNotificationRef = db.collection("ff_push_notifications").doc(buildBroadcastNotificationId(competitionId));
 
@@ -164,7 +165,10 @@ export async function selectWinnerTransaction(
     status: "winner_announced",
     winner_ticket_ref: ticketRef,
     winner_ref: winnerRef,
-    handover_details: buildHandoverDefaults(),
+    handover_details: {
+      ...buildHandoverDefaults(),
+      chat_ref: chatRef, // Store the reference to the clean auto-generated chat!
+    },
     updated_at: now,
   });
 
@@ -279,7 +283,7 @@ export async function updateWinnerHandoverTransaction(
     throw new HttpsError("failed-precondition", "Handover updates are only allowed after a winner is announced.");
   }
 
-  const chatRef = db.collection("chats").doc(buildWinnerChatId(competitionId));
+  const chatRef = competitionData.handover_details?.chat_ref || db.collection("chats").doc(buildWinnerChatId(competitionId));
   const chatSnap = await transaction.get(chatRef);
 
   if (!chatSnap.exists) {
@@ -317,6 +321,10 @@ export async function updateWinnerHandoverTransaction(
         updateData["handover_details.is_contacted"] = true;
       }
     } else if (stage === "prize_sent") {
+      const currentIdProof = idProofUrl || handoverDetails.id_proof_url;
+      if (!currentIdProof || !currentIdProof.trim()) {
+        throw new HttpsError("failed-precondition", "Winner ID Proof is required before marking the prize as sent.");
+      }
       if (handoverDetails.prize_sent !== true) {
         updateData["handover_details.prize_sent"] = true;
       }
