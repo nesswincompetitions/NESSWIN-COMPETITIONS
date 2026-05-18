@@ -4,6 +4,45 @@ import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 import { subscribeRecentWinners, getPlatformWinnersCount } from '../../competitions/services/competitionService';
 
+// ─── VideoModal ─────────────────────────────────────────────────────────────
+
+function VideoModal({ videoUrl, onClose }) {
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-3xl rounded-2xl border border-border/50 bg-card overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
+          <h3 className="font-serif text-lg font-bold text-foreground">Prize Handover Video 🎁</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Video Player */}
+        <div className="aspect-video w-full bg-black flex items-center justify-center">
+          <video
+            src={videoUrl}
+            controls
+            autoPlay
+            className="w-full h-full object-contain"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const COLOR_THEMES = [
   {
     accentFrom: "from-red-500/20",
@@ -32,12 +71,11 @@ const COLOR_THEMES = [
 ];
 
 
-function WinnerCard({ winner }) {
+function WinnerCard({ winner, onWatchVideo }) {
   const { i18n, t } = useTranslation();
-  const { initials, name, prizeName, amount, quote, drawDateRaw, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
+  const { initials, name, photoUrl, handoverVideoUrl, prizeName, amount, quote, drawDateRaw, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
 
   // Localized placeholder
-  const noCommentsLabel = t("winnersShowcase.noComments");
   const isNoQuote = !quote || quote === "";
 
   // Localized date
@@ -46,7 +84,7 @@ function WinnerCard({ winner }) {
     : "—";
 
   return (
-    <article className={`relative flex flex-col gap-4 p-5 rounded-2xl border border-border/60 bg-card overflow-hidden group`}>
+    <article className={`relative flex flex-col gap-4 p-5 rounded-2xl border border-border/60 bg-card overflow-hidden group h-full justify-between`}>
       {/* Hover gradient */}
       <div className={`absolute inset-0 bg-linear-to-br ${accentFrom} ${accentTo} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
@@ -55,16 +93,20 @@ function WinnerCard({ winner }) {
       )}
 
       {/* Winner header */}
-      <div className="flex items-center gap-3 relative z-10">
-        <div className="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center font-serif text-lg font-bold bg-linear-to-br from-primary/20 to-primary/5 text-(--color-foreground) shrink-0">
-          {initials}
+      <div className="flex items-center gap-3 relative z-10 shrink-0">
+        <div className="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center font-serif text-lg font-bold bg-linear-to-br from-primary/20 to-primary/5 text-(--color-foreground) shrink-0 overflow-hidden">
+          {photoUrl ? (
+            <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
         </div>
         <div>
           <p className="font-semibold text-sm text-(--color-foreground)">{name}</p>
         </div>
       </div>
 
-      <div className="relative z-10 space-y-1">
+      <div className="relative z-10 space-y-1 shrink-0">
         <div className="flex items-center gap-1.5">
           <Trophy className={`w-3.5 h-3.5 ${trophyColor}`} aria-hidden="true" />
           <span className={`text-xs font-bold tracking-wide uppercase ${badgeColor}`}>{t("winnersShowcase.prizeWon")}</span>
@@ -74,12 +116,31 @@ function WinnerCard({ winner }) {
       </div>
 
       {/* Quote */}
-      <p className={`text-sm leading-relaxed relative z-10 flex-1 ${isNoQuote ? "text-muted-foreground/50 not-italic" : "text-muted-foreground italic"}`}>
-        {isNoQuote ? noCommentsLabel : `"${quote}"`}
-      </p>
+      {!isNoQuote && (
+        <p className="text-sm leading-relaxed relative z-10 flex-1 text-muted-foreground italic">
+          "{quote}"
+        </p>
+      )}
+
+      {/* Handover Video Button */}
+      {handoverVideoUrl && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onWatchVideo(handoverVideoUrl);
+          }}
+          className="w-full h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-bold tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_20px_rgba(245,158,11,0.35)] cursor-pointer mt-1 relative z-10 shrink-0"
+        >
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-black"></span>
+          </span>
+          View Handover Video
+        </button>
+      )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground relative z-10 pt-2 border-t border-border/40">
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground relative z-10 pt-2 border-t border-border/40 shrink-0">
         <span className="flex items-center gap-1">
           <Calendar className="w-2.5 h-2.5" aria-hidden="true" />
           {formattedDate}
@@ -97,6 +158,7 @@ export default function WinnersShowcase() {
   const [winners, setWinners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalWinnersCount, setTotalWinnersCount] = useState(1247);
+  const [activeVideoUrl, setActiveVideoUrl] = useState(null);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -154,7 +216,7 @@ export default function WinnersShowcase() {
           ) : (
             winners.map((w, index) => (
               <Reveal key={w.id} delay={index * 70} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] min-w-[280px] max-w-[320px]">
-                <WinnerCard winner={w} />
+                <WinnerCard winner={w} onWatchVideo={setActiveVideoUrl} />
               </Reveal>
             ))
           )}
@@ -173,6 +235,10 @@ export default function WinnersShowcase() {
           </div>
         </Reveal>
       </div>
+
+      {activeVideoUrl && (
+        <VideoModal videoUrl={activeVideoUrl} onClose={() => setActiveVideoUrl(null)} />
+      )}
     </section>
   );
 }

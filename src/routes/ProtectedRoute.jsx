@@ -28,16 +28,16 @@ export const ProtectedRoute = ({ children, requireAdmin = false }) => {
     );
   }
 
-  // Logged in but not verified or onboarding incomplete -> force onboarding
-  if (!userData.is_verified || !userData.user_name || !userData.date_of_birth) {
+  // Logged in but not verified or onboarding incomplete -> force onboarding (skip for admins)
+  if (userData.role !== 'admin' && (!userData.is_verified || !userData.user_name || !userData.date_of_birth)) {
     if (location.pathname !== '/onboarding') {
       return <Navigate to="/onboarding" replace />;
     }
   }
 
   // If verified and trying to access onboarding, redirect them away
-  if (userData.is_verified && userData.user_name && userData.date_of_birth && location.pathname === '/onboarding') {
-    return <Navigate to={userData.role === 'admin' ? '/admin' : '/'} replace />;
+  if (userData.role !== 'admin' && userData.is_verified && userData.user_name && userData.date_of_birth && location.pathname === '/onboarding') {
+    return <Navigate to="/" replace />;
   }
 
   // Role-based access control
@@ -66,10 +66,13 @@ export const AuthRoute = ({ children }) => {
   }
 
   if (currentUser && userData) {
+    if (userData.role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    }
     if (!userData.is_verified || !userData.user_name || !userData.date_of_birth) {
       return <Navigate to="/onboarding" replace />;
     } else {
-      return <Navigate to={userData.role === 'admin' ? '/admin' : '/'} replace />;
+      return <Navigate to="/" replace />;
     }
   }
 

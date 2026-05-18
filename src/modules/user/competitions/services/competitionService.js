@@ -400,6 +400,8 @@ export const subscribeRecentWinners = (limitCount = 3, onData, onError) => {
             id: docSnap.id,
             initials,
             name,
+            photoUrl: userData?.photo_url || null,
+            handoverVideoUrl: data.handover_details?.handover_video_url || null,
             prizeName: data.prize_name || data.title || 'Unknown Prize',
             competitionTitle: data.title || 'Untitled Competition',
             priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,

@@ -68,14 +68,14 @@ const useTranslateNotification = () => {
       text = t('notifications.issueResolvedText');
     }
     // 2. Referral Discount Applied / successfully checked out using referral tickets
-    else if (cleanTitle === 'Referral Discount Applied' || cleanText.toLowerCase().includes('referral ticket')) {
+    else if (cleanTitle === 'Referral Discount Applied' || (cleanText.toLowerCase().includes('referral') && cleanText.toLowerCase().includes('checked out'))) {
       const matchText = cleanText.match(/using\s+(\d+)\s+referral/i);
       const count = matchText ? parseInt(matchText[1], 10) : (params.quantity || 2);
       title = t('notifications.referralDiscountTitle');
       text = t('notifications.referralDiscountText', { count });
     }
     // 3. Free Ticket Granted
-    else if (cleanTitle.toLowerCase().includes('free ticket') || cleanText.toLowerCase().includes('free ticket')) {
+    else if (cleanTitle.toLowerCase().includes('free ticket') || (cleanText.toLowerCase().includes('free ticket') && !cleanText.toLowerCase().includes('referral'))) {
       const matchTitle = cleanTitle.match(/(\d+)\s+Free/i);
       const matchText = cleanText.match(/received\s+(\d+)\s+free/i);
       const count = matchTitle ? parseInt(matchTitle[1], 10) : (matchText ? parseInt(matchText[1], 10) : 1);
@@ -111,10 +111,10 @@ const useTranslateNotification = () => {
       }
     }
     // 8. Referral Reward Received
-    else if (docData.type === 'referral_reward_received' || cleanTitle.toLowerCase().includes('referral reward') || cleanText.toLowerCase().includes('referral ticket')) {
+    else if (notif.type === 'referral_reward_received' || cleanTitle.toLowerCase().includes('referral reward') || cleanText.toLowerCase().includes('referral ticket')) {
       title = t('notifications.referralRewardTitle');
       if (cleanText.toLowerCase().includes('used your code')) {
-        text = docData.notification_text || docData.notificationText || t('notifications.referralRewardText');
+        text = notif.notification_text || notif.notificationText || t('notifications.referralRewardText');
       } else {
         text = t('notifications.referralRewardText');
       }

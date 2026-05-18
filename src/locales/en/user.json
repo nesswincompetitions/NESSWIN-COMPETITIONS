@@ -29,7 +29,7 @@
     "winnerAnnounced": "Winner Announced",
     "completed": "Completed",
     "drawCompleted": "Draw Completed",
-    "viewWinners": "View Winners",
+    "viewWinners": "View Winner",
     "active": "Active",
     "loading": "Loading..."
   },
@@ -123,6 +123,7 @@
   },
   "footer": {
     "getItOn": "Get it on",
+    "downloadOn": "Download on the",
     "appInstallText": "This is our app, you can click to install our app",
     "description": "The premium prize competition platform. Exceptional prizes, certified draws, total transparency.",
     "platform": "Platform",

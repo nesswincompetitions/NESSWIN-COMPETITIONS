@@ -30,7 +30,7 @@
     "winnerAnnounced": "Gagnant annoncé",
     "completed": "Terminé",
     "drawCompleted": "Tirage terminé",
-    "viewWinners": "Voir les gagnants"
+    "viewWinners": "Voir le gagnant"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
@@ -122,6 +122,7 @@
   },
   "footer": {
     "getItOn": "Disponible sur",
+    "downloadOn": "Télécharger dans l'",
     "appInstallText": "Ceci est notre application, cliquez pour l'installer",
     "description": "La plateforme premium de concours à lots. Lots exceptionnels, tirages certifiés, transparence totale.",
     "platform": "Plateforme",

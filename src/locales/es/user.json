@@ -30,7 +30,7 @@
     "winnerAnnounced": "Ganador anunciado",
     "completed": "Completado",
     "drawCompleted": "Sorteo completado",
-    "viewWinners": "Ver ganadores"
+    "viewWinners": "Ver ganador"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",
@@ -122,6 +122,7 @@
   },
   "footer": {
     "getItOn": "Disponible en",
+    "downloadOn": "Consíguelo en el",
     "appInstallText": "Esta es nuestra aplicación, haz clic para instalarla",
     "description": "La plataforma de sorteos de premios premium. Premios excepcionales, sorteos certificados, transparencia total.",
     "platform": "Plataforma",

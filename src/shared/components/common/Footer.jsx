@@ -1,5 +1,5 @@
 import { MapPin, Phone, Building } from 'lucide-react';
-import { FaInstagram, FaTwitter, FaYoutube, FaGooglePlay } from 'react-icons/fa';
+import { FaInstagram, FaTwitter, FaYoutube, FaGooglePlay, FaApple } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -73,25 +73,45 @@ export default function Footer() {
               {t("footer.description")}
             </p>
 
-            {/* Play Store App Link */}
-            <div className="pt-2">
-              <a
-                href="https://play.google.com/store/apps/details?id=com.mycompany.nesswin"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 px-4 py-2 rounded-xl border border-border bg-card/30 hover:bg-accent hover:border-primary/30 transition-all group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                  <FaGooglePlay className="w-4 h-4" />
-                </div>
-                <div className="text-left">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">
-                    {t("footer.getItOn")}
-                  </p>
-                  <p className="text-sm font-bold text-foreground leading-none">Google Play</p>
-                </div>
-              </a>
-              <p className="text-[11px] text-muted-foreground mt-2 ml-1 italic">
+            {/* App Store / Play Store Links */}
+            <div className="pt-2 space-y-3">
+              <div className="flex flex-wrap gap-3">
+                {/* Play Store */}
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.mycompany.nesswin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-4 py-2 rounded-xl border border-border bg-card/30 hover:bg-accent hover:border-primary/30 transition-all group shrink-0"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                    <FaGooglePlay className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">
+                      {t("footer.getItOn")}
+                    </p>
+                    <p className="text-sm font-bold text-foreground leading-none">Google Play</p>
+                  </div>
+                </a>
+
+                {/* App Store */}
+                <a
+                  href="#"
+                  onClick={(e) => e.preventDefault()}
+                  className="inline-flex items-center gap-3 px-4 py-2 rounded-xl border border-border bg-card/30 hover:bg-accent hover:border-primary/30 transition-all group shrink-0"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                    <FaApple className="w-4.5 h-4.5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">
+                      {t("footer.downloadOn")}
+                    </p>
+                    <p className="text-sm font-bold text-foreground leading-none">App Store</p>
+                  </div>
+                </a>
+              </div>
+              <p className="text-[11px] text-muted-foreground ml-1 italic">
                 {t("footer.appInstallText")}
               </p>
             </div>

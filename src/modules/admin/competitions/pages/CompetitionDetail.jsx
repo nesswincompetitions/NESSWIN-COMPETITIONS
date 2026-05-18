@@ -58,12 +58,25 @@ const CompetitionDetail = () => {
   const [participantTicketsModalOpen, setParticipantTicketsModalOpen] = useState(false);
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
 
+  const lastProcessedTabRef = React.useRef(null);
+
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['overview', 'participants', 'edit', 'draw'].includes(tab)) {
+    if (!tab || !['overview', 'participants', 'edit', 'draw'].includes(tab)) return;
+
+    // Avoid re-processing the same tab param on every render
+    if (lastProcessedTabRef.current === tab + competition?.status) return;
+    lastProcessedTabRef.current = tab + competition?.status;
+
+    if (tab === 'edit' && (competition?.status === 'completed' || competition?.status === 'winner_announced')) {
+      // Rewrite the URL without triggering a navigation loop
+      setSearchParams({ tab: 'overview' }, { replace: true });
+      setActiveTab('overview');
+    } else {
       setActiveTab(tab);
     }
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, competition?.status]);
 
   const hydrateWinnerSummary = (compDoc) => {
     const winnerUser = compDoc?.winnerDetails?.user;
@@ -894,7 +907,9 @@ const CompetitionDetail = () => {
   const tabs = [
     { id: 'overview', label: t('competitions.detail.tabs.overview'), icon: LayoutDashboard },
     { id: 'participants', label: t('competitions.detail.tabs.participants'), icon: Users },
-    { id: 'edit', label: t('competitions.detail.tabs.editDetails'), icon: Edit3 },
+    ...(competition?.status !== 'completed' && competition?.status !== 'winner_announced' ? [
+      { id: 'edit', label: t('competitions.detail.tabs.editDetails'), icon: Edit3 }
+    ] : []),
     { id: 'draw', label: t('competitions.detail.tabs.drawWinner'), icon: Trophy },
   ];
 
@@ -949,20 +964,23 @@ const CompetitionDetail = () => {
         </div>
 
         <div className="flex flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 mt-4 md:mt-0 w-full md:w-auto">
-
-          <Button variant="primary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleTabChange('edit')}>
-            <Edit3 size={14} />
-            {t('common.edit')}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="flex-1 sm:flex-none border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50" 
-            onClick={() => setDeleteModalOpen(true)}
-          >
-            <Trash2 size={14} />
-            <span className="hidden sm:inline">{t('common.delete')}</span>
-          </Button>
+          {competition?.status !== 'completed' && competition?.status !== 'winner_announced' && (
+            <>
+              <Button variant="primary" size="sm" className="flex-1 sm:flex-none" onClick={() => handleTabChange('edit')}>
+                <Edit3 size={14} />
+                {t('common.edit')}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex-1 sm:flex-none border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50" 
+                onClick={() => setDeleteModalOpen(true)}
+              >
+                <Trash2 size={14} />
+                <span className="hidden sm:inline">{t('common.delete')}</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

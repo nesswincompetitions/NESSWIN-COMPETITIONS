@@ -4,13 +4,54 @@ import { useTranslation } from 'react-i18next';
 import { subscribeRecentWinners } from '../services/competitionService';
 
 
+// ─── VideoModal ─────────────────────────────────────────────────────────────
+
+function VideoModal({ videoUrl, onClose }) {
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+      onClick={onClose}
+    >
+      <div 
+        className="relative w-full max-w-3xl rounded-2xl border border-[var(--color-border)]/50 bg-[var(--color-card)] overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]/60">
+          <h3 className="font-serif text-lg font-bold text-[var(--color-foreground)]">Prize Handover Video 🎁</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors cursor-pointer"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Video Player */}
+        <div className="aspect-video w-full bg-black flex items-center justify-center">
+          <video
+            src={videoUrl}
+            controls
+            autoPlay
+            className="w-full h-full object-contain"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── WinnerCard ───────────────────────────────────────────────────────────────
 
-function WinnerCard({ winner }) {
+function WinnerCard({ winner, onWatchVideo }) {
   const { t } = useTranslation();
   const {
     initials,
     name,
+    photoUrl,
+    handoverVideoUrl,
     prizeName,
     competitionTitle,
     priceLabel,
@@ -21,7 +62,6 @@ function WinnerCard({ winner }) {
   } = winner;
 
   const { i18n } = useTranslation();
-  const noCommentsLabel = t("winnersPage.noComments") || t("winnersShowcase.noComments");
   const isNoQuote = !quote || quote === "";
 
   const formattedDate = drawDateRaw 
@@ -29,10 +69,10 @@ function WinnerCard({ winner }) {
     : "—";
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] hover:border-[var(--color-primary)]/30 hover:shadow-xl hover:shadow-[var(--color-primary)]/10 transition-all duration-300">
+    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] hover:border-[var(--color-primary)]/30 hover:shadow-xl hover:shadow-[var(--color-primary)]/10 transition-all duration-300 h-full">
 
       {/* ── Prize image ── */}
-      <div className="relative h-40 overflow-hidden">
+      <div className="relative h-40 overflow-hidden shrink-0">
         <img
           src={image}
           alt={competitionTitle}
@@ -49,11 +89,15 @@ function WinnerCard({ winner }) {
       <div className="p-5 flex flex-col gap-4 flex-1">
 
         {/* Winner identity row */}
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-4 shrink-0">
           {/* Avatar with trophy badge */}
           <div className="relative shrink-0">
-            <div className="w-16 h-16 rounded-full bg-[var(--color-primary)]/20 border-2 border-[var(--color-primary)]/40 flex items-center justify-center text-[var(--color-primary)] font-bold text-xl">
-              {initials}
+            <div className="w-16 h-16 rounded-full border-2 border-[var(--color-primary)]/40 bg-[var(--color-muted)]/30 flex items-center justify-center text-[var(--color-primary)] font-bold text-xl overflow-hidden shrink-0">
+              {photoUrl ? (
+                <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <span>{initials}</span>
+              )}
             </div>
             <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[var(--color-primary)] flex items-center justify-center shadow-lg">
               <Trophy
@@ -75,7 +119,7 @@ function WinnerCard({ winner }) {
         </div>
 
         {/* Competition meta panel */}
-        <div className="bg-[var(--color-muted)]/30 rounded-xl p-3 space-y-1.5">
+        <div className="bg-[var(--color-muted)]/30 rounded-xl p-3 space-y-1.5 shrink-0">
           <p className="text-xs text-[var(--color-muted-foreground)] font-medium tracking-wide uppercase">
             {competitionTitle}
           </p>
@@ -95,17 +139,34 @@ function WinnerCard({ winner }) {
         </div>
 
         {/* Testimonial quote */}
-        <div className="relative pl-4 flex-1">
-          {!isNoQuote && (
+        {!isNoQuote && (
+          <div className="relative pl-4 flex-1">
             <Quote
               className="absolute top-0 left-0 w-3.5 h-3.5 text-[var(--color-primary)]/40"
               aria-hidden="true"
             />
-          )}
-          <p className={`text-sm leading-relaxed ${isNoQuote ? "text-[var(--color-muted-foreground)]/50 not-italic" : "text-[var(--color-muted-foreground)] italic"}`}>
-            {isNoQuote ? noCommentsLabel : quote}
-          </p>
-        </div>
+            <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)] italic">
+              {quote}
+            </p>
+          </div>
+        )}
+
+        {/* Handover Video Button */}
+        {handoverVideoUrl && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onWatchVideo(handoverVideoUrl);
+            }}
+            className="w-full h-9 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold tracking-wider uppercase flex items-center justify-center gap-1.5 transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:shadow-[0_0_20px_rgba(245,158,11,0.4)] cursor-pointer mt-1 relative z-10 shrink-0"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-black opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-black"></span>
+            </span>
+            View Handover Video
+          </button>
+        )}
 
       </div>
     </article>
@@ -156,6 +217,7 @@ function WinnersHero() {
 export default function WinnersPage() {
   const [winners, setWinners] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeVideoUrl, setActiveVideoUrl] = useState(null);
 
   useEffect(() => {
     const unsubscribe = subscribeRecentWinners(4, (data) => {
@@ -191,13 +253,17 @@ export default function WinnersPage() {
             <div className="flex flex-wrap justify-center gap-6">
               {winners.map((winner) => (
                 <div key={winner.id} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] min-w-[300px] max-w-[380px]">
-                  <WinnerCard winner={winner} />
+                  <WinnerCard winner={winner} onWatchVideo={setActiveVideoUrl} />
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {activeVideoUrl && (
+        <VideoModal videoUrl={activeVideoUrl} onClose={() => setActiveVideoUrl(null)} />
+      )}
     </div>
   );
 }
