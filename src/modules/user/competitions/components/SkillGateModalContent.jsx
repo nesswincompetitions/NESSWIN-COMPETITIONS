@@ -1,5 +1,6 @@
 import { AlertTriangle, ShieldCheck, Sparkles, WifiOff } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+import { useTranslation } from 'react-i18next';
 
 export function SkillGateModalContent({
   gateStatus,
@@ -11,11 +12,13 @@ export function SkillGateModalContent({
   handleVerifyAnswer,
   setIsModalOpen,
 }) {
+  const { t } = useTranslation();
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (gateStatus === 'loading' || isVerifying) {
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-4">
-        <LoadingSpinner fullScreen={false} size="w-10 h-10" message={isVerifying ? 'Checking your answer...' : 'Loading secure challenge...'} />
+        <LoadingSpinner fullScreen={false} size="w-10 h-10" message={isVerifying ? t('skillGate.checking') : t('skillGate.loadingChallenge')} />
       </div>
     );
   }
@@ -28,16 +31,16 @@ export function SkillGateModalContent({
           <WifiOff className="w-8 h-8 text-amber-400" />
         </div>
         <div className="space-y-1">
-          <p className="text-white font-bold">Quiz Configuring</p>
+          <p className="text-white font-bold">{t('skillGate.quizConfiguring')}</p>
           <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-            The skill question for this competition is being set up. Please try again later.
+            {t('skillGate.quizConfiguringDesc')}
           </p>
         </div>
         <button
           onClick={() => setIsModalOpen(false)}
           className="mt-4 px-8 py-3 rounded-xl bg-primary text-black text-sm font-bold hover:opacity-90 transition-all cursor-pointer"
         >
-          Close
+          {t('skillGate.close')}
         </button>
       </div>
     );
@@ -50,10 +53,10 @@ export function SkillGateModalContent({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
             <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Skill Question</span>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">{t('skillGate.skillQuestion')}</span>
           </div>
           <div className="text-xs text-muted-foreground">
-            A new question appears after each miss
+            {t('skillGate.missWarning')}
           </div>
         </div>
 
@@ -113,7 +116,7 @@ export function SkillGateModalContent({
             disabled={isVerifying}
             className="w-full sm:flex-1 px-6 py-3.5 rounded-xl border border-white/10 text-sm font-bold text-gray-400 hover:bg-white/5 disabled:opacity-50 transition-all cursor-pointer"
           >
-            Cancel
+            {t('skillGate.cancel')}
           </button>
           <button
             onClick={handleVerifyAnswer}
@@ -121,7 +124,7 @@ export function SkillGateModalContent({
             className="w-full sm:flex-[1.5] inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-primary text-black text-sm font-black shadow-[0_8px_20px_-4px_rgba(var(--primary-rgb),0.3)] hover:opacity-90 disabled:opacity-50 disabled:grayscale transition-all active:scale-95 cursor-pointer"
           >
             {isVerifying ? <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> : <ShieldCheck className="w-4 h-4" />}
-            {isVerifying ? 'Verifying...' : 'Submit Answer'}
+            {isVerifying ? t('skillGate.verifying') : t('skillGate.submitAnswer')}
           </button>
         </div>
       </div>

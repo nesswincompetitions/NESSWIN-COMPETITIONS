@@ -45,8 +45,8 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
           <CheckCircle2 className="text-emerald-500" size={32} />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-white">Review Submitted!</h3>
-          <p className="text-emerald-400/80 text-sm mt-1">Thank you for sharing your experience with the community.</p>
+          <h3 className="text-xl font-bold text-white">{t('competitionDetails.reviewForm.submittedTitle')}</h3>
+          <p className="text-emerald-400/80 text-sm mt-1">{t('competitionDetails.reviewForm.submittedDesc')}</p>
         </div>
       </motion.div>
     );
@@ -67,10 +67,10 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-[0.2em]">
               <Trophy size={14} />
-              Winner Exclusive
+              {t('competitionDetails.reviewForm.winnerExclusive')}
             </div>
-            <h2 className="text-3xl font-serif font-bold text-white">Share Your Experience</h2>
-            <p className="text-gray-400 max-w-md">Congratulations on your win! Now that you've received your prize, we'd love to hear how it went.</p>
+            <h2 className="text-3xl font-serif font-bold text-white">{t('competitionDetails.reviewForm.shareExperience')}</h2>
+            <p className="text-gray-400 max-w-md">{t('competitionDetails.reviewForm.shareSubtitle')}</p>
           </div>
         </div>
 
@@ -79,7 +79,7 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
           <div className="space-y-4">
             <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
               <Star size={16} className="text-amber-500" />
-              Your Rating
+              {t('competitionDetails.reviewForm.yourRating')}
             </label>
             <div className="flex gap-3">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -109,7 +109,15 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
               ))}
             </div>
             <p className="text-xs text-gray-500">
-              {rating === 5 ? 'Excellent!' : rating === 4 ? 'Great!' : rating === 3 ? 'Good' : rating === 2 ? 'Fair' : 'Poor'}
+              {rating === 5 
+                ? t('competitionDetails.reviewForm.ratingExcellent') 
+                : rating === 4 
+                  ? t('competitionDetails.reviewForm.ratingGreat') 
+                  : rating === 3 
+                    ? t('competitionDetails.reviewForm.ratingGood') 
+                    : rating === 2 
+                      ? t('competitionDetails.reviewForm.ratingFair') 
+                      : t('competitionDetails.reviewForm.ratingPoor')}
             </p>
           </div>
 
@@ -117,13 +125,13 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
           <div className="space-y-4">
             <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
               <MessageSquare size={16} className="text-primary" />
-              Your Comment
+              {t('competitionDetails.reviewForm.yourComment')}
             </label>
             <div className="relative">
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="Tell us about the competition and the handover experience..."
+                placeholder={t('competitionDetails.reviewForm.textareaPlaceholder')}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white placeholder:text-gray-600 focus:outline-none focus:border-primary/50 transition-colors min-h-[120px] resize-none"
                 disabled={isSubmitting}
               />
@@ -138,11 +146,11 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
             {isSubmitting ? (
               <>
                 <Loader2 size={20} className="animate-spin" />
-                Submitting Review...
+                {t('competitionDetails.reviewForm.submitting')}
               </>
             ) : (
               <>
-                Submit Winning Experience
+                {t('competitionDetails.reviewForm.submitBtn')}
                 <Send size={18} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
               </>
             )}

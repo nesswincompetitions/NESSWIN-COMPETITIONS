@@ -21,10 +21,12 @@ import {
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import FAQSection from '@/modules/user/support/components/FAQSection';
+import { useTranslation } from 'react-i18next';
 
 export default function SupportHubPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [activeChats, setActiveChats] = useState([]);
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,28 +56,29 @@ export default function SupportHubPage() {
 
   const handleStartNewSupport = async () => {
     if (hasActiveSupportChat) {
-      toast.error('You already have an active support ticket. Please use the existing chat.');
+      toast.error(t('profile.support.activeChatError'));
       return;
     }
 
-    const toastId = toast.loading('Starting the ticket...');
+    const toastId = toast.loading(t('profile.support.startingTicket'));
     setIsCreating(true);
     try {
       const chatId = await createSupportChat(currentUser.uid);
-      toast.success('Support ticket started!', { id: toastId });
+      toast.success(t('profile.support.activeChat'), { id: toastId });
       navigate(`/profile/support/${chatId}`);
     } catch (error) {
       console.error('Failed to create support chat:', error);
-      toast.error(error.message || 'No support agents are available right now. Please try again later.', { id: toastId });
+      toast.error(error.message || t('profile.support.agentsUnavailable'), { id: toastId });
     } finally {
       setIsCreating(false);
     }
   };
 
-  const formatDate = (timestamp) => {
+  const formatDate = (timestamp, langCode) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('en-GB', {
+    const currentLang = langCode === 'fr' ? 'fr-FR' : (langCode === 'es' ? 'es-ES' : 'en-GB');
+    return date.toLocaleDateString(currentLang, {
       day: 'numeric',
       month: 'short',
       year: 'numeric'
@@ -85,7 +88,7 @@ export default function SupportHubPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center pt-24 pb-16">
-        <LoadingSpinner fullScreen={false} size="w-10 h-10" message="Loading your conversations..." />
+        <LoadingSpinner fullScreen={false} size="w-10 h-10" message={t('profile.support.loadingConversations')} />
       </div>
     );
   }
@@ -102,10 +105,10 @@ export default function SupportHubPage() {
               className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-4 group"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              Back to Profile
+              {t('profile.backToProfile')}
             </button>
-            <h1 className="text-4xl font-bold text-[var(--color-foreground)] tracking-tight">Support Center</h1>
-            <p className="text-[var(--color-muted-foreground)] text-lg">Manage your tickets and prize handovers.</p>
+            <h1 className="text-4xl font-bold text-[var(--color-foreground)] tracking-tight">{t('profile.support.supportCenter')}</h1>
+            <p className="text-[var(--color-muted-foreground)] text-lg">{t('profile.support.supportDesc')}</p>
           </div>
 
           <button
@@ -124,7 +127,7 @@ export default function SupportHubPage() {
             ) : (
               <PlusCircle className="w-4 h-4" />
             )}
-            {hasActiveSupportChat ? 'Ticket Active' : 'Start New Ticket'}
+            {hasActiveSupportChat ? t('profile.support.ticketActive') : t('profile.support.startNewTicket')}
           </button>
         </div>
 
@@ -138,7 +141,7 @@ export default function SupportHubPage() {
             <section className="space-y-4">
               <div className="flex items-center gap-2 px-1">
                 <Clock className="w-4 h-4 text-[var(--color-primary)]" />
-                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">Active Conversations</h2>
+                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">{t('profile.support.activeConversations')}</h2>
               </div>
               
               {activeChats.length > 0 ? (
@@ -171,17 +174,17 @@ export default function SupportHubPage() {
 
                       <div className="space-y-1 relative">
                         <h3 className="font-bold text-[var(--color-foreground)] text-lg">
-                          {chat.chat_type === 'winner_chat' ? '🏆 Prize Handover' : '📞 Customer Support'}
+                          {chat.chat_type === 'winner_chat' ? t('profile.support.prizeHandover') : t('profile.support.customerSupport')}
                         </h3>
                         <p className="text-sm text-[var(--color-muted-foreground)] line-clamp-2 italic min-h-[40px]">
-                          {chat.last_message || 'Waiting for first message...'}
+                          {chat.last_message || t('profile.support.waitingFirstMessage')}
                         </p>
                       </div>
 
                       <div className="mt-6 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted-foreground)]/60 border-t border-[var(--color-border)]/40 pt-4">
-                        <span>{formatDate(chat.last_message_time)}</span>
+                        <span>{formatDate(chat.last_message_time, i18n.language)}</span>
                         <span className="flex items-center gap-1 text-[var(--color-primary)] group-hover:translate-x-1 transition-transform">
-                          Open Chat <ChevronRight className="w-3 h-3" />
+                          {t('profile.support.openChat')} <ChevronRight className="w-3 h-3" />
                         </span>
                       </div>
                     </button>
@@ -192,7 +195,7 @@ export default function SupportHubPage() {
                   <div className="w-16 h-16 rounded-full bg-[var(--color-muted)]/20 flex items-center justify-center mb-4">
                     <MessageSquareText className="w-8 h-8 text-[var(--color-muted-foreground)]/40" />
                   </div>
-                  <p className="text-[var(--color-muted-foreground)] font-medium">No active conversations</p>
+                  <p className="text-[var(--color-muted-foreground)] font-medium">{t('profile.support.noActiveChats')}</p>
                 </div>
               )}
             </section>
@@ -201,7 +204,7 @@ export default function SupportHubPage() {
             <section className="space-y-4">
               <div className="flex items-center gap-2 px-1">
                 <History className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">Resolved Tickets</h2>
+                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">{t('profile.support.resolvedTickets')}</h2>
               </div>
 
               <div className="rounded-3xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden divide-y divide-[var(--color-border)]/40">
@@ -218,18 +221,18 @@ export default function SupportHubPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="text-sm font-bold text-[var(--color-foreground)] truncate">
-                            {chat.chat_type === 'winner_chat' ? 'Winner Support History' : 'Support Ticket'}
+                            {chat.chat_type === 'winner_chat' ? t('profile.support.winnerSupportHistory') : t('profile.support.supportTicket')}
                           </h4>
-                          <span className="text-[10px] text-[var(--color-muted-foreground)] whitespace-nowrap">{formatDate(chat.closed_at)}</span>
+                          <span className="text-[10px] text-[var(--color-muted-foreground)] whitespace-nowrap">{formatDate(chat.closed_at, i18n.language)}</span>
                         </div>
-                        <p className="text-xs text-[var(--color-muted-foreground)] truncate italic">{chat.last_message || 'Closed conversation'}</p>
+                        <p className="text-xs text-[var(--color-muted-foreground)] truncate italic">{chat.last_message || t('profile.support.closedConversation')}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-[var(--color-muted-foreground)]/40 group-hover:text-[var(--color-primary)] transition-all" />
                     </button>
                   ))
                 ) : (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-[var(--color-muted-foreground)]">Your past conversations will appear here.</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">{t('profile.support.resolvedTicketsDesc')}</p>
                   </div>
                 )}
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCheck, Inbox, Ticket, ShoppingBag, Info, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { fetchUserNotifications, markNotificationAsReadForUser, markAllNotificationsAsReadForUser } from '@/shared/services/notificationService';
 const formatTimeAgo = (date) => {
@@ -13,10 +14,115 @@ const formatTimeAgo = (date) => {
   if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
   return date.toLocaleDateString();
 };
+
+const useTranslateNotification = () => {
+  const { t } = useTranslation();
+
+  const getLocalizedNotification = (notif) => {
+    let title = notif.notification_title;
+    let text = notif.notification_text;
+    let ctaText = t('notifications.viewTickets');
+
+    let params = {};
+    if (notif.parameter_data) {
+      try {
+        params = typeof notif.parameter_data === 'string'
+          ? JSON.parse(notif.parameter_data)
+          : notif.parameter_data;
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    const compName = params.competition_title || params.compName || 'Competition';
+    const ticketCount = params.quantity || 1;
+
+    // Type checking matches
+    if (notif.type === 'payment_success') {
+      title = t('notifications.paymentSuccessTitle');
+      text = t('notifications.paymentSuccessText', { count: ticketCount, compName });
+      ctaText = t('notifications.viewTickets');
+      return { title, text, ctaText };
+    }
+    
+    if (notif.type === 'ticket_issued') {
+      title = t('notifications.ticketIssuedTitle');
+      text = t('notifications.ticketIssuedText', { compName });
+      ctaText = t('notifications.viewTickets');
+      return { title, text, ctaText };
+    }
+    
+    if (notif.type === 'support_replied') {
+      title = t('notifications.supportReplyTitle');
+      text = t('notifications.supportReplyText');
+      return { title, text, ctaText };
+    }
+
+    // Dynamic pattern matching for untyped messages
+    const cleanTitle = (notif.notification_title || '').trim();
+    const cleanText = (notif.notification_text || '').trim();
+
+    // 1. Issue Resolved / support ticket has been closed
+    if (cleanTitle === 'Issue Resolved' || cleanText.toLowerCase().includes('support ticket has been closed')) {
+      title = t('notifications.issueResolvedTitle');
+      text = t('notifications.issueResolvedText');
+    }
+    // 2. Referral Discount Applied / successfully checked out using referral tickets
+    else if (cleanTitle === 'Referral Discount Applied' || cleanText.toLowerCase().includes('referral ticket')) {
+      const matchText = cleanText.match(/using\s+(\d+)\s+referral/i);
+      const count = matchText ? parseInt(matchText[1], 10) : (params.quantity || 2);
+      title = t('notifications.referralDiscountTitle');
+      text = t('notifications.referralDiscountText', { count });
+    }
+    // 3. Free Ticket Granted
+    else if (cleanTitle.toLowerCase().includes('free ticket') || cleanText.toLowerCase().includes('free ticket')) {
+      const matchTitle = cleanTitle.match(/(\d+)\s+Free/i);
+      const matchText = cleanText.match(/received\s+(\d+)\s+free/i);
+      const count = matchTitle ? parseInt(matchTitle[1], 10) : (matchText ? parseInt(matchText[1], 10) : 1);
+      
+      title = t('notifications.freeTicketGrantedTitle', { count });
+      text = t('notifications.freeTicketGrantedText', { count });
+    }
+    // 4. Support Team Reply / New message from support
+    else if (cleanTitle === 'Support Team Reply' || cleanTitle === 'New message from support') {
+      title = t('notifications.newMessageFromSupport');
+      if (cleanText === 'New message') {
+        text = t('notifications.newMessage');
+      } else if (cleanText === 'Sent an image') {
+        text = t('notifications.sentAnImage');
+      }
+    }
+    // 5. Congratulations! You won
+    else if (cleanTitle.toLowerCase().includes('congratulation') || cleanTitle.toLowerCase().includes('you won') || cleanText.toLowerCase().includes('you won')) {
+      const compMatch = cleanText.match(/(?:competition|sorteo|concours)\s*[:"]\s*([^"!]+)/i) || cleanText.match(/won\s+the\s+competition\s+([^"!]+)/i);
+      const targetCompName = compMatch ? compMatch[1].trim() : compName;
+      title = t('notifications.congratulationsYouWonTitle');
+      text = t('notifications.congratulationsYouWonText', { compName: targetCompName });
+    }
+    // 6. New Message (e.g. general notification title)
+    else if (cleanTitle.toLowerCase() === 'new message') {
+      title = t('notifications.newMessageTitle');
+    }
+    // 7. Bonus Ticket Added / Received
+    else if (cleanTitle.toLowerCase().includes('bonus ticket')) {
+      title = t('notifications.bonusTicketAddedTitle');
+      if (cleanText.toLowerCase().includes('received') || cleanText.toLowerCase().includes('added')) {
+        text = t('notifications.bonusTicketAddedText');
+      }
+    }
+
+    return { title, text, ctaText };
+  };
+
+  return { getLocalizedNotification };
+};
+
 import { useNavigate, Link } from 'react-router-dom';
 
 export default function NotificationBell() {
   const { currentUser, userData } = useAuth();
+  const { t } = useTranslation();
+  const { getLocalizedNotification } = useTranslateNotification();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -180,10 +286,10 @@ export default function NotificationBell() {
         <div className="absolute right-0 mt-3 w-[320px] sm:w-[380px] bg-card/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border/40 bg-muted/20">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              Notifications
+              {t('notifications.title')}
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px]">
-                  {unreadCount} New
+                  {unreadCount} {t('notifications.new')}
                 </span>
               )}
             </h3>
@@ -193,76 +299,79 @@ export default function NotificationBell() {
                 className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <CheckCheck className="w-3 h-3" />
-                Mark all as read
+                {t('notifications.markAllRead')}
               </button>
             )}
           </div>
-
+ 
           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
             {notifications.length > 0 ? (
               <div className="divide-y divide-border/30">
-                {notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`relative p-4 transition-all duration-200 hover:bg-muted/30 cursor-pointer ${!notif.is_read ? 'bg-primary/[0.03]' : ''}`}
-                    onClick={() => handleNotificationClick(notif)}
-                  >
-                    {!notif.is_read && (
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
-                    )}
-                    <div className="flex gap-4">
-                      <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${!notif.is_read ? 'bg-primary/20' : 'bg-muted'}`}>
-                        {getIcon(notif.type)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-2 mb-0.5">
-                          <p className={`text-sm font-semibold truncate ${!notif.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {notif.notification_title}
-                          </p>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap mt-1">
-                            {notif.timestamp?.seconds 
-                              ? formatTimeAgo(new Date(notif.timestamp.seconds * 1000))
-                              : 'Just now'}
-                          </span>
+                {notifications.map((notif) => {
+                  const { title, text, ctaText } = getLocalizedNotification(notif);
+                  return (
+                    <div
+                      key={notif.id}
+                      className={`relative p-4 transition-all duration-200 hover:bg-muted/30 cursor-pointer ${!notif.is_read ? 'bg-primary/[0.03]' : ''}`}
+                      onClick={() => handleNotificationClick(notif)}
+                    >
+                      {!notif.is_read && (
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full" />
+                      )}
+                      <div className="flex gap-4">
+                        <div className={`mt-1 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${!notif.is_read ? 'bg-primary/20' : 'bg-muted'}`}>
+                          {getIcon(notif.type)}
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
-                          {notif.notification_text}
-                        </p>
-                        
-                        {notif.type === 'payment_success' && (
-                          <Link
-                            to="/profile/tickets"
-                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider hover:opacity-80 transition-opacity"
-                          >
-                            {notif.cta_text || 'View Tickets'}
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </Link>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start gap-2 mb-0.5">
+                            <p className={`text-sm font-semibold truncate ${!notif.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {title}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap mt-1">
+                              {notif.timestamp?.seconds 
+                                ? formatTimeAgo(new Date(notif.timestamp.seconds * 1000))
+                                : 'Just now'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2 leading-relaxed">
+                            {text}
+                          </p>
+                          
+                          {(notif.type === 'payment_success' || notif.type === 'ticket_issued') && (
+                            <Link
+                              to="/profile/tickets"
+                              className="inline-flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider hover:opacity-80 transition-opacity"
+                            >
+                              {ctaText}
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12 px-8 text-center">
                 <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4">
                   <Inbox className="w-8 h-8 text-muted-foreground/40" />
                 </div>
-                <h4 className="text-sm font-semibold text-foreground mb-1">No notifications yet</h4>
+                <h4 className="text-sm font-semibold text-foreground mb-1">{t('notifications.noNotifications')}</h4>
                 <p className="text-xs text-muted-foreground">
-                  When you win a prize or complete an order, we'll notify you here.
+                  {t('notifications.noNotificationsDesc')}
                 </p>
               </div>
             )}
           </div>
-
+ 
           <div className="px-4 py-3 border-t border-border/40 bg-muted/10 text-center">
             <Link
               to="/profile"
               onClick={() => setIsOpen(false)}
               className="text-[11px] font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
             >
-              See all profile activity
+              {t('notifications.seeAllActivity')}
             </Link>
           </div>
         </div>

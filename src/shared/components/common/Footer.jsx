@@ -85,12 +85,14 @@ export default function Footer() {
                   <FaGooglePlay className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">Get it on</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-none mb-1">
+                    {t("footer.getItOn")}
+                  </p>
                   <p className="text-sm font-bold text-foreground leading-none">Google Play</p>
                 </div>
               </a>
               <p className="text-[11px] text-muted-foreground mt-2 ml-1 italic">
-                This is our app, you can click to install our app
+                {t("footer.appInstallText")}
               </p>
             </div>
 

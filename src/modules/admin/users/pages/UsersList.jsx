@@ -24,6 +24,7 @@ const UsersList = () => {
   const [activeStatus, setActiveStatus] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { data: usersData, loading } = useAdminUsersFeed(50);
   const users = useMemo(() => usersData || [], [usersData]);
@@ -179,14 +180,48 @@ const UsersList = () => {
                 className="flex-1 sm:w-64"
               />
 
-              <select
-                className="bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none h-10"
-                value={sortBy}
-                onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="Newest" className="bg-[#121212]">{t('common.newest')}</option>
-                <option value="Spend" className="bg-[#121212]">{t('common.highestSpend')}</option>
-              </select>
+              <div className="relative w-48">
+                <button
+                  type="button"
+                  onClick={() => setIsSortOpen(!isSortOpen)}
+                  className="w-full flex items-center justify-between bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all rounded-lg px-4 py-2 text-sm text-white h-10 cursor-pointer focus:outline-none"
+                >
+                  <span>
+                    {sortBy === 'Newest' ? t('common.newest') : t('common.highestSpend')}
+                  </span>
+                  <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isSortOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsSortOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-1.5 w-full bg-[#161616]/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl py-1.5 z-20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      {[
+                        { value: 'Newest', label: t('common.newest') },
+                        { value: 'Spend', label: t('common.highestSpend') }
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(option.value);
+                            setCurrentPage(1);
+                            setIsSortOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-between ${
+                            sortBy === option.value ? 'text-primary font-medium bg-primary/5' : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -299,9 +334,12 @@ const UsersList = () => {
         isOpen={suspendModalOpen}
         onClose={() => !isUpdating && setSuspendModalOpen(false)}
         onConfirm={confirmStatusToggle}
-        title={userToToggle?.is_active === false ? "Make User Active?" : "Suspend User?"}
-        description={`Are you sure you want to ${userToToggle?.is_active === false ? 'make this user active' : 'suspend'} ${userToToggle?.display_name || userToToggle?.name || 'this user'}?`}
-        confirmLabel={userToToggle?.is_active === false ? 'Make Active' : 'Suspend'}
+        title={userToToggle?.is_active === false ? t('modals.users.activateTitle') : t('modals.users.suspendTitle')}
+        description={userToToggle?.is_active === false 
+          ? t('modals.users.activateDesc', { name: userToToggle?.display_name || userToToggle?.name || 'User' }) 
+          : t('modals.users.suspendDesc', { name: userToToggle?.display_name || userToToggle?.name || 'User' })
+        }
+        confirmLabel={userToToggle?.is_active === false ? t('modals.users.activateBtn') : t('modals.users.suspendBtn')}
         variant={userToToggle?.is_active === false ? 'primary' : 'danger'}
         loading={isUpdating}
         icon={userToToggle?.is_active === false ? UserCheck : UserX}

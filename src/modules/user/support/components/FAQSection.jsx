@@ -2,8 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { ChevronDown, HelpCircle, Eye } from 'lucide-react';
 import { fetchFaqs, incrementFaqViewCount } from '@/modules/user/support/services/faqService';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+import { useTranslation } from 'react-i18next';
 
 export default function FAQSection() {
+  const { t } = useTranslation();
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState('all');
@@ -54,14 +56,14 @@ export default function FAQSection() {
   };
 
   const formatTypeLabel = (type) => {
-    if (type === 'all') return 'All';
+    if (type === 'all') return t('profile.support.faqAll', 'All');
     return type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
   };
 
   if (loading) {
     return (
       <div className="py-10 flex justify-center">
-        <LoadingSpinner fullScreen={false} size="w-6 h-6" message="Loading FAQs..." />
+        <LoadingSpinner fullScreen={false} size="w-6 h-6" message={t('profile.support.loadingFaqs', 'Loading FAQs...')} />
       </div>
     );
   }

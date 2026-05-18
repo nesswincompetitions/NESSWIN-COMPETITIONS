@@ -20,6 +20,7 @@ const ReferralsList = () => {
   const [sortBy, setSortBy] = useState('mostReferrals');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSortOpen, setIsSortOpen] = useState(false);
   const { data: referrals, loading } = useAdminReferralsFeed();
   const data = useMemo(() => {
     return {
@@ -145,15 +146,46 @@ const ReferralsList = () => {
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <div className="relative flex-1 sm:flex-none sm:w-48">
-                <select
-                  className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
-                  value={sortBy}
-                  onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
+                <button
+                  type="button"
+                  onClick={() => setIsSortOpen(!isSortOpen)}
+                  className="w-full flex items-center justify-between bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all rounded-lg px-4 py-2 text-sm text-white h-10 cursor-pointer focus:outline-none"
                 >
-                  <option value="mostReferrals" className="bg-[#121212]">{t('referrals.sort.mostReferrals')}</option>
-                  <option value="newest" className="bg-[#121212]">{t('referrals.sort.newest')}</option>
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  <span>
+                    {sortBy === 'mostReferrals' ? t('referrals.sort.mostReferrals') : t('referrals.sort.newest')}
+                  </span>
+                  <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isSortOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsSortOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-1.5 w-full bg-[#161616]/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl py-1.5 z-20 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      {[
+                        { value: 'mostReferrals', label: t('referrals.sort.mostReferrals') },
+                        { value: 'newest', label: t('referrals.sort.newest') }
+                      ].map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setSortBy(option.value);
+                            setCurrentPage(1);
+                            setIsSortOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-between ${
+                            sortBy === option.value ? 'text-primary font-medium bg-primary/5' : 'text-gray-300 hover:text-white'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

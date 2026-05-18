@@ -237,10 +237,9 @@ export default function Navbar() {
       {/* Main links */}
       <div className="py-1">
         {[
-          { to: '/profile',         icon: User,        label: 'My Profile' },
-          { to: '/profile/tickets', icon: Ticket,      label: 'My Tickets' },
-          { to: '/profile/orders',  icon: ShoppingBag, label: 'Order History' },
-          { to: '/profile/edit',    icon: Pencil,      label: 'Edit Profile' },
+          { to: '/profile',         icon: User,        label: t('profile.myProfile') },
+          { to: '/profile/tickets', icon: Ticket,      label: t('profile.myTickets') },
+          { to: '/profile/orders',  icon: ShoppingBag, label: t('profile.orderHistory') },
         ].map(({ to, icon: Icon, label }) => (
           <Link
             key={to}
@@ -256,10 +255,10 @@ export default function Navbar() {
         <button
           type="button"
           onClick={handleContactSupport}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
         >
-            <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-          Contact Support
+          <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+          {t('profile.contactSupport')}
         </button>
 
         {userData?.role === 'admin' && (
@@ -269,7 +268,7 @@ export default function Navbar() {
             className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer"
           >
             <Shield className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-            Admin Panel
+            {t('profile.adminPanel')}
           </Link>
         )}
       </div>
@@ -282,7 +281,7 @@ export default function Navbar() {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
-          Sign Out
+          {t('profile.signOut')}
         </button>
         <button
           type="button"
@@ -290,7 +289,7 @@ export default function Navbar() {
           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
         >
           <Trash2 className="w-4 h-4" />
-          Delete Account
+          {t('profile.deleteAccount')}
         </button>
       </div>
     </div>
@@ -435,7 +434,7 @@ export default function Navbar() {
             <div className="pt-3">
               {currentUser ? (
                 <Link to="/profile" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer">
-                  <User className="w-4 h-4" /> My Profile
+                  <User className="w-4 h-4" /> {t('profile.myProfile')}
                 </Link>
               ) : (
                 <Link to="/signin" onClick={() => setMenuOpen(false)} className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer">
@@ -451,9 +450,9 @@ export default function Navbar() {
         isOpen={deleteModalOpen}
         onClose={() => !isDeleting && setDeleteModalOpen(false)}
         onConfirm={handleDeleteAccount}
-        title="Delete Account?"
-        description="Are you sure you want to permanently delete your account? All your data, tickets, and rewards will be lost forever."
-        confirmLabel="Yes, Delete My Account"
+        title={t('profile.deleteAccount') + '?'}
+        description={t('profile.deleteConfirmCheckbox')}
+        confirmLabel={t('profile.deletePermanently')}
         loading={isDeleting}
         variant="danger"
       />

@@ -573,7 +573,7 @@ export function TicketPurchaseCard({
               {t("competitionDetails.signIn")}
             </Link>
           </>
-        ) : (currentUser && userData && !userData.is_verified) ? (
+        ) : (currentUser && userData && (!userData.is_verified || !userData.date_of_birth || !userData.user_name)) ? (
           <div className="text-center space-y-4 py-2">
             <div className="w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(245,158,11,0.2)]">
               <AlertTriangle className="w-5 h-5 text-amber-500" aria-hidden="true" />
@@ -582,7 +582,7 @@ export function TicketPurchaseCard({
               Verification Required
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
-              Please complete your account setup and phone verification to participate.
+              Please complete your account setup, age verification, and phone verification to participate.
             </p>
             <Link
               to="/onboarding"
@@ -649,8 +649,8 @@ export function TicketPurchaseCard({
           <div className="text-center py-2">
             {!isActive && (
               <div className="space-y-4">
-                <div className={`px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                  {isSoldOut ? "This competition is sold out" : "This competition is ended"}
+                 <div className={`px-4 py-3 border rounded-xl text-sm font-semibold ${isSoldOut ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                  {isSoldOut ? t('competitionDetails.statusAlerts.soldOut') : t('competitionDetails.statusAlerts.ended')}
                 </div>
               </div>
             )}
@@ -886,7 +886,7 @@ export function ParticipantsSection({ participants }) {
         </div>
       ) : (
         <div className="text-center py-12 bg-card/50 border border-dashed border-border rounded-2xl">
-          <p className="text-muted-foreground">no one participated till now</p>
+          <p className="text-muted-foreground">{t('competitionDetails.noParticipants')}</p>
         </div>
       )}
 
@@ -973,9 +973,9 @@ export function WinnerHallOfFame({ status, winnerName, ticketNumber, comment, ra
         <div className="text-center mb-10 space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
             <Quote size={12} />
-            Winner's Experience
+            {t('competitionDetails.hallOfFame.experienceTitle')}
           </div>
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-white">What the winner said</h2>
+          <h2 className="text-3xl md:text-4xl font-serif font-bold text-white">{t('competitionDetails.hallOfFame.whatWinnerSaid')}</h2>
         </div>
 
         <div className="relative group">
@@ -1003,7 +1003,7 @@ export function WinnerHallOfFame({ status, winnerName, ticketNumber, comment, ra
                 <div className="pt-8 border-t border-white/5 flex flex-col items-center">
                   <p className="font-bold text-white mb-1">{winnerName}</p>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                    Verified Winner · {date ? new Date(date).toLocaleDateString() : "Recent"}
+                    {t('competitionDetails.hallOfFame.verifiedWinner')} · {date ? new Date(date).toLocaleDateString() : t('competitionDetails.hallOfFame.recent')}
                   </p>
                 </div>
               </div>

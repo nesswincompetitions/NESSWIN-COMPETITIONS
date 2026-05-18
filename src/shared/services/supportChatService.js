@@ -175,8 +175,8 @@ export const sendMessage = async (chatId, senderRefLike, receiverRefLike, textMe
       num_sent: 0,
       order_ref: null,
       parameter_data: JSON.stringify({
-        senderId: senderRef.id,
-        receiverId: receiverRef.id,
+        senderId: senderRef.path,
+        receiverId: receiverRef.path,
         chatRef: `chats/${chatId}`
       }),
       sender: senderRef,
@@ -273,8 +273,8 @@ export const closeSupportChat = async (chatId, closedByRefLike, assignedAdminRef
         num_sent: 0,
         order_ref: null,
         parameter_data: JSON.stringify({
-          senderId: closedByRef.id,
-          receiverId: userRef.id,
+          senderId: closedByRef.path,
+          receiverId: userRef.path,
           chatRef: `chats/${chatId}`
         }),
         sender: closedByRef,

@@ -34,10 +34,11 @@ const CompetitionsList = () => {
   const tabs = [
     { key: 'All', label: t('common.all') },
     { key: 'Active', label: t('common.active') },
-    { key: 'Ready', label: 'Ready to Draw' },
-    { key: 'SoldOut', label: 'Sold Out' },
-    { key: 'Completed', label: 'Completed' },
-    { key: 'Drafts', label: 'Drafts' },
+    { key: 'Ready', label: t('common.readyToDraw') },
+    { key: 'Drawing', label: t('common.drawing') },
+    { key: 'SoldOut', label: t('common.soldOut') },
+    { key: 'Completed', label: t('common.completed') },
+    { key: 'Drafts', label: t('common.drafts') },
   ];
 
   const { data: competitions, loading } = useAdminCompetitionsFeed();
@@ -105,6 +106,7 @@ const CompetitionsList = () => {
     let statusMatch = true;
     if (activeTab === 'Active') statusMatch = c.status === 'active' && !isTimeUp;
     else if (activeTab === 'Ready') statusMatch = isTimeUp || c.status === 'ready_to_draw';
+    else if (activeTab === 'Drawing') statusMatch = c.status === 'drawing';
     else if (activeTab === 'SoldOut') statusMatch = c.status === 'sold_out';
     else if (activeTab === 'Completed') statusMatch = c.status === 'completed' || c.status === 'end';
     else if (activeTab === 'Drafts') statusMatch = c.status === 'draft';
@@ -265,7 +267,15 @@ const CompetitionsList = () => {
                       const isTimeUp = comp.status === 'active' && comp.drawDate && comp.drawDate.toMillis() <= now.getTime();
                       
                       if (isTimeUp) {
-                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">Ready to Draw</Badge>;
+                        return <Badge variant="warning" className="bg-yellow-500/20 text-yellow-500 border-yellow-500/50">{t('common.readyToDraw')}</Badge>;
+                      }
+                      
+                      if (comp.status === 'drawing') {
+                        return (
+                          <Badge variant="warning" className="bg-amber-500/20 text-amber-500 border-amber-500/50 animate-pulse">
+                            {t('common.drawing')}
+                          </Badge>
+                        );
                       }
                       
                       return (
@@ -339,18 +349,18 @@ const CompetitionsList = () => {
       <Modal
         isOpen={dateModalOpen}
         onClose={() => setDateModalOpen(false)}
-        title="Filter by Creation Date"
-        description="Select a date range to filter competitions by when they were created."
+        title={t('modals.competitions.filterDateTitle')}
+        description={t('modals.competitions.filterDateDesc')}
         actions={
           <>
-            <Button variant="outline" onClick={clearDateFilter}>Clear Filter</Button>
-            <Button variant="primary" onClick={() => setDateModalOpen(false)}>Apply Filter</Button>
+            <Button variant="outline" onClick={clearDateFilter}>{t('modals.competitions.clearFilter')}</Button>
+            <Button variant="primary" onClick={() => setDateModalOpen(false)}>{t('modals.competitions.applyFilter')}</Button>
           </>
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-400">Start Date</label>
+            <label className="text-sm font-medium text-gray-400">{t('modals.competitions.startDate')}</label>
             <input 
               type="date" 
               value={dateRange.start}
@@ -359,7 +369,7 @@ const CompetitionsList = () => {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-400">End Date</label>
+            <label className="text-sm font-medium text-gray-400">{t('modals.competitions.endDate')}</label>
             <input 
               type="date" 
               value={dateRange.end}

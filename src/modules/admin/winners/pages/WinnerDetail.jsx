@@ -300,10 +300,10 @@ const WinnerDetail = () => {
   const winnerTicket = competition.winnerDetails?.ticket || {};
 
   const stages = [
-    { key: 'selected', label: 'Selected', completed: true },
-    { key: 'contacted', label: 'Contacted', completed: handover.is_contacted },
-    { key: 'prize_sent', label: 'Prize Sent', completed: handover.prize_sent },
-    { key: 'completed', label: 'Handover Complete', completed: handover.handover_completed },
+    { key: 'selected', label: t('winners.detail.stageSelected'), completed: true },
+    { key: 'contacted', label: t('winners.detail.stageContacted'), completed: handover.is_contacted },
+    { key: 'prize_sent', label: t('winners.detail.stagePrizeSent'), completed: handover.prize_sent },
+    { key: 'completed', label: t('winners.detail.stageHandoverComplete'), completed: handover.handover_completed },
   ];
 
   const currentStageIndex = stages.findIndex(s => !s.completed);
@@ -318,12 +318,12 @@ const WinnerDetail = () => {
             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm mb-3"
           >
             <ArrowLeft size={16} />
-            Back to Winners
+            {t('winners.detail.backToWinners')}
           </button>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-serif font-bold text-white">Winner Management</h1>
+            <h1 className="text-3xl font-serif font-bold text-white">{t('winners.detail.winnerManagement')}</h1>
             <Badge variant={handover.handover_completed ? 'success' : 'warning'}>
-              {stages[displayStageIndex]?.label || 'In Progress'}
+              {stages[displayStageIndex]?.label || t('winners.detail.inProgress')}
             </Badge>
           </div>
         </div>
@@ -331,7 +331,7 @@ const WinnerDetail = () => {
         <div className="flex items-center gap-3">
           <Button variant="outline" className="flex items-center gap-2" onClick={() => navigate(`/admin/competitions/${competitionId}`)}>
             <ExternalLink size={16} />
-            View Competition
+            {t('winners.detail.viewCompetition')}
           </Button>
         </div>
       </div>
@@ -342,7 +342,7 @@ const WinnerDetail = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <User size={12} /> Winner
+                  <User size={12} /> {t('winners.detail.winnerLabel')}
                 </p>
                 <p className="text-lg font-bold text-white flex items-center gap-2">
                   {winnerUser.display_name || winnerUser.name || 'Unknown User'}
@@ -351,19 +351,19 @@ const WinnerDetail = () => {
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <TicketIcon size={12} /> Winning Ticket
+                  <TicketIcon size={12} /> {t('winners.detail.winningTicketLabel')}
                 </p>
                 <p className="text-lg font-mono font-bold text-primary">#{winnerTicket.ticket_sequence || winnerTicket.id}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <Trophy size={12} /> Competition
+                  <Trophy size={12} /> {t('winners.detail.competitionLabel')}
                 </p>
                 <p className="text-white font-medium">{competition.title}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                  <Calendar size={12} /> Draw Date
+                  <Calendar size={12} /> {t('winners.detail.drawDateLabel')}
                 </p>
                 <p className="text-white font-medium">
                   {competition.draw_date?.toDate() ? competition.draw_date.toDate().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
@@ -375,19 +375,19 @@ const WinnerDetail = () => {
 
         <Card>
           <CardContent className="p-6 space-y-4">
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-2">Handover Status</h3>
+            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest border-b border-white/5 pb-2">{t('winners.detail.handoverStatusTitle')}</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Contacted</span>
-                <Badge variant={handover.is_contacted ? 'success' : 'neutral'}>{handover.is_contacted ? 'Yes' : 'No'}</Badge>
+                <span className="text-gray-500">{t('winners.detail.contacted')}</span>
+                <Badge variant={handover.is_contacted ? 'success' : 'neutral'}>{handover.is_contacted ? t('winners.detail.yes') : t('winners.detail.no')}</Badge>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Prize Sent</span>
-                <Badge variant={handover.prize_sent ? 'success' : 'neutral'}>{handover.prize_sent ? 'Yes' : 'No'}</Badge>
+                <span className="text-gray-500">{t('winners.detail.prizeSent')}</span>
+                <Badge variant={handover.prize_sent ? 'success' : 'neutral'}>{handover.prize_sent ? t('winners.detail.yes') : t('winners.detail.no')}</Badge>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Completed</span>
-                <Badge variant={handover.handover_completed ? 'success' : 'neutral'}>{handover.handover_completed ? 'Completed' : 'Pending'}</Badge>
+                <span className="text-gray-500">{t('winners.detail.completed')}</span>
+                <Badge variant={handover.handover_completed ? 'success' : 'neutral'}>{handover.handover_completed ? t('winners.detail.completed') : t('winners.detail.pending')}</Badge>
               </div>
             </div>
 
@@ -395,12 +395,12 @@ const WinnerDetail = () => {
               <div className="pt-4 space-y-2">
                 {!handover.is_contacted && (
                   <Button variant="primary" className="w-full text-xs h-9" onClick={() => handleHandoverAction('contacted')} loading={handoverLoading === 'contacted'}>
-                    Mark as Contacted
+                    {t('winners.detail.markAsContacted')}
                   </Button>
                 )}
                 {handover.is_contacted && !handover.prize_sent && (
                   <Button variant="primary" className="w-full text-xs h-9" onClick={() => handleHandoverAction('prize_sent')} loading={handoverLoading === 'prize_sent'}>
-                    Mark as Prize Sent
+                    {t('winners.detail.markAsPrizeSent')}
                   </Button>
                 )}
                 {handover.prize_sent && !handover.handover_completed && (
@@ -410,7 +410,7 @@ const WinnerDetail = () => {
                     onClick={() => handleHandoverAction('completed')} 
                     loading={handoverLoading === 'completed'}
                   >
-                    Complete Handover
+                    {t('winners.detail.completeHandover')}
                   </Button>
                 )}
               </div>
@@ -420,7 +420,7 @@ const WinnerDetail = () => {
       </div>
 
       <Card>
-        <CardContent className="p-8">
+        <CardContent className="p-8 pb-12 sm:pb-8">
           <div className="relative">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-white/10 -z-10 rounded-full overflow-hidden">
               <div
@@ -441,9 +441,7 @@ const WinnerDetail = () => {
                       }`}>
                       {isCompleted ? <CheckCircle2 size={20} /> : <span className="w-2.5 h-2.5 rounded-full bg-gray-600"></span>}
                     </div>
-                    <span className={`text-xs font-medium whitespace-nowrap absolute -bottom-8 ${index === 0 ? 'left-0' : index === stages.length - 1 ? 'right-0' : 'left-1/2 -translate-x-1/2'
-                      } ${isCompleted ? 'text-emerald-400' : isCurrent ? 'text-white' : 'text-gray-500'
-                      }`}>
+                    <span className={`text-[10px] sm:text-xs font-medium absolute top-12 sm:top-12 w-[60px] sm:w-auto sm:whitespace-nowrap text-center ${index === 0 ? 'left-0 !text-left' : index === stages.length - 1 ? 'right-0 !text-right' : 'left-1/2 -translate-x-1/2'} ${isCompleted ? 'text-emerald-400' : isCurrent ? 'text-white' : 'text-gray-500'}`}>
                       {stage.label}
                     </span>
                   </div>
@@ -458,7 +456,7 @@ const WinnerDetail = () => {
         <div className="space-y-6" id="communication-hub">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Mail size={20} className="text-primary" />
-            Communication Hub
+            {t('winners.detail.communicationHubTitle')}
           </h2>
 
           <Card className="flex flex-col h-[600px] border-white/5 bg-[#0a0a0a]">
@@ -466,13 +464,13 @@ const WinnerDetail = () => {
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12">
                   <Mail className="text-gray-700 mb-4" size={48} />
-                  <p className="text-gray-500 text-sm">No messages yet. Start the conversation with the winner!</p>
+                  <p className="text-gray-500 text-sm">{t('winners.detail.noMessagesYet')}</p>
                 </div>
               ) : messages.map((msg) => {
                 const isMe = msg.sender_id?.id === currentUser?.uid || msg.is_sender_admin;
                 return (
                   <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <p className="text-[10px] text-gray-500 mb-1 px-1">{isMe ? 'You' : (winnerUser.name || 'Winner')} • {msg.created_at?.toDate()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[10px] text-gray-500 mb-1 px-1">{isMe ? t('common.you') : (winnerUser.display_name || winnerUser.name || t('winners.detail.winnerLabel'))} • {msg.created_at?.toDate()?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <div className={`px-4 py-3 rounded-2xl max-w-[85%] break-words ${isMe
                         ? 'bg-primary/20 text-white rounded-tr-none border border-primary/30'
                         : 'bg-white/5 text-gray-200 rounded-tl-none border border-white/10'
@@ -496,7 +494,7 @@ const WinnerDetail = () => {
                             <button
                               onClick={() => handleDownloadImage(msg.image)}
                               className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
-                              title="Download Image"
+                              title={t('winners.detail.downloadFile') || 'Download Image'}
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
@@ -551,7 +549,7 @@ const WinnerDetail = () => {
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message to the winner..."
+                  placeholder={t('winners.detail.typeAMessage')}
                   className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 transition-all"
                   disabled={isSending || handover.handover_completed}
                 />
@@ -574,15 +572,15 @@ const WinnerDetail = () => {
         <div className="space-y-6">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Upload size={20} className="text-primary" />
-            Handover Assets & Proof
+            {t('winners.detail.handoverAssetsTitle')}
           </h2>
 
           <Card className="h-[600px] overflow-y-auto bg-[#0a0a0a] border-white/5">
             <CardContent className="p-6 space-y-6">
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
-                  <span className="flex items-center gap-2"><FileText size={16} className="text-primary" /> Winner ID Proof</span>
-                  {handover.id_proof_url ? <Badge variant="success">Verified</Badge> : <Badge variant="neutral">Missing</Badge>}
+                  <span className="flex items-center gap-2"><FileText size={16} className="text-primary" /> {t('winners.detail.winnerIdProof')}</span>
+                  {handover.id_proof_url ? <Badge variant="success">{t('winners.detail.verified')}</Badge> : <Badge variant="neutral">{t('winners.detail.missing')}</Badge>}
                 </label>
                 {handover.id_proof_url ? (
                   <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between group">
@@ -591,19 +589,19 @@ const WinnerDetail = () => {
                         <FileText size={20} />
                       </div>
                       <div className="overflow-hidden max-w-[200px]">
-                        <p className="text-sm text-white font-medium truncate">Winner ID Document</p>
-                        <a href={handover.id_proof_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">View Document</a>
+                        <p className="text-sm text-white font-medium truncate">{t('winners.detail.winnerIdDocument')}</p>
+                        <a href={handover.id_proof_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">{t('winners.detail.viewDocument')}</a>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title="Update File">
+                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title={t('winners.detail.updateFile')}>
                         <RefreshCw size={16} />
                         <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, 'id_proof')} disabled={isUploading === 'id_proof'} />
                       </label>
                       <button
                         onClick={() => handleDeleteAsset('id_proof')}
                         className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                        title="Delete File"
+                        title={t('winners.detail.deleteFile')}
                         disabled={handoverLoading === 'id_proof'}
                       >
                         {handoverLoading === 'id_proof' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
@@ -622,8 +620,8 @@ const WinnerDetail = () => {
                       {isUploading === 'id_proof' ? <Loader2 size={24} className="animate-spin text-primary" /> : <FileText className="text-gray-500" size={24} />}
                     </div>
                     <div className="text-center">
-                      <p className="text-sm text-white font-medium">Upload Winner ID Proof</p>
-                      <p className="text-xs text-gray-500 mt-1">PDF or Image required</p>
+                      <p className="text-sm text-white font-medium">{t('winners.detail.uploadWinnerIdProof')}</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('winners.detail.pdfOrImageRequired')}</p>
                     </div>
                   </label>
                 )}
@@ -631,8 +629,8 @@ const WinnerDetail = () => {
 
               <div className="space-y-3">
                 <label className="text-sm font-medium text-gray-300 flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Video size={16} className="text-primary" /> Handover Video</span>
-                  {handover.handover_video_url ? <Badge variant="success">Uploaded</Badge> : <Badge variant="neutral">Required</Badge>}
+                  <span className="flex items-center gap-2"><Video size={16} className="text-primary" /> {t('winners.detail.handoverVideo')}</span>
+                  {handover.handover_video_url ? <Badge variant="success">{t('winners.detail.uploaded')}</Badge> : <Badge variant="neutral">{t('winners.detail.required')}</Badge>}
                 </label>
                 {handover.handover_video_url ? (
                   <div className="p-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-between group">
@@ -641,19 +639,19 @@ const WinnerDetail = () => {
                         <Video size={20} />
                       </div>
                       <div className="overflow-hidden max-w-[200px]">
-                        <p className="text-sm text-white font-medium truncate">Handover Ceremony Video</p>
-                        <a href={handover.handover_video_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">Watch Video</a>
+                        <p className="text-sm text-white font-medium truncate">{t('winners.detail.handoverCeremonyVideo')}</p>
+                        <a href={handover.handover_video_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary hover:underline">{t('winners.detail.watchVideo')}</a>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title="Update File">
+                      <label className="cursor-pointer p-2 text-gray-500 hover:text-white transition-colors" title={t('winners.detail.updateFile')}>
                         <RefreshCw size={16} />
                         <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileUpload(e, 'video')} disabled={!!isUploading} />
                       </label>
                       <button
                         onClick={() => handleDeleteAsset('video')}
                         className="p-2 text-gray-500 hover:text-red-400 transition-colors"
-                        title="Delete File"
+                        title={t('winners.detail.deleteFile')}
                         disabled={handoverLoading === 'video'}
                       >
                         {handoverLoading === 'video' ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
@@ -671,7 +669,7 @@ const WinnerDetail = () => {
                     <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
                       {isUploading === 'video' ? <Loader2 size={24} className="animate-spin text-primary" /> : <Video className="text-gray-500" size={24} />}
                     </div>
-                    <p className="text-sm text-white font-medium">Click or drag handover proof</p>
+                    <p className="text-sm text-white font-medium">{t('winners.detail.clickOrDragProof')}</p>
                   </label>
                 )}
               </div>

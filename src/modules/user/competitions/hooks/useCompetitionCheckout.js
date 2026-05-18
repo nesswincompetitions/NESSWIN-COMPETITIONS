@@ -286,6 +286,10 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       toast.error('Complete signup and phone verification before purchasing tickets.');
       return;
     }
+    if (!userData?.date_of_birth) {
+      toast.error('Please complete your age verification in onboarding before participating.');
+      return;
+    }
     if (!competition) return;
 
     // Already eligible — scroll to the ticket card
@@ -382,6 +386,10 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
   const handleBuyTickets = async () => {
     if (!currentUser || !userData?.is_verified) {
       toast.error('Complete signup and phone verification before purchasing tickets.');
+      return;
+    }
+    if (!userData?.date_of_birth) {
+      toast.error('Please complete your age verification in onboarding before purchasing tickets.');
       return;
     }
     if (!skillPassed) {

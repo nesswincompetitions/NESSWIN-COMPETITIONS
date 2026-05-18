@@ -26,6 +26,8 @@ import { useCheckout } from '@/modules/user/competitions/hooks/useCheckout';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 
 const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, rating, date, isLoading }) => {
+  const { t } = useTranslation();
+
   if (isLoading) {
     return (
       <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/3 p-8 mb-8 text-center animate-pulse">
@@ -67,14 +69,18 @@ const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, ratin
           </div>
 
           <div className="space-y-1">
-            <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{isWinner ? 'You Won!' : 'Official Winner'}</p>
+            <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+              {isWinner ? t('competitionDetails.winningCard.youWon') : t('competitionDetails.winningCard.officialWinner')}
+            </p>
             <h2 className="text-2xl font-serif font-black text-white tracking-tight uppercase leading-tight">
-              {isWinner ? 'Congratulations!' : (winnerName || 'Announced')}
+              {isWinner ? t('competitionDetails.winningCard.congratulations') : (winnerName || t('competitionDetails.winningCard.announced'))}
             </h2>
           </div>
 
           <div className="px-5 py-2 rounded-xl bg-white/5 border border-white/10">
-            <p className="text-[9px] text-muted-foreground uppercase tracking-[0.1em] mb-0.5 font-bold">Winning Ticket</p>
+            <p className="text-[9px] text-muted-foreground uppercase tracking-[0.1em] mb-0.5 font-bold">
+              {t('competitionDetails.winningCard.winningTicket')}
+            </p>
             <p className="text-xl font-mono font-black text-primary">#{ticketNumber || '---'}</p>
           </div>
         </div>
@@ -97,7 +103,9 @@ const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, ratin
               </p>
               <div className="flex items-center justify-between pt-4 border-t border-white/5">
                 <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{winnerName}</span>
-                <span className="text-[10px] text-white/20 uppercase tracking-tighter">{formattedDate || "Recent Winner"}</span>
+                <span className="text-[10px] text-white/20 uppercase tracking-tighter">
+                  {formattedDate || t('competitionDetails.winningCard.recentWinner')}
+                </span>
               </div>
             </div>
           </div>
@@ -138,6 +146,7 @@ const CompetitionSkeleton = () => {
 };
 
 const UserTicketsDisplay = ({ tickets, onViewAll }) => {
+  const { t } = useTranslation();
   if (!tickets || tickets.length === 0) return null;
 
   return (
@@ -145,13 +154,15 @@ const UserTicketsDisplay = ({ tickets, onViewAll }) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Ticket className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Your Entries</h3>
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            {t('competitionDetails.yourEntries.yourEntriesTitle')}
+          </h3>
         </div>
         <button
           onClick={onViewAll}
           className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline cursor-pointer"
         >
-          View All ({tickets.length})
+          {t('competitionDetails.yourEntries.viewAll')} ({tickets.length})
         </button>
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-2">
@@ -162,7 +173,9 @@ const UserTicketsDisplay = ({ tickets, onViewAll }) => {
         ))}
         {tickets.length > 7 && (
           <button onClick={onViewAll} className="h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center cursor-pointer hover:bg-primary/20 transition-all">
-            <span className="text-[10px] font-bold text-primary">+{tickets.length - 7} more</span>
+            <span className="text-[10px] font-bold text-primary">
+              +{tickets.length - 7} {t('competitionDetails.yourEntries.more')}
+            </span>
           </button>
         )}
       </div>
@@ -443,8 +456,8 @@ export default function CompetitionDetails() {
       <Modal
         isOpen={isTicketsModalOpen}
         onClose={() => setIsTicketsModalOpen(false)}
-        title="Your Tickets"
-        description={`You have ${userTickets.length} active entries in this competition.`}
+        title={t('competitionDetails.yourEntries.yourTicketsTitle')}
+        description={t('competitionDetails.yourEntries.activeEntriesDesc', { count: userTickets.length })}
       >
         <div className="max-w-md mx-auto w-full max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           <div className="grid grid-cols-2 gap-3 pb-4">
@@ -454,7 +467,9 @@ export default function CompetitionDetails() {
                 className="flex items-center justify-between p-4 rounded-2xl bg-white/3 border border-white/10 hover:border-primary/30 transition-all group"
               >
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">Ticket ID</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">
+                    {t('competitionDetails.yourEntries.ticketId')}
+                  </span>
                   <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">{tk.ticket_sequence}</span>
                 </div>
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -469,7 +484,7 @@ export default function CompetitionDetails() {
             onClick={() => setIsTicketsModalOpen(false)}
             className="w-full py-3 rounded-xl bg-primary text-black font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all cursor-pointer"
           >
-            Close
+            {t('competitionDetails.yourEntries.close')}
           </button>
         </div>
       </Modal>

@@ -530,7 +530,7 @@ const UserDetail = () => {
         <form onSubmit={handleAssignBonus} className="space-y-4">
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Number of Tickets</label>
+            <label className="text-sm font-medium text-gray-300">{t('users.detail.bonusTab.numTickets')}</label>
             <input
               type="number"
               required
@@ -544,11 +544,11 @@ const UserDetail = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Reason (Optional)</label>
+            <label className="text-sm font-medium text-gray-300">{t('users.detail.bonusTab.reasonOptional')}</label>
             <textarea
               value={bonusReason}
               onChange={(e) => setBonusReason(e.target.value)}
-              placeholder="e.g. Compensation, VIP gift..."
+              placeholder={t('users.detail.bonusTab.reasonPlaceholder')}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 resize-none h-20"
               disabled={isSubmittingBonus}
             />
@@ -561,7 +561,7 @@ const UserDetail = () => {
               onClick={() => setIsBonusModalOpen(false)}
               disabled={isSubmittingBonus}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -572,9 +572,9 @@ const UserDetail = () => {
               {isSubmittingBonus ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Issuing...
+                  {t('users.detail.bonusTab.issuing')}
                 </>
-              ) : 'Issue Tickets'}
+              ) : t('users.detail.bonusTab.issueTickets')}
             </Button>
           </div>
         </form>

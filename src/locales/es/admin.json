@@ -64,6 +64,10 @@
     "failed": "Fallido",
     "refunded": "Reembolsado",
     "completed": "Completado",
+    "readyToDraw": "Listo para Sorteo",
+    "drawing": "Sorteo en curso",
+    "soldOut": "Agotado",
+    "drafts": "Borradores",
     "contacted": "Contactado",
     "endingSoon": "Termina pronto",
     "newest": "Más reciente",
@@ -84,7 +88,8 @@
     "yes": "Sí",
     "no": "No",
     "live": "En vivo",
-    "sold": "vendido"
+    "sold": "vendido",
+    "you": "Tú"
   },
   "dashboard": {
     "title": "Panel de Control",
@@ -148,7 +153,8 @@
     },
     "deleteModal": {
       "title": "Eliminar sorteo",
-      "description": "¿Está seguro de que desea eliminar este sorteo? Esta acción no se puede deshacer."
+      "description": "¿Está seguro de que desea eliminar este sorteo? Esta acción no se puede deshacer.",
+      "warning": "Esta acción es permanente y eliminará todos los datos asociados, incluidos los participantes y los enlaces de entradas."
     },
     "detail": {
       "backToCompetitions": "Volver a sorteos",
@@ -181,7 +187,9 @@
         "tableUser": "Usuario",
         "tableEmail": "Correo",
         "tableTickets": "Entradas",
-        "tableStatus": "Estado"
+        "tableStatus": "Estado",
+        "modalTitle": "Entradas del participante",
+        "modalDesc": "Viendo las {{count}} entradas de {{name}}"
       },
       "draw": {
         "title": "Sorteo y Selección del ganador",
@@ -199,7 +207,12 @@
         "winnerName": "Nombre del ganador",
         "winningTicket": "Entrada ganadora",
         "reDraw": "Volver a sortear",
-        "viewWinnerDetails": "Ver detalles del ganador"
+        "viewWinnerDetails": "Ver detalles del ganador",
+        "enterWinningTicketModalTitle": "Ingrese boleto ganador",
+        "enterWinningTicketModalDesc": "Asegúrese de que el sorteo en vivo ya esté activo antes de confirmar la secuencia ganadora.",
+        "ticketSequence": "Secuencia de boletos",
+        "enterTicketNumber": "Ingrese el número de boleto",
+        "confirmWinner": "Confirmar ganador"
       }
     },
     "form": {
@@ -412,7 +425,12 @@
         "date": "Fecha",
         "reason": "Razón",
         "amount": "Cantidad",
-        "balance": "Saldo"
+        "balance": "Saldo",
+        "numTickets": "Número de entradas",
+        "reasonOptional": "Razón (Opcional)",
+        "reasonPlaceholder": "ej. Compensación, Regalo VIP...",
+        "issueTickets": "Emitir entradas",
+        "issuing": "Emitiendo..."
       },
       "notesTab": {
         "placeholder": "Agregar una nota interna sobre este usuario...",
@@ -478,6 +496,10 @@
       "status": "Estado",
       "actions": "Acciones"
     },
+    "tooltips": {
+      "viewWinner": "Ver detalles del ganador",
+      "viewCompetition": "Ver sorteo"
+    },
     "empty": {
       "title": "Aún no hay ganadores",
       "desc": "Los ganadores aparecerán aquí una vez que se realicen los sorteos."
@@ -516,7 +538,45 @@
       "handoverVideo": "Video de entrega",
       "clickUploadPhoto": "Haga clic para cargar foto",
       "clickUploadVideo": "Haga clic para cargar video",
-      "instagramLink": "Enlace de publicación de Instagram"
+      "instagramLink": "Enlace de publicación de Instagram",
+      "winnerManagement": "Gestión de ganadores",
+      "handoverCompleteBadge": "Entrega completa",
+      "inProgress": "En progreso",
+      "winnerLabel": "Ganador",
+      "winningTicketLabel": "Entrada ganadora",
+      "competitionLabel": "Sorteo",
+      "drawDateLabel": "Fecha del sorteo",
+      "handoverStatusTitle": "Estado de la entrega",
+      "contacted": "Contactado",
+      "prizeSent": "Premio enviado",
+      "completed": "Completado",
+      "yes": "Sí",
+      "no": "No",
+      "pending": "Pendiente",
+      "markAsContacted": "Marcar como contactado",
+      "markAsPrizeSent": "Marcar como premio enviado",
+      "completeHandover": "Completar entrega",
+      "stageSelected": "Seleccionado",
+      "stageContacted": "Contactado",
+      "stagePrizeSent": "Premio enviado",
+      "stageHandoverComplete": "Entrega completa",
+      "communicationHubTitle": "Centro de comunicación",
+      "noMessagesYet": "Aún no hay mensajes. ¡Comience la conversación con el ganador!",
+      "typeAMessage": "Escriba un mensaje para el ganador...",
+      "handoverAssetsTitle": "Documentos de entrega y pruebas",
+      "winnerIdProof": "Identificación del ganador",
+      "verified": "Verificado",
+      "missing": "Faltante",
+      "winnerIdDocument": "Documento de identidad del ganador",
+      "viewDocument": "Ver documento",
+      "watchVideo": "Ver video",
+      "updateFile": "Actualizar archivo",
+      "deleteFile": "Eliminar archivo",
+      "uploadWinnerIdProof": "Cargar identificación del ganador",
+      "pdfOrImageRequired": "PDF o Imagen requeridos",
+      "clickOrDragProof": "Haga clic o arrastre prueba de entrega",
+      "required": "Requerido",
+      "handoverCeremonyVideo": "Video de la ceremonia de entrega"
     }
   },
   "referrals": {
@@ -614,5 +674,25 @@
       "billing": "Facturación"
     },
     "saveChanges": "Guardar cambios"
+  },
+  "modals": {
+    "users": {
+      "suspendTitle": "¿Suspender usuario?",
+      "activateTitle": "¿Activar usuario?",
+      "suspendDesc": "¿Estás seguro de que deseas suspender a {{name}}?",
+      "activateDesc": "¿Estás seguro de que deseas activar a {{name}}?",
+      "suspendBtn": "Suspender",
+      "activateBtn": "Activar",
+      "noUsersFound": "No se encontraron usuarios"
+    },
+    "competitions": {
+      "filterDateTitle": "Filtrer por fecha de creación",
+      "filterDateDesc": "Selecciona un rango de fechas para filtrar los sorteos según su fecha de creación.",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
+      "clearFilter": "Limpiar filtro",
+      "applyFilter": "Aplicar filtro",
+      "noCompetitionsFound": "No se encontraron sorteos que coincidan con sus criterios."
+    }
   }
 }

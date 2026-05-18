@@ -12,10 +12,12 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+import { useTranslation } from 'react-i18next';
 
 export default function DeleteAccountPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -25,11 +27,11 @@ export default function DeleteAccountPage() {
   const handleDelete = async (e) => {
     e.preventDefault();
     if (!confirmed) {
-      toast.error('Please confirm you understand this action is irreversible.');
+      toast.error(t('profile.deleteConfirmError'));
       return;
     }
     if (!password) {
-      toast.error('Please enter your password to confirm deletion.');
+      toast.error(t('profile.deletePasswordError'));
       return;
     }
 
@@ -37,10 +39,10 @@ export default function DeleteAccountPage() {
     try {
       await reauthenticate(password);
       await deleteAccount();
-      toast.success('Your account has been permanently deleted.');
+      toast.success(t('profile.deleteSuccess'));
       navigate('/');
     } catch (err) {
-      toast.error(err.message ?? 'Failed to delete account. Please try again.');
+      toast.error(err.message ?? t('profile.deleteFailed'));
     } finally {
       setLoading(false);
     }
@@ -53,19 +55,19 @@ export default function DeleteAccountPage() {
           onClick={() => navigate('/profile')}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Profile
+          <ArrowLeft className="w-4 h-4" /> {t('profile.backToProfile')}
         </button>
 
         {/* Warning card */}
         <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-6 mb-6 flex gap-4">
           <ShieldAlert className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <h2 className="text-sm font-bold text-red-400 mb-2">This action is permanent</h2>
+            <h2 className="text-sm font-bold text-red-400 mb-2">{t('profile.deleteWarningTitle')}</h2>
             <ul className="space-y-1 text-xs text-red-300/80 list-disc list-inside">
-              <li>Your profile and all personal data will be deleted immediately</li>
-              <li>All your tickets and order history will be lost</li>
-              <li>Unclaimed referral rewards will be forfeited</li>
-              <li>This cannot be reversed or recovered</li>
+              <li>{t('profile.deleteWarning1')}</li>
+              <li>{t('profile.deleteWarning2')}</li>
+              <li>{t('profile.deleteWarning3')}</li>
+              <li>{t('profile.deleteWarning4')}</li>
             </ul>
           </div>
         </div>
@@ -77,9 +79,9 @@ export default function DeleteAccountPage() {
             <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
               <Trash2 className="w-7 h-7 text-red-400" />
             </div>
-            <h1 className="text-2xl font-bold text-[var(--color-foreground)]">Delete Account</h1>
+            <h1 className="text-2xl font-bold text-[var(--color-foreground)]">{t('profile.deleteAccount')}</h1>
             <p className="text-sm text-[var(--color-muted-foreground)] mt-2">
-              Permanently remove <span className="font-semibold text-[var(--color-foreground)]">{currentUser?.email}</span> and all associated data.
+              {t('profile.deletePermanentRemove', { email: currentUser?.email })}
             </p>
           </div>
 
@@ -87,13 +89,13 @@ export default function DeleteAccountPage() {
             {/* Password */}
             <div className="space-y-1.5">
               <label htmlFor="delete-password" className="text-xs font-semibold tracking-[0.12em] uppercase text-[var(--color-muted-foreground)]">
-                Confirm Password
+                {t('profile.confirmPassword')}
               </label>
               <div className="flex items-center gap-3 px-4 h-12 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 focus-within:border-red-500/60 transition-all">
                 <input
                   id="delete-password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Enter your password"
+                  placeholder={t('profile.enterPassword')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)]/50 outline-none"
@@ -124,8 +126,7 @@ export default function DeleteAccountPage() {
                 className="sr-only"
               />
               <span className="text-xs text-[var(--color-muted-foreground)] leading-relaxed">
-                I understand this will permanently delete my account and all my data. This action{' '}
-                <span className="text-red-400 font-semibold">cannot be undone</span>.
+                {t('profile.deleteConfirmCheckbox')}
               </span>
             </label>
 
@@ -135,9 +136,9 @@ export default function DeleteAccountPage() {
               className="w-full h-12 rounded-xl bg-red-500 text-white text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:bg-red-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               {loading ? (
-                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Deleting Account...</>
+                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> {t('profile.deleting')}</>
               ) : (
-                <><Trash2 className="w-4 h-4" /> Permanently Delete Account</>
+                <><Trash2 className="w-4 h-4" /> {t('profile.deletePermanently')}</>
               )}
             </button>
           </form>

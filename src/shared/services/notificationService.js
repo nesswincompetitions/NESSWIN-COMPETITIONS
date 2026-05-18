@@ -157,13 +157,23 @@ export const fetchUserNotifications = (userUid, callback, isAdmin = false) => {
   const userPath = `user/${userUid}`;
   const userRef = doc(db, 'user', userUid);
   let readIds = new Set();
+  let createdTimeMillis = 0;
   let broadcastNotifications = [];
   let userNotifications = [];
 
   const emit = () => {
     const allNotifications = [...userNotifications, ...broadcastNotifications];
     
-    const merged = allNotifications.map((notif) => ({
+    // Only show notifications that occurred after the user's registration timestamp
+    const filtered = allNotifications.filter((notif) => {
+      const notifTime = notif.timestamp?.toMillis?.() || notif.created_at?.toMillis?.() || notif.scheduled_time?.toMillis?.() || 0;
+      if (createdTimeMillis && notifTime) {
+        return notifTime > createdTimeMillis;
+      }
+      return true;
+    });
+
+    const merged = filtered.map((notif) => ({
       ...notif,
       is_read: notif.is_read || readIds.has(notif.id),
     }));
@@ -188,6 +198,8 @@ export const fetchUserNotifications = (userUid, callback, isAdmin = false) => {
     (snap) => {
       const data = snap.exists() ? snap.data() : {};
       readIds = normalizeReadIds(data.notification_read_ids);
+      const cTime = data.created_time || data.created_at || data.createdAt;
+      createdTimeMillis = cTime?.toMillis ? cTime.toMillis() : (cTime instanceof Date ? cTime.getTime() : typeof cTime === 'string' ? new Date(cTime).getTime() : 0);
       emit();
     },
     (error) => {

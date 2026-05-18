@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
 import { subscribeUserOrders, subscribeOrderTickets } from '@/modules/user/profile/services/profileService';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -19,15 +20,17 @@ import {
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { useState as useLocalState } from 'react';
 
-const formatDate = (ts) => {
+const formatDate = (ts, langCode) => {
   if (!ts) return 'N/A';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const currentLang = langCode === 'fr' ? 'fr-FR' : (langCode === 'es' ? 'es-ES' : 'en-GB');
+  return d.toLocaleDateString(currentLang, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-const formatCurrency = (value, currency = 'EUR') => {
+const formatCurrency = (value, currency = 'EUR', langCode) => {
   if (value == null) return 'N/A';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
+  const currentLang = langCode === 'fr' ? 'fr-FR' : (langCode === 'es' ? 'es-ES' : 'en-GB');
+  return new Intl.NumberFormat(currentLang, { style: 'currency', currency }).format(value);
 };
 
 const STATUS_CONFIG = {
@@ -39,6 +42,7 @@ const STATUS_CONFIG = {
 };
 
 function OrderCard({ order }) {
+  const { t, i18n } = useTranslation();
   const [expanded, setExpanded] = React.useState(false);
   const [tickets, setTickets] = React.useState([]);
   const [loadingTickets, setLoadingTickets] = React.useState(false);
@@ -72,6 +76,9 @@ function OrderCard({ order }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG[status === 'succeeded' ? 'completed' : 'default'];
   const StatusIcon = cfg.icon;
   const image = competition?.image?.[0];
+  const statusLabel = t(`profile.ordersPage.status.${status}`) 
+    || t(`profile.ordersPage.status.${status === 'succeeded' ? 'completed' : 'default'}`) 
+    || cfg.label;
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_8px_30px_rgba(0,0,0,0.22)] duration-300">
@@ -96,16 +103,16 @@ function OrderCard({ order }) {
             {competition?.title ?? 'Unknown Competition'}
           </h3>
           <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
-            {formatDate(created_at)}
+            {formatDate(created_at, i18n.language)}
           </p>
         </div>
 
         <div className="flex flex-col items-end gap-2 shrink-0">
           <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${cfg.classes}`}>
-            {cfg.label}
+            {statusLabel}
           </span>
           <p className="text-base font-bold text-[var(--color-foreground)]">
-            {formatCurrency(total_amount, currency ?? 'EUR')}
+            {formatCurrency(total_amount, currency ?? 'EUR', i18n.language)}
           </p>
         </div>
       </div>
@@ -113,10 +120,10 @@ function OrderCard({ order }) {
       {/* Quick stats */}
       <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
         {[
-          { label: 'Tickets', value: total_ticket ?? 0, icon: Ticket },
-          { label: 'Free Used', value: free_used ?? 0, icon: Ticket },
-          { label: 'Bonus Got', value: free_ticket ?? 0, icon: Gift },
-          { label: 'Pack', value: pack_type ?? '—', icon: CreditCard },
+          { label: t('profile.ordersPage.tickets'), value: total_ticket ?? 0, icon: Ticket },
+          { label: t('profile.ordersPage.freeUsed'), value: free_used ?? 0, icon: Ticket },
+          { label: t('profile.ordersPage.bonusGot'), value: free_ticket ?? 0, icon: Gift },
+          { label: t('profile.ordersPage.pack'), value: pack_type ?? '—', icon: CreditCard },
         ].map(({ label, value, icon: Icon }) => (
           <div key={label} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-1">
             <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--color-muted-foreground)]">{label}</p>
@@ -130,7 +137,7 @@ function OrderCard({ order }) {
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer border-t border-[var(--color-border)]/30"
       >
-        {expanded ? <><ChevronUp className="w-3.5 h-3.5" /> Hide Details</> : <><ChevronDown className="w-3.5 h-3.5" /> View Details</>}
+        {expanded ? <><ChevronUp className="w-3.5 h-3.5" /> {t('profile.ordersPage.hideDetails')}</> : <><ChevronDown className="w-3.5 h-3.5" /> {t('profile.ordersPage.viewDetails')}</>}
       </button>
 
       {/* Expanded detail */}
@@ -138,12 +145,12 @@ function OrderCard({ order }) {
         <div className="border-t border-[var(--color-border)]/30 px-5 pb-5 pt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
             {[
-              { label: 'Order ID', value: order.id?.slice(0, 12) + '...' },
-              { label: 'Subtotal', value: formatCurrency(subtotal, currency) },
-              { label: 'Discount', value: discount_percent ? `-${discount_percent}%` : '—' },
-              { label: 'Discount Amount', value: discount_amount ? formatCurrency(discount_amount, currency) : '—' },
-              { label: 'Paid At', value: formatDate(paid_at) },
-              { label: 'Status', value: status },
+              { label: t('profile.ordersPage.orderId'), value: order.id?.slice(0, 12) + '...' },
+              { label: t('profile.ordersPage.subtotal'), value: formatCurrency(subtotal, currency, i18n.language) },
+              { label: t('profile.ordersPage.discount'), value: discount_percent ? `-${discount_percent}%` : '—' },
+              { label: t('profile.ordersPage.discountAmount'), value: discount_amount ? formatCurrency(discount_amount, currency, i18n.language) : '—' },
+              { label: t('profile.ordersPage.paidAt'), value: formatDate(paid_at, i18n.language) },
+              { label: t('profile.ordersPage.status'), value: t(`profile.ordersPage.status.${status}`) || status },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-3">
                 <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)] mb-1">{label}</p>
@@ -155,9 +162,9 @@ function OrderCard({ order }) {
           {/* Tickets List */}
           <div className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">Order Tickets</p>
+              <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">{t('profile.ordersPage.orderTickets')}</p>
               <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-md">
-                {total_ticket + (free_ticket || 0) + (free_used || 0)} Total
+                {t('profile.ordersPage.totalTicketsCount', { count: total_ticket + (free_ticket || 0) + (free_used || 0) })}
               </span>
             </div>
             
@@ -178,16 +185,16 @@ function OrderCard({ order }) {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-[var(--color-muted-foreground)] text-center py-2">No tickets found for this order.</p>
+              <p className="text-xs text-[var(--color-muted-foreground)] text-center py-2">{t('profile.ordersPage.noTicketsFound')}</p>
             )}
           </div>
 
           {question_answer?.question_text && (
             <div className="rounded-xl bg-[var(--color-primary)]/5 border border-[var(--color-primary)]/20 p-4">
-              <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-primary)] mb-2">Skill Question Answered</p>
+              <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-primary)] mb-2">{t('profile.ordersPage.skillAnswer')}</p>
               <p className="text-xs text-[var(--color-foreground)] font-medium">{question_answer.question_text}</p>
               <p className="text-xs text-[var(--color-primary)] mt-1 font-semibold">
-                Your answer: {question_answer.selected_option ?? question_answer.answer_given ?? '—'}
+                {t('profile.ordersPage.yourAnswer', { answer: question_answer.selected_option ?? question_answer.answer_given ?? '—' })}
               </p>
             </div>
           )}
@@ -200,6 +207,7 @@ function OrderCard({ order }) {
 export default function OrderHistoryPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -250,15 +258,15 @@ export default function OrderHistoryPage() {
           onClick={() => navigate('/profile', { replace: true })}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Profile
+          <ArrowLeft className="w-4 h-4" /> {t('profile.backToProfile')}
         </button>
 
         <div className="mb-8">
-          <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">Purchase History</p>
-          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">Order History</h1>
+          <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">{t('profile.ordersPage.purchaseHistory')}</p>
+          <h1 className="text-3xl font-bold text-[var(--color-foreground)]">{t('profile.orderHistory')}</h1>
           {!loading && orders.length > 0 && (
             <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              {orders.length} orders · {formatCurrency(totalSpent)} total spent
+              {t('profile.ordersPage.ordersCount', { count: orders.length, amount: formatCurrency(totalSpent, 'EUR', i18n.language) })}
             </p>
           )}
         </div>
@@ -281,7 +289,7 @@ export default function OrderHistoryPage() {
                   disabled={currentPage === 1}
                   className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
                 >
-                  Prev
+                  {t('profile.ticketsPage.prev', 'Prev')}
                 </button>
                 <div className="flex items-center gap-1 overflow-x-auto max-w-full px-2 hide-scrollbar">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -303,7 +311,7 @@ export default function OrderHistoryPage() {
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
                 >
-                  Next
+                  {t('profile.ticketsPage.next', 'Next')}
                 </button>
               </div>
             )}
@@ -311,15 +319,15 @@ export default function OrderHistoryPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl">
             <Inbox className="w-12 h-12 text-[var(--color-muted-foreground)]/30 mb-4" />
-            <p className="text-[var(--color-foreground)] font-semibold">No orders yet</p>
+            <p className="text-[var(--color-foreground)] font-semibold">{t('profile.ordersPage.noOrders')}</p>
             <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              Your purchase history will appear here.
+              {t('profile.ordersPage.noOrdersDesc')}
             </p>
             <button
               onClick={() => navigate('/competitions')}
               className="mt-5 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold hover:opacity-90 transition-all cursor-pointer"
             >
-              Browse Competitions
+              {t('profile.ticketsPage.browseCompetitions')}
             </button>
           </div>
         )}

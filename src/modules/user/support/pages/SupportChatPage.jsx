@@ -7,11 +7,13 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/shared/state/AuthContext';
 import { db } from '@/config/firebase';
 import SupportChatWidget from '@/shared/components/support/SupportChatWidget';
+import { useTranslation } from 'react-i18next';
 
 export default function SupportChatPage() {
   const { chatId } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   const [chatData, setChatData] = useState(null);
   const [hasLoadedChat, setHasLoadedChat] = useState(false);
 
@@ -33,7 +35,7 @@ export default function SupportChatPage() {
         console.warn('Support chat metadata listener error:', error.code, error.message);
         setChatData(null);
         setHasLoadedChat(true);
-        toast.error('Unable to load the support chat.');
+        toast.error(t('profile.support.chatUnavailable'));
       }
     );
 
@@ -44,25 +46,25 @@ export default function SupportChatPage() {
     <div className="min-h-screen bg-[var(--color-background)] px-4 pb-16 pt-24">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <button
-            onClick={() => navigate('/profile/support')}
+          onClick={() => navigate('/profile/support')}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-primary)]"
         >
           <ArrowLeft className="h-4 w-4" />
-            Back to Support Center
+          {t('profile.support.backToSupport')}
         </button>
 
         <div className="rounded-3xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-6 shadow-[0_20px_80px_rgba(0,0,0,0.22)]">
           <div className="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--color-primary)]">
             <MessageSquareText className="h-4 w-4" />
-            {chatData?.chat_type === 'winner_chat' ? 'Winner Support' : 'Support'}
+            {chatData?.chat_type === 'winner_chat' ? t('profile.support.winnerSupport') : t('profile.support.supportTicket')}
           </div>
           <h1 className="text-3xl font-bold text-[var(--color-foreground)]">
-            {chatData?.chat_type === 'winner_chat' ? 'Prize Handover' : 'Your Support Chat'}
+            {chatData?.chat_type === 'winner_chat' ? t('profile.support.prizeHandover') : t('profile.support.yourSupportChat')}
           </h1>
           <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
             {chatData?.chat_type === 'winner_chat' 
-              ? 'Securely communicate with our team regarding your prize and documentation.'
-              : 'Keep the conversation in one place with real-time updates and attachments.'}
+              ? t('profile.support.prizeHandoverDesc')
+              : t('profile.support.supportChatDesc')}
           </p>
         </div>
 
@@ -78,8 +80,8 @@ export default function SupportChatPage() {
             assignedAdminRef={chatData.assigned_admin_id}
             isCurrentUserAdmin={false}
             chatType={chatData.chat_type}
-            title={chatData.chat_type === 'winner_chat' ? 'Prize Handover Chat' : 'Support Chat'}
-            closeLabel={chatData.chat_type === 'winner_chat' ? 'End Conversation' : 'Close Ticket'}
+            title={chatData.chat_type === 'winner_chat' ? t('profile.support.prizeHandoverChat') : t('profile.support.supportChat')}
+            closeLabel={chatData.chat_type === 'winner_chat' ? t('profile.support.endConversation') : t('profile.support.closeTicket')}
             onCloseTicket={() => navigate('/profile/support')}
             unreadCount={chatData.unread_receiver_count ?? 0}
             status={chatData.status ?? 'active'}
@@ -89,9 +91,9 @@ export default function SupportChatPage() {
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
               <MessageSquareText className="h-6 w-6" />
             </div>
-            <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Support chat not available</h2>
+            <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('profile.support.chatUnavailable')}</h2>
             <p className="mt-2 max-w-md text-sm text-[var(--color-muted-foreground)]">
-              The chat may have been closed or the link is no longer valid.
+              {t('profile.support.chatUnavailableDesc')}
             </p>
           </div>
         )}

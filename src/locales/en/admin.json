@@ -62,6 +62,10 @@
     "failed": "Failed",
     "refunded": "Refunded",
     "completed": "Completed",
+    "readyToDraw": "Ready to Draw",
+    "drawing": "Drawing",
+    "soldOut": "Sold Out",
+    "drafts": "Drafts",
     "contacted": "Contacted",
     "endingSoon": "Ending Soon",
     "newest": "Newest First",
@@ -84,7 +88,8 @@
     "live": "Live",
     "sold": "sold",
     "extend": "Extend",
-    "loadMore": "Load More"
+    "loadMore": "Load More",
+    "you": "You"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -148,7 +153,8 @@
     },
     "deleteModal": {
       "title": "Delete Competition",
-      "description": "Are you sure you want to delete this competition? This action cannot be undone."
+      "description": "Are you sure you want to delete this competition? This action cannot be undone.",
+      "warning": "This action is permanent and will remove all associated data including participants and tickets links."
     },
     "detail": {
       "backToCompetitions": "Back to Competitions",
@@ -181,7 +187,9 @@
         "tableUser": "User",
         "tableEmail": "Email",
         "tableTickets": "Tickets",
-        "tableStatus": "Status"
+        "tableStatus": "Status",
+        "modalTitle": "Participant Tickets",
+        "modalDesc": "Viewing all {{count}} tickets for {{name}}"
       },
       "draw": {
         "title": "Draw & Winner Selection",
@@ -199,7 +207,12 @@
         "winnerName": "Winner Name",
         "winningTicket": "Winning Ticket",
         "reDraw": "Re-draw Winner",
-        "viewWinnerDetails": "View Winner Details"
+        "viewWinnerDetails": "View Winner Details",
+        "enterWinningTicketModalTitle": "Enter Winning Ticket",
+        "enterWinningTicketModalDesc": "Make sure the live draw is already active before confirming the winning sequence.",
+        "ticketSequence": "Ticket sequence",
+        "enterTicketNumber": "Enter ticket number",
+        "confirmWinner": "Confirm Winner"
       }
     },
     "form": {
@@ -412,7 +425,12 @@
         "date": "Date",
         "reason": "Reason",
         "amount": "Amount",
-        "balance": "Balance"
+        "balance": "Balance",
+        "numTickets": "Number of Tickets",
+        "reasonOptional": "Reason (Optional)",
+        "reasonPlaceholder": "e.g. Compensation, VIP gift...",
+        "issueTickets": "Issue Tickets",
+        "issuing": "Issuing..."
       },
       "notesTab": {
         "placeholder": "Add an internal note about this user...",
@@ -493,6 +511,10 @@
       "status": "Status",
       "actions": "Actions"
     },
+    "tooltips": {
+      "viewWinner": "View Winner Details",
+      "viewCompetition": "View Competition"
+    },
     "empty": {
       "title": "No winners yet",
       "desc": "Winners will appear here once competitions are drawn."
@@ -531,7 +553,45 @@
       "handoverVideo": "Handover Video",
       "clickUploadPhoto": "Click to upload photo",
       "clickUploadVideo": "Click to upload video",
-      "instagramLink": "Instagram Post Link"
+      "instagramLink": "Instagram Post Link",
+      "winnerManagement": "Winner Management",
+      "handoverCompleteBadge": "Handover Complete",
+      "inProgress": "In Progress",
+      "winnerLabel": "Winner",
+      "winningTicketLabel": "Winning Ticket",
+      "competitionLabel": "Competition",
+      "drawDateLabel": "Draw Date",
+      "handoverStatusTitle": "Handover Status",
+      "contacted": "Contacted",
+      "prizeSent": "Prize Sent",
+      "completed": "Completed",
+      "yes": "Yes",
+      "no": "No",
+      "pending": "Pending",
+      "markAsContacted": "Mark as Contacted",
+      "markAsPrizeSent": "Mark as Prize Sent",
+      "completeHandover": "Complete Handover",
+      "stageSelected": "Selected",
+      "stageContacted": "Contacted",
+      "stagePrizeSent": "Prize Sent",
+      "stageHandoverComplete": "Handover Complete",
+      "communicationHubTitle": "Communication Hub",
+      "noMessagesYet": "No messages yet. Start the conversation with the winner!",
+      "typeAMessage": "Type a message to the winner...",
+      "handoverAssetsTitle": "Handover Assets & Proof",
+      "winnerIdProof": "Winner ID Proof",
+      "verified": "Verified",
+      "missing": "Missing",
+      "winnerIdDocument": "Winner ID Document",
+      "viewDocument": "View Document",
+      "watchVideo": "Watch Video",
+      "updateFile": "Update File",
+      "deleteFile": "Delete File",
+      "uploadWinnerIdProof": "Upload Winner ID Proof",
+      "pdfOrImageRequired": "PDF or Image required",
+      "clickOrDragProof": "Click or drag handover proof",
+      "required": "Required",
+      "handoverCeremonyVideo": "Handover Ceremony Video"
     }
   },
   "referrals": {
@@ -629,5 +689,25 @@
       "billing": "Billing"
     },
     "saveChanges": "Save Changes"
+  },
+  "modals": {
+    "users": {
+      "suspendTitle": "Suspend User?",
+      "activateTitle": "Make User Active?",
+      "suspendDesc": "Are you sure you want to suspend {{name}}?",
+      "activateDesc": "Are you sure you want to make {{name}} active?",
+      "suspendBtn": "Suspend",
+      "activateBtn": "Make Active",
+      "noUsersFound": "No users found"
+    },
+    "competitions": {
+      "filterDateTitle": "Filter by Creation Date",
+      "filterDateDesc": "Select a date range to filter competitions by when they were created.",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "clearFilter": "Clear Filter",
+      "applyFilter": "Apply Filter",
+      "noCompetitionsFound": "No competitions found matching your criteria."
+    }
   }
 }

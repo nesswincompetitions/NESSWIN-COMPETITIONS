@@ -1004,7 +1004,7 @@ const CompetitionDetail = () => {
         <div className="space-y-6 py-2">
           <div className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl flex gap-3 text-sm text-red-400">
             <Trash2 size={18} className="shrink-0 mt-0.5" />
-            <p>This action is permanent and will remove all associated data including participants and tickets links.</p>
+            <p>{t('competitions.deleteModal.warning')}</p>
           </div>
 
           <div className="flex justify-end gap-3">
@@ -1036,8 +1036,8 @@ const CompetitionDetail = () => {
           setParticipantTicketsModalOpen(false);
           setSelectedParticipantForTickets(null);
         }}
-        title="Participant Tickets"
-        description={selectedParticipantForTickets ? `Viewing all ${selectedParticipantForTickets.tickets.length} tickets for ${selectedParticipantForTickets.name}` : ''}
+        title={t('competitions.detail.participants.modalTitle')}
+        description={selectedParticipantForTickets ? t('competitions.detail.participants.modalDesc', { count: selectedParticipantForTickets.tickets.length, name: selectedParticipantForTickets.name }) : ''}
       >
         <div className="space-y-6 py-2">
           <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -1047,7 +1047,7 @@ const CompetitionDetail = () => {
                   key={idx}
                   className="flex flex-col p-3 rounded-xl bg-white/5 border border-white/10 hover:border-primary/30 transition-all group"
                 >
-                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">Ticket</span>
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">{t('competitions.detail.participants.tableTickets')}</span>
                   <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">#{ticket}</span>
                 </div>
               ))}
@@ -1069,17 +1069,17 @@ const CompetitionDetail = () => {
       <Modal
         isOpen={winnerModalOpen}
         onClose={() => setWinnerModalOpen(false)}
-        title="Enter Winning Ticket"
-        description="Make sure the live draw is already active before confirming the winning sequence."
+        title={t('competitions.detail.draw.enterWinningTicketModalTitle')}
+        description={t('competitions.detail.draw.enterWinningTicketModalDesc')}
       >
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-300">Ticket sequence</label>
+            <label className="text-sm font-medium text-gray-300">{t('competitions.detail.draw.ticketSequence')}</label>
             <input
               type="text"
               value={winnerTicketSequence}
               onChange={(e) => setWinnerTicketSequence(e.target.value.toUpperCase())}
-              placeholder="Enter ticket number"
+              placeholder={t('competitions.detail.draw.enterTicketNumber')}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-gray-500 outline-none focus:border-primary"
               autoComplete="off"
             />
@@ -1087,7 +1087,7 @@ const CompetitionDetail = () => {
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" size="sm" className="px-6" onClick={() => setWinnerModalOpen(false)} disabled={isSelectingWinner}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -1097,7 +1097,7 @@ const CompetitionDetail = () => {
               loading={isSelectingWinner}
               disabled={!winnerTicketSequence.trim()}
             >
-              Confirm Winner
+              {t('competitions.detail.draw.confirmWinner')}
             </Button>
           </div>
         </div>

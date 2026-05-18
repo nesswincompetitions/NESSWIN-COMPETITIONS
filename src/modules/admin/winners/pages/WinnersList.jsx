@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import SearchInput from '@/shared/components/ui/SearchInput';
-import { Calendar, Download, Eye, ExternalLink, Trophy, Loader2 } from 'lucide-react';
+import Modal from '@/shared/components/ui/Modal';
+import { Calendar, Download, Eye, ExternalLink, Trophy, Loader2, X } from 'lucide-react';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import { useSearch } from '@/shared/hooks/useSearch';
@@ -16,7 +17,13 @@ const WinnersList = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('admin');
   const [activeStatus, setActiveStatus] = useState('all');
+  const [dateModalOpen, setDateModalOpen] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const { data: winners, loading } = useWinnerCompetitionsFeed();
+
+  const clearDateFilter = () => {
+    setDateRange({ start: '', end: '' });
+  };
 
   const handleExportCSV = () => {
     if (!winners.length) return;
@@ -47,10 +54,32 @@ const WinnersList = () => {
 
   const filteredWinners = useMemo(
     () => searchedWinners.filter((winner) => {
-      if (activeStatus === 'all') return true;
-      return (winner.status || '').toLowerCase() === activeStatus;
+      // 1. Status Filter
+      if (activeStatus !== 'all') {
+        if ((winner.status || '').toLowerCase() !== activeStatus) return false;
+      }
+      
+      // 2. Date Filter
+      if (dateRange.start || dateRange.end) {
+        const drawDateVal = winner.drawDate?.toDate ? winner.drawDate.toDate() : (winner.drawDate ? new Date(winner.drawDate) : null);
+        if (!drawDateVal) return false;
+        
+        if (dateRange.start) {
+          const start = new Date(dateRange.start);
+          start.setHours(0, 0, 0, 0);
+          if (drawDateVal < start) return false;
+        }
+        
+        if (dateRange.end) {
+          const end = new Date(dateRange.end);
+          end.setHours(23, 59, 59, 999);
+          if (drawDateVal > end) return false;
+        }
+      }
+      
+      return true;
     }),
-    [searchedWinners, activeStatus]
+    [searchedWinners, activeStatus, dateRange]
   );
 
   const renderStatusBadge = (status) => {
@@ -112,9 +141,31 @@ const WinnersList = () => {
                 placeholder={t('winners.searchPlaceholder')}
               />
 
-              <Button variant="outline" size="sm" className="flex items-center gap-2 h-10 px-3 bg-white/5 border-white/10 justify-center">
-                <Calendar size={16} className="text-gray-400" />
-                <span className="text-sm">{t('common.filterDates')}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setDateModalOpen(true)}
+                className={`flex items-center gap-2 h-10 px-3 bg-white/5 justify-center transition-colors cursor-pointer ${
+                  (dateRange.start || dateRange.end) 
+                    ? 'border-primary text-primary font-medium bg-primary/5 hover:bg-primary/10' 
+                    : 'border-white/10 text-white hover:bg-white/10'
+                }`}
+              >
+                <Calendar size={16} className={dateRange.start || dateRange.end ? 'text-primary' : 'text-gray-400'} />
+                <span className="text-sm">
+                  {dateRange.start || dateRange.end ? `${dateRange.start || '...'} to ${dateRange.end || '...'}` : t('common.filterDates')}
+                </span>
+                {(dateRange.start || dateRange.end) && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      clearDateFilter();
+                    }}
+                    className="p-0.5 hover:bg-primary/20 rounded text-primary transition-colors ml-1 cursor-pointer"
+                  >
+                    <X size={14} />
+                  </span>
+                )}
               </Button>
             </div>
           </div>
@@ -217,6 +268,41 @@ const WinnersList = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Date Filter Modal */}
+      <Modal
+        isOpen={dateModalOpen}
+        onClose={() => setDateModalOpen(false)}
+        title={t('modals.competitions.filterDateTitle')}
+        description={t('modals.competitions.filterDateDesc')}
+        actions={
+          <>
+            <Button variant="outline" onClick={clearDateFilter}>{t('modals.competitions.clearFilter')}</Button>
+            <Button variant="primary" onClick={() => setDateModalOpen(false)}>{t('modals.competitions.applyFilter')}</Button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400">{t('modals.competitions.startDate')}</label>
+            <input 
+              type="date" 
+              value={dateRange.start}
+              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400">{t('modals.competitions.endDate')}</label>
+            <input 
+              type="date" 
+              value={dateRange.end}
+              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

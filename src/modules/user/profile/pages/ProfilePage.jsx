@@ -10,6 +10,7 @@ import {
 } from '@/modules/user/referrals/services/referralService';
 import { onActiveUserChatsSnapshot } from '@/shared/services/supportChatService';
 import { useNavigate, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Users,
   ShoppingBag,
@@ -29,6 +30,7 @@ import {
   Pencil,
   X as XIcon,
   LifeBuoy,
+  Trash2,
 } from "lucide-react";
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
@@ -37,6 +39,7 @@ export default function ProfilePage() {
   const { currentUser } = useAuth();
   const { userData } = useUserData();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -91,12 +94,12 @@ export default function ProfilePage() {
   const handleSaveField = async () => {
     if (!currentUser?.uid || !editingField) return;
     const trimmed = editValue.trim();
-    if (!trimmed) { toast.error('Field cannot be empty.'); return; }
+    if (!trimmed) { toast.error(t('profile.fieldEmptyError')); return; }
     if (editingField === 'user_name' && (trimmed.length < 3 || trimmed.length > 20)) {
-      toast.error('Username must be 3–20 characters.'); return;
+      toast.error(t('profile.usernameError')); return;
     }
     if (editingField === 'user_name' && !/^[a-z0-9_]+$/.test(trimmed.toLowerCase())) {
-      toast.error('Username can only contain letters, numbers, and underscores.'); return;
+      toast.error(t('profile.usernameFormatError')); return;
     }
     setIsSavingField(true);
     try {
@@ -106,7 +109,7 @@ export default function ProfilePage() {
       } else {
         await updateProfile(currentUser.uid, { display_name: trimmed });
       }
-      toast.success('Updated successfully!');
+      toast.success(t('profile.updateSuccess'));
       setEditingField(null);
     } catch (err) {
       toast.error(err.message ?? 'Failed to update.');
@@ -130,7 +133,7 @@ export default function ProfilePage() {
       if (urls && urls.length > 0) {
         const photoUrl = urls[0];
         await updateProfile(currentUser.uid, { photo_url: photoUrl });
-        toast.success("Profile picture updated!");
+        toast.success(t('profile.uploadSuccess'));
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -147,7 +150,7 @@ export default function ProfilePage() {
     if (userData?.referral_code) {
       navigator.clipboard.writeText(userData.referral_code);
       setCopied(true);
-      toast.success("Referral code copied!");
+      toast.success(t('profile.copied'));
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -156,10 +159,10 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success("Signed out successfully");
+      toast.success(t('profile.signOutSuccess'));
       navigate("/");
     } catch {
-      toast.error("Failed to sign out");
+      toast.error(t('profile.signOutError'));
     }
   };
 
@@ -171,7 +174,11 @@ export default function ProfilePage() {
   const formatDate = (timestamp) => {
     if (!timestamp) return "N/A";
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString("en-GB", {
+    
+    // Choose correct language code for formatting
+    const currentLang = i18n.language === 'fr' ? 'fr-FR' : (i18n.language === 'es' ? 'es-ES' : 'en-GB');
+    
+    return date.toLocaleDateString(currentLang, {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -199,7 +206,7 @@ export default function ProfilePage() {
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back
+          {t('profile.back')}
         </button>
 
         {/* Profile Header Card */}
@@ -236,7 +243,7 @@ export default function ProfilePage() {
                     {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Camera className="w-6 h-6 text-white mb-1" />
-                      <span className="text-[10px] text-white font-medium uppercase tracking-wider">Upload</span>
+                      <span className="text-[10px] text-white font-medium uppercase tracking-wider">{t('profile.upload')}</span>
                     </div>
                   </>
                 )}
@@ -327,7 +334,7 @@ export default function ProfilePage() {
               {userData?.is_verified && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <Check className="w-3 h-3" />
-                  Verified
+                  {t('profile.verified')}
                 </span>
               )}
             </div>
@@ -339,7 +346,7 @@ export default function ProfilePage() {
           {/* Contact Information */}
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-6">
             <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-4">
-              Contact Information
+              {t('profile.contactInfo')}
             </h2>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
@@ -347,7 +354,7 @@ export default function ProfilePage() {
                   <Mail className="w-4 h-4 text-[var(--color-muted-foreground)]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Email</p>
+                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.email')}</p>
                   <p className="text-sm text-[var(--color-foreground)] truncate">{currentUser?.email || "Not set"}</p>
                 </div>
               </div>
@@ -356,8 +363,8 @@ export default function ProfilePage() {
                   <Phone className="w-4 h-4 text-[var(--color-muted-foreground)]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Phone</p>
-                  <p className="text-sm text-[var(--color-foreground)]">{userData?.phone_number || "Not verified"}</p>
+                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.phone')}</p>
+                  <p className="text-sm text-[var(--color-foreground)]">{userData?.phone_number || t('profile.notVerified')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -365,7 +372,7 @@ export default function ProfilePage() {
                   <Calendar className="w-4 h-4 text-[var(--color-muted-foreground)]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Member Since</p>
+                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.memberSince')}</p>
                   <p className="text-sm text-[var(--color-foreground)]">{formatDate(userData?.created_time)}</p>
                 </div>
               </div>
@@ -375,7 +382,7 @@ export default function ProfilePage() {
           {/* Referral & Rewards */}
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-6">
             <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-4">
-              Referral & Rewards
+              {t('profile.referralRewards')}
             </h2>
             <div className="space-y-4">
               {/* Referral Code & Link */}
@@ -387,7 +394,7 @@ export default function ProfilePage() {
                       <Tag className="w-4 h-4 text-[var(--color-primary)]" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">Your Referral Code</p>
+                      <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.referralCode')}</p>
                       <p className="text-sm font-mono font-bold text-[var(--color-primary)]">{userData.referral_code}</p>
                     </div>
                     <button
@@ -400,7 +407,7 @@ export default function ProfilePage() {
                       ) : (
                         <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
                       )}
-                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">Copy Code</span>
+                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">{t('profile.copyCode')}</span>
                     </button>
                   </div>
 
@@ -410,7 +417,7 @@ export default function ProfilePage() {
               {/* Detailed Referrals List */}
               <div id="referrals-section" className="mt-8 space-y-3">
                 <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-[var(--color-muted-foreground)] mb-3 flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5" /> Your Referrals
+                  <Users className="w-3.5 h-3.5" /> {t('profile.yourReferrals')}
                 </h3>
                 
                 {referralsLoading ? (
@@ -433,7 +440,7 @@ export default function ProfilePage() {
 
                         <div className="flex items-center justify-between sm:justify-end gap-3">
                           <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400">
-                            Rewarded
+                            {t('profile.rewarded')}
                           </span>
                         </div>
                       </div>
@@ -441,7 +448,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <div className="text-center p-6 border border-[var(--color-border)]/40 border-dashed rounded-xl">
-                    <p className="text-sm text-[var(--color-muted-foreground)]">No referrals yet. Share your code to earn free tickets!</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">{t('profile.noReferrals')}</p>
                   </div>
                 )}
               </div>
@@ -456,7 +463,7 @@ export default function ProfilePage() {
                     {userData?.referral_count || 0}
                   </p>
                   <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold mt-1">
-                    Referrals
+                    {t('profile.referrals')}
                   </p>
                 </div>
                 <div className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-4 text-center">
@@ -467,7 +474,7 @@ export default function ProfilePage() {
                     {userData?.free_tickets || 0}
                   </p>
                   <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold mt-1">
-                    Free Tickets
+                    {t('profile.freeTickets')}
                   </p>
                 </div>
               </div>
@@ -476,12 +483,12 @@ export default function ProfilePage() {
 
           {/* Quick Actions */}
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4">
-            <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-3">Quick Actions</h2>
+            <h2 className="text-xs font-bold tracking-[0.2em] uppercase text-[var(--color-muted-foreground)] mb-3">{t('profile.quickActions')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { to: '/profile/tickets', icon: Ticket,      label: 'My Tickets'     },
-                { to: '/profile/orders',  icon: ShoppingBag, label: 'Order History'  },
-                { to: '/profile/edit',    icon: Pencil,      label: 'Edit Profile'   },
+                { to: '/profile/tickets', icon: Ticket,      label: t('profile.myTickets')     },
+                { to: '/profile/orders',  icon: ShoppingBag, label: t('profile.orderHistory')  },
+                { to: '/profile/delete',  icon: Trash2,      label: t('profile.deleteAccount') },
               ].map((item) => (
                 <Link
                   key={item.to}
@@ -504,7 +511,7 @@ export default function ProfilePage() {
                   <LifeBuoy className="w-4 h-4 text-[var(--color-muted-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />
                 </div>
                 <span className="text-[10px] font-semibold text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)] text-center leading-tight transition-colors">
-                  Contact Support
+                  {t('profile.contactSupport')}
                 </span>
               </button>
             </div>
@@ -516,7 +523,7 @@ export default function ProfilePage() {
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer text-sm font-medium"
           >
             <LogOut className="w-4 h-4" />
-            Sign Out
+            {t('profile.signOut')}
           </button>
         </div>
       </div>

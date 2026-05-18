@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   CheckCheck,
@@ -30,7 +31,7 @@ const getRefPath = (refLike) => {
   return refLike.path ?? '';
 };
 
-const handleDownloadImage = async (url, filename) => {
+const handleDownloadImage = async (url, filename, t) => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -44,7 +45,7 @@ const handleDownloadImage = async (url, filename) => {
     window.URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.error('Download failed:', error);
-    toast.error('Failed to download image');
+    toast.error(t ? t('profile.support.widget.failedDownload', 'Failed to download image') : 'Failed to download image');
   }
 };
 
@@ -54,14 +55,14 @@ const formatMessageTime = (timestamp) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const formatDateDivider = (timestamp) => {
+const formatDateDivider = (timestamp, t) => {
   if (!timestamp) return null;
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === today.toDateString()) return 'Today';
-  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  if (date.toDateString() === today.toDateString()) return t('profile.support.widget.today', 'Today');
+  if (date.toDateString() === yesterday.toDateString()) return t('profile.support.widget.yesterday', 'Yesterday');
   return date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
 };
 
@@ -78,6 +79,7 @@ function DateDivider({ label }) {
 }
 
 function MessageBubble({ message, isOwnMessage, isFirstInGroup, isLastInGroup }) {
+  const { t } = useTranslation();
   const formattedTime = formatMessageTime(message.created_at);
 
   return (
@@ -129,7 +131,7 @@ function MessageBubble({ message, isOwnMessage, isFirstInGroup, isLastInGroup })
               />
             </a>
             <button
-              onClick={() => handleDownloadImage(message.image)}
+              onClick={() => handleDownloadImage(message.image, null, t)}
               className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-lg opacity-0 group-hover/img:opacity-100 transition-opacity"
               title="Download Image"
             >
@@ -178,6 +180,7 @@ export default function SupportChatWidget({
   status = 'active',
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [sending, setSending] = useState(false);
@@ -275,7 +278,7 @@ export default function SupportChatWidget({
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast.error('Please choose a valid image file.');
+      toast.error(t('profile.support.widget.invalidImage', 'Please choose a valid image file.'));
       return;
     }
     setAttachmentFile(file);
@@ -293,7 +296,7 @@ export default function SupportChatWidget({
     
     if (!trimmed && !currentAttachment) return;
     if (!chatId || !currentUserRef || !receiverRef) {
-      toast.error('Support chat is not ready yet.');
+      toast.error(t('profile.support.widget.chatNotReady', 'Support chat is not ready yet.'));
       return;
     }
 
@@ -314,7 +317,7 @@ export default function SupportChatWidget({
       // Restore the content if it failed so the user doesn't lose their message
       setDraftMessage(trimmed);
       setAttachmentFile(currentAttachment);
-      toast.error(error.message || 'Failed to send message.');
+      toast.error(error.message || t('profile.support.widget.failedSend', 'Failed to send message.'));
     } finally {
       setSending(false);
     }
@@ -329,16 +332,16 @@ export default function SupportChatWidget({
 
   const handleCloseChat = async () => {
     if (!chatId || !currentUserRef || !assignedAdminRef) {
-      toast.error('Support chat is not ready yet.');
+      toast.error(t('profile.support.widget.chatNotReady', 'Support chat is not ready yet.'));
       return;
     }
     setClosing(true);
     try {
       await closeSupportChat(chatId, currentUserRef, assignedAdminRef);
-      toast.success('Support chat closed.');
+      toast.success(t('profile.support.widget.chatClosedSuccess', 'Support chat closed.'));
       onCloseTicket?.();
     } catch (error) {
-      toast.error(error.message || 'Failed to close support chat.');
+      toast.error(error.message || t('profile.support.widget.failedClose', 'Failed to close support chat.'));
     } finally {
       setClosing(false);
     }
@@ -351,7 +354,7 @@ export default function SupportChatWidget({
   let lastDateLabel = null;
 
   messages.forEach((msg, idx) => {
-    const dateLabel = msg.created_at ? formatDateDivider(msg.created_at) : null;
+    const dateLabel = msg.created_at ? formatDateDivider(msg.created_at, t) : null;
     if (dateLabel && dateLabel !== lastDateLabel) {
       renderable.push({ type: 'divider', key: `div-${idx}`, label: dateLabel });
       lastDateLabel = dateLabel;
@@ -417,11 +420,11 @@ export default function SupportChatWidget({
             </h3>
             {unreadCount > 0 ? (
               <p className="text-[11px] text-red-400 font-medium">
-                {unreadCount} unread {unreadCount === 1 ? 'message' : 'messages'}
+                {t('profile.support.widget.unreadMessages', { count: unreadCount })}
               </p>
             ) : isCurrentUserAdmin && customerId ? (
               <p className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                Click to view profile
+                {t('profile.support.widget.clickViewProfile')}
               </p>
             ) : null}
           </div>
@@ -452,7 +455,7 @@ export default function SupportChatWidget({
           <div className="flex h-full min-h-[320px] items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-6 w-6 animate-spin text-[var(--color-primary)]" />
-              <p className="text-xs text-[var(--color-muted-foreground)]">Loading messages…</p>
+              <p className="text-xs text-[var(--color-muted-foreground)]">{t('profile.support.widget.loadingMessages')}</p>
             </div>
           </div>
         ) : renderable.length > 0 ? (
@@ -479,9 +482,9 @@ export default function SupportChatWidget({
               <LifeBuoy className="h-6 w-6 text-[var(--color-primary)]" />
             </div>
             <div>
-              <h4 className="text-[15px] font-semibold text-[var(--color-foreground)]">No messages yet</h4>
+              <h4 className="text-[15px] font-semibold text-[var(--color-foreground)]">{t('profile.support.widget.noMessagesYet')}</h4>
               <p className="mt-1 max-w-xs text-sm text-[var(--color-muted-foreground)]">
-                Send your first message to start the conversation.
+                {t('profile.support.widget.sendFirstMessage')}
               </p>
             </div>
           </div>
@@ -493,8 +496,8 @@ export default function SupportChatWidget({
         {status !== 'active' ? (
           /* Chat closed – no more messages */
           <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed border-[var(--color-border)]/50 bg-[var(--color-muted)]/5 py-5 text-center">
-            <p className="text-sm font-semibold text-[var(--color-foreground)]">This conversation has been closed</p>
-            <p className="text-xs text-[var(--color-muted-foreground)]/70">Start a new support request if you need further help</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">{t('profile.support.widget.chatClosed')}</p>
+            <p className="text-xs text-[var(--color-muted-foreground)]/70">{t('profile.support.widget.chatClosedDesc')}</p>
           </div>
         ) : (
           <>
@@ -507,7 +510,7 @@ export default function SupportChatWidget({
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-xs font-semibold text-[var(--color-foreground)]">{attachmentFile.name}</p>
                   <p className="text-[10px] text-[var(--color-muted-foreground)]">
-                    {(attachmentFile.size / 1024).toFixed(0)} KB · Image ready
+                    {(attachmentFile.size / 1024).toFixed(0)} KB · {t('profile.support.widget.imageReady')}
                   </p>
                 </div>
                 <button
@@ -543,7 +546,7 @@ export default function SupportChatWidget({
                   onChange={(e) => setDraftMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Write a message… (Enter to send)"
+                  placeholder={t('profile.support.widget.writeMessagePlaceholder')}
                   className="w-full resize-none bg-transparent text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)]/60 outline-none leading-relaxed"
                   style={{ maxHeight: '128px' }}
                 />

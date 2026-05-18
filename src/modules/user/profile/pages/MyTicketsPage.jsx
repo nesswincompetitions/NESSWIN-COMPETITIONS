@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
 import { subscribeUserOrders, subscribeUserTickets } from '@/modules/user/profile/services/profileService';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   Ticket,
@@ -16,10 +17,11 @@ import Modal from '@/shared/components/ui/Modal';
 import WinnerReviewForm from '@/modules/user/competitions/components/WinnerReviewForm';
 import { Sparkles, Star } from 'lucide-react';
 
-const formatDate = (ts) => {
+const formatDate = (ts, langCode) => {
   if (!ts) return 'N/A';
   const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const currentLang = langCode === 'fr' ? 'fr-FR' : (langCode === 'es' ? 'es-ES' : 'en-GB');
+  return d.toLocaleDateString(currentLang, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
 const STATUS_MAP = {
@@ -35,6 +37,7 @@ const STATUS_MAP = {
 
 function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const { competition, tickets: allTickets, orders } = compData;
   
   const isWonTab = activeTab === 'won';
@@ -53,7 +56,11 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
   else if (rawStatus === 'winner_announced') compStatusKey = 'winner_announced';
   else if (['completed', 'closed', 'end'].includes(rawStatus)) compStatusKey = 'completed';
   
-  const displayStatus = isWinner ? STATUS_MAP.won : (STATUS_MAP[compStatusKey] ?? STATUS_MAP.default);
+  const displayStatus = isWinner 
+    ? { ...STATUS_MAP.won, label: t('profile.ticketsPage.status.won') } 
+    : (STATUS_MAP[compStatusKey] 
+       ? { ...STATUS_MAP[compStatusKey], label: t(`profile.ticketsPage.status.${compStatusKey}`) } 
+       : { ...STATUS_MAP.default, label: t('profile.ticketsPage.status.default') });
 
   // Stats
   const totalPaid = orders.reduce((sum, o) => sum + (o.total_ticket || 0), 0);
@@ -103,12 +110,12 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
             <div className="flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
               <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
                 <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
-                {totalTicketsCount} Tickets
+                {t('profile.ticketsPage.ticketsCount', { count: totalTicketsCount })}
               </span>
               <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
               <span className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                Draw: {competition?.draw_date ? formatDate(competition.draw_date) : 'TBC'}
+                {t('profile.ticketsPage.draw', { date: competition?.draw_date ? formatDate(competition.draw_date, i18n.language) : 'TBC' })}
               </span>
             </div>
 
@@ -121,14 +128,14 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
                 className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-primary to-amber-500 rounded-xl text-black font-black text-[10px] uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 transition-all cursor-pointer whitespace-nowrap"
               >
                 <Sparkles size={14} className="animate-pulse" />
-                Share Your Victory
+                {t('profile.ticketsPage.shareVictory')}
               </button>
             )}
 
             {isWinner && competition?.winner_comment && (
               <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-[10px] uppercase tracking-widest">
                 <Star size={12} className="fill-emerald-400" />
-                Experience Shared
+                {t('profile.ticketsPage.experienceShared')}
               </div>
             )}
           </div>
@@ -154,7 +161,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
           </div>
         ) : (
           <div className="text-sm text-[var(--color-muted-foreground)] italic">
-            Tickets are being processed...
+            {t('profile.ticketsPage.ticketsProcessing')}
           </div>
         )}
 
@@ -163,20 +170,20 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
             onClick={onViewAll} 
             className="text-[var(--color-primary)] text-xs font-bold hover:opacity-80 transition-opacity cursor-pointer text-left w-fit"
           >
-            + {tickets.length - 5} more (View All)
+            {t('profile.ticketsPage.moreTickets', { count: tickets.length - 5 })}
           </button>
         )}
 
         <div className="mt-1 text-xs text-[var(--color-muted-foreground)] flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-[var(--color-foreground)]">{totalTicketsCount} Total Tickets</span>
+          <span className="font-semibold text-[var(--color-foreground)]">{t('profile.ticketsPage.totalTickets', { count: totalTicketsCount })}</span>
           {hasOrderStats && (
             <>
               <span className="text-[var(--color-border)]/50">|</span>
-              <span>{totalPaid} Paid</span>
+              <span>{t('profile.ticketsPage.paidCount', { count: totalPaid })}</span>
               {totalBonus > 0 && (
                 <>
                   <span className="text-[var(--color-border)]/50">|</span>
-                  <span className="text-[var(--color-primary)] font-semibold">+{totalBonus} Bonus</span>
+                  <span className="text-[var(--color-primary)] font-semibold">{t('profile.ticketsPage.bonusCount', { count: totalBonus })}</span>
                 </>
               )}
             </>
@@ -184,7 +191,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
           {isWinner && winningTicket && (
             <>
               <span className="text-[var(--color-border)]/50">|</span>
-              <span className="text-yellow-500 font-bold uppercase tracking-tighter">Winning Ticket: {winningTicket.ticket_sequence}</span>
+              <span className="text-yellow-500 font-bold uppercase tracking-tighter">{t('profile.ticketsPage.winningTicket', { sequence: winningTicket.ticket_sequence })}</span>
             </>
           )}
         </div>
@@ -256,6 +263,8 @@ export default function MyTicketsPage() {
     };
   }, [currentUser?.uid]);
 
+  const { t } = useTranslation();
+
   // Calculate top stats
   const totalTickets = tickets.length > 0 ? tickets.length : orders.reduce((sum, o) => sum + (o.total_ticket || 0) + (o.free_ticket || 0), 0);
   const freeBonus = orders.reduce((sum, o) => sum + (o.free_ticket || 0), 0);
@@ -322,7 +331,7 @@ export default function MyTicketsPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-2xl font-serif font-bold text-[var(--color-foreground)]">My Tickets</h1>
+          <h1 className="text-2xl font-serif font-bold text-[var(--color-foreground)]">{t('profile.myTickets')}</h1>
         </div>
 
         {/* Top Stats */}
@@ -330,17 +339,19 @@ export default function MyTicketsPage() {
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
             <Ticket className="w-6 h-6 text-[var(--color-primary)] mb-2" />
             <span className="text-2xl font-bold text-[var(--color-foreground)]">{totalTickets}</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Total Tickets</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">
+              {t('profile.ticketsPage.totalTickets', { count: totalTickets }).replace(String(totalTickets), '').trim()}
+            </span>
           </div>
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
             <Gift className="w-6 h-6 text-[var(--color-primary)] mb-2" />
             <span className="text-2xl font-bold text-[var(--color-foreground)]">{freeBonus}</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Free Bonus</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">{t('profile.freeBonus')}</span>
           </div>
           <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] p-4 flex flex-col items-center justify-center text-center shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
             <CheckCircle className="w-6 h-6 text-[var(--color-primary)] mb-2" />
             <span className="text-2xl font-bold text-[var(--color-foreground)]">{wonCount}</span>
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">Won</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-muted-foreground)] mt-1">{t('profile.ticketsPage.won')}</span>
           </div>
         </div>
 
@@ -356,7 +367,7 @@ export default function MyTicketsPage() {
                   : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10'
               }`}
             >
-              {tab}
+              {tab === 'active' ? t('profile.ticketsPage.active') : tab === 'past' ? t('profile.ticketsPage.past') : t('profile.ticketsPage.won')}
             </button>
           ))}
         </div>
@@ -397,7 +408,7 @@ export default function MyTicketsPage() {
                   disabled={currentPage === 1}
                   className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
                 >
-                  Prev
+                  {t('profile.ticketsPage.prev', 'Prev')}
                 </button>
                 <div className="flex items-center gap-1 overflow-x-auto max-w-full px-2 hide-scrollbar">
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -419,7 +430,7 @@ export default function MyTicketsPage() {
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
                 >
-                  Next
+                  {t('profile.ticketsPage.next', 'Next')}
                 </button>
               </div>
             )}
@@ -427,13 +438,15 @@ export default function MyTicketsPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-[var(--color-border)]/50 rounded-2xl bg-[var(--color-card)]/50">
             <Inbox className="w-12 h-12 text-[var(--color-muted-foreground)]/30 mb-4" />
-            <p className="text-[var(--color-foreground)] font-semibold text-lg">No {activeTab} tickets found</p>
+            <p className="text-[var(--color-foreground)] font-semibold text-lg">
+              {t('profile.ticketsPage.noTicketsFound', { tab: activeTab === 'active' ? t('profile.ticketsPage.active').toLowerCase() : activeTab === 'past' ? t('profile.ticketsPage.past').toLowerCase() : t('profile.ticketsPage.won').toLowerCase() })}
+            </p>
             {activeTab === 'active' && (
               <button
                 onClick={() => navigate('/competitions')}
                 className="mt-5 px-6 py-3 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-bold hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
               >
-                Browse Competitions
+                {t('profile.ticketsPage.browseCompetitions')}
               </button>
             )}
           </div>
@@ -443,8 +456,8 @@ export default function MyTicketsPage() {
         <Modal
           isOpen={!!selectedCompData}
           onClose={() => setSelectedCompData(null)}
-          title="Your Tickets"
-          description={`You have ${selectedCompData?.tickets?.length || 0} tickets for ${selectedCompData?.competition?.title || 'this competition'}.`}
+          title={t('profile.ticketsPage.yourTicketsModal')}
+          description={t('profile.ticketsPage.modalDescription', { count: selectedCompData?.tickets?.length || 0, title: selectedCompData?.competition?.title || 'this competition' })}
         >
           <div className="max-w-md mx-auto w-full max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-2 gap-3 pb-4">
@@ -454,7 +467,7 @@ export default function MyTicketsPage() {
                   className="flex items-center justify-between p-4 rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)]/60 hover:border-[var(--color-primary)]/30 transition-all group"
                 >
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1 group-hover:text-[var(--color-primary)]/70 transition-colors">Ticket ID</span>
+                    <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1 group-hover:text-[var(--color-primary)]/70 transition-colors">{t('profile.ticketsPage.ticketId')}</span>
                     <span className="text-sm font-mono font-bold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{tk.ticket_sequence ?? `#${tk.ticket_number}`}</span>
                   </div>
                   <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
@@ -469,7 +482,7 @@ export default function MyTicketsPage() {
               onClick={() => setSelectedCompData(null)}
               className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all cursor-pointer"
             >
-              Close
+              {t('profile.ticketsPage.close')}
             </button>
           </div>
         </Modal>
@@ -478,8 +491,8 @@ export default function MyTicketsPage() {
         <Modal
           isOpen={!!reviewCompId}
           onClose={() => setReviewCompId(null)}
-          title="Share Your Experience"
-          description="Congratulations on your win! We'd love to hear about your experience."
+          title={t('profile.ticketsPage.shareExperience')}
+          description={t('profile.ticketsPage.shareExperienceDesc')}
         >
           <div className="py-2">
             <WinnerReviewForm 
