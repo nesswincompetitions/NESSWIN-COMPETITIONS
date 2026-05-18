@@ -372,6 +372,15 @@ export default function ProfilePage() {
                   <Calendar className="w-4 h-4 text-[var(--color-muted-foreground)]" />
                 </div>
                 <div className="min-w-0">
+                  <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.dateOfBirth')}</p>
+                  <p className="text-sm text-[var(--color-foreground)]">{formatDate(userData?.date_of_birth)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-[var(--color-muted)]/20 flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+                </div>
+                <div className="min-w-0">
                   <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.memberSince')}</p>
                   <p className="text-sm text-[var(--color-foreground)]">{formatDate(userData?.created_time)}</p>
                 </div>

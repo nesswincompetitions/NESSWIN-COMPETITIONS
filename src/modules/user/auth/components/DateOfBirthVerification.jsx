@@ -9,6 +9,11 @@ export default function DateOfBirthVerification() {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Only allow dates at least 18 years ago in the calendar picker
+  const today = new Date();
+  const maxDobDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+  const maxDobStr = maxDobDate.toISOString().split('T')[0];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!dateOfBirth) {
@@ -16,9 +21,21 @@ export default function DateOfBirthVerification() {
     }
 
     const dobDate = new Date(dateOfBirth);
-    const ageDiffMs = Date.now() - dobDate.getTime();
-    const ageDate = new Date(ageDiffMs);
-    const age = Math.abs(ageDate.getUTCFullYear() - 1970);
+    if (isNaN(dobDate.getTime())) {
+      return toast.error('Please enter a valid date of birth');
+    }
+
+    const now = new Date();
+    if (dobDate > now) {
+      return toast.error('Date of birth cannot be in the future.');
+    }
+
+    // Calculate age precisely
+    let age = now.getFullYear() - dobDate.getFullYear();
+    const monthDiff = now.getMonth() - dobDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dobDate.getDate())) {
+      age--;
+    }
 
     if (age < 18) {
       return toast.error('You must be 18 or older to register and participate in competitions.');
@@ -67,6 +84,7 @@ export default function DateOfBirthVerification() {
                 type="date"
                 required
                 value={dateOfBirth}
+                max={maxDobStr}
                 onChange={(e) => setDateOfBirth(e.target.value)}
                 className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none"
               />

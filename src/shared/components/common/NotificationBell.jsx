@@ -110,6 +110,15 @@ const useTranslateNotification = () => {
         text = t('notifications.bonusTicketAddedText');
       }
     }
+    // 8. Referral Reward Received
+    else if (docData.type === 'referral_reward_received' || cleanTitle.toLowerCase().includes('referral reward') || cleanText.toLowerCase().includes('referral ticket')) {
+      title = t('notifications.referralRewardTitle');
+      if (cleanText.toLowerCase().includes('used your code')) {
+        text = docData.notification_text || docData.notificationText || t('notifications.referralRewardText');
+      } else {
+        text = t('notifications.referralRewardText');
+      }
+    }
 
     return { title, text, ctaText };
   };

@@ -420,15 +420,6 @@ export default function CompetitionDetails() {
 
           <ParticipantsSection participants={c.participants} />
 
-          <WinnerHallOfFame 
-            status={c.status}
-            winnerName={c.winner_name}
-            ticketNumber={c.winner_ticket_number}
-            comment={c.winner_comment}
-            rating={c.winner_rating}
-            date={c.winner_review_at?.toMillis ? c.winner_review_at.toMillis() : c.winner_review_at}
-          />
-
           <div className="pb-20" />
         </div>
       </div>

@@ -290,13 +290,22 @@ export const completeOnboarding = async (username, referralCodeInput) => {
       // ── Notification for Referrer ──────────────────────────────────────────
       const notifRef = doc(collection(db, "ff_user_push_notifications"));
       transaction.set(notifRef, {
-        user_ref: referrerRef,
-        sender: currentUserRef,
-        type: "referral_earned",
-        notification_title: "Referral Reward! 🎁",
-        notification_text: "Someone used your code! You've received a free referral ticket. Claim it in any competition.",
-        is_read: false,
+        category: "rewards",
         created_at: serverTimestamp(),
+        cta_text: "View Profile",
+        initial_page_name: "Reffral",
+        is_read: false,
+        notification_image_url: "",
+        notification_sound: "default",
+        notification_text: `${currentUserData?.display_name || cleanUsername} used your code! You've received a free referral ticket.`,
+        notification_title: "Referral Reward! 🎁",
+        num_sent: 0,
+        parameter_data: "{}",
+        sender: currentUserRef,
+        status: "",
+        timestamp: serverTimestamp(),
+        type: "referral_reward_received",
+        user_refs: referrerRef.path,
       });
     }
 

@@ -903,6 +903,42 @@ export function ParticipantsSection({ participants }) {
 export function InstagramLiveCard({ url }) {
   const { t } = useTranslation();
 
+  const cardContent = (
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+            <Play className="w-4 h-4 text-primary fill-primary" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white">Watch the draw live</h4>
+            <p className="text-xs text-muted-foreground/50">
+              {url ? "@NESSWIN · Official Channel" : "@NESSWIN · When countdown ends"}
+            </p>
+          </div>
+        </div>
+
+        {url ? (
+          <span className="text-sm font-black text-primary uppercase tracking-widest group-hover:scale-105 transition-transform">
+            Join
+          </span>
+        ) : (
+          <span className="text-sm font-black text-primary uppercase tracking-widest opacity-50 cursor-not-allowed">
+            Follow
+          </span>
+        )}
+      </div>
+
+      {!url && (
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <p className="text-[10px] font-medium text-muted-foreground/40 italic">
+            Live is yet to be started, come back soon to watch the official draw.
+          </p>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="bg-[#121212] border border-white/5 rounded-3xl p-6 shadow-2xl">
       <div className="flex items-center gap-4 mb-6">
@@ -915,44 +951,20 @@ export function InstagramLiveCard({ url }) {
         </div>
       </div>
 
-      <div className="bg-white/3 border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/5">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0">
-              <Play className="w-4 h-4 text-primary fill-primary" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white">Watch the draw live</h4>
-              <p className="text-xs text-muted-foreground/50">
-                {url ? "@NESSWIN · Official Channel" : "@NESSWIN · When countdown ends"}
-              </p>
-            </div>
-          </div>
-
-          {url ? (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-black text-primary uppercase tracking-widest hover:scale-105 transition-transform cursor-pointer"
-            >
-              Join
-            </a>
-          ) : (
-            <span className="text-sm font-black text-primary uppercase tracking-widest opacity-50 cursor-not-allowed">
-              Follow
-            </span>
-          )}
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block bg-white/3 border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/5 cursor-pointer"
+        >
+          {cardContent}
+        </a>
+      ) : (
+        <div className="bg-white/3 border border-white/5 rounded-2xl p-5 group transition-all hover:bg-white/5">
+          {cardContent}
         </div>
-
-        {!url && (
-          <div className="mt-4 pt-4 border-t border-white/5">
-            <p className="text-[10px] font-medium text-muted-foreground/40 italic">
-              Live is yet to be started, come back soon to watch the official draw.
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

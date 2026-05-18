@@ -257,6 +257,7 @@
     "change": "Cambiar",
     "verified": "Verificado",
     "memberSince": "Miembro desde",
+    "dateOfBirth": "Fecha de nacimiento",
     "email": "Correo electrónico",
     "phone": "Teléfono",
     "notVerified": "No verificado",
@@ -448,7 +449,9 @@
     "congratulationsYouWonText": "¡Has ganado el sorteo \"{{compName}}\" !",
     "newMessageTitle": "Nuevo Mensaje",
     "bonusTicketAddedTitle": "Boleto de bonificación agregado",
-    "bonusTicketAddedText": "Se ha agregado un boleto de bonificación a tu cuenta."
+    "bonusTicketAddedText": "Se ha agregado un boleto de bonificación a tu cuenta.",
+    "referralRewardTitle": "¡Recompensa de invitación! 🎁",
+    "referralRewardText": "¡Alguien usó tu código! Has recibido un boleto de invitación gratuito."
   },
   "skillGate": {
     "checking": "Verificando tu respuesta...",

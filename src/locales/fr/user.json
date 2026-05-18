@@ -257,6 +257,7 @@
     "change": "Modifier",
     "verified": "Vérifié",
     "memberSince": "Membre depuis",
+    "dateOfBirth": "Date de naissance",
     "email": "E-mail",
     "phone": "Téléphone",
     "notVerified": "Non vérifié",
@@ -448,7 +449,9 @@
     "congratulationsYouWonText": "Vous avez gagné le concours \"{{compName}}\" !",
     "newMessageTitle": "Nouveau Message",
     "bonusTicketAddedTitle": "Ticket bonus ajouté",
-    "bonusTicketAddedText": "Un ticket bonus a été ajouté à votre compte."
+    "bonusTicketAddedText": "Un ticket bonus a été ajouté à votre compte.",
+    "referralRewardTitle": "Récompense de parrainage ! 🎁",
+    "referralRewardText": "Quelqu'un a utilisé votre code ! Vous avez reçu un ticket de parrainage gratuit."
   },
   "skillGate": {
     "checking": "Vérification de votre réponse...",

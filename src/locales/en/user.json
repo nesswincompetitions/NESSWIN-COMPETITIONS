@@ -258,6 +258,7 @@
     "change": "Change",
     "verified": "Verified",
     "memberSince": "Member Since",
+    "dateOfBirth": "Date of Birth",
     "email": "Email",
     "phone": "Phone",
     "notVerified": "Not verified",
@@ -449,7 +450,9 @@
     "congratulationsYouWonText": "You won the competition \"{{compName}}\"!",
     "newMessageTitle": "New Message",
     "bonusTicketAddedTitle": "Bonus Ticket Added",
-    "bonusTicketAddedText": "A bonus ticket has been added to your account."
+    "bonusTicketAddedText": "A bonus ticket has been added to your account.",
+    "referralRewardTitle": "Referral Reward! 🎁",
+    "referralRewardText": "Someone used your code! You've received a free referral ticket."
   },
   "skillGate": {
     "checking": "Checking your answer...",
