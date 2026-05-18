@@ -239,8 +239,12 @@ const Dashboard = () => {
                   <TableRow key={i}>
                     <TableCell className="text-primary font-medium truncate max-w-25">#{order.id.slice(-6).toUpperCase()}</TableCell>
                     <TableCell className="text-white">
-                      <div className="flex flex-col">
-                        <span>{order.userName}</span>
+                      <div 
+                        className="flex flex-col cursor-pointer group"
+                        onClick={() => order.userId && navigate(`/admin/users/${order.userId}`)}
+                        title={t('dashboard.tooltips.viewUser', 'View user profile')}
+                      >
+                        <span className="group-hover:text-primary transition-colors">{order.userName}</span>
                         <span className="text-[10px] text-gray-500">{order.userEmail}</span>
                       </div>
                     </TableCell>

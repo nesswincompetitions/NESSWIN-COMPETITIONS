@@ -232,8 +232,12 @@ const OrdersList = () => {
                         {`#${order.id.slice(-8).toUpperCase()}`}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer group"
+                          onClick={() => order.userId && navigate(`/admin/users/${order.userId}`)}
+                          title={t('orders.tooltips.viewUser', 'View user profile')}
+                        >
+                          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs group-hover:ring-2 group-hover:ring-primary/50 transition-all">
                             {order.userPhoto ? (
                               <img src={order.userPhoto} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -241,7 +245,7 @@ const OrdersList = () => {
                             )}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-white group-hover:text-primary transition-colors">
                               {order.userName || 'Unknown User'}
                             </span>
                             <span className="text-xs text-gray-500">

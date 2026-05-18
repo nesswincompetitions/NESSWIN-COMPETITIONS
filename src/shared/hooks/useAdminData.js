@@ -337,6 +337,7 @@ export const useAdminOrdersFeed = (limitCount = 50) => {
 
     return {
       ...order,
+      userId,
       userName: user?.display_name || user?.name || 'Unknown User',
       userEmail: user?.email || 'N/A',
       competitionName: competition?.title || competition?.name || 'Unknown Competition',
@@ -455,6 +456,7 @@ export const useAdminDashboardData = () => {
 
       return {
         ...order,
+        userId,
         userName: user?.display_name || user?.name || 'Unknown User',
         userEmail: user?.email || 'N/A',
         competitionName: competition?.title || competition?.name || 'Unknown Competition',

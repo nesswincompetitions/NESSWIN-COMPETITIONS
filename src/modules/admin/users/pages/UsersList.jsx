@@ -251,8 +251,12 @@ const UsersList = () => {
                     <TableRow key={user.id}>
                       <TableCell className="text-gray-500 text-xs">{(currentPage - 1) * itemsPerPage + idx + 1}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer group"
+                          onClick={() => navigate(`/admin/users/${user.id}`)}
+                          title="View user profile"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden group-hover:ring-2 group-hover:ring-primary/50 transition-all">
                             {user.photo_url || user.profile_image ? (
                               <img src={user.photo_url || user.profile_image} alt="" className="w-full h-full object-cover" />
                             ) : (
@@ -260,7 +264,7 @@ const UsersList = () => {
                             )}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <p className="font-medium text-white text-sm truncate max-w-[180px]" title={user.display_name || user.name}>
+                            <p className="font-medium text-white group-hover:text-primary transition-colors text-sm truncate max-w-[180px]" title={user.display_name || user.name}>
                               {user.display_name || user.name}
                             </p>
                             <p className="text-[10px] text-gray-500 truncate max-w-[180px]" title={user.email}>

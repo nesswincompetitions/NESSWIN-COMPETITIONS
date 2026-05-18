@@ -65,12 +65,13 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
        : { ...STATUS_MAP.default, label: t('profile.ticketsPage.status.default') });
 
   // Stats
-  const totalPaid = orders.reduce((sum, o) => sum + (o.total_ticket || 0), 0);
-  const totalBonus = orders.reduce((sum, o) => sum + (o.free_ticket || 0), 0);
-  const hasOrderStats = totalPaid > 0 || totalBonus > 0;
+  // Stats
+  const calcTotalTickets = orders.reduce((sum, o) => sum + (Number(o.total_ticket) || 0), 0);
+  const calcPaidTickets = orders.reduce((sum, o) => sum + (o.paid_ticket !== undefined ? Number(o.paid_ticket) : Math.max(0, (Number(o.total_ticket) || 0) - (Number(o.free_used) || 0))), 0);
+  const calcFreeUsed = orders.reduce((sum, o) => sum + (Number(o.free_used) || 0), 0);
+  const calcFreeEarned = orders.reduce((sum, o) => sum + (Number(o.free_ticket) || 0), 0);
   
-  // Always use total count from allTickets for stats, regardless of tab filtering
-  const totalTicketsCount = allTickets.length > 0 ? allTickets.length : totalPaid + totalBonus;
+  const totalTicketsDisplay = calcTotalTickets > 0 ? calcTotalTickets : allTickets.length;
   const winningTicket = allTickets.find(t => t.is_winner);
   
   const displayTickets = tickets.slice(0, 5);
@@ -112,7 +113,7 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
             <div className="flex items-center gap-4 text-sm text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/10 py-2 px-3 rounded-lg border border-[var(--color-border)]/30">
               <span className="flex items-center gap-1.5 text-[var(--color-foreground)] font-medium">
                 <Ticket className="w-4 h-4 text-[var(--color-primary)]" />
-                {t('profile.ticketsPage.ticketsCount', { count: totalTicketsCount })}
+                {t('profile.ticketsPage.ticketsCount', { count: totalTicketsDisplay })}
               </span>
               <div className="w-[1px] h-4 bg-[var(--color-border)]/50"></div>
               <span className="flex items-center gap-1.5">
@@ -176,25 +177,36 @@ function CompetitionGroupCard({ compData, onViewAll, onAddReview, activeTab }) {
           </button>
         )}
 
-        <div className="mt-1 text-xs text-[var(--color-muted-foreground)] flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-[var(--color-foreground)]">{t('profile.ticketsPage.totalTickets', { count: totalTicketsCount })}</span>
-          {hasOrderStats && (
-            <>
-              <span className="text-[var(--color-border)]/50">|</span>
-              <span>{t('profile.ticketsPage.paidCount', { count: totalPaid })}</span>
-              {totalBonus > 0 && (
-                <>
-                  <span className="text-[var(--color-border)]/50">|</span>
-                  <span className="text-[var(--color-primary)] font-semibold">{t('profile.ticketsPage.bonusCount', { count: totalBonus })}</span>
-                </>
-              )}
-            </>
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 bg-[var(--color-muted)]/20 px-2.5 py-1 rounded-md border border-[var(--color-border)]/40" title="Total tickets entered">
+            <span className="text-[var(--color-muted-foreground)]">{t('profile.ticketsPage.total', 'Total')}:</span>
+            <span className="font-bold text-[var(--color-foreground)]">{totalTicketsDisplay}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20" title="Paid tickets">
+            <span className="text-emerald-400/80">{t('profile.ticketsPage.paid', 'Paid')}:</span>
+            <span className="font-bold text-emerald-400">{calcPaidTickets}</span>
+          </div>
+
+          {calcFreeUsed > 0 && (
+            <div className="flex items-center gap-1.5 bg-blue-500/10 px-2.5 py-1 rounded-md border border-blue-500/20" title="Free bonus tickets used for this entry">
+              <span className="text-blue-400/80">{t('profile.ticketsPage.freeUsed', 'Free Used')}:</span>
+              <span className="font-bold text-blue-400">{calcFreeUsed}</span>
+            </div>
           )}
+
+          {calcFreeEarned > 0 && (
+            <div className="flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20" title="Bonus tickets earned from this order">
+              <span className="text-amber-400/80">{t('profile.ticketsPage.bonusGot', 'Bonus Got')}:</span>
+              <span className="font-bold text-amber-400">+{calcFreeEarned}</span>
+            </div>
+          )}
+
           {isWinner && winningTicket && (
-            <>
-              <span className="text-[var(--color-border)]/50">|</span>
-              <span className="text-yellow-500 font-bold uppercase tracking-tighter">{t('profile.ticketsPage.winningTicket', { sequence: winningTicket.ticket_sequence })}</span>
-            </>
+            <div className="flex items-center gap-1.5 bg-yellow-400/20 px-2.5 py-1 rounded-md border border-yellow-400/40">
+              <span className="text-yellow-500/80">{t('profile.ticketsPage.winningTicketLabel', 'Winning Ticket')}:</span>
+              <span className="font-black text-yellow-500 uppercase">{winningTicket.ticket_sequence}</span>
+            </div>
           )}
         </div>
       </div>

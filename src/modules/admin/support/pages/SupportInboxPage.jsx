@@ -132,8 +132,10 @@ export default function SupportInboxPage() {
           const rows = await Promise.all(snapshot.docs.map(async (chatDoc) => {
             const chatData = chatDoc.data();
             const customerRef = chatData.chat_type === 'winner_chat'
-              ? chatData.receiver_id
-              : (getRefPath(chatData.sender_id) === getRefPath(currentAdminRef) ? chatData.receiver_id : chatData.sender_id);
+              ? (chatData.receiver_id || (chatData.participants && chatData.participants[1]))
+              : (getRefPath(chatData.sender_id) === getRefPath(currentAdminRef) 
+                  ? (chatData.receiver_id || (chatData.participants && chatData.participants[1])) 
+                  : (chatData.sender_id || (chatData.participants && chatData.participants[0])));
 
             let customerName = 'Unknown User';
             let customerEmail = '';
