@@ -204,6 +204,7 @@ export default function NotificationBell() {
     const cleanText = (notif.notification_text || '').trim().toLowerCase();
 
     const isWon = cleanTitle.includes('congratulation') || cleanTitle.includes('won') || cleanText.includes('won');
+    const isDiscount = cleanTitle.includes('discount') || cleanTitle.includes('referral discount') || (cleanText.includes('referral') && cleanText.includes('checked out'));
     const isReferralOrBonus = 
       notif.type === 'referral_reward_received' ||
       notif.type === 'free_ticket_earned' ||
@@ -216,15 +217,15 @@ export default function NotificationBell() {
 
     if (isWon) {
       navigate('/profile/tickets', { state: { tab: 'won' } });
-    } else if (isReferralOrBonus) {
-      navigate('/profile#referrals');
     } else if (
+      isDiscount ||
       notif.type === 'payment_success' || 
       notif.type === 'ticket_issued' || 
-      notif.initial_page_name === 'MyTickets' ||
-      cleanTitle.includes('discount')
+      notif.initial_page_name === 'MyTickets'
     ) {
       navigate('/profile/tickets');
+    } else if (isReferralOrBonus) {
+      navigate('/profile#referrals');
     } else if (notif.initial_page_name === 'detailsPage' || notif.initial_page_name === 'participants') {
       let compId = null;
       if (notif.parameter_data) {

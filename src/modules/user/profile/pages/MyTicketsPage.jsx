@@ -213,6 +213,16 @@ export default function MyTicketsPage() {
   const [selectedCompData, setSelectedCompData] = useState(null);
   const [reviewCompId, setReviewCompId] = useState(null);
 
+  const handleBack = () => {
+    const historyIndex = window.history.state?.idx;
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1);
+      return;
+    }
+
+    navigate('/profile', { replace: true, state: { scrollToTop: true } });
+  };
+
   useEffect(() => {
     if (!currentUser?.uid) {
       setTickets([]);
@@ -329,7 +339,7 @@ export default function MyTicketsPage() {
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-4 mb-8">
           <button
-            onClick={() => navigate('/profile', { replace: true })}
+            onClick={handleBack}
             className="w-10 h-10 rounded-full border border-[var(--color-border)]/60 flex items-center justify-center text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/10 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />

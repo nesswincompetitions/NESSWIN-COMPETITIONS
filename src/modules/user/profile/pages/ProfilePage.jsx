@@ -85,6 +85,12 @@ export default function ProfilePage() {
     }
   }, [location.hash]);
 
+  useEffect(() => {
+    if (location.state?.scrollToTop) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [location.state]);
+
   const handleStartEdit = (field) => {
     setEditingField(field);
     setEditValue(field === 'display_name' ? (userData?.display_name ?? '') : (userData?.user_name ?? ''));
@@ -206,7 +212,7 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto">
         {/* Back Button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors mb-6 cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
