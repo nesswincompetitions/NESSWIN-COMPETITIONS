@@ -190,9 +190,13 @@ const ReferralsList = () => {
                               (user.display_name || user.name || '?').charAt(0)
                             )}
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-white">{user.display_name || user.name}</span>
-                            <span className="text-xs text-gray-500">{user.email}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium text-white truncate max-w-[180px]" title={user.display_name || user.name}>
+                              {user.display_name || user.name}
+                            </span>
+                            <span className="text-xs text-gray-500 truncate max-w-[180px]" title={user.email}>
+                              {user.email}
+                            </span>
                           </div>
                         </div>
                       </TableCell>

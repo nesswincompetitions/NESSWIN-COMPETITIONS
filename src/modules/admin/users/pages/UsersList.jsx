@@ -224,9 +224,13 @@ const UsersList = () => {
                               (user.display_name || user.name || '?').charAt(0)
                             )}
                           </div>
-                          <div>
-                            <p className="font-medium text-white text-sm">{user.display_name || user.name}</p>
-                            <p className="text-[10px] text-gray-500">{user.email}</p>
+                          <div className="flex flex-col min-w-0">
+                            <p className="font-medium text-white text-sm truncate max-w-[180px]" title={user.display_name || user.name}>
+                              {user.display_name || user.name}
+                            </p>
+                            <p className="text-[10px] text-gray-500 truncate max-w-[180px]" title={user.email}>
+                              {user.email}
+                            </p>
                           </div>
                         </div>
                       </TableCell>

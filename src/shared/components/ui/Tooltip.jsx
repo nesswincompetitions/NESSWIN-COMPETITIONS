@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Tooltip({ children, content, position = 'top' }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0, height: 0 });
   const triggerRef = useRef(null);
 
   const updateCoords = () => {

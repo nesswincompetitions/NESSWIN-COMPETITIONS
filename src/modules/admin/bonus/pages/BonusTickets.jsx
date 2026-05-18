@@ -30,7 +30,7 @@ const BonusTickets = () => {
   const totalIssued = useMemo(() => {
     return ticketsRaw
       .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
-      .reduce((sum, t) => sum + (t.quantity || 0), 0);
+      .reduce((sum, t) => sum + Number(t.reward_value || t.quantity || 1), 0);
   }, [ticketsRaw]);
   const [searchTerm, setSearchTerm] = useState('');
 

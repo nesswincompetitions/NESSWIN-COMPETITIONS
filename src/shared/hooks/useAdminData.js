@@ -66,16 +66,83 @@ const mapCompetitionSummary = (competition) => {
   };
 };
 
+// Global client-side memory cache with TTL (5 minutes)
+const globalUserCache = {};
+const globalCompCache = {};
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const getFromCache = (cache, id) => {
+  const entry = cache[id];
+  if (!entry) return null;
+  const isExpired = Date.now() - entry.timestamp > CACHE_TTL_MS;
+  if (isExpired) {
+    delete cache[id];
+    return null;
+  }
+  return entry.data;
+};
+
+const setInCache = (cache, id, data) => {
+  cache[id] = {
+    data,
+    timestamp: Date.now()
+  };
+};
+
+const getActiveCacheMap = (cache) => {
+  const activeMap = {};
+  const now = Date.now();
+  Object.keys(cache).forEach(id => {
+    const entry = cache[id];
+    if (entry && now - entry.timestamp <= CACHE_TTL_MS) {
+      activeMap[id] = entry.data;
+    } else {
+      delete cache[id];
+    }
+  });
+  return activeMap;
+};
+
 /**
  * Internal hook to resolve multiple references from a list of items.
  */
 const useEnrichment = (items, userRefKey, compRefKey) => {
-  const [userMap, setUserMap] = useState({});
-  const [compMap, setCompMap] = useState({});
+  const [userMap, setUserMap] = useState(() => getActiveCacheMap(globalUserCache));
+  const [compMap, setCompMap] = useState(() => getActiveCacheMap(globalCompCache));
   const [resolving, setResolving] = useState(false);
 
   useEffect(() => {
     if (!items || items.length === 0) return;
+
+    // Synchronize any items present in the global cache but missing from local state
+    let localStateNeedsUpdate = false;
+    const nextUserMap = { ...userMap };
+    const nextCompMap = { ...compMap };
+
+    items.forEach((item) => {
+      if (userRefKey) {
+        const uId = getReferenceId(item[userRefKey]);
+        const cachedUser = getFromCache(globalUserCache, uId);
+        if (uId && cachedUser && !userMap[uId]) {
+          nextUserMap[uId] = cachedUser;
+          localStateNeedsUpdate = true;
+        }
+      }
+      if (compRefKey) {
+        const cId = getReferenceId(item[compRefKey]);
+        const cachedComp = getFromCache(globalCompCache, cId);
+        if (cId && cachedComp && !compMap[cId]) {
+          nextCompMap[cId] = cachedComp;
+          localStateNeedsUpdate = true;
+        }
+      }
+    });
+
+    if (localStateNeedsUpdate) {
+      setUserMap(nextUserMap);
+      setCompMap(nextCompMap);
+      return;
+    }
 
     const resolveRefs = async () => {
       const missingUserIds = new Set();
@@ -84,11 +151,11 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
       items.forEach((item) => {
         if (userRefKey) {
           const uId = getReferenceId(item[userRefKey]);
-          if (uId && !userMap[uId]) missingUserIds.add(uId);
+          if (uId && !userMap[uId] && !getFromCache(globalUserCache, uId)) missingUserIds.add(uId);
         }
         if (compRefKey) {
           const cId = getReferenceId(item[compRefKey]);
-          if (cId && !compMap[cId]) missingCompIds.add(cId);
+          if (cId && !compMap[cId] && !getFromCache(globalCompCache, cId)) missingCompIds.add(cId);
         }
       });
 
@@ -104,23 +171,23 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
         );
 
         if (userSnaps.length > 0) {
-          setUserMap((prev) => {
-            const next = { ...prev };
-            userSnaps.forEach((snap) => {
-              if (snap.exists()) next[snap.id] = { id: snap.id, ...snap.data() };
-            });
-            return next;
+          userSnaps.forEach((snap) => {
+            if (snap.exists()) {
+              const data = { id: snap.id, ...snap.data() };
+              setInCache(globalUserCache, snap.id, data);
+            }
           });
+          setUserMap((prev) => ({ ...prev, ...getActiveCacheMap(globalUserCache) }));
         }
 
         if (compSnaps.length > 0) {
-          setCompMap((prev) => {
-            const next = { ...prev };
-            compSnaps.forEach((snap) => {
-              if (snap.exists()) next[snap.id] = { id: snap.id, ...snap.data() };
-            });
-            return next;
+          compSnaps.forEach((snap) => {
+            if (snap.exists()) {
+              const data = { id: snap.id, ...snap.data() };
+              setInCache(globalCompCache, snap.id, data);
+            }
           });
+          setCompMap((prev) => ({ ...prev, ...getActiveCacheMap(globalCompCache) }));
         }
       } catch (err) {
         console.error('[useEnrichment] Error resolving references:', err);
@@ -137,7 +204,8 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
     return items.some(item => {
       const uId = getReferenceId(item[userRefKey]);
       const cId = getReferenceId(item[compRefKey]);
-      return (uId && !userMap[uId]) || (cId && !compMap[cId]);
+      return (uId && !userMap[uId] && !getFromCache(globalUserCache, uId)) || 
+             (cId && !compMap[cId] && !getFromCache(globalCompCache, cId));
     });
   }, [items, userMap, compMap, userRefKey, compRefKey]);
 
@@ -553,9 +621,10 @@ export const useOrderRealtime = (orderId) => {
 };
 
 export const useOrderTicketsRealtime = (orderId) => {
+  const orderRef = useMemo(() => (orderId ? doc(db, 'order', orderId) : null), [orderId]);
   const queryConstraints = useMemo(
-    () => [where('order_id', '==', orderId || 'NONE')],
-    [orderId]
+    () => [where('order_id', 'in', [orderId, orderRef].filter(Boolean))],
+    [orderId, orderRef]
   );
   return useRealtimeCollection('ticket', queryConstraints);
 };
