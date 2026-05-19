@@ -367,7 +367,7 @@
       "discount": "Discount",
       "discountAmount": "Discount Amount",
       "paidAt": "Paid At",
-      "status": "Status",
+      "statusHeader": "Status",
       "orderTickets": "Order Tickets",
       "totalTicketsCount": "{{count}} Total",
       "noTicketsFound": "No tickets found for this order.",

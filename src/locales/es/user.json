@@ -366,7 +366,7 @@
       "discount": "Descuento",
       "discountAmount": "Monto de descuento",
       "paidAt": "Pagado el",
-      "status": "Estado",
+      "statusHeader": "Estado",
       "orderTickets": "Entradas del pedido",
       "totalTicketsCount": "{{count}} en total",
       "noTicketsFound": "No se encontraron entradas para este pedido.",

@@ -366,7 +366,7 @@
       "discount": "Remise",
       "discountAmount": "Montant de la remise",
       "paidAt": "Payé le",
-      "status": "Statut",
+      "statusHeader": "Statut",
       "orderTickets": "Tickets de la commande",
       "totalTicketsCount": "{{count}} au total",
       "noTicketsFound": "Aucun ticket trouvé pour cette commande.",

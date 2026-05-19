@@ -150,7 +150,7 @@ function OrderCard({ order }) {
               { label: t('profile.ordersPage.discount'), value: discount_percent ? `-${discount_percent}%` : '—' },
               { label: t('profile.ordersPage.discountAmount'), value: discount_amount ? formatCurrency(discount_amount, currency, i18n.language) : '—' },
               { label: t('profile.ordersPage.paidAt'), value: formatDate(paid_at, i18n.language) },
-              { label: t('profile.ordersPage.status'), value: t(`profile.ordersPage.status.${status}`) || status },
+              { label: t('profile.ordersPage.statusHeader'), value: t(`profile.ordersPage.status.${status}`) || status },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-3">
                 <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)] mb-1">{label}</p>
