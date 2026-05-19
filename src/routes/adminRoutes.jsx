@@ -3,25 +3,25 @@ import { Route, Navigate } from 'react-router-dom';
 import AdminLayout from '@/shared/layouts/AdminLayout';
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 
-import Dashboard from '@/modules/admin/dashboard/pages/Dashboard';
-import BonusTickets from '@/modules/admin/bonus/pages/BonusTickets';
+const Dashboard = React.lazy(() => import('@/modules/admin/dashboard/pages/Dashboard'));
+const BonusTickets = React.lazy(() => import('@/modules/admin/bonus/pages/BonusTickets'));
 
-import SupportInboxPage from '@/modules/admin/support/pages/SupportInboxPage';
+const SupportInboxPage = React.lazy(() => import('@/modules/admin/support/pages/SupportInboxPage'));
 
-import CompetitionsList from '@/modules/admin/competitions/pages/CompetitionsList';
-import CreateCompetition from '@/modules/admin/competitions/pages/CreateCompetition';
-import CompetitionDrafts from '@/modules/admin/competitions/pages/CompetitionDrafts';
-import CompetitionDetail from '@/modules/admin/competitions/pages/CompetitionDetail';
+const CompetitionsList = React.lazy(() => import('@/modules/admin/competitions/pages/CompetitionsList'));
+const CreateCompetition = React.lazy(() => import('@/modules/admin/competitions/pages/CreateCompetition'));
+const CompetitionDrafts = React.lazy(() => import('@/modules/admin/competitions/pages/CompetitionDrafts'));
+const CompetitionDetail = React.lazy(() => import('@/modules/admin/competitions/pages/CompetitionDetail'));
 
-import WinnersList from '@/modules/admin/winners/pages/WinnersList';
-import WinnerDetail from '@/modules/admin/winners/pages/WinnerDetail';
-import OrdersList from '@/modules/admin/orders/pages/OrdersList';
-import OrderDetail from '@/modules/admin/orders/pages/OrderDetail';
-import ReferralsList from '@/modules/admin/referrals/pages/ReferralsList';
-import ReferralDetail from '@/modules/admin/referrals/pages/ReferralDetail';
+const WinnersList = React.lazy(() => import('@/modules/admin/winners/pages/WinnersList'));
+const WinnerDetail = React.lazy(() => import('@/modules/admin/winners/pages/WinnerDetail'));
+const OrdersList = React.lazy(() => import('@/modules/admin/orders/pages/OrdersList'));
+const OrderDetail = React.lazy(() => import('@/modules/admin/orders/pages/OrderDetail'));
+const ReferralsList = React.lazy(() => import('@/modules/admin/referrals/pages/ReferralsList'));
+const ReferralDetail = React.lazy(() => import('@/modules/admin/referrals/pages/ReferralDetail'));
 
-import UsersList from '@/modules/admin/users/pages/UsersList';
-import UserDetail from '@/modules/admin/users/pages/UserDetail';
+const UsersList = React.lazy(() => import('@/modules/admin/users/pages/UsersList'));
+const UserDetail = React.lazy(() => import('@/modules/admin/users/pages/UserDetail'));
 
 export const AdminRoutes = (
   <Route path="/admin" element={<ProtectedRoute requireAdmin={true}><AdminLayout /></ProtectedRoute>}>

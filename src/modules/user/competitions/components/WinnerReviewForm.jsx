@@ -3,7 +3,7 @@ import { Star, MessageSquare, Send, Trophy, Loader2, CheckCircle2 } from 'lucide
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { submitWinnerReview } from '../services/competitionService';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 
 const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onReviewSubmitted }) => {
   const { t } = useTranslation();

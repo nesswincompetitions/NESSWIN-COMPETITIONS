@@ -1,16 +1,80 @@
-# React + Vite
+# NESSWIN
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+NESSWIN is a premium, high-performance raffle and competition platform. Built with a modern dark-themed aesthetic, it offers users an elite experience when purchasing tickets, tracking live draws, and claiming rewards.
 
-Currently, two official plugins are available:
+## 🚀 Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Frontend Framework:** React 18
+- **Build Tool:** Vite
+- **Styling & UI:** Tailwind CSS, Lucide Icons
+- **Animations:** Framer Motion (GPU-Optimized)
+- **Backend & Database:** Firebase (Authentication, Firestore, Storage, Cloud Functions)
+- **Deployment:** Vercel
 
-## React Compiler
+## ✨ Key Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Real-Time Competitions:** Sub-second data synchronization and live Countdown timers powered by Firestore.
+- **Optimized Performance:** Aggressive code-splitting, route-based lazy loading, and granular vendor chunking for near-instant page loads.
+- **Premium Animations:** Hardware-accelerated (GPU) Framer Motion transitions using custom tween Bezier curves (`ease-out-expo`) for a silky smooth 60fps experience.
+- **Secure Ticketing Flow:** Smart checkout with referral rewards, dynamic pack sizing, and skill-gated verification questions.
+- **Robust Admin Dashboard:** Full CRUD management for users, competitions, and tickets.
+- **Offline Persistence:** Firestore IndexedDB local caching guarantees instantaneous UI rendering on repeat visits.
 
-## Expanding the ESLint configuration
+## 🛠️ Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The codebase follows a modular, feature-based architecture for scalability and ease of maintenance:
+
+```text
+src/
+├── contexts/         # Global state (UserContext, ThemeContext)
+├── modules/          # Feature domains
+│   ├── admin/        # Admin dashboard and management modules
+│   └── user/         # User-facing features (competitions, profile, checkout)
+├── routes/           # Application routing (Code-split with React.lazy)
+├── shared/           # Reusable components, hooks, and utilities
+└── config/           # Environment and Firebase configurations
+```
+
+## 🏎️ Performance Optimizations
+
+This project has been heavily audited and optimized for production:
+- **Vercel Caching:** `vercel.json` headers ensure immutable caching for all hashed `/assets`.
+- **Vite Chunking:** Heavy libraries (`firebase`, `framer-motion`, `react`) are separated from the main bundle.
+- **GPU Hinting:** Strategic use of `will-change: transform, opacity` and `transform-gpu` to prevent main-thread layout thrashing during DOM transitions.
+
+## 💻 Local Development
+
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
+
+### Setup
+
+1. **Clone the repository and install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Environment Variables:**
+   Create a `.env` file in the root directory and add your Firebase configuration credentials.
+   ```env
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   ```
+
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Build for production:**
+   ```bash
+   npm run build
+   ```
+
+## 📜 License
+Proprietary software. All rights reserved.

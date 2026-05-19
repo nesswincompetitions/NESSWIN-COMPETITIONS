@@ -419,7 +419,10 @@ export default function Navbar() {
           </div>
         </div>
 
-        <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${menuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"} bg-card/98 backdrop-blur-xl border-b border-border`}>
+        <div 
+          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${menuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"} bg-card/98 backdrop-blur-xl border-b border-border`}
+          style={{ willChange: "max-height, opacity" }}
+        >
           <div className="px-6 py-5 space-y-1">
             {navLinks.map((link) => (
               <Link

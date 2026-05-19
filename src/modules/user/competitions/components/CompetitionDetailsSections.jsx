@@ -29,7 +29,7 @@ import { FaInstagram } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { useUserData } from '@/contexts/UserContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 
 export const Confetti = () => {
   const particles = Array.from({ length: 40 });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'; 
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCircle } from 'lucide-react';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';

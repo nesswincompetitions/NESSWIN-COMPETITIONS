@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate, useParams, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/shared/state/AuthContext';
 import { useUserData } from '@/contexts/UserContext';
@@ -50,6 +50,8 @@ const WinnerAnnouncement = ({ winnerName, ticketNumber, isWinner, comment, ratin
     <motion.div 
       initial={{ y: -10, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "tween", ease: [0.16, 1, 0.3, 1], duration: 0.4 }}
+      style={{ willChange: "transform, opacity" }}
       className={`relative overflow-hidden rounded-[2rem] border mb-8 shadow-xl ${
         isWinner 
           ? 'bg-primary/5 border-primary/20 shadow-[0_0_50px_-10px_rgba(var(--color-primary-rgb),0.15)]' 
@@ -303,7 +305,8 @@ export default function CompetitionDetails() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
+        transition={{ type: "tween", ease: [0.16, 1, 0.3, 1], duration: 0.4 }}
+        style={{ willChange: "transform, opacity" }}
         className="min-h-screen bg-(--color-background)"
       >
         <div className="pt-16 lg:pt-20">

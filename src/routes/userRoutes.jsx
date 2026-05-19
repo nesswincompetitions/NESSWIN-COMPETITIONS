@@ -4,25 +4,25 @@ import { ProtectedRoute, AuthRoute } from './ProtectedRoute.jsx';
 import UserLayout from '@/shared/layouts/UserLayout';
 
 import Home from '@/modules/user/home/pages/Home';
-import SignupPage from '@/modules/user/auth/pages/SignupPage';
-import ForgotPasswordPage from '@/modules/user/auth/pages/ForgotPasswordPage';
-import OnboardingPage from '@/modules/user/profile/pages/OnboardingPage';
-import ProfilePage from '@/modules/user/profile/pages/ProfilePage';
-import MyTicketsPage from '@/modules/user/profile/pages/MyTicketsPage';
-import OrderHistoryPage from '@/modules/user/profile/pages/OrderHistoryPage';
-import DeleteAccountPage from '@/modules/user/profile/pages/DeleteAccountPage';
-import SupportHubPage from '@/modules/user/support/pages/SupportHubPage';
-import SupportChatPage from '@/modules/user/support/pages/SupportChatPage';
+const SignupPage = React.lazy(() => import('@/modules/user/auth/pages/SignupPage'));
+const ForgotPasswordPage = React.lazy(() => import('@/modules/user/auth/pages/ForgotPasswordPage'));
+const OnboardingPage = React.lazy(() => import('@/modules/user/profile/pages/OnboardingPage'));
+const ProfilePage = React.lazy(() => import('@/modules/user/profile/pages/ProfilePage'));
+const MyTicketsPage = React.lazy(() => import('@/modules/user/profile/pages/MyTicketsPage'));
+const OrderHistoryPage = React.lazy(() => import('@/modules/user/profile/pages/OrderHistoryPage'));
+const DeleteAccountPage = React.lazy(() => import('@/modules/user/profile/pages/DeleteAccountPage'));
+const SupportHubPage = React.lazy(() => import('@/modules/user/support/pages/SupportHubPage'));
+const SupportChatPage = React.lazy(() => import('@/modules/user/support/pages/SupportChatPage'));
 
-import CompetitionsPage from '@/modules/user/competitions/pages/CompetitionsPage';
-import CompetitionDetails from '@/modules/user/competitions/pages/CompetitionDetails';
-import WinnersPage from '@/modules/user/competitions/pages/WinnersPage';
+const CompetitionsPage = React.lazy(() => import('@/modules/user/competitions/pages/CompetitionsPage'));
+const CompetitionDetails = React.lazy(() => import('@/modules/user/competitions/pages/CompetitionDetails'));
+const WinnersPage = React.lazy(() => import('@/modules/user/competitions/pages/WinnersPage'));
 
-import TermsConditions from '@/modules/user/legal/pages/TermsConditions';
-import PrivacyPolicy from '@/modules/user/legal/pages/PrivacyPolicy';
-import FreePostalEntry from '@/modules/user/legal/pages/FreePostalEntry';
-import ResponsiblePlay from '@/modules/user/legal/pages/ResponsiblePlay';
-import CompetitionRules from '@/modules/user/legal/pages/CompetitionRules';
+const TermsConditions = React.lazy(() => import('@/modules/user/legal/pages/TermsConditions'));
+const PrivacyPolicy = React.lazy(() => import('@/modules/user/legal/pages/PrivacyPolicy'));
+const FreePostalEntry = React.lazy(() => import('@/modules/user/legal/pages/FreePostalEntry'));
+const ResponsiblePlay = React.lazy(() => import('@/modules/user/legal/pages/ResponsiblePlay'));
+const CompetitionRules = React.lazy(() => import('@/modules/user/legal/pages/CompetitionRules'));
 
 export const UserRoutes = (
   <Route element={<UserLayout />}>

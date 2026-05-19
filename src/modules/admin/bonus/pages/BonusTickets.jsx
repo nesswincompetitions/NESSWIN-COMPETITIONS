@@ -15,7 +15,7 @@ import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import Tooltip from '@/shared/components/ui/Tooltip';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m as motion, AnimatePresence } from 'framer-motion';
 
 const BonusTickets = () => {
   const { t } = useTranslation('admin');

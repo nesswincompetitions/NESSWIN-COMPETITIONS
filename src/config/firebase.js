@@ -1,6 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 
@@ -21,7 +25,18 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Firestore with offline persistence enabled.
+// On repeat visits the UI renders instantly from the local IndexedDB cache
+// while Firestore syncs the latest data from the network in the background.
+// persistentMultipleTabManager ensures multiple open tabs share the same cache
+// without conflicts.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
+
 export const storage = getStorage(app);
 export const functions = getFunctions(app, "us-central1"); // Ensure region matches your functions region
 
