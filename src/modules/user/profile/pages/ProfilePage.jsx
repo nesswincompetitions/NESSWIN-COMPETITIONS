@@ -31,6 +31,7 @@ import {
   X as XIcon,
   LifeBuoy,
   Trash2,
+  Share2,
 } from "lucide-react";
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
@@ -162,6 +163,42 @@ export default function ProfilePage() {
       setCopied(true);
       toast.success(t('profile.copied'));
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!userData?.referral_code) return;
+
+    const shareUrl = `${window.location.origin}/signup?ref=${userData.referral_code}`;
+    const message = t('profile.shareText', { url: shareUrl, code: userData.referral_code });
+
+    // Auto-copy to clipboard first
+    try {
+      await navigator.clipboard.writeText(message);
+      toast.success(t('profile.shareCopied'));
+    } catch (err) {
+      console.warn('Failed to copy share message:', err);
+    }
+
+    if (navigator.share) {
+      try {
+        // navigator.share opens the native OS share sheet on mobile
+        // which includes WhatsApp, Telegram, SMS, email, etc.
+        await navigator.share({
+          title: 'Join NESSWIN',
+          text: message,
+        });
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          // Fallback to WhatsApp Web if native share fails
+          const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+          window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+        }
+      }
+    } else {
+      // Desktop fallback: open WhatsApp Web with pre-filled message
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -416,18 +453,29 @@ export default function ProfilePage() {
                       <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{t('profile.referralCode')}</p>
                       <p className="text-sm font-mono font-bold text-[var(--color-primary)]">{userData.referral_code}</p>
                     </div>
-                    <button
-                      onClick={handleCopyReferral}
-                      className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
-                      aria-label="Copy referral code"
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
-                      )}
-                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">{t('profile.copyCode')}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={handleCopyReferral}
+                        className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
+                        aria-label="Copy referral code"
+                      >
+                        {copied ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+                        )}
+                        <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">{t('profile.copyCode')}</span>
+                      </button>
+
+                      <button
+                        onClick={handleShare}
+                        className="p-2 rounded-lg hover:bg-[var(--color-muted)]/30 transition-colors cursor-pointer flex items-center gap-2"
+                        aria-label="Share referral link"
+                      >
+                        <Share2 className="w-4 h-4 text-[var(--color-muted-foreground)]" />
+                        <span className="text-xs font-semibold text-[var(--color-muted-foreground)] hidden sm:block">{t('profile.shareLink')}</span>
+                      </button>
+                    </div>
                   </div>
 
                 </div>
