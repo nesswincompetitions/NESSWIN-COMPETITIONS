@@ -59,7 +59,7 @@ const Dashboard = () => {
     const now = new Date().getTime();
     const diff = drawTime - now;
 
-    if (diff <= 0) return 'Live Soon';
+    if (diff <= 0) return 'Draw Soon';
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -325,7 +325,21 @@ const Dashboard = () => {
                         {(Number(draw.total_tickets) || 0) - (Number(draw.sold_tickets) || 0)} {t('dashboard.ticketsLeft')}
                       </span>
                       <span className="text-xs font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">
-                        {formatCountdown(draw.draw_date)}
+                        {(() => {
+                          if (draw.status === 'active') {
+                            return formatCountdown(draw.draw_date);
+                          }
+                          if (draw.status === 'ready_to_draw') {
+                            return 'Draw Soon';
+                          }
+                          if (draw.status === 'drawing') {
+                            return 'Drawing';
+                          }
+                          if (draw.status === 'completed' || draw.status === 'end') {
+                            return 'Completed';
+                          }
+                          return draw.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        })()}
                       </span>
                     </div>
                     <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">

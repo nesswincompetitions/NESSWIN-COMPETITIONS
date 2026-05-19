@@ -440,12 +440,24 @@ export const useAdminDashboardData = () => {
     [competitions]
   );
 
-  const upcomingDrawsList = useMemo(
-    () => [...activeCompetitionsList]
-      .sort((a, b) => toMillis(a.draw_date) - toMillis(b.draw_date))
-      .slice(0, 3),
-    [activeCompetitionsList]
-  );
+  const upcomingDrawsList = useMemo(() => {
+    const statusOrder = {
+      'active': 1,
+      'ready_to_draw': 2,
+      'drawing': 3
+    };
+
+    return [...activeCompetitionsList]
+      .sort((a, b) => {
+        const orderA = statusOrder[a.status] || 99;
+        const orderB = statusOrder[b.status] || 99;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return toMillis(a.draw_date) - toMillis(b.draw_date);
+      })
+      .slice(0, 3);
+  }, [activeCompetitionsList]);
 
   const recentOrdersList = useMemo(
     () => recentOrders.map((order) => {
