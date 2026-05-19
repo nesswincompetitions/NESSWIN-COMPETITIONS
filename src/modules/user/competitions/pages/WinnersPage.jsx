@@ -51,11 +51,14 @@ function VideoModal({ videoUrl, onClose }) {
         {/* Video Player */}
         <div className="aspect-video w-full bg-black flex items-center justify-center">
           <video
-            src={videoUrl}
             controls
             autoPlay
-            className="w-full h-full object-contain shadow-inner"
-          />
+            playsInline
+            className="w-full h-full object-contain shadow-inner bg-black"
+          >
+            <source src={videoUrl} type="video/mp4" />
+            <p>Your browser does not support HTML5 video.</p>
+          </video>
         </div>
       </div>
     </div>
@@ -261,8 +264,33 @@ export default function WinnersPage() {
         {/* Winners grid */}
         <div className="max-w-7xl mx-auto px-6 lg:px-8 pb-16">
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin" />
+            <div className="flex flex-wrap justify-center gap-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(25%-1.5rem)] min-w-[300px] max-w-[380px] h-[420px] rounded-2xl bg-[var(--color-card)] animate-pulse border border-[var(--color-border)]/30 overflow-hidden flex flex-col">
+                  {/* Image Skeleton */}
+                  <div className="h-40 bg-[var(--color-muted)]/30 shrink-0 relative">
+                    <div className="absolute bottom-3 right-3 w-20 h-6 bg-[var(--color-muted)]/50 rounded-full" />
+                  </div>
+                  {/* Body Skeleton */}
+                  <div className="p-5 flex flex-col gap-4 flex-1">
+                    <div className="flex items-start gap-4 shrink-0">
+                      <div className="w-16 h-16 rounded-full bg-[var(--color-muted)]/40 shrink-0" />
+                      <div className="flex-1 space-y-3 py-2">
+                        <div className="h-5 bg-[var(--color-muted)]/40 rounded-md w-3/4" />
+                        <div className="h-4 bg-[var(--color-muted)]/30 rounded-md w-1/2" />
+                      </div>
+                    </div>
+                    {/* Meta Box Skeleton */}
+                    <div className="h-16 bg-[var(--color-muted)]/20 rounded-xl shrink-0" />
+                    {/* Quote Skeleton */}
+                    <div className="flex-1 space-y-2 mt-2 pl-4 border-l-2 border-[var(--color-muted)]/20">
+                      <div className="h-3 bg-[var(--color-muted)]/30 rounded w-full" />
+                      <div className="h-3 bg-[var(--color-muted)]/30 rounded w-5/6" />
+                      <div className="h-3 bg-[var(--color-muted)]/30 rounded w-4/6" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : winners.length === 0 ? (
             <div className="text-center py-20">

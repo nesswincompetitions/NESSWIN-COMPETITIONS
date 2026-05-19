@@ -424,7 +424,7 @@
         "chatClosed": "Cette conversation a été fermée",
         "chatClosedDesc": "Démarrez une nouvelle demande si vous avez besoin d'aide supplémentaire",
         "imageReady": "Image prête",
-        "writeMessagePlaceholder": "Écrire un message… (Entrée pour envoyer)"
+        "writeMessagePlaceholder": "Écrire un message"
       }
     }
   },

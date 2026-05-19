@@ -399,8 +399,35 @@ export default function MyTicketsPage() {
 
         {/* List */}
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden flex flex-col shadow-[0_4px_20px_rgba(0,0,0,0.15)] animate-pulse">
+                <div className="flex flex-col sm:flex-row">
+                  <div className="sm:w-40 sm:shrink-0 h-36 bg-[var(--color-muted)]/30" />
+                  <div className="flex-1 p-5 flex flex-col justify-center">
+                     <div className="flex justify-between mb-2">
+                       <div className="space-y-2 w-1/2">
+                         <div className="h-2 w-1/3 bg-[var(--color-muted)]/50 rounded" />
+                         <div className="h-4 w-3/4 bg-[var(--color-muted)]/60 rounded" />
+                       </div>
+                       <div className="h-6 w-24 bg-[var(--color-muted)]/40 rounded-full" />
+                     </div>
+                     <div className="mt-auto h-8 w-2/3 sm:w-1/2 bg-[var(--color-muted)]/20 rounded-lg" />
+                  </div>
+                </div>
+                <div className="border-t border-[var(--color-border)]/40 p-5 bg-[var(--color-muted)]/5 flex flex-col gap-3">
+                   <div className="flex gap-2">
+                     <div className="h-6 w-16 bg-[var(--color-muted)]/30 rounded" />
+                     <div className="h-6 w-16 bg-[var(--color-muted)]/30 rounded" />
+                     <div className="h-6 w-16 bg-[var(--color-muted)]/30 rounded" />
+                   </div>
+                   <div className="flex gap-2 mt-2">
+                     <div className="h-6 w-24 bg-[var(--color-muted)]/20 rounded-md" />
+                     <div className="h-6 w-24 bg-[var(--color-muted)]/20 rounded-md" />
+                   </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : currentGroups.length > 0 ? (
           <div className="space-y-8">

@@ -490,8 +490,21 @@ export default function ProfilePage() {
                 </h3>
                 
                 {referralsLoading ? (
-                  <div className="flex items-center justify-center p-6">
-                    <LoadingSpinner fullScreen={false} size="w-6 h-6" message="" />
+                  <div className="space-y-3">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="rounded-xl border border-[var(--color-border)]/40 bg-[var(--color-muted)]/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-pulse">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-[var(--color-muted)]/20 shrink-0" />
+                          <div className="space-y-2 w-32">
+                            <div className="h-4 bg-[var(--color-muted)]/40 rounded w-full" />
+                            <div className="h-2 bg-[var(--color-muted)]/30 rounded w-2/3" />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between sm:justify-end gap-3">
+                          <div className="h-6 w-20 bg-[var(--color-muted)]/30 rounded-md" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : referrals.length > 0 ? (
                   <div className="space-y-3">

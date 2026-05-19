@@ -425,7 +425,7 @@
         "chatClosed": "This conversation has been closed",
         "chatClosedDesc": "Start a new support request if you need further help",
         "imageReady": "Image ready",
-        "writeMessagePlaceholder": "Write a message… (Enter to send)"
+        "writeMessagePlaceholder": "Write a message"
       }
     }
   },

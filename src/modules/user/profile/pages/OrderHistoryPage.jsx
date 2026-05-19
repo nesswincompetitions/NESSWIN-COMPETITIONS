@@ -272,8 +272,34 @@ export default function OrderHistoryPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <LoadingSpinner fullScreen={false} size="w-8 h-8" message="" />
+          <div className="space-y-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] animate-pulse">
+                <div className="flex items-center gap-4 p-5">
+                  <div className="w-14 h-14 rounded-xl shrink-0 bg-[var(--color-muted)]/30" />
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="h-2 bg-[var(--color-muted)]/50 rounded w-1/4" />
+                    <div className="h-4 bg-[var(--color-muted)]/60 rounded w-2/3" />
+                    <div className="h-2 bg-[var(--color-muted)]/40 rounded w-1/3" />
+                  </div>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="h-5 w-20 bg-[var(--color-muted)]/30 rounded-full" />
+                    <div className="h-5 w-16 bg-[var(--color-muted)]/40 rounded" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
+                  {Array.from({ length: 4 }).map((_, j) => (
+                    <div key={j} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-2">
+                      <div className="h-2 w-10 bg-[var(--color-muted)]/30 rounded" />
+                      <div className="h-4 w-6 bg-[var(--color-muted)]/40 rounded" />
+                    </div>
+                  ))}
+                </div>
+                <div className="w-full flex items-center justify-center gap-1.5 py-2.5 border-t border-[var(--color-border)]/30">
+                  <div className="h-3 w-24 bg-[var(--color-muted)]/30 rounded" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : orders.length > 0 ? (
           <div className="space-y-6">

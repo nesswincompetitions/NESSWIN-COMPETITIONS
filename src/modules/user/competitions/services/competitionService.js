@@ -156,13 +156,13 @@ export const fetchCompetitionWithParticipants = async (id) => {
 };
 
 export const fetchLiveCompetitions = async () => {
-  const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
+  const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']), limit(25));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
 export const subscribeLiveCompetitions = (onData, onError) => {
-  const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']));
+  const q = query(collection(db, 'competition'), where('status', 'not-in', ['draft', 'deleted']), limit(25));
 
   return onSnapshot(
     q,

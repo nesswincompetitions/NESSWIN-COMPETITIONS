@@ -51,11 +51,14 @@ function VideoModal({ videoUrl, onClose }) {
         {/* Video Player */}
         <div className="aspect-video w-full bg-black flex items-center justify-center">
           <video
-            src={videoUrl}
             controls
             autoPlay
-            className="w-full h-full object-contain shadow-inner"
-          />
+            playsInline
+            className="w-full h-full object-contain shadow-inner bg-black"
+          >
+            <source src={videoUrl} type="video/mp4" />
+            <p>Your browser does not support HTML5 video.</p>
+          </video>
         </div>
       </div>
     </div>
