@@ -19,7 +19,7 @@ const AdminLayout = () => {
     if (!currentUser?.uid) return;
 
     const adminRef = doc(db, 'user', currentUser.uid);
-    
+
     // Set online
     const setOnline = async (status) => {
       try {

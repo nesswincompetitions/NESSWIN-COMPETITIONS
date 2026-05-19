@@ -48,7 +48,7 @@ function WinnerChatBanner({ competitionRef }) {
   if (!compData) return null;
 
   return (
-    <div 
+    <div
       className="relative bg-gradient-to-r from-amber-950/30 via-amber-900/5 to-transparent border-b border-amber-500/20 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 overflow-hidden"
       style={{
         animation: 'bannerSlideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards'
@@ -133,9 +133,9 @@ export default function SupportInboxPage() {
             const chatData = chatDoc.data();
             const customerRef = chatData.chat_type === 'winner_chat'
               ? (chatData.receiver_id || (chatData.participants && chatData.participants[1]))
-              : (getRefPath(chatData.sender_id) === getRefPath(currentAdminRef) 
-                  ? (chatData.receiver_id || (chatData.participants && chatData.participants[1])) 
-                  : (chatData.sender_id || (chatData.participants && chatData.participants[0])));
+              : (getRefPath(chatData.sender_id) === getRefPath(currentAdminRef)
+                ? (chatData.receiver_id || (chatData.participants && chatData.participants[1]))
+                : (chatData.sender_id || (chatData.participants && chatData.participants[0])));
 
             let customerName = 'Unknown User';
             let customerEmail = '';
@@ -306,11 +306,10 @@ export default function SupportInboxPage() {
                         }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold overflow-hidden ${
-                          isWinnerChat && !chat.customerPhoto
+                        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold overflow-hidden ${isWinnerChat && !chat.customerPhoto
                             ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25 animate-pulse'
                             : 'bg-primary/10 text-primary'
-                        }`}>
+                          }`}>
                           {chat.customerPhoto ? (
                             <img src={chat.customerPhoto} alt="" className="h-full w-full object-cover" />
                           ) : (

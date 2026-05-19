@@ -310,12 +310,7 @@ export const completeOnboarding = async (username, referralCodeInput) => {
     }
 
     // ── Update Global Metrics ────────────────────────────────────────────────
-    const globalStatsRef = doc(db, "system_metrics", "global_stats");
-    transaction.set(
-      globalStatsRef,
-      { total_registered_users: increment(1) },
-      { merge: true }
-    );
+    // Handled by dashboardController.js (onUserChangeDashboard)
   });
 
   // After successful transaction, clean up stored referral code

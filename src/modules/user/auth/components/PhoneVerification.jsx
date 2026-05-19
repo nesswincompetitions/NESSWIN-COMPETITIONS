@@ -7,7 +7,6 @@ import { auth } from '@/config/firebase';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
 
 // ─── Country Code Data ──────────────────────────────────────────────────────
-// ─── Country Code Data ──────────────────────────────────────────────────────
 const COUNTRY_CODES = [
   { code: '+91', country: 'IN', flag: '🇮🇳', name: 'India', format: '##### #####' },
   { code: '+1',  country: 'US', flag: '🇺🇸', name: 'United States', format: '(###) ###-####' },
@@ -221,44 +220,59 @@ export default function PhoneVerification() {
 
   const fullNumber = `${selectedCountry.code}${phoneNumber.replace(/\s/g, '')}`;
 
+  /**
+   * setupRecaptcha — returns a Promise that resolves ONLY after the verifier
+   * has been fully rendered. This prevents the race-condition where
+   * linkWithPhoneNumber() is called before Firebase has finished setting up
+   * the invisible reCAPTCHA, which causes auth/argument-error.
+   */
   const setupRecaptcha = useCallback(() => {
-    // Fully destroy any existing verifier first
-    if (window.recaptchaVerifier) {
-      try { window.recaptchaVerifier.clear(); } catch (_) {}
-      window.recaptchaVerifier = null;
-    }
+    return new Promise((resolve, reject) => {
+      // 1. Destroy any existing verifier completely
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
+      }
 
-    // Reset the grecaptcha widget registry so the next render() call
-    // doesn't think the container is already occupied
-    if (typeof grecaptcha !== 'undefined' && window.recaptchaWidgetId !== undefined) {
-      try { grecaptcha.reset(window.recaptchaWidgetId); } catch (_) {}
-      window.recaptchaWidgetId = undefined;
-    }
+      // 2. Reset the grecaptcha widget registry
+      if (typeof grecaptcha !== 'undefined' && window.recaptchaWidgetId !== undefined) {
+        try { grecaptcha.reset(window.recaptchaWidgetId); } catch (_) {}
+        window.recaptchaWidgetId = undefined;
+      }
 
-    // Wipe the DOM node so there's no leftover iframe/script
-    const container = document.getElementById('recaptcha-container');
-    if (container) container.innerHTML = '';
+      // 3. Wipe the DOM container — no leftover iframes or scripts
+      const container = document.getElementById('recaptcha-container');
+      if (!container) {
+        // Container not mounted yet — harmless, will be retried on next call
+        resolve();
+        return;
+      }
+      container.innerHTML = '';
 
-    // Create a fresh verifier tied to the clean container
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'invisible',
-      callback: () => {},
-      'expired-callback': () => toast.error('reCAPTCHA expired. Please try again.'),
-    });
+      // 4. Create a fresh verifier
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {},
+        'expired-callback': () => toast.error('reCAPTCHA expired. Please try again.'),
+      });
 
-    window.recaptchaVerifier.render().then((widgetId) => {
-      window.recaptchaWidgetId = widgetId;
-    }).catch((_) => {
-      // If render itself fails (e.g. element still busy), wipe and retry once
-      const el = document.getElementById('recaptcha-container');
-      if (el) el.innerHTML = '';
+      // 5. Wait for render to complete before resolving
+      window.recaptchaVerifier.render()
+        .then((widgetId) => {
+          window.recaptchaWidgetId = widgetId;
+          resolve();
+        })
+        .catch((err) => {
+          const el = document.getElementById('recaptcha-container');
+          if (el) el.innerHTML = '';
+          reject(err);
+        });
     });
   }, []);
 
   useEffect(() => {
-    setupRecaptcha();
+    setupRecaptcha().catch(() => {});
     return () => {
-      // Full cleanup on unmount so the next mount starts totally fresh
       if (window.recaptchaVerifier) {
         try { window.recaptchaVerifier.clear(); } catch (_) {}
         window.recaptchaVerifier = null;
@@ -280,23 +294,30 @@ export default function PhoneVerification() {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is logged in.');
+
+      // CRITICAL: always await the full recaptcha setup before calling Firebase.
+      // Without this await the verifier may not be ready → auth/argument-error.
+      await setupRecaptcha();
+
       const result = await linkWithPhoneNumber(user, fullNumber, window.recaptchaVerifier);
       setConfirmationResult(result);
       setStep('code');
       toast.success('Verification code sent!');
     } catch (error) {
       console.error('Send code error:', error);
-      if (error.code === 'auth/too-many-requests') toast.error('Too many attempts. Please try again later.');
-      else if (error.code === 'auth/invalid-phone-number') toast.error('Invalid phone number. Please check and try again.');
-      else if (error.code === 'auth/credential-already-in-use') toast.error('This phone number is already linked to another account.');
-      else if (error.code === 'auth/invalid-app-credential') toast.error('Verification failed. Please ensure Phone Auth is enabled in Firebase Console.');
-      else toast.error(error.message || 'Failed to send verification code');
-
-      if (window.recaptchaWidgetId !== undefined && typeof grecaptcha !== 'undefined') {
-        grecaptcha.reset(window.recaptchaWidgetId);
+      if (error.code === 'auth/too-many-requests') {
+        toast.error('Too many attempts. Please try again later.');
+      } else if (error.code === 'auth/invalid-phone-number') {
+        toast.error('Invalid phone number. Please check and try again.');
+      } else if (error.code === 'auth/credential-already-in-use') {
+        toast.error('This phone number is already linked to another account.');
+      } else if (error.code === 'auth/invalid-app-credential') {
+        toast.error('Verification failed. Please ensure Phone Auth is enabled in Firebase Console.');
       } else {
-        setupRecaptcha();
+        toast.error(error.message || 'Failed to send verification code');
       }
+      // Reset verifier so the next attempt starts clean
+      await setupRecaptcha().catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -309,25 +330,37 @@ export default function PhoneVerification() {
     setLoading(true);
     try {
       const result = await confirmationResult.confirm(verificationCode);
-      await updateProfile(result.user.uid, { 
+      await updateProfile(result.user.uid, {
         phone_number: result.user.phoneNumber,
         is_verified: true
       });
       toast.success('Phone verified successfully!');
     } catch (error) {
       console.error('Verify code error:', error);
-      if (error.code === 'auth/invalid-verification-code') toast.error('Invalid code. Please check and try again.');
-      else if (error.code === 'auth/credential-already-in-use') toast.error('This phone number is already linked to another account.');
-      else toast.error(error.message || 'Failed to verify code');
+      if (error.code === 'auth/invalid-verification-code') {
+        toast.error('Invalid code. Please check and try again.');
+      } else if (error.code === 'auth/credential-already-in-use') {
+        toast.error('This phone number is already linked to another account.');
+      } else {
+        toast.error(error.message || 'Failed to verify code');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResend = () => {
+  /**
+   * handleResend — goes back to the phone step and fires a fresh OTP.
+   * We set the step first so React re-renders (keeping recaptcha-container in DOM),
+   * then wait one tick before sending so the container is guaranteed to be present.
+   */
+  const handleResend = async () => {
     setVerificationCode('');
+    setConfirmationResult(null);
     setStep('phone');
-    setupRecaptcha();
+    // Give React one tick to commit the state change before touching the DOM
+    await new Promise((r) => setTimeout(r, 50));
+    handleSendCode();
   };
 
   return (
@@ -347,6 +380,14 @@ export default function PhoneVerification() {
           </p>
         </div>
 
+        {/*
+          IMPORTANT: This container MUST stay in the DOM at all times — not inside
+          the step === 'phone' conditional. If it unmounts when we switch to the OTP
+          step, setupRecaptcha() can't find the element and Firebase will throw
+          auth/argument-error on any resend/retry attempt.
+        */}
+        <div id="recaptcha-container" className="hidden" />
+
         {step === 'phone' ? (
           <form onSubmit={handleSendCode} className="space-y-6">
             <div className="space-y-2">
@@ -354,12 +395,12 @@ export default function PhoneVerification() {
                 Phone Number
               </label>
               <div className="flex">
-                <CountryCodeSelect 
-                  selected={selectedCountry} 
+                <CountryCodeSelect
+                  selected={selectedCountry}
                   onChange={(c) => {
                     setSelectedCountry(c);
                     setPhoneNumber('');
-                  }} 
+                  }}
                 />
                 <div className="flex-1 flex items-center h-12 px-4 rounded-r-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 focus-within:border-[var(--color-primary)]/60 transition-all">
                   <input
@@ -377,9 +418,6 @@ export default function PhoneVerification() {
                 </div>
               </div>
             </div>
-
-            {/* Invisible reCAPTCHA container */}
-            <div id="recaptcha-container"></div>
 
             <button
               id="send-code-button"
@@ -418,14 +456,18 @@ export default function PhoneVerification() {
             <div className="flex items-center justify-between pt-1">
               <button
                 type="button"
-                onClick={handleResend}
+                onClick={() => {
+                  setStep('phone');
+                  setVerificationCode('');
+                  setConfirmationResult(null);
+                }}
                 className="text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer"
               >
                 ← Change number
               </button>
               <button
                 type="button"
-                onClick={() => { setVerificationCode(''); handleSendCode(); }}
+                onClick={handleResend}
                 disabled={loading}
                 className="text-xs text-[var(--color-primary)] hover:underline transition-colors cursor-pointer disabled:opacity-50"
               >

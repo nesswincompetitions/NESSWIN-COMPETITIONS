@@ -68,7 +68,7 @@ const ReferralDetail = () => {
               </div>
             </div>
             
-            <Button variant="outline" onClick={() => navigate(`/admin/users/${referrer.id}`)}>
+            <Button variant="outline" onClick={() => navigate(`/admin/users/${referrer.id}?tab=referrals`, { state: { activeTab: 'referrals' } })}>
               {t('referrals.detail.viewFullProfile')}
             </Button>
           </CardContent>

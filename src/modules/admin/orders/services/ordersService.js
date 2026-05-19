@@ -17,13 +17,13 @@ import { httpsCallable } from "firebase/functions";
  */
 export async function fetchOrdersStats() {
   try {
-    const [countSnap, globalSnap] = await Promise.all([
+    const [countSnap, dashSnap] = await Promise.all([
       getCountFromServer(collection(db, "order")),
-      getDoc(doc(db, "system_metrics", "global_stats"))
+      getDoc(doc(db, "system_metrics", "dashboard"))
     ]);
     return {
       totalOrders: countSnap.data().count,
-      totalRevenue: globalSnap.exists() ? (globalSnap.data().total_revenue || 0) : 0
+      totalRevenue: dashSnap.exists() ? (dashSnap.data().total_revenue || 0) : 0
     };
   } catch (error) {
     console.error("[OrdersService] Error fetching orders stats:", error);

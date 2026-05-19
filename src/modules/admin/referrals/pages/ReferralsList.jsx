@@ -248,7 +248,7 @@ const ReferralsList = () => {
                       <TableCell className="text-gray-400 text-sm">{formatDate(user.created_time || user.created_at)}</TableCell>
                       <TableCell className="text-right">
                         <button
-                          onClick={() => navigate(`/admin/users/${user.id}`)}
+                          onClick={() => navigate(`/admin/users/${user.id}?tab=referrals`, { state: { activeTab: 'referrals' } })}
                           className="p-2 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors inline-flex items-center"
                           title={t('common.viewDetails')}
                         >

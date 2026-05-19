@@ -85,10 +85,17 @@ const WinnersList = () => {
   const renderStatusBadge = (status) => {
     switch ((status || '').toLowerCase()) {
       case 'winner_announced':
-      case 'completed': return <Badge variant="success">{t('common.completed')}</Badge>;
-      case 'contacted': return <Badge variant="hot">{t('common.contacted')}</Badge>;
-      case 'pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
-      default: return <Badge variant="neutral">{status || 'Unknown'}</Badge>;
+        return <Badge variant="warning">Winner Announced</Badge>;
+      case 'completed':
+        return <Badge variant="success">{t('common.completed')}</Badge>;
+      case 'closed':
+        return <Badge variant="neutral">Closed</Badge>;
+      case 'contacted':
+        return <Badge variant="hot">{t('common.contacted')}</Badge>;
+      case 'pending':
+        return <Badge variant="warning">{t('common.pending')}</Badge>;
+      default:
+        return <Badge variant="neutral">{status || 'Unknown'}</Badge>;
     }
   };
 
@@ -116,8 +123,7 @@ const WinnersList = () => {
             <div className="flex bg-white/5 p-1 rounded-lg w-full lg:w-fit overflow-x-auto hide-scrollbar shrink-0">
               {[
                 { key: 'all', label: t('common.all') },
-                { key: 'pending', label: t('common.pending') },
-                { key: 'contacted', label: t('common.contacted') },
+                { key: 'winner_announced', label: 'Winner Announced' },
                 { key: 'completed', label: t('common.completed') }
               ].map((status) => (
                 <button
