@@ -20,23 +20,14 @@ const COUNTRY_CODES = [
   { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany', format: '###########' },
 ];
 
-/**
- * formatPhoneNumber
- * Applies a mask (e.g. "#### ### ####") to a raw digit string.
- */
 const formatPhoneNumber = (value, mask) => {
   if (!mask) return value;
   const digits = value.replace(/\D/g, '');
   let formatted = '';
   let digitIndex = 0;
-
   for (let i = 0; i < mask.length && digitIndex < digits.length; i++) {
-    if (mask[i] === '#') {
-      formatted += digits[digitIndex];
-      digitIndex++;
-    } else {
-      formatted += mask[i];
-    }
+    if (mask[i] === '#') { formatted += digits[digitIndex]; digitIndex++; }
+    else { formatted += mask[i]; }
   }
   return formatted;
 };
@@ -72,8 +63,8 @@ function CountryCodeSelect({ selected, onChange }) {
         onClick={() => setOpen(!open)}
         className={`
           flex items-center gap-2 h-12 px-4 rounded-l-xl border border-r-0 transition-all cursor-pointer min-w-[110px]
-          ${open 
-            ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/5' 
+          ${open
+            ? 'border-[var(--color-primary)]/60 bg-[var(--color-primary)]/5'
             : 'border-[var(--color-border)] bg-[var(--color-muted)]/20 hover:border-[var(--color-primary)]/30'}
         `}
       >
@@ -101,18 +92,14 @@ function CountryCodeSelect({ selected, onChange }) {
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
                 <Search className="w-8 h-8 text-[var(--color-muted-foreground)]/20 mb-2" />
-                <p className="text-xs text-[var(--color-muted-foreground)]">No countries found matching your search</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">No countries found</p>
               </div>
             ) : (
               filtered.map((c) => (
                 <button
                   key={`${c.country}-${c.code}`}
                   type="button"
-                  onClick={() => {
-                    onChange(c);
-                    setOpen(false);
-                    setSearch('');
-                  }}
+                  onClick={() => { onChange(c); setOpen(false); setSearch(''); }}
                   className={`
                     w-full flex items-center gap-3 px-4 py-3 text-left transition-all cursor-pointer
                     ${selected.country === c.country && selected.code === c.code
@@ -125,9 +112,7 @@ function CountryCodeSelect({ selected, onChange }) {
                     <p className={`text-sm truncate ${selected.country === c.country ? 'font-bold text-[var(--color-primary)]' : 'font-medium text-[var(--color-foreground)]'}`}>
                       {c.name}
                     </p>
-                    <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">
-                      {c.country}
-                    </p>
+                    <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider font-semibold">{c.country}</p>
                   </div>
                   <span className={`text-xs font-mono font-bold ${selected.country === c.country ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]'}`}>
                     {c.code}
@@ -176,8 +161,7 @@ function OtpInput({ value, onChange }) {
     const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pastedData) {
       onChange(pastedData);
-      const nextIndex = Math.min(pastedData.length, 5);
-      inputsRef.current[nextIndex]?.focus();
+      inputsRef.current[Math.min(pastedData.length, 5)]?.focus();
     }
   };
 
@@ -218,73 +202,100 @@ export default function PhoneVerification() {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState('phone'); // 'phone' | 'code'
 
+  // ─── Refs hold the verifier and widget ID — no window globals needed ────
+  // Using refs (not state) because these are imperative handles, not render data.
+  const verifierRef = useRef(null);
+  const widgetIdRef = useRef(null);
+
   const fullNumber = `${selectedCountry.code}${phoneNumber.replace(/\s/g, '')}`;
 
   /**
-   * setupRecaptcha — returns a Promise that resolves ONLY after the verifier
-   * has been fully rendered. This prevents the race-condition where
-   * linkWithPhoneNumber() is called before Firebase has finished setting up
-   * the invisible reCAPTCHA, which causes auth/argument-error.
+   * getVerifier — Production-level reCAPTCHA management.
+   *
+   * Strategy: CREATE ONCE, RESET ON RETRY.
+   *
+   * Why not destroy+recreate every time?
+   * Because calling `.render()` on a container that grecaptcha has already
+   * registered (even after innerHTML = '') causes:
+   *   "reCAPTCHA has already been rendered in this element"
+   * grecaptcha tracks rendered containers internally and doesn't respect DOM wipes.
+   *
+   * The correct approach:
+   *   1. First call → create verifier, call render(), cache the widgetId.
+   *   2. Subsequent calls (retry/resend) → grecaptcha.reset(widgetId) to refresh
+   *      the token without touching the DOM or creating a new verifier.
+   *   3. Only fully recreate if the verifier ref was lost (component remount).
    */
-  const setupRecaptcha = useCallback(() => {
+  const getVerifier = useCallback(() => {
     return new Promise((resolve, reject) => {
-      // 1. Destroy any existing verifier completely
-      if (window.recaptchaVerifier) {
-        try { window.recaptchaVerifier.clear(); } catch (_) {}
-        window.recaptchaVerifier = null;
+      // Case 1: Verifier already exists and is rendered — just reset the token.
+      if (verifierRef.current !== null && widgetIdRef.current !== null) {
+        try {
+          if (typeof grecaptcha !== 'undefined') {
+            grecaptcha.reset(widgetIdRef.current);
+          }
+          resolve(verifierRef.current);
+        } catch (err) {
+          // If reset fails for any reason, fall through to full recreation below.
+          verifierRef.current = null;
+          widgetIdRef.current = null;
+          getVerifier().then(resolve).catch(reject);
+        }
+        return;
       }
 
-      // 2. Reset the grecaptcha widget registry
-      if (typeof grecaptcha !== 'undefined' && window.recaptchaWidgetId !== undefined) {
-        try { grecaptcha.reset(window.recaptchaWidgetId); } catch (_) {}
-        window.recaptchaWidgetId = undefined;
-      }
-
-      // 3. Wipe the DOM container — no leftover iframes or scripts
+      // Case 2: No verifier yet (first mount or after component remount).
+      // Ensure the container is clean before creating a new one.
       const container = document.getElementById('recaptcha-container');
       if (!container) {
-        // Container not mounted yet — harmless, will be retried on next call
-        resolve();
+        reject(new Error('reCAPTCHA container not found in DOM'));
         return;
       }
       container.innerHTML = '';
 
-      // 4. Create a fresh verifier
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
         callback: () => {},
-        'expired-callback': () => toast.error('reCAPTCHA expired. Please try again.'),
+        'expired-callback': () => {
+          // Token expired — reset the widget so it can be re-solved on next send
+          if (widgetIdRef.current !== null && typeof grecaptcha !== 'undefined') {
+            try { grecaptcha.reset(widgetIdRef.current); } catch (_) {}
+          }
+          toast.error('reCAPTCHA expired. Please try again.');
+        },
       });
 
-      // 5. Wait for render to complete before resolving
-      window.recaptchaVerifier.render()
+      verifier.render()
         .then((widgetId) => {
-          window.recaptchaWidgetId = widgetId;
-          resolve();
+          verifierRef.current = verifier;
+          widgetIdRef.current = widgetId;
+          resolve(verifier);
         })
         .catch((err) => {
-          const el = document.getElementById('recaptcha-container');
-          if (el) el.innerHTML = '';
+          // render() itself failed — clean up fully
+          try { verifier.clear(); } catch (_) {}
+          container.innerHTML = '';
+          verifierRef.current = null;
+          widgetIdRef.current = null;
           reject(err);
         });
     });
   }, []);
 
+  // Initialize verifier on mount, destroy cleanly on unmount.
   useEffect(() => {
-    setupRecaptcha().catch(() => {});
+    getVerifier().catch(() => {});
+
     return () => {
-      if (window.recaptchaVerifier) {
-        try { window.recaptchaVerifier.clear(); } catch (_) {}
-        window.recaptchaVerifier = null;
-      }
-      if (typeof grecaptcha !== 'undefined' && window.recaptchaWidgetId !== undefined) {
-        try { grecaptcha.reset(window.recaptchaWidgetId); } catch (_) {}
-        window.recaptchaWidgetId = undefined;
+      if (verifierRef.current) {
+        try { verifierRef.current.clear(); } catch (_) {}
+        verifierRef.current = null;
+        widgetIdRef.current = null;
       }
       const container = document.getElementById('recaptcha-container');
       if (container) container.innerHTML = '';
     };
-  }, [setupRecaptcha]);
+  }, [getVerifier]);
 
   const handleSendCode = async (e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -295,11 +306,10 @@ export default function PhoneVerification() {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is logged in.');
 
-      // CRITICAL: always await the full recaptcha setup before calling Firebase.
-      // Without this await the verifier may not be ready → auth/argument-error.
-      await setupRecaptcha();
+      // Get (or reset) the verifier — awaited so Firebase always gets a live token.
+      const verifier = await getVerifier();
 
-      const result = await linkWithPhoneNumber(user, fullNumber, window.recaptchaVerifier);
+      const result = await linkWithPhoneNumber(user, fullNumber, verifier);
       setConfirmationResult(result);
       setStep('code');
       toast.success('Verification code sent!');
@@ -316,8 +326,10 @@ export default function PhoneVerification() {
       } else {
         toast.error(error.message || 'Failed to send verification code');
       }
-      // Reset verifier so the next attempt starts clean
-      await setupRecaptcha().catch(() => {});
+      // On any error reset the widget so the next attempt gets a fresh token.
+      if (widgetIdRef.current !== null && typeof grecaptcha !== 'undefined') {
+        try { grecaptcha.reset(widgetIdRef.current); } catch (_) {}
+      }
     } finally {
       setLoading(false);
     }
@@ -332,13 +344,19 @@ export default function PhoneVerification() {
       const result = await confirmationResult.confirm(verificationCode);
       await updateProfile(result.user.uid, {
         phone_number: result.user.phoneNumber,
-        is_verified: true
+        is_verified: true,
       });
       toast.success('Phone verified successfully!');
     } catch (error) {
       console.error('Verify code error:', error);
       if (error.code === 'auth/invalid-verification-code') {
         toast.error('Invalid code. Please check and try again.');
+      } else if (error.code === 'auth/code-expired') {
+        toast.error('Code expired. Please request a new one.');
+        // Go back to phone step so user can resend
+        setStep('phone');
+        setVerificationCode('');
+        setConfirmationResult(null);
       } else if (error.code === 'auth/credential-already-in-use') {
         toast.error('This phone number is already linked to another account.');
       } else {
@@ -349,18 +367,14 @@ export default function PhoneVerification() {
     }
   };
 
-  /**
-   * handleResend — goes back to the phone step and fires a fresh OTP.
-   * We set the step first so React re-renders (keeping recaptcha-container in DOM),
-   * then wait one tick before sending so the container is guaranteed to be present.
-   */
-  const handleResend = async () => {
+  // Resend: just go back to phone step and re-send. getVerifier() will do a
+  // grecaptcha.reset() internally — no DOM teardown needed.
+  const handleResend = () => {
     setVerificationCode('');
     setConfirmationResult(null);
     setStep('phone');
-    // Give React one tick to commit the state change before touching the DOM
-    await new Promise((r) => setTimeout(r, 50));
-    handleSendCode();
+    // Wait one tick for React to commit, then send
+    setTimeout(() => handleSendCode(), 0);
   };
 
   return (
@@ -381,10 +395,9 @@ export default function PhoneVerification() {
         </div>
 
         {/*
-          IMPORTANT: This container MUST stay in the DOM at all times — not inside
-          the step === 'phone' conditional. If it unmounts when we switch to the OTP
-          step, setupRecaptcha() can't find the element and Firebase will throw
-          auth/argument-error on any resend/retry attempt.
+          recaptcha-container must ALWAYS stay in the DOM (not inside any conditional)
+          so that the verifier's DOM node is never unmounted while it is still active.
+          className="hidden" keeps it invisible while still being mounted.
         */}
         <div id="recaptcha-container" className="hidden" />
 
@@ -397,10 +410,7 @@ export default function PhoneVerification() {
               <div className="flex">
                 <CountryCodeSelect
                   selected={selectedCountry}
-                  onChange={(c) => {
-                    setSelectedCountry(c);
-                    setPhoneNumber('');
-                  }}
+                  onChange={(c) => { setSelectedCountry(c); setPhoneNumber(''); }}
                 />
                 <div className="flex-1 flex items-center h-12 px-4 rounded-r-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 focus-within:border-[var(--color-primary)]/60 transition-all">
                   <input
@@ -409,8 +419,7 @@ export default function PhoneVerification() {
                     value={phoneNumber}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/[^\d]/g, '');
-                      const formatted = formatPhoneNumber(raw, selectedCountry.format);
-                      setPhoneNumber(formatted);
+                      setPhoneNumber(formatPhoneNumber(raw, selectedCountry.format));
                     }}
                     className="flex-1 bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]/40"
                     autoComplete="tel-national"
@@ -425,11 +434,9 @@ export default function PhoneVerification() {
               disabled={loading}
               className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
             >
-              {loading ? (
-                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Sending...</>
-              ) : (
-                <>Send Code <ArrowRight className="w-4 h-4" /></>
-              )}
+              {loading
+                ? <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Sending...</>
+                : <>Send Code <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
         ) : (
@@ -446,11 +453,9 @@ export default function PhoneVerification() {
               disabled={loading || verificationCode.length < 6}
               className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer shadow-[0_0_20px_oklch(0.78_0.14_78/0.2)]"
             >
-              {loading ? (
-                <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Verifying...</>
-              ) : (
-                <>Verify &amp; Continue <CheckCircle className="w-4 h-4" /></>
-              )}
+              {loading
+                ? <><LoadingSpinner fullScreen={false} size="w-4 h-4" message="" /> Verifying...</>
+                : <>Verify &amp; Continue <CheckCircle className="w-4 h-4" /></>}
             </button>
 
             <div className="flex items-center justify-between pt-1">
