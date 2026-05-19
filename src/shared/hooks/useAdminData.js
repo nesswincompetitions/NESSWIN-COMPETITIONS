@@ -488,7 +488,7 @@ export const useAdminDashboardData = () => {
     data: {
       totalOrders: allOrders.length,
       totalRevenue: dashboardStats.data?.total_revenue || 0,
-      totalRegisteredUsers: dashboardStats.data?.registered_users || 0,
+      totalRegisteredUsers: dashboardStats.data?.total_registered_users || dashboardStats.data?.registered_users || 0,
       ticketsSoldToday: dashboardStats.data?.tickets_sold_today || 0,
       revenueToday: (dashboardStats.data?.tickets_sold_today || 0) * 5, // fallback calculation based on tickets sold today
       activeCompetitions: dashboardStats.data?.total_active_competitions || activeCompetitionsList.length,

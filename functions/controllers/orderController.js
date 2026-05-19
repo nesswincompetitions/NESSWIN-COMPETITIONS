@@ -200,13 +200,15 @@ export const processOrder = onCall(async (request) => {
             text: `Your payment was successful and your entry for ${compTitle} is confirmed.`,
             status: "succeeded",
             userRefs: userRef.path,
-            userRef: userRef,
             orderRef: orderRef,
             competitionRef: competitionRef,
             senderRef: userRef,
             ctaText: "View Tickets",
             pageName: "OrderHistory",
-            parameterData: { orderId: result.orderId, competitionId },
+            parameterData: {
+              orderRef: orderRef.path,
+              competitionRef: competitionRef.path,
+            },
           })
         )
       );
@@ -221,12 +223,14 @@ export const processOrder = onCall(async (request) => {
               text: `You successfully checked out using ${result.referralTicketsUsed} referral ticket${result.referralTicketsUsed > 1 ? "s" : ""}.`,
               status: "succeeded",
               userRefs: userRef.path,
-              userRef: userRef,
               orderRef: orderRef,
               competitionRef: competitionRef,
               senderRef: userRef,
               pageName: "Reffral",
-              parameterData: { orderId: result.orderId, competitionId },
+              parameterData: {
+                orderRef: orderRef.path,
+                competitionRef: competitionRef.path,
+              },
             })
           )
         );
@@ -242,12 +246,14 @@ export const processOrder = onCall(async (request) => {
               text: `You received ${result.packBonusTickets} bonus ticket${result.packBonusTickets > 1 ? "s" : ""} with your bundle!`,
               status: "succeeded",
               userRefs: userRef.path,
-              userRef: userRef,
               orderRef: orderRef,
               competitionRef: competitionRef,
               senderRef: userRef,
               pageName: "OrderHistory",
-              parameterData: { orderId: result.orderId, competitionId },
+              parameterData: {
+                orderRef: orderRef.path,
+                competitionRef: competitionRef.path,
+              },
             })
           )
         );
