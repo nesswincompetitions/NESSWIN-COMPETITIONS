@@ -78,7 +78,7 @@ export default function Navbar() {
       setMenuOpen(false);
       navigate("/");
     } catch (error) {
-      toast.error(error.message || "Failed to delete account", { id: 'delete-acc' });
+      toast.error("Unable to delete account. Please try again or contact support.", { id: 'delete-acc' });
       console.error("Delete account error:", error);
     } finally {
       setIsDeleting(false);

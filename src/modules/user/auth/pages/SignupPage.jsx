@@ -84,7 +84,17 @@ function SocialLogin({ loading }) {
       await signInWithGoogle();
       toast.success("Signed in with Google!");
     } catch (error) {
-      toast.error(error.message || "Failed to sign in with Google");
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        // User dismissed the popup — silent, no toast needed
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        toast.error("An account already exists with this email. Try signing in with email/password.");
+      } else if (error.code === 'auth/popup-blocked') {
+        toast.error("Popup was blocked. Please allow popups for this site and try again.");
+      } else if (error.code === 'auth/user-disabled') {
+        toast.error("This account has been suspended. Please contact support.");
+      } else {
+        toast.error("Sign in with Google failed. Please try again.");
+      }
     }
   };
 
@@ -93,7 +103,17 @@ function SocialLogin({ loading }) {
       await signInWithApple();
       toast.success("Signed in with Apple!");
     } catch (error) {
-      toast.error(error.message || "Failed to sign in with Apple");
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        // User dismissed the popup — silent, no toast needed
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        toast.error("An account already exists with this email. Try signing in with a different method.");
+      } else if (error.code === 'auth/popup-blocked') {
+        toast.error("Popup was blocked. Please allow popups for this site and try again.");
+      } else if (error.code === 'auth/user-disabled') {
+        toast.error("This account has been suspended. Please contact support.");
+      } else {
+        toast.error("Sign in with Apple failed. Please try again.");
+      }
     }
   };
 
@@ -150,7 +170,20 @@ function SignUpForm() {
       toast.success("Account created successfully!");
       navigate('/onboarding');
     } catch (error) {
-      toast.error(error.message || "Failed to create account");
+      if (error.code === 'auth/email-already-in-use') {
+        toast.error("This email is already registered. Try signing in instead.");
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error("Invalid email address. Please check and try again.");
+      } else if (error.code === 'auth/weak-password') {
+        toast.error("Password is too weak. Please use at least 8 characters.");
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error("Too many attempts. Please wait a moment and try again.");
+      } else if (error.message && !error.code) {
+        // Custom app-level errors (e.g. from checkAndCreateUserDocument)
+        toast.error(error.message);
+      } else {
+        toast.error("Account creation failed. Please try again.");
+      }
       setLoading(false);
     }
   };
@@ -198,7 +231,24 @@ function SignInForm() {
       await signInWithEmail(form.email, form.password);
       toast.success("Signed in successfully!");
     } catch (error) {
-      toast.error(error.message || "Failed to sign in");
+      if (
+        error.code === 'auth/wrong-password' ||
+        error.code === 'auth/user-not-found' ||
+        error.code === 'auth/invalid-credential'
+      ) {
+        toast.error("Incorrect email or password. Please try again.");
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error("Invalid email address. Please check and try again.");
+      } else if (error.code === 'auth/user-disabled') {
+        toast.error("This account has been suspended. Please contact support.");
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error("Too many failed attempts. Please wait a moment and try again.");
+      } else if (error.message && !error.code) {
+        // Custom app-level errors (e.g. suspended account)
+        toast.error(error.message);
+      } else {
+        toast.error("Sign in failed. Please try again.");
+      }
       setLoading(false);
     }
   };

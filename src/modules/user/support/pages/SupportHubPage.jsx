@@ -68,7 +68,7 @@ export default function SupportHubPage() {
       navigate(`/profile/support/${chatId}`);
     } catch (error) {
       console.error('Failed to create support chat:', error);
-      toast.error(error.message || t('profile.support.agentsUnavailable'), { id: toastId });
+      toast.error(t('profile.support.agentsUnavailable'), { id: toastId });
     } finally {
       setIsCreating(false);
     }

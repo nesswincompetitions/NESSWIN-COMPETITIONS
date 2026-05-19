@@ -74,7 +74,13 @@ export default function ForgotPasswordPage() {
       setSubmitted(true);
       toast.success("Reset link sent to your email!");
     } catch (error) {
-      toast.error(error.message || "Failed to send reset link");
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
+        toast.error("No account found with this email address.");
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error("Too many requests. Please wait a moment and try again.");
+      } else {
+        toast.error("Failed to send reset link. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

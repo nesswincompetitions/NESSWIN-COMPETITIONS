@@ -339,7 +339,7 @@ const CompetitionDetail = () => {
       toast.success('Live draw started', { id: loadingToast });
     } catch (err) {
       console.error('Error starting live draw:', err);
-      toast.error(err.message || 'Failed to start the live draw', { id: loadingToast });
+      toast.error('Failed to start the live draw. Please try again.', { id: loadingToast });
     } finally {
       setIsStartingDraw(false);
     }
@@ -367,7 +367,9 @@ const CompetitionDetail = () => {
       });
     } catch (err) {
       console.error('Error selecting winner:', err);
-      toast.error(err.message || 'Failed to select winner', { id: loadingToast });
+      const knownWinnerErrors = ['No active ticket', 'Ticket not found', 'Invalid ticket', 'already has a winner'];
+      const isKnown = knownWinnerErrors.some((m) => err.message?.includes(m));
+      toast.error(isKnown ? err.message : 'Failed to select winner. Please try again.', { id: loadingToast });
     } finally {
       setIsSelectingWinner(false);
     }
@@ -383,7 +385,7 @@ const CompetitionDetail = () => {
       toast.success('Handover updated', { id: loadingToast });
     } catch (err) {
       console.error('Error updating handover:', err);
-      toast.error(err.message || 'Failed to update handover', { id: loadingToast });
+      toast.error('Failed to update handover status. Please try again.', { id: loadingToast });
     } finally {
       setHandoverActionLoading('');
     }

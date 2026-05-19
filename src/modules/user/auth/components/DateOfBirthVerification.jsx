@@ -53,7 +53,7 @@ export default function DateOfBirthVerification() {
 
       toast.success('Age verified successfully!');
     } catch (error) {
-      toast.error(error.message || 'Failed to update date of birth');
+      toast.error('Unable to save your date of birth. Please try again.');
     } finally {
       setLoading(false);
     }

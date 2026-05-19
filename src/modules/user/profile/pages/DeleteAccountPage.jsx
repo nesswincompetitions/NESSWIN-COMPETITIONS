@@ -42,7 +42,13 @@ export default function DeleteAccountPage() {
       toast.success(t('profile.deleteSuccess'));
       navigate('/');
     } catch (err) {
-      toast.error(err.message ?? t('profile.deleteFailed'));
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        toast.error(t('profile.deleteWrongPassword', 'Incorrect password. Please try again.'));
+      } else if (err.code === 'auth/too-many-requests') {
+        toast.error('Too many attempts. Please wait a moment and try again.');
+      } else {
+        toast.error(t('profile.deleteFailed', 'Account deletion failed. Please try again.'));
+      }
     } finally {
       setLoading(false);
     }

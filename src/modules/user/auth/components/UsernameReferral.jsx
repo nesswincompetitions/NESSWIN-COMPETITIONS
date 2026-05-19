@@ -94,7 +94,18 @@ export default function UsernameReferral() {
       await completeOnboarding(username, finalReferralCode);
       toast.success('Welcome to Nesswin!');
     } catch (error) {
-      toast.error(error.message || 'Failed to complete setup');
+      // Show app-level validation errors as-is (they're already user-friendly);
+      // mask all other unexpected failures with a generic message.
+      const knownErrors = [
+        'Username is already taken',
+        'Invalid referral code',
+        'You cannot use your own referral code',
+        'Referral code already used',
+        'Username must be at least 3 characters',
+        'User document not found',
+      ];
+      const isKnown = knownErrors.some((msg) => error.message?.includes(msg));
+      toast.error(isKnown ? error.message : 'Setup failed. Please try again.');
     } finally {
       setLoading(false);
     }

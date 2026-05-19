@@ -28,7 +28,7 @@ const WinnerReviewForm = ({ competitionId, userId, alreadyReviewed = false, onRe
       if (onReviewSubmitted) onReviewSubmitted();
     } catch (error) {
       console.error('Error submitting review:', error);
-      toast.error(error.message || 'Failed to submit review');
+      toast.error('Unable to submit your review. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

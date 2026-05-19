@@ -88,7 +88,7 @@ const CreateCompetition = () => {
 
     } catch (error) {
       console.error('Error creating competition:', error);
-      toast.error(error.message || 'Failed to create competition');
+      toast.error('Failed to create competition. Please check your inputs and try again.');
     } finally {
       setIsSubmitting(false);
     }

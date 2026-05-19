@@ -207,7 +207,7 @@ const BonusTickets = () => {
       }
     } catch (error) {
       console.error('Error granting bonus:', error);
-      toast.error(error.message || 'Failed to grant bonus tickets');
+      toast.error('Failed to grant bonus tickets. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

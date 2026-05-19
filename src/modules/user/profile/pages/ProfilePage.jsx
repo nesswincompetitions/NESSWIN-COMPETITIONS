@@ -123,7 +123,9 @@ export default function ProfilePage() {
       toast.success(t('profile.updateSuccess'));
       setEditingField(null);
     } catch (err) {
-      toast.error(err.message ?? 'Failed to update.');
+      const knownMessages = ['Username is already taken', 'Username must be at least'];
+      const isKnown = knownMessages.some((m) => err.message?.includes(m));
+      toast.error(isKnown ? err.message : 'Unable to save changes. Please try again.');
     } finally {
       setIsSavingField(false);
     }

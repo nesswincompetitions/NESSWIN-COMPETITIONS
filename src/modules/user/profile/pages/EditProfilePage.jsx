@@ -78,7 +78,7 @@ export default function EditProfilePage() {
       await saveEditedProfile(currentUser.uid, { displayName });
       toast.success(t('profile.updateSuccess', 'Updated successfully!'));
     } catch (err) {
-      toast.error(err.message ?? t('profile.updateFailed', 'Failed to update profile.'));
+      toast.error(t('profile.updateFailed', 'Unable to save changes. Please try again.'));
     } finally {
       setSaving(false);
     }

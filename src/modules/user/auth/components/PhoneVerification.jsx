@@ -3,7 +3,8 @@ import { CheckCircle, ArrowRight, ChevronDown, Search } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 import { linkWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
-import { auth } from '@/config/firebase';
+import { auth, db } from '@/config/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
 
 // ─── Country Code Data ──────────────────────────────────────────────────────
@@ -261,7 +262,7 @@ export default function PhoneVerification() {
           if (widgetIdRef.current !== null && typeof grecaptcha !== 'undefined') {
             try { grecaptcha.reset(widgetIdRef.current); } catch (_) {}
           }
-          toast.error('reCAPTCHA expired. Please try again.');
+          toast.error('Security token expired. Please click Send Code again.');
         },
       });
 
@@ -306,6 +307,24 @@ export default function PhoneVerification() {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is logged in.');
 
+      // ── Pre-check: Is this number already registered? ──────────────────────
+      // Query Firestore BEFORE triggering the SMS — saves cost and gives an
+      // instant, friendly error instead of the raw Firebase auth error.
+      const phoneQuery = query(
+        collection(db, 'user'),
+        where('phone_number', '==', fullNumber)
+      );
+      const phoneSnap = await getDocs(phoneQuery);
+      if (!phoneSnap.empty) {
+        // Check if it's already linked to THIS user (edge case: retry after partial success)
+        const existingDoc = phoneSnap.docs[0];
+        if (existingDoc.id !== user.uid) {
+          toast.error('This phone number is already registered to another account.');
+          setLoading(false);
+          return;
+        }
+      }
+
       // Get (or reset) the verifier — awaited so Firebase always gets a live token.
       const verifier = await getVerifier();
 
@@ -319,12 +338,19 @@ export default function PhoneVerification() {
         toast.error('Too many attempts. Please try again later.');
       } else if (error.code === 'auth/invalid-phone-number') {
         toast.error('Invalid phone number. Please check and try again.');
-      } else if (error.code === 'auth/credential-already-in-use') {
-        toast.error('This phone number is already linked to another account.');
+      } else if (
+        error.code === 'auth/credential-already-in-use' ||
+        error.code === 'auth/account-exists-with-different-credential'
+      ) {
+        toast.error('This phone number is already registered to another account.');
+      } else if (error.code === 'auth/provider-already-linked') {
+        toast.error('A phone number is already linked to your account.');
       } else if (error.code === 'auth/invalid-app-credential') {
-        toast.error('Verification failed. Please ensure Phone Auth is enabled in Firebase Console.');
+        toast.error('Verification setup failed. Please refresh and try again.');
+      } else if (error.code === 'auth/captcha-check-failed') {
+        toast.error('Security check failed. Please refresh the page and try again.');
       } else {
-        toast.error(error.message || 'Failed to send verification code');
+        toast.error('Failed to send verification code. Please try again.');
       }
       // On any error reset the widget so the next attempt gets a fresh token.
       if (widgetIdRef.current !== null && typeof grecaptcha !== 'undefined') {
@@ -350,17 +376,22 @@ export default function PhoneVerification() {
     } catch (error) {
       console.error('Verify code error:', error);
       if (error.code === 'auth/invalid-verification-code') {
-        toast.error('Invalid code. Please check and try again.');
+        toast.error('Incorrect code. Please double-check and try again.');
       } else if (error.code === 'auth/code-expired') {
         toast.error('Code expired. Please request a new one.');
         // Go back to phone step so user can resend
         setStep('phone');
         setVerificationCode('');
         setConfirmationResult(null);
-      } else if (error.code === 'auth/credential-already-in-use') {
-        toast.error('This phone number is already linked to another account.');
+      } else if (
+        error.code === 'auth/credential-already-in-use' ||
+        error.code === 'auth/account-exists-with-different-credential'
+      ) {
+        toast.error('This phone number is already registered to another account.');
+      } else if (error.code === 'auth/provider-already-linked') {
+        toast.error('A phone number is already linked to your account.');
       } else {
-        toast.error(error.message || 'Failed to verify code');
+        toast.error('Verification failed. Please try again.');
       }
     } finally {
       setLoading(false);

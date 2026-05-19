@@ -318,7 +318,7 @@ export default function SupportChatWidget({
       // Restore the content if it failed so the user doesn't lose their message
       setDraftMessage(trimmed);
       setAttachmentFile(currentAttachment);
-      toast.error(error.message || t('profile.support.widget.failedSend', 'Failed to send message.'));
+      toast.error(t('profile.support.widget.failedSend', 'Message failed to send. Please try again.'));
     } finally {
       setSending(false);
     }
@@ -343,7 +343,7 @@ export default function SupportChatWidget({
       toast.success(t('profile.support.widget.chatClosedSuccess', 'Support chat closed.'));
       onCloseTicket?.();
     } catch (error) {
-      toast.error(error.message || t('profile.support.widget.failedClose', 'Failed to close support chat.'));
+      toast.error(t('profile.support.widget.failedClose', 'Unable to close the chat. Please try again.'));
     } finally {
       setClosing(false);
     }
