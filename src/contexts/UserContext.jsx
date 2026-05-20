@@ -1,16 +1,13 @@
 import { createContext, useContext } from 'react';
 import { useAuth } from '@/shared/state/AuthContext';
-import { useRealtimeUser } from '@/hooks/useRealtimeUser';
 
 const UserContext = createContext(undefined);
 
 export function UserProvider({ children }) {
-  const { currentUser } = useAuth();
-  const userId = currentUser?.uid ?? null;
-  const { userData, loading, error } = useRealtimeUser(userId);
+  const { userData, loading } = useAuth();
 
   return (
-    <UserContext.Provider value={{ userData, loading, error }}>
+    <UserContext.Provider value={{ userData, loading, error: null }}>
       {children}
     </UserContext.Provider>
   );

@@ -293,11 +293,11 @@ const WinnerDetail = () => {
     }
   };
 
-  if (loading) {
+  if (loading || !competition) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center text-center">
-        <Loader2 size={32} className="animate-spin text-primary mb-3 opacity-80" />
-        <p className="text-gray-400 text-sm font-medium">{t('common.loading')}...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] py-24 fade-in">
+        <Loader2 size={32} className="animate-spin text-primary mb-4" />
+        <p className="text-sm text-gray-400 font-medium animate-pulse">{t('common.loading', 'Loading details...')}</p>
       </div>
     );
   }

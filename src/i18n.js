@@ -11,19 +11,27 @@ import enAdmin from '@/locales/en/admin.json';
 import frAdmin from '@/locales/fr/admin.json';
 import esAdmin from '@/locales/es/admin.json';
 
+// ─── Legal Pages Translations ────────────────────────────────────────────────
+import enLegal from '@/locales/en/legal.json';
+import frLegal from '@/locales/fr/legal.json';
+import esLegal from '@/locales/es/legal.json';
+
 // ─── Resources ───────────────────────────────────────────────────────────────
 const resources = {
   en: {
     user: enUser,
     admin: enAdmin,
+    legal: enLegal,
   },
   fr: {
     user: frUser,
     admin: frAdmin,
+    legal: frLegal,
   },
   es: {
     user: esUser,
     admin: esAdmin,
+    legal: esLegal,
   },
 };
 
@@ -36,7 +44,7 @@ i18n.use(initReactI18next).init({
   lng: savedLanguage,
   fallbackLng: "en",
   defaultNS: "user",
-  ns: ["user", "admin"],
+  ns: ["user", "admin", "legal"],
   interpolation: {
     escapeValue: false,
   },

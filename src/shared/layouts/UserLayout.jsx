@@ -11,6 +11,15 @@ const UserLayout = () => {
   const { loading } = useAuth();
   const { userData } = useUserData();
 
+  const cachedRole = localStorage.getItem('nesswin_user_role');
+  if (loading && cachedRole === 'admin') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#050505]">
+        <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   if (!loading && userData?.role === 'admin') {
     return <Navigate to="/admin" replace />;
   }

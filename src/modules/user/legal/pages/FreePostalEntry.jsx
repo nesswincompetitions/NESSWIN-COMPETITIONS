@@ -1,7 +1,12 @@
 import React from 'react';
 import { Mail } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const FreePostalEntry = () => {
+  const { t } = useTranslation('legal');
+  const eligibilityReqs = t('freePostalEntry.sections.eligibility.requirements', { returnObjects: true });
+  const howToReqs = t('freePostalEntry.sections.howToEnter.requirements', { returnObjects: true });
+
   return (
     <div className="min-h-screen pt-32 pb-24 bg-(--color-background)">
       <div className="max-w-4xl mx-auto px-6 lg:px-8">
@@ -12,10 +17,10 @@ const FreePostalEntry = () => {
             <Mail className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
-            Free Postal Entry Policy
+            {t('freePostalEntry.title')}
           </h1>
           <p className="text-gray-400 text-lg">
-            Last updated: April 2026
+            {t('lastUpdated', { date: 'April 2026' })}
           </p>
         </div>
 
@@ -27,21 +32,21 @@ const FreePostalEntry = () => {
             
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">1.</span> Overview
+                {t('freePostalEntry.sections.overview.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>Nesswin offers a free alternative method of entry by post (“Free Postal Entry”) for eligible competitions, subject to the Terms & Conditions and any competition-specific rules shown on the relevant competition page.</p>
+                <p>{t('freePostalEntry.sections.overview.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">2.</span> Eligibility
+                {t('freePostalEntry.sections.eligibility.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>To submit a valid Free Postal Entry, the participant must:</p>
+                <p>{t('freePostalEntry.sections.eligibility.description')}</p>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {['Be aged 18 or over', 'Meet all general eligibility requirements', 'Have a registered Nesswin account (unless stated)', 'Have a verified mobile phone number', 'Correctly answer the skill question (if required)', 'Ensure entry is received before deadline'].map((item, i) => (
+                  {Array.isArray(eligibilityReqs) && eligibilityReqs.map((item, i) => (
                     <li key={i} className="flex items-center gap-3 bg-white/5 px-4 py-3 rounded-lg border border-white/5">
                       <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                       <span className="text-sm font-medium">{item}</span>
@@ -53,13 +58,13 @@ const FreePostalEntry = () => {
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">3.</span> How to Enter
+                {t('freePostalEntry.sections.howToEnter.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>Send a handwritten postcard or handwritten letter containing:</p>
+                <p>{t('freePostalEntry.sections.howToEnter.description')}</p>
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-1 space-y-3">
-                    {['Full legal name', 'Full residential address', 'Mobile phone number (linked to account)', 'Registered email address', 'Nesswin username (if applicable)', 'Exact competition name/reference', 'Correct answer to the skill question'].map((item, i) => (
+                    {Array.isArray(howToReqs) && howToReqs.map((item, i) => (
                       <div key={i} className="flex items-start gap-3">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-500 shrink-0 mt-2" />
                         <span className="text-gray-300">{item}</span>
@@ -68,9 +73,9 @@ const FreePostalEntry = () => {
                   </div>
                   <div className="flex-1">
                     <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 sticky top-24">
-                      <p className="font-bold text-primary mb-3 text-sm uppercase tracking-wider">Send To Address</p>
+                      <p className="font-bold text-primary mb-3 text-sm uppercase tracking-wider">{t('freePostalEntry.sections.howToEnter.sendTo')}</p>
                       <p className="text-white font-mono text-sm leading-relaxed">
-                        NESSWIN COMPETITIONS LTD<br/>
+                        {t('freePostalEntry.sections.howToEnter.companyName')}<br/>
                         128 City Road<br/>
                         London, EC1V 2NX<br/>
                         United Kingdom
@@ -83,21 +88,21 @@ const FreePostalEntry = () => {
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">4.</span> Equal Chance of Winning
+                {t('freePostalEntry.sections.equalChance.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>A valid Free Postal Entry that complies with the rules will be treated as a valid competition entry and included in the same draw as valid paid entries. Each valid Free Postal Entry has the same chance of winning as a valid paid entry.</p>
+                <p>{t('freePostalEntry.sections.equalChance.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">5.</span> Contact
+                {t('freePostalEntry.sections.contact.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>For questions relating to Free Postal Entry, please contact us at:</p>
+                <p>{t('freePostalEntry.sections.contact.description')}</p>
                 <div className="bg-white/5 p-5 rounded-xl border border-white/5 inline-block">
-                  <p><span className="text-gray-500 mr-2">Email:</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
+                  <p><span className="text-gray-500 mr-2">{t('freePostalEntry.sections.contact.email')}</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
                 </div>
               </div>
             </section>

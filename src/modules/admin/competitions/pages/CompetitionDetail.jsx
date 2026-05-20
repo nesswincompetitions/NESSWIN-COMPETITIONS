@@ -28,6 +28,7 @@ import {
 } from '@/modules/admin/competitions/services/winnerWorkflowService';
 import { uploadImages } from '@/shared/services/storageService';
 import { formatStatus } from '@/shared/utils/formatters';
+import { exportToCSV } from '@/shared/utils/csvExport';
 
 const CompetitionDetail = () => {
   const { id } = useParams();
@@ -59,6 +60,7 @@ const CompetitionDetail = () => {
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
 
   const lastProcessedTabRef = React.useRef(null);
+  const lastFetchedParticipantsRef = React.useRef(null);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -159,6 +161,7 @@ const CompetitionDetail = () => {
       });
       setSelectedWinner(hydratedWinner);
       setWinnerTicketSequence(hydratedWinner?.ticket || '');
+      setLoading(false);
     });
     return () => unsub();
   }, [id, navigate]);
@@ -175,11 +178,9 @@ const CompetitionDetail = () => {
       const qs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setQuestions(qs);
       setLoadingQuestions(false);
-      setLoading(false);
     }, (err) => {
       console.error('Error listening to questions:', err);
       setLoadingQuestions(false);
-      setLoading(false);
     });
 
     return () => unsub();
@@ -188,12 +189,20 @@ const CompetitionDetail = () => {
   const fetchParticipants = async () => {
     if (!competition?.participants || competition.participants.length === 0) {
       setParticipantsData([]);
+      lastFetchedParticipantsRef.current = 0;
       return;
     }
+    
+    const currentLength = competition.participants.length;
+    if (lastFetchedParticipantsRef.current === currentLength && participantsData.length > 0) {
+      return; // Already cached for this participant count
+    }
+
     setLoadingParticipants(true);
     try {
       const participantsList = await fetchCompetitionParticipants(id, competition.participants);
       setParticipantsData(participantsList);
+      lastFetchedParticipantsRef.current = currentLength;
     } catch (error) {
       console.error('Error fetching participants:', error);
     } finally {
@@ -206,6 +215,54 @@ const CompetitionDetail = () => {
       fetchParticipants();
     }
   }, [activeTab, competition?.participants]);
+
+  const handleExportCSV = () => {
+    if (!participantsData || participantsData.length === 0) {
+      toast.error('No participants to export');
+      return;
+    }
+
+    const headers = [
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone Number', key: 'phone_number' },
+      { label: 'Ticket Number', key: 'ticketNumber' },
+      { label: 'Status', key: 'status' }
+    ];
+
+    const exportRows = [];
+    participantsData.forEach(p => {
+      const formattedPhone = p.phone_number && p.phone_number !== 'N/A' ? `\t${p.phone_number}` : 'N/A';
+      
+      if (p.tickets && p.tickets.length > 0) {
+        p.tickets.forEach(ticket => {
+          exportRows.push({
+            name: p.name || 'Unknown User',
+            email: p.email || 'N/A',
+            phone_number: formattedPhone,
+            ticketNumber: ticket,
+            status: p.status || 'Active'
+          });
+        });
+      } else {
+        exportRows.push({
+          name: p.name || 'Unknown User',
+          email: p.email || 'N/A',
+          phone_number: formattedPhone,
+          ticketNumber: 'N/A',
+          status: p.status || 'Active'
+        });
+      }
+    });
+
+    const sanitizedTitle = (competition?.title || 'competition')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const fileName = `${sanitizedTitle}_participants_${new Date().toISOString().slice(0, 10)}.csv`;
+    exportToCSV(exportRows, headers, fileName);
+    toast.success('Participants list exported to CSV');
+  };
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -391,10 +448,11 @@ const CompetitionDetail = () => {
     }
   };
 
-  if (loading) {
+  if (loading || !competition) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={32} className="animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] py-24 fade-in">
+        <Loader2 size={32} className="animate-spin text-primary mb-4" />
+        <p className="text-sm text-gray-400 font-medium animate-pulse">{t('common.loading', 'Loading details...')}</p>
       </div>
     );
   }
@@ -529,7 +587,14 @@ const CompetitionDetail = () => {
           <h2 className="text-lg font-semibold">{t('competitions.detail.participants.title')}</h2>
           <p className="text-sm text-gray-400 mt-1">{t('competitions.detail.participants.subtitle')}</p>
         </div>
-        <Button variant="outline" size="sm">{t('common.exportCsv')}</Button>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleExportCSV}
+          disabled={loadingParticipants || participantsData.length === 0}
+        >
+          {t('common.exportCsv')}
+        </Button>
       </div>
       <CardContent className="p-0">
         <Table>

@@ -1,7 +1,10 @@
 import React from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const PrivacyPolicy = () => {
+  const { t } = useTranslation('legal');
+
   return (
     <div className="min-h-screen pt-32 pb-24 bg-(--color-background)">
       <div className="max-w-4xl mx-auto px-6 lg:px-8">
@@ -12,10 +15,10 @@ const PrivacyPolicy = () => {
             <ShieldCheck className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
-            Privacy Policy
+            {t('privacyPolicy.title')}
           </h1>
           <p className="text-gray-400 text-lg">
-            Last updated: April 2026
+            {t('lastUpdated', { date: 'April 2026' })}
           </p>
         </div>
 
@@ -27,16 +30,16 @@ const PrivacyPolicy = () => {
             
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">1.</span> Who We Are
+                {t('privacyPolicy.sections.whoWeAre.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>This Privacy Policy explains how NESSWIN COMPETITIONS LTD (“Nesswin”, “we”, “us”, or “our”) collects, uses, stores, shares, and protects personal data when users access our website, app, web app, competitions, and related services (the “Platform”).</p>
+                <p>{t('privacyPolicy.sections.whoWeAre.description')}</p>
                 <div className="bg-white/5 p-5 rounded-xl border border-white/5">
-                  <p className="font-bold text-white mb-2">NESSWIN COMPETITIONS LTD</p>
+                  <p className="font-bold text-white mb-2">{t('privacyPolicy.sections.whoWeAre.compName')}</p>
                   <div className="space-y-1 text-sm">
-                    <p><span className="text-gray-500 w-36 inline-block">Company Number:</span> 17105471</p>
-                    <p><span className="text-gray-500 w-36 inline-block">Registered Office:</span> 128 City Road, London, EC1V 2NX, United Kingdom</p>
-                    <p><span className="text-gray-500 w-36 inline-block">Email:</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline">support@nesswin.com</a></p>
+                    <p><span className="text-gray-500 w-36 inline-block">{t('privacyPolicy.sections.whoWeAre.compNumber')}</span> 17105471</p>
+                    <p><span className="text-gray-500 w-36 inline-block">{t('privacyPolicy.sections.whoWeAre.registeredOffice')}</span> 128 City Road, London, EC1V 2NX, United Kingdom</p>
+                    <p><span className="text-gray-500 w-36 inline-block">{t('privacyPolicy.sections.whoWeAre.email')}</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline">support@nesswin.com</a></p>
                   </div>
                 </div>
               </div>
@@ -44,57 +47,57 @@ const PrivacyPolicy = () => {
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">2.</span> Scope
+                {t('privacyPolicy.sections.scope.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>This Privacy Policy applies to all visitors, users, participants, customers, and winners who interact with the Platform, including when creating an account, entering competitions, making payments, submitting a Free Postal Entry, contacting support, or claiming a prize.</p>
+                <p>{t('privacyPolicy.sections.scope.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">3.</span> Personal Data We May Collect
+                {t('privacyPolicy.sections.dataCollect.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>We may collect identity data, contact data, account data, verification data, transaction data, competition data, winner data, technical data, and communications.</p>
+                <p>{t('privacyPolicy.sections.dataCollect.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">4.</span> Why We Use Your Data
+                {t('privacyPolicy.sections.whyUseData.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>We use personal data to create and manage accounts, verify eligibility, process entries, run competitions, select winners, prevent fraud, verify winners, deliver prizes, communicate with users, comply with legal obligations, and improve the Platform.</p>
+                <p>{t('privacyPolicy.sections.whyUseData.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">5.</span> Sharing Your Data
+                {t('privacyPolicy.sections.sharingData.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>We may share data with payment processors, KYC providers, SMS providers, hosting and analytics providers, logistics partners, professional advisers, and authorities where legally required. We do not sell your personal data to third parties.</p>
+                <p>{t('privacyPolicy.sections.sharingData.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">6.</span> Your Rights
+                {t('privacyPolicy.sections.rights.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>Depending on applicable law, you may have rights to access, correct, delete, restrict, object, withdraw consent where applicable, request portability, and lodge a complaint with a relevant supervisory authority.</p>
+                <p>{t('privacyPolicy.sections.rights.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">7.</span> Contact
+                {t('privacyPolicy.sections.contact.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>For privacy questions or requests, please contact us at:</p>
+                <p>{t('privacyPolicy.sections.contact.description')}</p>
                 <div className="bg-white/5 p-5 rounded-xl border border-white/5 inline-block">
-                  <p><span className="text-gray-500 mr-2">Email:</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
+                  <p><span className="text-gray-500 mr-2">{t('privacyPolicy.sections.contact.email')}</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
                 </div>
               </div>
             </section>

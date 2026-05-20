@@ -1,7 +1,11 @@
 import React from 'react';
 import { HeartHandshake } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const ResponsiblePlay = () => {
+  const { t } = useTranslation('legal');
+  const warningSigns = t('responsiblePlay.sections.warningSigns.signs', { returnObjects: true });
+
   return (
     <div className="min-h-screen pt-32 pb-24 bg-(--color-background)">
       <div className="max-w-4xl mx-auto px-6 lg:px-8">
@@ -12,10 +16,10 @@ const ResponsiblePlay = () => {
             <HeartHandshake className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-4xl md:text-5xl font-serif font-bold text-white tracking-tight">
-            Responsible Play (18+)
+            {t('responsiblePlay.title')}
           </h1>
           <p className="text-gray-400 text-lg">
-            Last updated: April 2026
+            {t('lastUpdated', { date: 'April 2026' })}
           </p>
         </div>
 
@@ -27,10 +31,10 @@ const ResponsiblePlay = () => {
             
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">1.</span> 18+ Only
+                {t('responsiblePlay.sections.adultsOnly.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>Nesswin competitions are strictly for adults aged 18 or over. We may require age verification before allowing participation or before releasing a prize.</p>
+                <p>{t('responsiblePlay.sections.adultsOnly.description')}</p>
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border-4 border-red-500/20 bg-red-500/10 text-red-500 font-black text-2xl">
                   18+
                 </div>
@@ -39,27 +43,21 @@ const ResponsiblePlay = () => {
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">2.</span> Play Responsibly
+                {t('responsiblePlay.sections.playResponsibly.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>Nesswin encourages all users to participate responsibly and within their financial means. Never spend more than you can comfortably afford to lose. Participation should always be for entertainment and excitement, not as a way to make money or solve financial problems.</p>
+                <p>{t('responsiblePlay.sections.playResponsibly.description')}</p>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">3.</span> Warning Signs
+                {t('responsiblePlay.sections.warningSigns.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>You should stop and seek support if you:</p>
+                <p>{t('responsiblePlay.sections.warningSigns.description')}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    'Spend more than intended',
-                    'Feel pressure to chase losses or “win back” money',
-                    'Hide your spending from family or friends',
-                    'Use borrowed money or essential funds to enter competitions',
-                    'Feel stressed, anxious, or out of control about participation'
-                  ].map((item, i) => (
+                  {Array.isArray(warningSigns) && warningSigns.map((item, i) => (
                     <div key={i} className="bg-red-500/5 border border-red-500/10 p-4 rounded-xl flex items-start gap-3">
                       <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5" />
                       <span className="text-gray-300">{item}</span>
@@ -71,24 +69,24 @@ const ResponsiblePlay = () => {
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">4.</span> Self-Exclusion / Support Requests
+                {t('responsiblePlay.sections.selfExclusion.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>If you would like to restrict your access, request account limits, or ask us to block your participation, please contact us at:</p>
+                <p>{t('responsiblePlay.sections.selfExclusion.description')}</p>
                 <div className="bg-white/5 p-5 rounded-xl border border-white/5 inline-block">
-                  <p><span className="text-gray-500 mr-2">Email:</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
+                  <p><span className="text-gray-500 mr-2">{t('responsiblePlay.sections.selfExclusion.email')}</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
                 </div>
               </div>
             </section>
 
             <section className="space-y-4">
               <h2 className="text-2xl font-serif font-bold text-white flex items-center gap-3">
-                <span className="text-primary text-xl">5.</span> Contact
+                {t('responsiblePlay.sections.contact.title')}
               </h2>
               <div className="pl-0 md:pl-9 space-y-4">
-                <p>For responsible play or account restriction requests, please reach out to:</p>
+                <p>{t('responsiblePlay.sections.contact.description')}</p>
                 <div className="bg-white/5 p-5 rounded-xl border border-white/5 inline-block">
-                  <p><span className="text-gray-500 mr-2">Email:</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
+                  <p><span className="text-gray-500 mr-2">{t('responsiblePlay.sections.contact.email')}</span> <a href="mailto:support@nesswin.com" className="text-primary hover:underline font-medium">support@nesswin.com</a></p>
                 </div>
               </div>
             </section>

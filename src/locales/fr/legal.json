@@ -1,0 +1,401 @@
+{
+  "lastUpdated": "Dernière mise à jour : {{date}}",
+  "privacyPolicy": {
+    "title": "Politique de confidentialité",
+    "sections": {
+      "whoWeAre": {
+        "title": "1. Qui nous sommes",
+        "description": "Cette politique de confidentialité explique comment NESSWIN COMPETITIONS LTD (« Nesswin », « nous », « notre » ou « nos ») collecte, utilise, stocke, partage et protège les données personnelles lorsque les utilisateurs accèdent à notre site Web, notre application, notre application Web, nos concours et nos services connexes (la « Plateforme »).",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "compNumber": "Numéro d'entreprise :",
+        "registeredOffice": "Siège social :",
+        "email": "E-mail :"
+      },
+      "scope": {
+        "title": "2. Portée",
+        "description": "Cette politique de confidentialité s'applique à tous les visiteurs, utilisateurs, participants, clients et gagnants qui interagissent avec la Plateforme, y compris lors de la création d'un compte, de l'inscription à des concours, de la réalisation de paiements, de la soumission d'une participation postale gratuite, de la prise de contact avec l'assistance ou de la réclamation d'un prix."
+      },
+      "dataCollect": {
+        "title": "3. Données personnelles que nous pouvons collecter",
+        "description": "Nous pouvons collecter des données d'identité, des données de contact, des données de compte, des données de vérification, des données de transaction, des données de concours, des données de gagnant, des données techniques et des communications."
+      },
+      "whyUseData": {
+        "title": "4. Pourquoi nous utilisons vos données",
+        "description": "Nous utilisons les données personnelles pour créer et gérer des comptes, vérifier l'éligibilité, traiter les inscriptions, organiser des concours, sélectionner les gagnants, prévenir la fraude, vérifier les gagnants, livrer les prix, communiquer avec les utilisateurs, nous conformer aux obligations légales et améliorer la Plateforme."
+      },
+      "sharingData": {
+        "title": "5. Partage de vos données",
+        "description": "Nous pouvons partager des données avec des processeurs de paiement, des fournisseurs de KYC, des fournisseurs de SMS, des fournisseurs d'hébergement et d'analyse, des partenaires logistiques, des conseillers professionnels et des autorités lorsque la loi l'exige. Nous ne vendons pas vos données personnelles à des tiers."
+      },
+      "rights": {
+        "title": "6. Vos droits",
+        "description": "Selon la loi applicable, vous pouvez avoir des droits d'accès, de rectification, de suppression, de limitation, d'opposition, de retrait du consentement le cas échéant, de demande de portabilité et de dépôt de plainte auprès d'une autorité de contrôle compétente."
+      },
+      "contact": {
+        "title": "7. Contact",
+        "description": "Pour toute question ou demande concernant la confidentialité, veuillez nous contacter à :",
+        "email": "E-mail :"
+      }
+    }
+  },
+  "responsiblePlay": {
+    "title": "Jeu responsable (18+)",
+    "sections": {
+      "adultsOnly": {
+        "title": "1. 18+ uniquement",
+        "description": "Les concours Nesswin sont strictement réservés aux adultes âgés de 18 ans ou plus. Nous pouvons exiger une vérification de l'âge avant d'autoriser la participation ou avant de remettre un prix."
+      },
+      "playResponsibly": {
+        "title": "2. Jouer de manière responsable",
+        "description": "Nesswin encourage tous les utilisateurs à participer de manière responsable et selon leurs moyens financiers. Ne dépensez jamais plus que ce que vous pouvez vous permettre de perdre confortablement. La participation doit toujours être synonyme de divertissement et d'excitation, et non un moyen de gagner de l'argent ou de résoudre des problèmes financiers."
+      },
+      "warningSigns": {
+        "title": "3. Signes d'alerte",
+        "description": "Vous devriez vous arrêter et chercher du soutien si vous :",
+        "signs": [
+          "Dépensez plus que prévu",
+          "Ressentez la pression de courir après les pertes ou de « récupérer » de l'argent",
+          "Cachez vos dépenses à votre famille ou à vos amis",
+          "Utilisez de l'argent emprunté ou des fonds essentiels pour participer à des concours",
+          "Vous sentez stressé, anxieux ou hors de contrôle concernant votre participation"
+        ]
+      },
+      "selfExclusion": {
+        "title": "4. Auto-exclusion / Demandes de soutien",
+        "description": "Si vous souhaitez restreindre votre accès, demander des limites de compte ou nous demander de bloquer votre participation, veuillez nous contacter à :",
+        "email": "E-mail :"
+      },
+      "contact": {
+        "title": "5. Contact",
+        "description": "Pour les demandes de jeu responsable ou de restriction de compte, veuillez contacter :",
+        "email": "E-mail :"
+      }
+    }
+  },
+  "freePostalEntry": {
+    "title": "Politique de participation postale gratuite",
+    "sections": {
+      "overview": {
+        "title": "1. Aperçu",
+        "description": "Nesswin propose une méthode alternative gratuite de participation par courrier (« Participation postale gratuite ») pour les concours éligibles, sous réserve des Conditions générales et de toute règle spécifique au concours figurant sur la page du concours concerné."
+      },
+      "eligibility": {
+        "title": "2. Éligibilité",
+        "description": "Pour soumettre une participation postale gratuite valide, le participant doit :",
+        "requirements": [
+          "Être âgé de 18 ans ou plus",
+          "Remplir toutes les conditions générales d'éligibilité",
+          "Avoir un compte Nesswin enregistré (sauf indication contraire)",
+          "Avoir un numéro de téléphone mobile vérifié",
+          "Répondre correctement à la question de compétence (si nécessaire)",
+          "S'assurer que la participation est reçue avant la date limite"
+        ]
+      },
+      "howToEnter": {
+        "title": "3. Comment participer",
+        "description": "Envoyez une carte postale manuscrite ou une lettre manuscrite contenant :",
+        "requirements": [
+          "Nom légal complet",
+          "Adresse résidentielle complète",
+          "Numéro de téléphone mobile (lié au compte)",
+          "Adresse e-mail enregistrée",
+          "Nom d'utilisateur Nesswin (le cas échéant)",
+          "Nom exact/référence du concours",
+          "Réponse exacte à la question de compétence"
+        ],
+        "sendTo": "Envoyer à l'adresse",
+        "companyName": "NESSWIN COMPETITIONS LTD"
+      },
+      "equalChance": {
+        "title": "4. Égalité des chances de gagner",
+        "description": "Une participation postale gratuite valide et conforme aux règles sera traitée comme une participation valide au concours et incluse dans le même tirage au sort que les participations payantes valides. Chaque participation postale gratuite valide a les mêmes chances de gagner qu'une participation payante valide."
+      },
+      "contact": {
+        "title": "5. Contact",
+        "description": "Pour les questions relatives à la participation postale gratuite, veuillez nous contacter à :",
+        "email": "E-mail :"
+      }
+    }
+  },
+  "competitionRules": {
+    "title": "Règles du concours",
+    "sections": {
+      "overview": {
+        "title": "1. Aperçu général",
+        "p1": "Ces règles de concours s'appliquent à tous les concours basés sur les compétences organisés par NESSWIN COMPETITIONS LTD, sauf indication contraire dans les règles spécifiques figurant sur la page d'un concours.",
+        "p2": "En vous inscrivant à un concours, vous acceptez ces règles du concours, les conditions générales de Nesswin et toutes les conditions spécifiques au prix figurant sur la page du concours concerné."
+      },
+      "howItWorks": {
+        "title": "2. Comment ça marche",
+        "description": "Pour participer à un concours :",
+        "steps": [
+          "Créez un compte ou connectez-vous",
+          "Vérifiez votre numéro de téléphone par SMS / OTP",
+          "Répondez correctement à la question de qualification basée sur les compétences",
+          "Choisissez votre nombre de tickets",
+          "Effectuez le paiement avec succès"
+        ],
+        "footerNotice": "Votre participation ne devient valide qu'une fois le paiement réussi et la participation correctement enregistrée dans les systèmes de Nesswin."
+      },
+      "qualifyingQuestion": {
+        "title": "3. Question de qualification basée sur les compétences",
+        "p1": "Chaque concours requiert 1 seule question de qualification basée sur les compétences. La question peut être à choix multiples, textuelle ou basée sur une image. Par exemple, l'utilisateur peut d'abord voir une image, puis choisir la bonne réponse parmi 4 options de réponse.",
+        "p2": "Nesswin peut maintenir un groupe interne de plusieurs questions de qualification et afficher une question au hasard à partir de ce groupe. Cela signifie que différents utilisateurs peuvent voir des questions différentes. Seuls les utilisateurs qui répondent correctement à la question applicable peuvent procéder à l'achat du ticket."
+      },
+      "ticketPurchases": {
+        "title": "4. Achats de tickets",
+        "p1": "Une fois que l'utilisateur a répondu correctement à la question, il peut acheter un ou plusieurs tickets, sous réserve de disponibilité et des limites applicables. Les tickets ne sont valables qu'après un paiement réussi.",
+        "p2": "Tous les achats sont définitifs, sauf si le concours est annulé par Nesswin ou si un remboursement est requis par la loi."
+      },
+      "closing": {
+        "title": "5. Clôture du concours",
+        "description": "Un concours se clôture généralement lorsque tous les tickets sont vendus ou lorsque la date/l'heure de clôture indiquée est atteinte. Nesswin peut raisonnablement prolonger, raccourcir, suspendre ou annuler un concours pour des raisons techniques, de sécurité, juridiques, de conformité, opérationnelles, de prévention de la fraude ou de force majeure."
+      },
+      "winnerSelection": {
+        "title": "6. Sélection du gagnant",
+        "p1": "À la fin d'un concours, Nesswin examinera toutes les participations et identifiera toutes les participations valides. Une participation valide est une participation qui a répondu correctement à la question de qualification, a effectué un paiement réussi et s'est conformée aux règles applicables.",
+        "p2": "Sauf indication contraire sur la page du concours concerné, le gagnant est sélectionné au hasard parmi le groupe de participations valides ayant répondu correctement."
+      },
+      "randomDraw": {
+        "title": "7. Tirage au sort / Système de type RandomDraws",
+        "p1": "Pour garantir l'équité et la transparence, Nesswin peut utiliser un outil ou une plateforme de tirage au sort tiers, y compris une plateforme du type communément appelé RandomDraws, ou un autre système équivalent choisi par Nesswin.",
+        "p2": "Nesswin peut conserver des captures d'écran, des certificats, des enregistrements ou des preuves du tirage au sort. Nesswin se réserve le droit de modifier l'outil tiers utilisé, à condition que le processus reste équitable et conforme aux règles du concours."
+      },
+      "liveDraws": {
+        "title": "8. Tirages en direct et transparence Instagram",
+        "p1": "Pour la transparence et la confiance, Nesswin peut présenter le tirage au sort en direct sur le compte Instagram officiel de Nesswin, via Instagram Live, ou par le biais d'un autre canal officiel de Nesswin.",
+        "p2": "Pendant ou autour du tirage au sort, Nesswin peut afficher les noms d'utilisateur des participants, les prénoms + les initiales du nom de famille, les quantités de tickets, la liste des participants éligibles et le processus de tirage au sort lui-même. Nesswin peut également télécharger des vidéos de relecture, des clips d'annonce de gagnants, des enregistrements de tirage au sort et des vidéos de remise des prix."
+      },
+      "winnerContact": {
+        "title": "9. Contact et vérification du gagnant",
+        "p1": "Les gagnants peuvent être contactés par e-mail, SMS, téléphone, notification intégrée à l'application ou toute autre méthode de contact raisonnable.",
+        "p2": "Avant de décerner un prix, Nesswin peut exiger du gagnant qu'il fournisse une pièce d'identité avec photo officielle valide, une preuve d'âge (18+), un justificatif de domicile, une preuve de propriété ou d'autorisation pour le mode de paiement utilisé, la confirmation de la vérification du téléphone et tout document de conformité supplémentaire raisonnablement requis pour des raisons de sécurité, de prévention de la fraude, de KYC/AML ou de conformité. Le fait de ne pas fournir les documents demandés peut entraîner la disqualification et la sélection d'un autre gagnant."
+      },
+      "prizeDelivery": {
+        "title": "10. Livraison / Remise des prix",
+        "p1": "La remise des prix dépend du type de prix et peut inclure une livraison physique, une collecte en personne, le tournage de la remise des prix, une réservation directe via un prestataire de voyage, une livraison numérique ou une autre méthode de remise raisonnable.",
+        "p2": "Les délais ne sont pas garantis et peuvent dépendre du type de prix, de l'emplacement du gagnant, de la disponibilité du fournisseur, de la logistique, des contrôles de conformité, des taxes/douanes et des prestataires tiers."
+      },
+      "winnerPublicity": {
+        "title": "11. Publicité du gagnant et contenu de la remise des prix",
+        "p1": "Si vous gagnez, Nesswin peut, à des fins de transparence et de promotion, utiliser le contenu lié à l'annonce du gagnant, au tirage au sort, à la remise des prix, à la réception des prix, aux photos, aux vidéos, aux témoignages, aux publications sur les réseaux sociaux et aux clips promotionnels.",
+        "p2": "Dans la mesure du possible, Nesswin peut choisir d'afficher votre nom d'utilisateur, votre prénom ou votre prénom + l'initiale de votre nom de famille au lieu de votre nom légal complet. Nesswin peut publier ce contenu sur le site Web, l'application/application Web, Instagram, Facebook, TikTok, YouTube, X (Twitter), dans des publicités payantes ou organiques, ainsi que dans des documents de relations publiques ou de marketing."
+      },
+      "restrictions": {
+        "title": "12. Restrictions importantes",
+        "description": "Nesswin peut disqualifier ou annuler des participations lorsqu'elle estime raisonnablement qu'il y a eu fraude, comptes abusifs multiples, fausse identité, faux documents, utilisation de paiement non autorisée, bots ou scripts, tentatives de manipulation, abus de rétrofacturation, violation des règles, comportement abusif ou non-respect de la loi."
+      },
+      "finalDecisions": {
+        "title": "13. Décisions finales",
+        "description": "Les décisions de Nesswin concernant la validité des questions, la validité des inscriptions, l'éligibilité des gagnants, la méthode de tirage au sort, la remise des prix, la disqualification et l'intégrité opérationnelle sont finales, sauf en cas d'erreur manifeste."
+      },
+      "contact": {
+        "title": "14. Contact",
+        "description": "Pour toute question concernant un concours :",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "email": "E-mail :"
+      }
+    }
+  },
+  "termsConditions": {
+    "title": "Conditions générales",
+    "sections": {
+      "organiser": {
+        "title": "1. Informations sur l'organisateur",
+        "p1": "Ces conditions générales (« Conditions ») régissent l'accès, l'utilisation et la participation aux services et concours proposés par :",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "compSub": "Société privée à responsabilité limitée constituée en Angleterre et au Pays de Galles",
+        "compNumber": "Numéro d'entreprise :",
+        "registeredOffice": "Siège social :",
+        "email": "E-mail :",
+        "p2": "Dans ces Conditions, « Nesswin », « nous », « notre » et « nos » font référence à NESSWIN COMPETITIONS LTD. En créant un compte, en accédant à la Plateforme, en achetant un ticket, en soumettant une participation postale gratuite ou en participant à un concours, vous confirmez que vous avez lu, compris et accepté ces Conditions."
+      },
+      "natureOfPlatform": {
+        "title": "2. Nature de la Plateforme",
+        "p1": "Nesswin exploite une plateforme proposant des concours de prix basés sur les compétences qui peuvent permettre aux utilisateurs éligibles de gagner des prix, y compris, mais sans s'y limiter :",
+        "prizes": [
+          "Voitures",
+          "Montres",
+          "Vacances",
+          "Vols",
+          "Hébergement",
+          "Électronique",
+          "Et autres prix annoncés sur la Plateforme."
+        ],
+        "p2": "Les concours Nesswin sont destinés à fonctionner comme des concours basés sur les compétences et non comme des jeux de hasard purs, des paris ou des loteries traditionnelles.",
+        "p3": "Pour participer valablement, un utilisateur doit :",
+        "rules": [
+          "Répondre correctement à la question de qualification applicable basée sur les compétences.",
+          "Remplir une participation valide conformément aux règles du concours concerné, que ce soit par participation payante ou par la voie de la participation postale gratuite lorsqu'elle est disponible."
+        ]
+      },
+      "eligibility": {
+        "title": "3. Éligibilité",
+        "description": "Pour utiliser la Plateforme et participer aux concours, vous devez :",
+        "requirements": [
+          "Être âgé de 18 ans ou plus au moment de l'inscription.",
+          "Avoir la capacité juridique de conclure un contrat contraignant.",
+          "Fournir des informations exactes, complètes et à jour.",
+          "Utiliser un mode de paiement que vous êtes légalement autorisé à utiliser.",
+          "Ne pas être interdit par la loi de participer dans votre juridiction."
+        ],
+        "p2": "Nesswin se réserve le droit de restreindre ou de refuser la participation de tout pays, territoire ou juridiction pour des raisons juridiques, réglementaires, de sanctions, de conformité, opérationnelles ou de risque. Les employés, entrepreneurs, consultants, partenaires et membres de la famille immédiate directement liés à l'exploitation de Nesswin peuvent être exclus de la participation."
+      },
+      "accountRegistration": {
+        "title": "4. Création de compte",
+        "description": "L'accès à certaines fonctionnalités nécessite la création d'un compte. Lors de l'inscription, nous pouvons demander :",
+        "fields": [
+          "Prénom et nom de famille",
+          "Adresse e-mail",
+          "Numéro de téléphone mobile",
+          "Date de naissance",
+          "Pays de résidence",
+          "Nom d'utilisateur",
+          "Toute autre information raisonnablement requise"
+        ],
+        "warningTitle": "Important :",
+        "warningText": "Vous acceptez que toutes les informations fournies soient vraies, exactes, complètes et actuelles. Des informations fausses, trompeuses, incomplètes ou invérifiables peuvent entraîner : la suspension du compte, l'annulation de la participation, la confiscation du prix ou la fermeture définitive du compte."
+      },
+      "phoneVerification": {
+        "title": "5. Vérification obligatoire du téléphone",
+        "p1": "Un numéro de téléphone portable vérifié est obligatoire pour participer à tout concours. Cette exigence s'applique à toutes les méthodes d'inscription et de connexion, y compris lorsque l'utilisateur s'inscrit ou se connecte via Apple Sign-In, Google Sign-In ou toute autre méthode d'authentification tierce.",
+        "p2": "Nesswin peut exiger une vérification via un mot de passe à usage unique (OTP) par SMS, un code de vérification ou tout processus de vérification similaire."
+      },
+      "usernameDisplay": {
+        "title": "6. Nom d'utilisateur et affichage public",
+        "description": "Les utilisateurs peuvent être tenus ou invités à créer un nom d'utilisateur. Nesswin peut afficher les informations suivantes à des fins de transparence, notamment dans les listes de participants, les pages de gagnants, les affichages de tirages au sort, le contenu promotionnel et les annonces sur les réseaux sociaux :",
+        "fields": [
+          "Noms d'utilisateur",
+          "Prénoms",
+          "Prénom + initiale du nom"
+        ]
+      },
+      "ticketPurchases": {
+        "title": "7. Achats de tickets et paiements",
+        "description": "Une inscription soumise via une participation payante n'est valide qu'une fois :",
+        "requirements": [
+          "La question de compétence applicable a reçu une réponse correcte.",
+          "La commande a été soumise.",
+          "Le paiement a été traité avec succès.",
+          "La participation a été correctement enregistrée dans nos systèmes."
+        ],
+        "ruleTitle": "Règles de paiement importantes :",
+        "rules": [
+          "Tous les achats de tickets sont définitifs.",
+          "Sauf si la loi l'exige ou si un concours est annulé par Nesswin, les tickets ne sont pas remboursables.",
+          "Un paiement échoué, annulé, contesté, remboursé ou faisant l'objet d'un rejet de débit peut entraîner l'annulation automatique des tickets correspondants."
+        ],
+        "postalDisclaimer": "Pour l'évitement de tout doute, les participations soumises par le biais de la participation postale gratuite sont régies par la section 8 et ne nécessitent aucun paiement, mais doivent tout de même se conformer à la question de qualification applicable basée sur les compétences et à toutes les règles de concours pertinentes."
+      },
+      "freePostalEntry": {
+        "title": "8. Participation postale gratuite",
+        "p1": "Nesswin propose une méthode alternative gratuite de participation par courrier (« Participation postale gratuite ») pour certains concours, sous réserve de ces Conditions et de toutes les règles spécifiques au concours affichées sur la page du concours concerné. Sauf indication contraire expresse sur la page du concours concerné, un participant éligible peut soumettre une (1) participation postale gratuite par concours.",
+        "infoTitle": "Informations requises :",
+        "infoFields": [
+          "Nom légal complet et adresse résidentielle",
+          "Numéro de téléphone mobile et e-mail liés au compte",
+          "Nom d'utilisateur Nesswin (le cas échéant)",
+          "Nom exact/référence du concours",
+          "Réponse à la question de compétence (si nécessaire)"
+        ],
+        "sendTo": "Envoyer à :",
+        "address": "NESSWIN COMPETITIONS LTD\n128 City Road\nLondon, EC1V 2NX\nUnited Kingdom",
+        "p2": "Une participation postale gratuite valide et conforme à ces Conditions et aux règles du concours concerné sera traitée comme une inscription valide et enregistrée dans le concours avec la même chance de gagner qu'une participation payante.",
+        "learnMore": "En savoir plus sur la participation postale gratuite."
+      },
+      "noRefund": {
+        "title": "9. Politique de non-remboursement",
+        "description": "Sauf si la loi applicable l'exige ou si un concours est annulé par Nesswin :",
+        "rules": [
+          "Aucun remboursement n'est dû si vous ne gagnez pas.",
+          "Aucun remboursement n'est dû si vous changez d'avis.",
+          "Aucun remboursement n'est dû parce que vous avez mal compris les règles du concours.",
+          "Aucun remboursement n'est dû une fois qu'une commande valide a été complétée."
+        ]
+      },
+      "timing": {
+        "title": "10. Calendrier et disponibilité du concours",
+        "description": "Chaque page de concours peut inclure des détails sur le prix, le prix du ticket, le nombre total de tickets, le nombre de tickets restants, la date/l'heure de clôture estimée, la date/l'heure du tirage estimée, des conditions spéciales et des règles spécifiques au prix. Un concours peut se clôturer à la date/l'heure indiquée, lorsque tous les tickets sont vendus, s'il est annulé ou suspendu par Nesswin, ou de toute autre manière spécifiée sur la page concernée."
+      },
+      "winnerSelection": {
+        "title": "11. Processus de sélection des gagnants et de tirage au sort",
+        "description": "À la clôture d'un concours, Nesswin identifiera toutes les participations valides, c'est-à-dire les participations qui :",
+        "requirements": [
+          "Ont répondu correctement à la question de qualification applicable basée sur les compétences.",
+          "Ont complété le paiement avec succès ou ont été validement soumises via la participation postale gratuite.",
+          "Sont conformes à ces Conditions et aux règles de concours pertinentes."
+        ],
+        "p2": "Sauf indication contraire sur la page du concours concerné, le gagnant est sélectionné au hasard parmi le groupe de participations valides ayant répondu correctement. Nesswin peut utiliser une plateforme ou un service de tirage au sort tiers, y compris une plateforme de type communément appelé RandomDraws, ou tout outil ou système équivalent choisi par Nesswin pour soutenir l'équité, la transparence et la traçabilité."
+      },
+      "winnerNotification": {
+        "title": "12. Notification du gagnant",
+        "description": "Les gagnants peuvent être contactés par : e-mail, appel téléphonique, SMS, notification dans l'application ou toute autre méthode de contact raisonnable."
+      },
+      "winnerVerification": {
+        "title": "13. Vérification du gagnant",
+        "description": "Avant de décerner un prix, Nesswin peut exiger du gagnant qu'il fournisse :",
+        "requirements": [
+          "Une pièce d'identité officielle avec photo valide",
+          "Une preuve d'âge (18+)",
+          "Un justificatif de domicile",
+          "Une preuve de propriété du mode de paiement",
+          "La confirmation de la vérification du téléphone",
+          "Des documents de conformité supplémentaires"
+        ]
+      },
+      "prizes": {
+        "title": "14. Prix et réalisation",
+        "description": "Les prix sont tels que décrits sur la page du concours concerné. Les images et vidéos de prix peuvent n'être qu'illustratives. Le prix réel peut varier raisonnablement en fonction de la disponibilité, de l'emplacement, du fournisseur, du modèle exact ou des spécifications. Sauf indication contraire expresse, aucune alternative en espèces n'est garantie."
+      },
+      "promotionalConsent": {
+        "title": "15. Consentement promotionnel",
+        "description": "En participant à un concours, chaque participant reconnaît et accepte que, s'il est sélectionné comme gagnant, Nesswin puisse utiliser certains contenus liés au gagnant, à la victoire et à la remise du prix à des fins de transparence, de preuve de réalisation du prix, de promotion de la Plateforme et de marketing. Cela peut inclure :",
+        "fields": [
+          "Nom d'utilisateur",
+          "Prénom",
+          "Prénom + initiale du nom",
+          "Photographies",
+          "Vidéos",
+          "Captures d'écran",
+          "Témoignages",
+          "Images de la remise du prix",
+          "Annonces des gagnants"
+        ]
+      },
+      "chargebacks": {
+        "title": "16. Rejets de débit, fraude et abus",
+        "description": "Si un participant initie un rejet de débit abusif ou injustifié, un litige de paiement frauduleux ou tente de récupérer des fonds de manière inappropriée :",
+        "rules": [
+          "Les tickets peuvent être annulés.",
+          "Tout prix en attente ou potentiel peut être suspendu ou annulé.",
+          "Le compte peut être suspendu ou fermé définitivement.",
+          "Nesswin peut refuser de remettre un prix."
+        ]
+      },
+      "availability": {
+        "title": "17. Disponibilité de la Plateforme",
+        "description": "Nous ne garantissons pas un fonctionnement ininterrompu, sans erreur ou sans défaut de la Plateforme ou des services connexes. Nesswin peut modifier, suspendre, mettre à jour, restreindre ou interrompre tout ou partie de la Plateforme à tout temps."
+      },
+      "intellectualProperty": {
+        "title": "18. Propriété intellectuelle",
+        "description": "Tout le contenu de la Plateforme, y compris les textes, logos, marques, graphiques, vidéos, conceptions, interfaces, logiciels, bases de données et matériels promotionnels, appartient à Nesswin ou à ses concédants de licence et est protégé par les lois sur la propriété intellectuelle."
+      },
+      "limitationOfLiability": {
+        "title": "19. Limitation de responsabilité",
+        "description": "Rien dans ces Conditions n'exclut ni ne limite la responsabilité là où il serait illégal de le faire, y compris pour la mort ou les blessures corporelles causées par la négligence, la fraude, les fausses déclarations frauduleuses ou toute responsabilité qui ne peut légalement être exclue."
+      },
+      "governingLaw": {
+        "title": "20. Droit applicable et juridiction",
+        "description": "Ces Conditions sont régies par les lois d'Angleterre et du Pays de Galles. Tout litige, réclamation ou question découlant de ou en relation avec la Plateforme, les concours, les inscriptions, les prix ou ces Conditions sera soumis à la juridiction des tribunaux d'Angleterre et du Pays de Galles, sous réserve de tout droit obligatoire des consommateurs qui pourrait s'appliquer dans le pays de résidence du participant."
+      },
+      "contact": {
+        "title": "21. Contact et réclamations",
+        "description": "Pour des questions, des préoccupations ou des réclamations :",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "email": "E-mail :",
+        "address": "Siège social : 128 City Road, London, EC1V 2NX",
+        "phone": "Téléphone : +44 7488 87 6770"
+      }
+    }
+  }
+}

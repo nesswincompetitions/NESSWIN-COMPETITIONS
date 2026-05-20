@@ -6,20 +6,45 @@ import { linkWithPhoneNumber, RecaptchaVerifier } from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { updateProfile } from '@/modules/user/profile/services/profileService';
+import { defaultCountries, parseCountry } from 'react-international-phone';
 
-// ─── Country Code Data ──────────────────────────────────────────────────────
-const COUNTRY_CODES = [
-  { code: '+91', country: 'IN', flag: '🇮🇳', name: 'India', format: '##### #####' },
-  { code: '+1',  country: 'US', flag: '🇺🇸', name: 'United States', format: '(###) ###-####' },
-  { code: '+44', country: 'GB', flag: '🇬🇧', name: 'United Kingdom', format: '#### ### ####' },
-  { code: '+971', country: 'AE', flag: '🇦🇪', name: 'UAE', format: '## ### ####' },
-  { code: '+33', country: 'FR', flag: '🇫🇷', name: 'France', format: '## ## ## ## ##' },
-  { code: '+34', country: 'ES', flag: '🇪🇸', name: 'Spain', format: '### ### ###' },
-  { code: '+39', country: 'IT', flag: '🇮🇹', name: 'Italy', format: '### ### ####' },
-  { code: '+31', country: 'NL', flag: '🇳🇱', name: 'Netherlands', format: '## ### ####' },
-  { code: '+32', country: 'BE', flag: '🇧🇪', name: 'Belgium', format: '### ## ## ##' },
-  { code: '+49', country: 'DE', flag: '🇩🇪', name: 'Germany', format: '###########' },
-];
+// ─── Country Code Helper Utilities ──────────────────────────────────────────
+const getFlagEmoji = (countryCode) => {
+  if (!countryCode) return '';
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 127397 + char.charCodeAt(0));
+  try {
+    return String.fromCodePoint(...codePoints);
+  } catch (e) {
+    return '';
+  }
+};
+
+const getFormatString = (parsed) => {
+  if (!parsed.format) return '';
+  if (typeof parsed.format === 'string') {
+    return parsed.format;
+  }
+  if (typeof parsed.format === 'object' && parsed.format.default) {
+    return parsed.format.default;
+  }
+  return '';
+};
+
+// ─── Country Code Data (Loaded dynamically) ─────────────────────────────────
+const COUNTRY_CODES = defaultCountries.map((c) => {
+  const parsed = parseCountry(c);
+  const formatString = getFormatString(parsed);
+  return {
+    code: `+${parsed.dialCode}`,
+    country: parsed.iso2.toUpperCase(),
+    flag: getFlagEmoji(parsed.iso2),
+    name: parsed.name,
+    format: formatString ? formatString.replace(/\./g, '#') : undefined,
+  };
+});
 
 const formatPhoneNumber = (value, mask) => {
   if (!mask) return value;
@@ -33,7 +58,6 @@ const formatPhoneNumber = (value, mask) => {
   return formatted;
 };
 
-// ─── Country Code Dropdown ──────────────────────────────────────────────────
 function CountryCodeSelect({ selected, onChange }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -196,7 +220,8 @@ function OtpInput({ value, onChange }) {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function PhoneVerification() {
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const defaultCountry = COUNTRY_CODES.find((c) => c.country === 'IN') || COUNTRY_CODES[0];
+  const [selectedCountry, setSelectedCountry] = useState(defaultCountry);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [verificationCode, setVerificationCode] = useState('');
@@ -208,7 +233,7 @@ export default function PhoneVerification() {
   const verifierRef = useRef(null);
   const widgetIdRef = useRef(null);
 
-  const fullNumber = `${selectedCountry.code}${phoneNumber.replace(/\s/g, '')}`;
+  const fullNumber = `${selectedCountry.code}${phoneNumber.replace(/\D/g, '')}`;
 
   /**
    * getVerifier — Production-level reCAPTCHA management.

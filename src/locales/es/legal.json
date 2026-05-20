@@ -1,0 +1,401 @@
+{
+  "lastUpdated": "Última actualización: {{date}}",
+  "privacyPolicy": {
+    "title": "Política de privacidad",
+    "sections": {
+      "whoWeAre": {
+        "title": "1. Quiénes somos",
+        "description": "Esta Política de privacidad explica cómo NESSWIN COMPETITIONS LTD (“Nesswin”, “nosotros”, “nuestro/s” o “nuestra/s”) recopila, utiliza, almacena, comparte y protege los datos personales cuando los usuarios acceden a nuestro sitio web, aplicación, aplicación web, sorteos y servicios relacionados (la “Plataforma”).",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "compNumber": "Número de compañía:",
+        "registeredOffice": "Domicilio social:",
+        "email": "Correo electrónico:"
+      },
+      "scope": {
+        "title": "2. Alcance",
+        "description": "Esta Política de privacidad se aplica a todos los visitantes, usuarios, participantes, clientes y ganadores que interactúan con la Plataforma, lo que incluye la creación de una cuenta, la participación en sorteos, la realización de pagos, el envío de una participación postal gratuita, el contacto con el servicio de soporte o la reclamación de un premio."
+      },
+      "dataCollect": {
+        "title": "3. Datos personales que podemos recopilar",
+        "description": "Podemos recopilar datos de identidad, datos de contacto, datos de cuenta, datos de verificación, datos de transacciones, datos de sorteos, datos de ganadores, datos técnicos y comunicaciones."
+      },
+      "whyUseData": {
+        "title": "4. Por qué utilizamos sus datos",
+        "description": "Utilizamos los datos personales para crear y gestionar cuentas, verificar la elegibilidad, procesar participaciones, realizar sorteos, seleccionar ganadores, prevenir el fraude, verificar a los ganadores, entregar premios, comunicarnos con los usuarios, cumplir con las obligaciones legales y mejorar la Plataforma."
+      },
+      "sharingData": {
+        "title": "5. Compartir sus datos",
+        "description": "Podemos compartir datos con procesadores de pagos, proveedores de KYC, proveedores de SMS, proveedores de alojamiento y análisis, socios logísticos, asesores profesionales y autoridades cuando la ley lo exija. No vendemos sus datos personales a terceros."
+      },
+      "rights": {
+        "title": "6. Sus derechos",
+        "description": "Según la legislación aplicable, usted puede tener derechos de acceso, rectificación, supresión, limitación, oposición, revocación del consentimiento cuando corresponda, solicitud de portabilidad y presentación de una reclamación ante una autoridad de control pertinente."
+      },
+      "contact": {
+        "title": "7. Contacto",
+        "description": "Para preguntas o solicitudes de privacidad, contáctenos en:",
+        "email": "Correo electrónico:"
+      }
+    }
+  },
+  "responsiblePlay": {
+    "title": "Juego responsable (18+)",
+    "sections": {
+      "adultsOnly": {
+        "title": "1. Solo mayores de 18 años",
+        "description": "Los sorteos de Nesswin son estrictamente para adultos de 18 años o más. Podemos requerir una verificación de edad antes de permitir la participación o antes de entregar un premio."
+      },
+      "playResponsibly": {
+        "title": "2. Juegue de manera responsable",
+        "description": "Nesswin anima a todos los usuarios a participar de manera responsable y dentro de sus posibilidades financieras. Nunca gaste más de lo que pueda permitirse perder cómodamente. La participación debe ser siempre por entretenimiento y emoción, no como una forma de ganar dinero o resolver problemas financieros."
+      },
+      "warningSigns": {
+        "title": "3. Señales de advertencia",
+        "description": "Debe detenerse y buscar apoyo si:",
+        "signs": [
+          "Gasta más de lo previsto",
+          "Siente presión por recuperar pérdidas o “recuperar” dinero",
+          "Oculta sus gastos a familiares o amigos",
+          "Utiliza dinero prestado o fondos esenciales para participar en sorteos",
+          "Se siente estresado, ansioso o fuera de control respecto a su participación"
+        ]
+      },
+      "selfExclusion": {
+        "title": "4. Autoexclusión / Solicitudes de apoyo",
+        "description": "Si desea restringir su acceso, solicitar límites de cuenta o pedirnos que bloquemos su participación, contáctenos en:",
+        "email": "Correo electrónico:"
+      },
+      "contact": {
+        "title": "5. Contacto",
+        "description": "Para solicitudes de juego responsable o restricciones de cuenta, comuníquese con:",
+        "email": "Correo electrónico:"
+      }
+    }
+  },
+  "freePostalEntry": {
+    "title": "Política de participación postal gratuita",
+    "sections": {
+      "overview": {
+        "title": "1. Resumen",
+        "description": "Nesswin ofrece un método alternativo gratuito de participación por correo (“Participación postal gratuita”) para sorteos elegibles, sujeto a los Términos y condiciones y a cualquier regla específica del sorteo que se muestre en la página del sorteo correspondiente."
+      },
+      "eligibility": {
+        "title": "2. Elegibilidad",
+        "description": "Para enviar una participación postal gratuita válida, el participante debe:",
+        "requirements": [
+          "Ser mayor de 18 años",
+          "Cumplir con todos los requisitos generales de elegibilidad",
+          "Tener una cuenta registrada de Nesswin (a menos que se indique lo contrario)",
+          "Tener un número de teléfono móvil verificado",
+          "Responder correctamente a la pregunta de habilidad (si se requiere)",
+          "Asegurarse de que la participación se reciba antes de la fecha límite"
+        ]
+      },
+      "howToEnter": {
+        "title": "3. Cómo participar",
+        "description": "Envíe una postal escrita a mano o una carta escrita a mano que contenga:",
+        "requirements": [
+          "Nombre legal completo",
+          "Dirección residencial completa",
+          "Número de teléfono móvil (vinculado a la cuenta)",
+          "Dirección de correo electrónico registrada",
+          "Nombre de usuario de Nesswin (si aplica)",
+          "Nombre/referencia exacta del sorteo",
+          "Respuesta correcta a la pregunta de habilidad"
+        ],
+        "sendTo": "Dirección de envío",
+        "companyName": "NESSWIN COMPETITIONS LTD"
+      },
+      "equalChance": {
+        "title": "4. Igualdad de oportunidades para ganar",
+        "description": "Una participación postal gratuita válida que cumpla con las reglas se tratará como una participación válida en el sorteo y se incluirá en el mismo sorteo que las participaciones pagadas válidas. Cada participación postal gratuita válida tiene la misma probabilidad de ganar que una participación pagada válida."
+      },
+      "contact": {
+        "title": "5. Contacto",
+        "description": "Para preguntas relacionadas con la participación postal gratuita, contáctenos en:",
+        "email": "Correo electrónico:"
+      }
+    }
+  },
+  "competitionRules": {
+    "title": "Reglas de sorteos",
+    "sections": {
+      "overview": {
+        "title": "1. Resumen general",
+        "p1": "Estas Reglas de sorteos se aplican a todos los sorteos basados en habilidades operados por NESSWIN COMPETITIONS LTD, a menos que las reglas específicas en una página de sorteo indiquen lo contrario.",
+        "p2": "Al ingresar a un sorteo, usted acepta estas Reglas de sorteos, los Términos y condiciones de Nesswin y cualquier condición específica del premio que se muestre en la página del sorteo correspondiente."
+      },
+      "howItWorks": {
+        "title": "2. Cómo funciona",
+        "description": "Para ingresar a un sorteo:",
+        "steps": [
+          "Cree una cuenta o inicie sesión",
+          "Verifique su número de teléfono por SMS / OTP",
+          "Responda correctamente a la pregunta de calificación basada en habilidades",
+          "Elija su cantidad de tickets",
+          "Complete el pago con éxito"
+        ],
+        "footerNotice": "Su participación solo será válida una vez que el pago se haya procesado con éxito y la participación se haya registrado correctamente en los sistemas de Nesswin."
+      },
+      "qualifyingQuestion": {
+        "title": "3. Pregunta de calificación basada en habilidades",
+        "p1": "Cada sorteo requiere únicamente 1 pregunta de calificación basada en habilidades. La pregunta puede ser de opción múltiple, basada en texto o basada en imágenes. Por ejemplo, el usuario puede ver una imagen primero y luego elegir la respuesta correcta entre 4 opciones.",
+        "p2": "Nesswin puede mantener un conjunto interno de múltiples preguntas de calificación y puede mostrar una pregunta al azar de ese conjunto. Esto significa que diferentes usuarios pueden ver diferentes preguntas. Solo los usuarios que respondan correctamente a la pregunta aplicable podrán proceder a la compra de tickets."
+      },
+      "ticketPurchases": {
+        "title": "4. Compras de tickets",
+        "p1": "Una vez que el usuario responda la pregunta correctamente, podrá comprar uno o más tickets, sujeto a disponibilidad y a cualquier límite aplicable. Los tickets solo serán válidos después de un pago exitoso.",
+        "p2": "Todas las compras son definitivas, a menos que Nesswin cancele el sorteo o la ley exija un reembolso."
+      },
+      "closing": {
+        "title": "5. Cierre del sorteo",
+        "description": "Un sorteo normalmente se cerrará cuando se vendan todos los tickets o cuando se alcance la fecha/hora de cierre indicada. Nesswin puede extender, acortar, suspender o cancelar razonablemente un sorteo por razones técnicas, de seguridad, legales, de cumplimiento, operativas, de prevención del fraude o de fuerza mayor."
+      },
+      "winnerSelection": {
+        "title": "6. Selección del ganador",
+        "p1": "Al cierre de un sorteo, Nesswin identificará todas las Participaciones válidas, es decir, las participaciones que respondieron correctamente a la pregunta de calificación, completaron el pago con éxito y cumplieron con las reglas aplicables.",
+        "p2": "A menos que se indique lo contrario en la página del sorteo correspondiente, el ganador se selecciona al azar del conjunto de participaciones válidas que respondieron correctamente."
+      },
+      "randomDraw": {
+        "title": "7. Sorteo aleatorio / Sistema tipo RandomDraws",
+        "p1": "Para respaldar la equidad y la transparencia, Nesswin puede utilizar una herramienta o plataforma de sorteo aleatorio de terceros, incluida una plataforma del tipo comúnmente conocido como RandomDraws, o cualquier otro sistema equivalente elegido por Nesswin.",
+        "p2": "Nesswin puede retener capturas de pantalla, certificados, grabaciones o pruebas del sorteo. Nesswin se reserva el derecho de cambiar la herramienta de terceros utilizada, siempre que el proceso siga siendo justo y coherente con las reglas del sorteo."
+      },
+      "liveDraws": {
+        "title": "8. Sorteos en vivo y transparencia de Instagram",
+        "p1": "Para la transparencia y la confianza, Nesswin puede presentar el sorteo en vivo en la cuenta oficial de Instagram de Nesswin, a través de Instagram Live, o mediante otro canal oficial de Nesswin.",
+        "p2": "Durante o alrededor del sorteo, Nesswin puede mostrar los nombres de usuario de los participantes, los nombres de pila + las iniciales de sus apellidos, las cantidades de tickets, la lista de participantes elegibles y el proceso de sorteo en sí. Nesswin también puede subir videos de repetición, anuncios de ganadores, grabaciones del sorteo y videos de entrega de premios."
+      },
+      "winnerContact": {
+        "title": "9. Contacto y verificación del ganador",
+        "p1": "Los ganadores pueden ser contactados por correo electrónico, SMS, teléfono, notificación dentro de la aplicación u otro método de contacto razonable.",
+        "p2": "Antes de otorgar cualquier premio, Nesswin puede requerir que el ganador proporcione una identificación oficial con foto válida emitida por el gobierno, prueba de edad (18+), prueba de domicilio, prueba de propiedad o autorización para el método de pago utilizado, confirmación de verificación telefónica y cualquier documento de cumplimiento adicional razonablemente requerido por seguridad, prevención de fraude, KYC/AML o cumplimiento. El hecho de no proporcionar los documentos solicitados puede resultar en la descalificación y selección de un ganador alternativo."
+      },
+      "prizeDelivery": {
+        "title": "10. Entrega del premio / Cesión",
+        "p1": "La entrega del premio depende del tipo de premio y puede incluir entrega física, recogida en persona, filmación de la entrega del premio, reserva directa a través de un proveedor de viajes, entrega digital u otro método razonable.",
+        "p2": "Los plazos no están garantizados y pueden depender del tipo de premio, la ubicación del ganador, la disponibilidad del proveedor, la logística, los controles de cumplimiento, los impuestos/aduanas y los proveedores externos."
+      },
+      "winnerPublicity": {
+        "title": "11. Publicidad del ganador y contenido de entrega del premio",
+        "p1": "Si gana, Nesswin puede, con fines promocionales y de transparencia, utilizar contenido relacionado con el anuncio del ganador, el sorteo, la entrega del premio, el recibo del premio, fotos, videos, testimonios, publicaciones en redes sociales y clips promocionales.",
+        "p2": "Siempre que sea razonablemente posible, Nesswin puede optar por mostrar su nombre de usuario, nombre de pila o nombre de pila + inicial del apellido en lugar de su nombre legal completo. Nesswin puede publicar dicho contenido en el sitio web, la aplicación/aplicación web, Instagram, Facebook, TikTok, YouTube, X (Twitter), publicidad pagada u orgánica, y materiales de marketing o relaciones públicas."
+      },
+      "restrictions": {
+        "title": "12. Restricciones importantes",
+        "description": "Nesswin puede descalificar o cancelar participaciones cuando crea razonablemente que ha habido fraude, múltiples cuentas abusivas, identidad falsa, documentos falsos, uso de pagos no autorizados, bots o scripts, intentos de manipulación, abuso de contracargos, violación de reglas, conducta abusiva o incumplimiento legal."
+      },
+      "finalDecisions": {
+        "title": "13. Decisiones finales",
+        "description": "Las decisiones de Nesswin con respecto a la validez de la pregunta, la validez de la participación, la elegibilidad del ganador, el método del sorteo, la entrega del premio, la descalificación y la integridad operativa son definitivas, excepto en el caso de un error manifiesto."
+      },
+      "contact": {
+        "title": "14. Contacto",
+        "description": "Para preguntas sobre un sorteo:",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "email": "Correo electrónico:"
+      }
+    }
+  },
+  "termsConditions": {
+    "title": "Términos y condiciones",
+    "sections": {
+      "organiser": {
+        "title": "1. Información del organizador",
+        "p1": "Estos Términos y condiciones (“Términos”) rigen el acceso, uso y participación en los servicios y sorteos ofrecidos por:",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "compSub": "Sociedad de responsabilidad limitada constituida en Inglaterra y Gales",
+        "compNumber": "Número de compañía:",
+        "registeredOffice": "Domicilio social:",
+        "email": "Correo electrónico:",
+        "p2": "En estos Términos, “Nesswin”, “nosotros”, “nos” y “nuestro/a” se refieren a NESSWIN COMPETITIONS LTD. Al crear una cuenta, acceder a la Plataforma, comprar un ticket, enviar una participación postal gratuita o participar en cualquier sorteo, confirma que ha leído, comprendido y aceptado estos Términos."
+      },
+      "natureOfPlatform": {
+        "title": "2. Naturaleza de la Plataforma",
+        "p1": "Nesswin opera una plataforma que ofrece sorteos de premios basados en habilidades que pueden permitir a los usuarios elegibles ganar premios, que incluyen, entre otros:",
+        "prizes": [
+          "Automóviles",
+          "Relojes",
+          "Vacaciones",
+          "Vuelos",
+          "Alojamiento",
+          "Electrónica",
+          "Y otros premios anunciados en la Plataforma."
+        ],
+        "p2": "Los sorteos de Nesswin están destinados a funcionar como sorteos basados en habilidades y no como juegos de azar puro, apuestas o loterías tradicionales.",
+        "p3": "Para participar de forma válida, el usuario debe:",
+        "rules": [
+          "Responder correctamente la pregunta calificadora aplicable basada en habilidades.",
+          "Completar una participación válida de acuerdo con las reglas del sorteo correspondiente, ya sea mediante participación pagada o mediante la ruta de participación postal gratuita donde esté disponible."
+        ]
+      },
+      "eligibility": {
+        "title": "3. Elegibilidad",
+        "description": "Para usar la Plataforma e ingresar a los sorteos, debe:",
+        "requirements": [
+          "Tener 18 años o más al momento de ingresar.",
+          "Tener capacidad legal para celebrar un contrato vinculante.",
+          "Proporcionar información precisa, completa y actualizada.",
+          "Utilizar un método de pago que esté legalmente autorizado a usar.",
+          "No tener prohibido por ley participar en su jurisdicción."
+        ],
+        "p2": "Nesswin se reserva el derecho de restringir o rechazar la participación de cualquier país, territorio o jurisdicción por razones legales, regulatorias, de sanciones, cumplimiento, operativas o de riesgo. Los empleados, contratistas, consultores, socios y familiares directos vinculados directamente con la operación de Nesswin pueden ser excluidos de la participación."
+      },
+      "accountRegistration": {
+        "title": "4. Registro de cuenta",
+        "description": "El acceso a ciertas funciones requiere la creación de una cuenta. Durante el registro, podemos solicitar:",
+        "fields": [
+          "Nombre y apellido",
+          "Dirección de correo electrónico",
+          "Número de teléfono móvil",
+          "Fecha de nacimiento",
+          "País de residencia",
+          "Nombre de usuario",
+          "Cualquier otra información que se requiera razonablemente"
+        ],
+        "warningTitle": "Importante:",
+        "warningText": "Usted acepta que toda la información proporcionada es verdadera, precisa, completa y actual. La información falsa, engañosa, incompleta o no verificable puede dar lugar a: suspensión de la cuenta, cancelación de la participación, pérdida del premio o cierre permanente de la cuenta."
+      },
+      "phoneVerification": {
+        "title": "5. Verificación de teléfono obligatoria",
+        "p1": "Es obligatorio contar con un número de teléfono móvil verificado para participar en cualquier sorteo. Este requisito se aplica a todos los métodos de registro e inicio de sesión, incluido el caso en que un usuario se registra o inicia sesión a través de Apple Sign-In, Google Sign-In o cualquier otro método de autenticación de terceros.",
+        "p2": "Nesswin puede requerir la verificación a través de una contraseña de un solo uso (OTP) por SMS, código de verificación o cualquier proceso de verificación similar."
+      },
+      "usernameDisplay": {
+        "title": "6. Nombre de usuario y exhibición pública",
+        "description": "Se puede requerir o invitar a los usuarios a crear un nombre de usuario. Nesswin puede mostrar lo siguiente con fines de transparencia, incluso en listas de participantes, páginas de ganadores, pantallas de sorteos, contenido promocional y anuncios en redes sociales:",
+        "fields": [
+          "Nombres de usuario",
+          "Nombres",
+          "Nombre de pila + inicial del apellido"
+        ]
+      },
+      "ticketPurchases": {
+        "title": "7. Compras de tickets y pagos",
+        "description": "Una participación enviada a través de pago solo es válida una vez que:",
+        "requirements": [
+          "Se ha respondido correctamente a la pregunta de habilidad correspondiente.",
+          "Se ha enviado el pedido.",
+          "El pago se ha procesado con éxito.",
+          "La participación se ha registrado correctamente en nuestros sistemas."
+        ],
+        "ruleTitle": "Reglas de pago importantes:",
+        "rules": [
+          "Todas las compras de tickets son definitivas.",
+          "Excepto donde lo exija la ley o donde Nesswin cancele un sorteo, los tickets no son reembolsables.",
+          "Un pago fallido, revertido, disputado, reembolsado o contracargado puede dar lugar a la cancelación automática de los tickets relacionados."
+        ],
+        "postalDisclaimer": "Para evitar dudas, las participaciones enviadas a través de la ruta de participación postal gratuita se rigen por la Sección 8 y no requieren pago, pero deben cumplir con la pregunta de calificación basada en habilidades aplicable y todas las reglas del sorteo correspondientes."
+      },
+      "freePostalEntry": {
+        "title": "8. Participación postal gratuita",
+        "p1": "Nesswin ofrece un método alternativo gratuito de participación por correo (“Participación postal gratuita”) para ciertos sorteos, sujeto a estos Términos y a cualquier regla específica del sorteo que se muestre en la página del sorteo correspondiente. A menos que se indique expresamente lo contrario en la página del sorteo correspondiente, un participante elegible puede enviar una (1) participación postal gratuita por sorteo.",
+        "infoTitle": "Información requerida:",
+        "infoFields": [
+          "Nombre legal completo y dirección residencial",
+          "Número de teléfono móvil y correo electrónico vinculados a la cuenta",
+          "Nombre de usuario de Nesswin (si aplica)",
+          "Nombre/referencia exacta del sorteo",
+          "Respuesta a la pregunta de habilidad (si se requiere)"
+        ],
+        "sendTo": "Enviar a:",
+        "address": "NESSWIN COMPETITIONS LTD\n128 City Road\nLondon, EC1V 2NX\nUnited Kingdom",
+        "p2": "Una participación postal gratuita válida que cumpla con estos Términos y las Reglas del sorteo correspondientes se tratará como una Participación válida y entrará en el sorteo con la misma probabilidad de ganar que una participación pagada.",
+        "learnMore": "Más información sobre la participación postal gratuita."
+      },
+      "noRefund": {
+        "title": "9. Política de no reembolso",
+        "description": "Excepto donde lo exija la ley aplicable o donde Nesswin cancele un sorteo:",
+        "rules": [
+          "No se debe ningún reembolso si no gana.",
+          "No se debe ningún reembolso si cambia de opinión.",
+          "No se debe ningún reembolso porque entendió mal las reglas del sorteo.",
+          "No se debe ningún reembolso una vez que se ha completado un pedido válido."
+        ]
+      },
+      "timing": {
+        "title": "10. Calendario y disponibilidad del sorteo",
+        "description": "Cada página de sorteo puede incluir detalles del premio, precio del ticket, número total de tickets, número de tickets restantes, fecha/hora estimada de cierre, fecha/hora estimada del sorteo, condiciones especiales y reglas específicas del premio. Un sorteo puede cerrarse en la fecha/hora indicada, cuando se agoten todos los tickets, si Nesswin lo cancela o suspende, o de cualquier otra manera especificada en la página correspondiente."
+      },
+      "winnerSelection": {
+        "title": "11. Proceso de selección de ganadores y sorteo",
+        "description": "Al cierre de un sorteo, Nesswin identificará todas las Participaciones válidas, es decir, las participaciones que:",
+        "requirements": [
+          "Respondieron correctamente la pregunta calificadora aplicable basada en habilidades.",
+          "Completaron el pago con éxito o se enviaron de manera válida a través de la ruta de participación postal gratuita.",
+          "Cumplen con estos Términos y las Reglas del sorteo correspondientes."
+        ],
+        "p2": "A menos que se indique lo contrario en la página del sorteo correspondiente, el ganador se selecciona al azar del conjunto de participaciones válidas que respondieron correctamente. Nesswin puede utilizar una plataforma o servicio de sorteo aleatorio de terceros, incluida una plataforma del tipo comúnmente conocido como RandomDraws, o cualquier herramienta o sistema equivalente elegido por Nesswin para respaldar la equidad, la transparencia y la trazabilidad."
+      },
+      "winnerNotification": {
+        "title": "12. Notificación al ganador",
+        "description": "Se puede contactar a los ganadores utilizando: correo electrónico, llamada telefónica, SMS, notificación dentro de la aplicación o cualquier otro método de contacto razonable."
+      },
+      "winnerVerification": {
+        "title": "13. Verificación del ganador",
+        "description": "Antes de otorgar cualquier premio, Nesswin puede requerir que el ganador proporcione:",
+        "requirements": [
+          "Identificación oficial con foto válida emitida por el gobierno",
+          "Prueba de edad (18+)",
+          "Prueba de dirección",
+          "Prueba de propiedad del método de pago",
+          "Confirmación de verificación de teléfono",
+          "Documentos de cumplimiento adicionales"
+        ]
+      },
+      "prizes": {
+        "title": "14. Premios y cumplimiento",
+        "description": "Los premios son los descritos en la página del sorteo correspondiente. Las imágenes y videos de los premios pueden ser ilustrativos únicamente. El premio real puede variar razonablemente según la disponibilidad, la ubicación, el proveedor, el modelo exacto o la especificación. A menos que se indique expresamente lo contrario, no se garantiza ninguna alternativa en efectivo."
+      },
+      "promotionalConsent": {
+        "title": "15. Consentimiento promocional",
+        "description": "Al participar en un sorteo, cada participante reconoce y acepta que, si es seleccionado como ganador, Nesswin puede utilizar cierto contenido relacionado con el ganador, el triunfo y la entrega del premio con fines de transparencia, prueba de cumplimiento del premio, promoción de la Plataforma y marketing. Esto puede incluir:",
+        "fields": [
+          "Nombre de usuario",
+          "Nombre de pila",
+          "Nombre de pila + inicial del apellido",
+          "Fotografías",
+          "Videos",
+          "Capturas de pantalla",
+          "Testimonios",
+          "Imágenes de la entrega del premio",
+          "Anuncios de ganadores"
+        ]
+      },
+      "chargebacks": {
+        "title": "16. Contracargos, fraude y abuso",
+        "description": "Si un participante inicia un contracargo abusivo o injustificado, una disputa de pago fraudulento o intenta recuperar fondos de manera inapropiada:",
+        "rules": [
+          "Los tickets pueden ser cancelados.",
+          "Cualquier premio pendiente o potencial puede suspenderse o anularse.",
+          "La cuenta puede ser suspendida o cerrada permanentemente.",
+          "Nesswin puede negarse a entregar cualquier premio."
+        ]
+      },
+      "availability": {
+        "title": "17. Disponibilidad de la Plataforma",
+        "description": "No garantizamos el funcionamiento ininterrumpido, libre de errores o libre de defectos de la Plataforma o de los servicios relacionados. Nesswin puede modificar, suspender, actualizar, restringir o discontinuar total o parcialmente la Plataforma en cualquier momento."
+      },
+      "intellectualProperty": {
+        "title": "18. Propiedad intelectual",
+        "description": "Todo el contenido de la Plataforma, incluidos textos, logotipos, marcas, gráficos, videos, diseños, interfaces, software, bases de datos y materiales promocionales, pertenece a Nesswin o a sus licenciantes y está protegido por las leyes de propiedad intelectual."
+      },
+      "limitationOfLiability": {
+        "title": "19. Limitación de responsabilidad",
+        "description": "Nada en estos Términos excluye o limita la responsabilidad donde sería ilegal hacerlo, incluso por muerte o lesiones personales causadas por negligencia, fraude, tergiversación fraudulenta o cualquier responsabilidad que no pueda excluirse legalmente."
+      },
+      "governingLaw": {
+        "title": "20. Ley aplicable y jurisdicción",
+        "description": "Estos Términos se rigen por las leyes de Inglaterra y Gales. Cualquier disputa, reclamación o asunto que surja de o en relación con la Plataforma, sorteos, participaciones, premios o estos Términos estará sujeto a la jurisdicción de los tribunales de Inglaterra y Gales, sujeto a cualquier derecho obligatorio del consumidor que pueda aplicarse en el país de residencia del participante."
+      },
+      "contact": {
+        "title": "21. Contacto y quejas",
+        "description": "Para preguntas, inquietudes o quejas:",
+        "compName": "NESSWIN COMPETITIONS LTD",
+        "email": "Correo electrónico:",
+        "address": "Domicilio social: 128 City Road, London, EC1V 2NX",
+        "phone": "Teléfono: +44 7488 87 6770"
+      }
+    }
+  }
+}

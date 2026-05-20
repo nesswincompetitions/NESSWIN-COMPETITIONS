@@ -89,10 +89,21 @@ const CompetitionsList = () => {
       { label: 'Created At', key: 'createdAt' }
     ];
 
-    const exportData = filteredCompetitions.map(c => ({
-      ...c,
-      createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : 'N/A'
-    }));
+    const exportData = filteredCompetitions.map(c => {
+      let drawDateStr = 'N/A';
+      if (c.drawDate) {
+        const dateObj = c.drawDate.toDate ? c.drawDate.toDate() : new Date(c.drawDate);
+        if (!isNaN(dateObj.getTime())) {
+          drawDateStr = dateObj.toISOString();
+        }
+      }
+
+      return {
+        ...c,
+        drawDate: drawDateStr,
+        createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : 'N/A'
+      };
+    });
 
     exportToCSV(exportData, headers, `competitions_export_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success('Competitions list exported to CSV');

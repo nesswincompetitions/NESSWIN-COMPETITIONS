@@ -110,8 +110,9 @@ const UsersList = () => {
       const search = searchTerm.toLowerCase();
       const nameMatch = (u.display_name || u.name || '').toLowerCase().includes(search);
       const emailMatch = (u.email || '').toLowerCase().includes(search);
+      const phoneMatch = (u.phone_number || '').toLowerCase().replace(/\s/g, '').includes(search.replace(/\s/g, ''));
 
-      return matchesStatus && (nameMatch || emailMatch);
+      return matchesStatus && (nameMatch || emailMatch || phoneMatch);
     });
 
     filtered.sort((a, b) => {
@@ -270,6 +271,11 @@ const UsersList = () => {
                             <p className="text-[10px] text-gray-500 truncate max-w-[180px]" title={user.email}>
                               {user.email}
                             </p>
+                            {user.phone_number && (
+                              <p className="text-[10px] text-gray-500 truncate max-w-[180px]" title={user.phone_number}>
+                                {user.phone_number}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </TableCell>

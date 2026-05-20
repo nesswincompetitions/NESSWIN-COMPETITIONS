@@ -34,11 +34,6 @@ export default function Footer() {
     { label: t("footer.links.liveDraws"), href: "/competitions?status=drawing" },
   ];
 
-  const companyLinks = [
-    { label: t("footer.links.press"), href: "/press" },
-    { label: t("footer.links.affiliates"), href: "/affiliates" },
-    { label: t("footer.links.careers"), href: "/careers" },
-  ];
 
   const legalLinks = [
     { label: t("footer.links.terms"), href: "/terms" },
@@ -51,7 +46,7 @@ export default function Footer() {
   return (
     <footer className="bg-card/50 border-t border-border">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             
@@ -135,7 +130,6 @@ export default function Footer() {
           </div>
 
           <LinkGroup heading={t("footer.platform")} links={platformLinks} />
-          <LinkGroup heading={t("footer.company")} links={companyLinks} />
           <LinkGroup heading={t("footer.legal")} links={legalLinks} />
         </div>
 

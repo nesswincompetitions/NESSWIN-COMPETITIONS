@@ -128,7 +128,14 @@ export const fetchCompetitionParticipants = async (competitionId, participantUid
     getDocs(query(collection(db, 'ticket'), where('competition_id', '==', compRef)))
   ]);
   
-  const allTicketDocs = [...ticketsSnapString.docs, ...ticketsSnapRef.docs];
+  const allTicketDocs = [];
+  const seenTicketIds = new Set();
+  [...ticketsSnapString.docs, ...ticketsSnapRef.docs].forEach(docSnap => {
+    if (!seenTicketIds.has(docSnap.id)) {
+      seenTicketIds.add(docSnap.id);
+      allTicketDocs.push(docSnap);
+    }
+  });
   
   const ticketMap = {};
   allTicketDocs.forEach(docSnap => {
@@ -154,8 +161,9 @@ export const fetchCompetitionParticipants = async (competitionId, participantUid
 
     participantsList.push({
       id: uid,
-      name: userData.display_name,
-      email: userData.email,
+      name: userData.display_name || userData.name || 'Unknown User',
+      email: userData.email || 'N/A',
+      phone_number: userData.phone_number || userData.phone || 'N/A',
       tickets: ticketMap[uid] || [],
       status: userData.is_active ? 'Active' : 'Inactive',
       joinedDate: userData.created_at?.toMillis ? new Date(userData.created_at.toMillis()).toLocaleDateString() : 'N/A'

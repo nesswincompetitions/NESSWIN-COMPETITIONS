@@ -35,13 +35,16 @@ export const AuthProvider = ({ children }) => {
               if (data.is_active === false) {
                 signOut(auth);
                 setUserData(null);
+                localStorage.removeItem('nesswin_user_role');
                 setLoading(false);
                 setInitialLoading(false);
                 return;
               }
               setUserData(data);
+              localStorage.setItem('nesswin_user_role', data.role || 'user');
             } else {
               setUserData(null);
+              localStorage.removeItem('nesswin_user_role');
             }
             setLoading(false);
             setInitialLoading(false);
@@ -50,12 +53,14 @@ export const AuthProvider = ({ children }) => {
             // Gracefully handle permission errors — don't freeze the app
             console.warn('Firestore snapshot error:', error.code, error.message);
             setUserData(null);
+            localStorage.removeItem('nesswin_user_role');
             setLoading(false);
             setInitialLoading(false);
           }
         );
       } else {
         setUserData(null);
+        localStorage.removeItem('nesswin_user_role');
         setLoading(false);
         setInitialLoading(false);
       }

@@ -171,9 +171,9 @@ const UserDetail = () => {
 
   if (loading || !profile) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
-        <Loader2 size={48} className="animate-spin text-primary mb-4 opacity-50" />
-        <p className="text-gray-400 font-medium">Loading user profile...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] py-24 fade-in">
+        <Loader2 size={32} className="animate-spin text-primary mb-4" />
+        <p className="text-sm text-gray-400 font-medium animate-pulse">{t('common.loading', 'Loading details...')}</p>
       </div>
     );
   }
