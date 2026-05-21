@@ -118,18 +118,18 @@ export async function selectWinnerTransaction(
     .where("ticket_sequence", "==", normalizedTicketSequence)
     .limit(2);
 
-  const ticketsSnap = await transaction.get(ticketsQuery);
+  const querySnap = await ticketsQuery.get();
 
-  if (ticketsSnap.empty) {
+  if (querySnap.empty) {
     throw new HttpsError("not-found", "No ticket matches that sequence in this competition.");
   }
 
-  if (ticketsSnap.docs.length > 1) {
+  if (querySnap.docs.length > 1) {
     throw new HttpsError("failed-precondition", "Multiple tickets matched the provided sequence. Data integrity check failed.");
   }
 
-  const ticketSnap = ticketsSnap.docs[0];
-  const ticketRef = ticketSnap.ref;
+  const ticketRef = querySnap.docs[0].ref;
+  const ticketSnap = await transaction.get(ticketRef);
   const ticketData = ticketSnap.data();
 
   if (normalizeStatus(ticketData.status) === "invalid") {

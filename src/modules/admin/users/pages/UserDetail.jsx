@@ -86,12 +86,23 @@ const UserDetail = () => {
       setResolvingComps(true);
       try {
         const snaps = await Promise.all(
-          Array.from(missingIds).map(cid => getDoc(doc(db, 'competition', cid)))
+          Array.from(missingIds).map(async (cid) => {
+            try {
+              return await getDoc(doc(db, 'competition', cid));
+            } catch (err) {
+              console.error(`Failed to fetch competition ${cid}:`, err);
+              return { id: cid, exists: () => false };
+            }
+          })
         );
         setCompDetails(prev => {
           const next = { ...prev };
           snaps.forEach(snap => {
-            if (snap.exists()) next[snap.id] = snap.data();
+            if (snap.exists && snap.exists()) {
+              next[snap.id] = snap.data();
+            } else {
+              next[snap.id || snap.id] = { isDeleted: true };
+            }
           });
           return next;
         });

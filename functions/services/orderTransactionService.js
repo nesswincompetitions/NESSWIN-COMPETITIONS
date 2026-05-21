@@ -80,6 +80,19 @@ export async function runOrderTransaction(
     .map((r) => db.collection("referrals").doc(r.id));
 
   const result = await db.runTransaction(async (transaction) => {
+    if (orderId) {
+      const orderSnap = await transaction.get(orderRef);
+      if (orderSnap.exists) {
+        const orderData = orderSnap.data();
+        if (orderData.status !== "pending") {
+          throw new Error("This order has already been processed or is not in a pending state.");
+        }
+        if (orderData.user_ref?.path !== userRef.path) {
+          throw new Error("This order does not belong to you.");
+        }
+      }
+    }
+
     const compSnap = await transaction.get(competitionRef);
     if (!compSnap.exists) throw new Error("Competition not found.");
 
@@ -130,14 +143,20 @@ export async function runOrderTransaction(
 
     let unusedLogs = [];
     if (clampedReferralTickets > 0) {
-      const unusedLogsSnap = await transaction.get(
-        db.collection("free_ticket_log")
-          .where("user_id", "==", userRef)
-          .where("competition_id", "==", null)
+      const unusedLogsQuerySnap = await db.collection("free_ticket_log")
+        .where("user_id", "==", userRef)
+        .where("competition_id", "==", null)
+        .get();
+
+      // Read each document inside the transaction to lock it and get fresh data
+      const unusedLogsSnaps = await Promise.all(
+        unusedLogsQuerySnap.docs.map((doc) => transaction.get(doc.ref))
       );
+
       // Sort in memory to avoid missing index errors in transaction
-      unusedLogs = unusedLogsSnap.docs
-        .map(d => ({ id: d.id, ...d.data(), ref: d.ref }))
+      unusedLogs = unusedLogsSnaps
+        .filter((d) => d.exists)
+        .map((d) => ({ id: d.id, ...d.data(), ref: d.ref }))
         .sort((a, b) => {
           const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
           const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;

@@ -14,16 +14,15 @@ import { useAuth } from '@/shared/state/AuthContext';
  */
 export const useAdminUnreadCounts = () => {
   const { currentUser } = useAuth();
-  const [counts, setCounts] = useState({
+  const [counts, setCounts] = useState(() => ({
     support: 0,
     winner: 0,
-    loading: true
-  });
+    loading: !!currentUser?.uid
+  }));
 
   useEffect(() => {
     if (!currentUser?.uid) {
-      setCounts(prev => ({ ...prev, loading: false }));
-      return;
+      return undefined;
     }
 
     const adminRef = doc(db, 'user', currentUser.uid);
@@ -56,18 +55,18 @@ export const useAdminUnreadCounts = () => {
       });
     }, (error) => {
       console.error('[useAdminUnreadCounts] Error listening to unread counts:', error);
-      setCounts(prev => ({ ...prev, loading: false }));
+      setCounts(prev => prev.loading ? { ...prev, loading: false } : prev);
     });
 
     return () => unsubscribe();
   }, [currentUser?.uid]);
 
   return useMemo(() => ({
-    supportUnread: counts.support,
-    winnerUnread: counts.winner,
-    totalUnread: counts.support + counts.winner,
-    loading: counts.loading
-  }), [counts]);
+    supportUnread: currentUser?.uid ? counts.support : 0,
+    winnerUnread: currentUser?.uid ? counts.winner : 0,
+    totalUnread: currentUser?.uid ? (counts.support + counts.winner) : 0,
+    loading: currentUser?.uid ? counts.loading : false
+  }), [counts, currentUser?.uid]);
 };
 
 export default useAdminUnreadCounts;

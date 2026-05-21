@@ -31,13 +31,15 @@ export const grantAdminBonus = onCall(async (request) => {
         throw new HttpsError("not-found", "User not found.");
       }
 
-      const batch = db.batch();
+      const batches = [];
+      let currentBatch = db.batch();
+      let opCount = 0;
       const serverTs = admin.firestore.FieldValue.serverTimestamp();
 
       const adminRef = db.collection("user").doc(request.auth.uid);
       for (let i = 0; i < qty; i++) {
         const referralRef = db.collection("referrals").doc();
-        batch.set(referralRef, {
+        currentBatch.set(referralRef, {
           referrer_id: userRef,
           referred_user_id: adminRef,
           referral_code: "ADMIN_BONUS",
@@ -46,16 +48,28 @@ export const grantAdminBonus = onCall(async (request) => {
           reward_issued: false,
           created_at: serverTs,
         });
+        opCount++;
+        if (opCount >= 400) {
+          batches.push(currentBatch);
+          currentBatch = db.batch();
+          opCount = 0;
+        }
       }
 
-      batch.update(userRef, {
+      currentBatch.update(userRef, {
         free_tickets: admin.firestore.FieldValue.increment(qty),
         total_free_tickets: admin.firestore.FieldValue.increment(qty),
         updated_at: serverTs,
       });
+      opCount++;
+      if (opCount >= 400) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        opCount = 0;
+      }
 
       const notifRef = db.collection("ff_user_push_notifications").doc();
-      batch.set(notifRef, {
+      currentBatch.set(notifRef, {
         user_refs: userRef.path,
         notification_title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
         notification_text: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
@@ -77,9 +91,15 @@ export const grantAdminBonus = onCall(async (request) => {
         timestamp: serverTs,
         created_at: serverTs,
       });
+      opCount++;
+      if (opCount >= 400) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        opCount = 0;
+      }
 
       const logRef = db.collection("free_ticket_log").doc();
-      batch.set(logRef, {
+      currentBatch.set(logRef, {
         user_id: userRef,
         quantity: qty,
         reason: reason || "Admin Bonus",
@@ -90,8 +110,11 @@ export const grantAdminBonus = onCall(async (request) => {
         type: "grant",
         created_at: serverTs,
       });
+      opCount++;
 
-    await batch.commit();
+      batches.push(currentBatch);
+
+      await Promise.all(batches.map((b) => b.commit()));
 
     logger.info(`[grantAdminBonus] Granted ${qty} tickets to user=${userId}`);
 

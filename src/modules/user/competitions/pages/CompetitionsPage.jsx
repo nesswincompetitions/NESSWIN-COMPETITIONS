@@ -89,7 +89,7 @@ function CompetitionCard({ competition, hasTicket }) {
 
   return (
     <article
-      onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+      onClick={() => navigate(`/competitions/${id}`, { state: { competition, fromSearch: location.search } })}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-md transform-gpu motion-reduce:transform-none h-full cursor-pointer"
       style={{
         transition:
@@ -204,7 +204,7 @@ function CompetitionCard({ competition, hasTicket }) {
           {/* CTA */}
           {(isClosed || isReadyToDraw || isDrawing || isWinnerAnnounced || isCompleted) ? (
             <button
-              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition, fromSearch: location.search } })}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
             >
               {isWinnerAnnounced ? (
@@ -226,7 +226,7 @@ function CompetitionCard({ competition, hasTicket }) {
             </button>
           ) : isSoldOut ? (
             <button
-              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition, fromSearch: location.search } })}
               className="inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all cursor-pointer shadow-[0_0_15px_oklch(0.78_0.14_78/0.3)]"
             >
               <Ticket className="w-4 h-4" aria-hidden="true" />
@@ -234,7 +234,7 @@ function CompetitionCard({ competition, hasTicket }) {
             </button>
           ) : (
             <button
-              onClick={() => navigate(`/competitions/${id}`, { state: { competition } })}
+              onClick={() => navigate(`/competitions/${id}`, { state: { competition, fromSearch: location.search } })}
               className={`inline-flex items-center justify-center gap-2 w-full rounded-md text-sm font-semibold tracking-wide px-4 py-2 h-9 transition-all cursor-pointer ${
                 isEnded
                   ? "bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10"
@@ -317,18 +317,40 @@ export default function CompetitionsPage() {
   const { t } = useTranslation();
   const statusFilters = STATUS_FILTER_KEYS.map((key) => ({ key, label: t(`competitionsPage.statusFilters.${key}`) }));
   const categoryFilters = CATEGORY_FILTER_KEYS.map((key) => ({ key, label: t(`competitionsPage.categoryFilters.${key}`) }));
-  const [activeStatusKey, setActiveStatusKey] = useState("all");
-  const [activeCategoryKey, setActiveCategoryKey] = useState("allCategories");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+  const categoryParam = searchParams.get('category');
+
+  const activeStatusKey = useMemo(() => {
+    return (statusParam && STATUS_FILTER_KEYS.includes(statusParam)) ? statusParam : "all";
+  }, [statusParam]);
+
+  const activeCategoryKey = useMemo(() => {
+    return (categoryParam && CATEGORY_FILTER_KEYS.includes(categoryParam)) ? categoryParam : "allCategories";
+  }, [categoryParam]);
+
+  const setActiveStatusKey = (status) => {
+    const params = new URLSearchParams(searchParams);
+    if (status === 'all') {
+      params.delete('status');
+    } else {
+      params.set('status', status);
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const setActiveCategoryKey = (category) => {
+    const params = new URLSearchParams(searchParams);
+    if (category === 'allCategories') {
+      params.delete('category');
+    } else {
+      params.set('category', category);
+    }
+    setSearchParams(params, { replace: true });
+  };
+
   const [nowTs] = useState(() => Date.now());
   const { ticketedIds } = useUserTicketedCompetitions();
-  const [searchParams] = useSearchParams();
-  const statusParam = searchParams.get('status');
-
-  useEffect(() => {
-    if (statusParam && STATUS_FILTER_KEYS.includes(statusParam)) {
-      setActiveStatusKey(statusParam);
-    }
-  }, [statusParam]);
 
   const baseConstraints = useMemo(() => [orderBy('created_at', 'desc')], []);
   const {

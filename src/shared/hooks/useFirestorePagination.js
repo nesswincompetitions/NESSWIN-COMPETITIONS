@@ -173,7 +173,7 @@ export function useFirestorePagination({
     cursorsRef.current = { 1: null };
     lastDocRef.current = null;
     void loadPage(1, true);
-  }, [collectionName, constraintsSignature, pageSize]);
+  }, [collectionName, constraintsSignature, pageSize, loadPage]);
 
   const nextPage = useCallback(() => {
     if (loading || loadingMore || !hasMore) return;

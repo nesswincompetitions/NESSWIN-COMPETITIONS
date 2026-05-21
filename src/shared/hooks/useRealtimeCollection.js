@@ -71,7 +71,7 @@ const logFirestoreError = (collectionName, snapshotError) => {
  */
 export const useRealtimeCollection = (collectionName, queryConstraints = []) => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!collectionName);
   const [error, setError] = useState(null);
 
   const normalizedConstraints = useMemo(() => {
@@ -91,9 +91,15 @@ export const useRealtimeCollection = (collectionName, queryConstraints = []) => 
 
   useEffect(() => {
     if (!collectionName) {
-      setData([]);
-      setLoading(false);
-      setError(new Error('A collectionName is required for useRealtimeCollection.'));
+      Promise.resolve().then(() => {
+        setData((prev) => (prev.length > 0 ? [] : prev));
+        setLoading((prev) => (prev ? false : prev));
+        setError((prev) => 
+          prev && prev.message === 'A collectionName is required for useRealtimeCollection.'
+            ? prev
+            : new Error('A collectionName is required for useRealtimeCollection.')
+        );
+      });
       return undefined;
     }
 
@@ -143,6 +149,7 @@ export const useRealtimeCollection = (collectionName, queryConstraints = []) => 
         unsubscribe();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collectionName, constraintsSignature]);
 
   return { data, loading, error };

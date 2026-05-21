@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { doc, getDoc, limit, onSnapshot, orderBy, where, collection, getCountFromServer } from 'firebase/firestore';
+import { doc, getDoc, limit, onSnapshot, orderBy, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
+import { queryClient } from '@/config/queryClient';
 
 const ACTIVE_COMPETITION_STATUSES = [
   'active',
@@ -64,40 +65,58 @@ const mapCompetitionSummary = (competition) => {
   };
 };
 
-// Global client-side memory cache with TTL (5 minutes)
+// Reference objects to act as unique cache domain keys for the queryClient mapping
 const globalUserCache = {};
 const globalCompCache = {};
 const globalTicketCache = {};
-let globalResolvedWinners = null;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Reduced TTL to 30 seconds for admin data freshness
+const CACHE_TTL_MS = 30 * 1000; 
+
+const getCacheKeyPrefix = (cache) => {
+  if (cache === globalUserCache) return 'adminUser';
+  if (cache === globalCompCache) return 'adminComp';
+  if (cache === globalTicketCache) return 'adminTicket';
+  return 'adminUnknown';
+};
 
 const getFromCache = (cache, id) => {
-  const entry = cache[id];
+  if (!id) return null;
+  const prefix = getCacheKeyPrefix(cache);
+  const entry = queryClient.getQueryData([prefix, id]);
   if (!entry) return null;
   const isExpired = Date.now() - entry.timestamp > CACHE_TTL_MS;
   if (isExpired) {
-    delete cache[id];
+    queryClient.removeQueries({ queryKey: [prefix, id] });
     return null;
   }
   return entry.data;
 };
 
 const setInCache = (cache, id, data) => {
-  cache[id] = {
+  if (!id) return;
+  const prefix = getCacheKeyPrefix(cache);
+  queryClient.setQueryData([prefix, id], {
     data,
     timestamp: Date.now()
-  };
+  });
 };
 
 const getActiveCacheMap = (cache) => {
   const activeMap = {};
+  const prefix = getCacheKeyPrefix(cache);
   const now = Date.now();
-  Object.keys(cache).forEach(id => {
-    const entry = cache[id];
-    if (entry && now - entry.timestamp <= CACHE_TTL_MS) {
-      activeMap[id] = entry.data;
-    } else {
-      delete cache[id];
+  const queries = queryClient.getQueryCache().getAll();
+  queries.forEach((q) => {
+    const key = q.queryKey;
+    if (Array.isArray(key) && key[0] === prefix) {
+      const id = key[1];
+      const entry = q.state.data;
+      if (entry && now - entry.timestamp <= CACHE_TTL_MS) {
+        activeMap[id] = entry.data;
+      } else {
+        queryClient.removeQueries({ queryKey: [prefix, id] });
+      }
     }
   });
   return activeMap;
@@ -175,6 +194,8 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
             if (snap.exists()) {
               const data = { id: snap.id, ...snap.data() };
               setInCache(globalUserCache, snap.id, data);
+            } else {
+              setInCache(globalUserCache, snap.id, { id: snap.id, isDeleted: true });
             }
           });
           setUserMap((prev) => ({ ...prev, ...getActiveCacheMap(globalUserCache) }));
@@ -185,6 +206,8 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
             if (snap.exists()) {
               const data = { id: snap.id, ...snap.data() };
               setInCache(globalCompCache, snap.id, data);
+            } else {
+              setInCache(globalCompCache, snap.id, { id: snap.id, isDeleted: true });
             }
           });
           setCompMap((prev) => ({ ...prev, ...getActiveCacheMap(globalCompCache) }));
@@ -223,14 +246,18 @@ const useRealtimeDocument = (pathSegments) => {
     const segments = Array.isArray(pathSegments) ? pathSegments.filter(Boolean) : [];
 
     if (segments.length < 2 || segments.length % 2 !== 0) {
-      setData(null);
-      setLoading(false);
-      setError(new Error('A valid Firestore document path is required.'));
+      Promise.resolve().then(() => {
+        setData(null);
+        setLoading(false);
+        setError(new Error('A valid Firestore document path is required.'));
+      });
       return undefined;
     }
 
-    setLoading(true);
-    setError(null);
+    Promise.resolve().then(() => {
+      setLoading(true);
+      setError(null);
+    });
 
     let unsubscribe = () => {};
 
@@ -259,6 +286,7 @@ const useRealtimeDocument = (pathSegments) => {
         unsubscribe();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathKey]);
 
   return { data, loading, error };
@@ -489,6 +517,7 @@ export const useAdminDashboardData = () => {
   );
 
   const drawsEndingSoon = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
     const sevenDaysMs = now + (7 * 24 * 60 * 60 * 1000);
 
@@ -525,7 +554,7 @@ export const useWinnerCompetitionsFeed = () => {
   );
 
   const { data: competitions, loading: collectionLoading, error } = useRealtimeCollection('competition', queryConstraints);
-  const [rows, setRows] = useState(() => globalResolvedWinners || []);
+  const [rows, setRows] = useState(() => queryClient.getQueryData(['adminResolvedWinners']) || []);
   const [resolving, setResolving] = useState(true);
 
   useEffect(() => {
@@ -553,9 +582,16 @@ export const useWinnerCompetitionsFeed = () => {
                   const data = { id: snap.id, ...snap.data() };
                   setInCache(globalUserCache, snap.id, data);
                   return data;
+                } else {
+                  const placeholder = { id: uId, isDeleted: true };
+                  setInCache(globalUserCache, uId, placeholder);
+                  return placeholder;
                 }
-                return null;
-              }).catch(() => null)
+              }).catch(() => {
+                const placeholder = { id: uId, isDeleted: true };
+                setInCache(globalUserCache, uId, placeholder);
+                return placeholder;
+              })
             : Promise.resolve(cachedUser);
 
           const fetchTicketPromise = (!cachedTicket && winnerTicketRef)
@@ -564,9 +600,16 @@ export const useWinnerCompetitionsFeed = () => {
                   const data = { id: snap.id, ...snap.data() };
                   setInCache(globalTicketCache, snap.id, data);
                   return data;
+                } else {
+                  const placeholder = { id: tId, isDeleted: true };
+                  setInCache(globalTicketCache, tId, placeholder);
+                  return placeholder;
                 }
-                return null;
-              }).catch(() => null)
+              }).catch(() => {
+                const placeholder = { id: tId, isDeleted: true };
+                setInCache(globalTicketCache, tId, placeholder);
+                return placeholder;
+              })
             : Promise.resolve(cachedTicket);
 
           // 🚀 Fire both document reads for THIS competition in parallel (if not cached)
@@ -593,7 +636,7 @@ export const useWinnerCompetitionsFeed = () => {
         // 🧠 THE MAGIC TRICK: Fire ALL competitions' network requests at the exact same time!
         const fullyResolvedCompetitions = await Promise.all(resolutionPromises);
         
-        globalResolvedWinners = fullyResolvedCompetitions;
+        queryClient.setQueryData(['adminResolvedWinners'], fullyResolvedCompetitions);
 
         if (isMounted) {
           setRows(fullyResolvedCompetitions);
@@ -611,15 +654,20 @@ export const useWinnerCompetitionsFeed = () => {
     if (!collectionLoading && competitions?.length > 0) {
       void resolveRows();
     } else if (!collectionLoading) {
-      setRows([]);
-      setResolving(false);
+      Promise.resolve().then(() => {
+        if (isMounted) {
+          setRows([]);
+          setResolving(false);
+        }
+      });
     }
 
     return () => { isMounted = false; };
   }, [competitions, collectionLoading]);
 
-  // If we already have globalResolvedWinners, we don't show the initial loading state
-  const isLoading = globalResolvedWinners ? false : (collectionLoading || resolving);
+  // If we already have globalResolvedWinners in queryClient, we don't show the initial loading state
+  const cachedWinners = queryClient.getQueryData(['adminResolvedWinners']);
+  const isLoading = cachedWinners ? false : (collectionLoading || resolving);
 
   return { data: rows, loading: isLoading, error };
 };
@@ -760,7 +808,11 @@ export const useUserWinsRealtime = (userId) => {
     if (!loading) {
       void resolveRows();
     } else {
-      setRows([]);
+      Promise.resolve().then(() => {
+        if (isMounted) {
+          setRows([]);
+        }
+      });
     }
 
     return () => { isMounted = false; };
@@ -923,12 +975,16 @@ export const useAdminOrdersFeedPaginated = (pageSize = 20) => {
           if (snap.exists()) {
             const data = { id: snap.id, ...snap.data() };
             setInCache(globalUserCache, snap.id, data);
+          } else {
+            setInCache(globalUserCache, snap.id, { id: snap.id, isDeleted: true });
           }
         });
         compSnaps.forEach((snap) => {
           if (snap.exists()) {
             const data = { id: snap.id, ...snap.data() };
             setInCache(globalCompCache, snap.id, data);
+          } else {
+            setInCache(globalCompCache, snap.id, { id: snap.id, isDeleted: true });
           }
         });
 
@@ -940,6 +996,7 @@ export const useAdminOrdersFeedPaginated = (pageSize = 20) => {
     };
 
     void resolveRefs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result.items]);
 
   const data = useMemo(() =>

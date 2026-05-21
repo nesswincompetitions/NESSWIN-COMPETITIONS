@@ -150,13 +150,38 @@ export default function SupportInboxPage() {
                 customerPhoto = cached.customerPhoto;
                 customerId = cached.customerId;
               } else {
-                const customerSnap = await getDoc(customerRef);
-                if (customerSnap.exists()) {
-                  const customerData = customerSnap.data();
-                  customerName = customerData.display_name || customerData.user_name || customerData.name || 'Unknown User';
-                  customerEmail = customerData.email || '';
-                  customerPhoto = customerData.photo_url || customerData.profile_image || '';
-                  customerId = customerSnap.id;
+                try {
+                  const customerSnap = await getDoc(customerRef);
+                  if (customerSnap.exists()) {
+                    const customerData = customerSnap.data();
+                    customerName = customerData.display_name || customerData.user_name || customerData.name || 'Unknown User';
+                    customerEmail = customerData.email || '';
+                    customerPhoto = customerData.photo_url || customerData.profile_image || '';
+                    customerId = customerSnap.id;
+                    participantCacheRef.current.set(getRefPath(customerRef), {
+                      customerName,
+                      customerEmail,
+                      customerPhoto,
+                      customerId,
+                    });
+                  } else {
+                    customerName = 'Deleted User';
+                    customerEmail = 'N/A';
+                    customerPhoto = '';
+                    customerId = customerRef.id;
+                    participantCacheRef.current.set(getRefPath(customerRef), {
+                      customerName,
+                      customerEmail,
+                      customerPhoto,
+                      customerId,
+                    });
+                  }
+                } catch (err) {
+                  console.error('Error fetching support customer details:', err);
+                  customerName = 'Error Loading User';
+                  customerEmail = 'N/A';
+                  customerPhoto = '';
+                  customerId = customerRef.id;
                   participantCacheRef.current.set(getRefPath(customerRef), {
                     customerName,
                     customerEmail,

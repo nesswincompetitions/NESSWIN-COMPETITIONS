@@ -21,10 +21,12 @@ export const softDeleteUser = onCall(async (request) => {
 
   try {
     const userRef = db.collection("user").doc(uid);
-    const batch = db.batch();
+    const batches = [];
+    let currentBatch = db.batch();
+    let opCount = 0;
 
     // 2. Anonymize User Data & Update Status
-    batch.update(userRef, {
+    currentBatch.update(userRef, {
       is_deleted: true,
       is_active: false,
       status: "deleted",
@@ -33,6 +35,7 @@ export const softDeleteUser = onCall(async (request) => {
       email: `deleted_${uid}@nesswin.com`,
       phone_number: admin.firestore.FieldValue.delete(),
     });
+    opCount++;
 
     // 3. Invalidate User's Tickets
     // Assuming ticket stores user reference in 'user_id', 'user_ref', or 'user'
@@ -61,10 +64,16 @@ export const softDeleteUser = onCall(async (request) => {
     allTickets.forEach(doc => uniqueTickets.set(doc.id, doc));
 
     uniqueTickets.forEach((ticketDoc) => {
-      batch.update(ticketDoc.ref, { 
+      currentBatch.update(ticketDoc.ref, { 
         status: "invalid",
         updated_at: admin.firestore.FieldValue.serverTimestamp()
       });
+      opCount++;
+      if (opCount >= 400) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        opCount = 0;
+      }
     });
 
     // 4. Anonymize User's Orders
@@ -96,11 +105,21 @@ export const softDeleteUser = onCall(async (request) => {
          };
       }
       
-      batch.update(orderDoc.ref, updateData);
+      currentBatch.update(orderDoc.ref, updateData);
+      opCount++;
+      if (opCount >= 400) {
+        batches.push(currentBatch);
+        currentBatch = db.batch();
+        opCount = 0;
+      }
     });
 
-    // Commit all Firestore updates
-    await batch.commit();
+    if (opCount > 0) {
+      batches.push(currentBatch);
+    }
+
+    // Commit all Firestore updates concurrently
+    await Promise.all(batches.map(b => b.commit()));
 
     // 5. Firebase Auth Hard Delete
     await admin.auth().deleteUser(uid);

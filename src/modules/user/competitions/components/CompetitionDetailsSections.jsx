@@ -67,7 +67,7 @@ export const Confetti = () => {
   );
 };
 
-export function Breadcrumb({ title }) {
+export function Breadcrumb({ title, fromSearch = "" }) {
   const { t } = useTranslation();
   return (
     <nav
@@ -75,7 +75,7 @@ export function Breadcrumb({ title }) {
       aria-label="Breadcrumb"
     >
       <Link
-        to="/competitions"
+        to={`/competitions${fromSearch}`}
         className="flex items-center gap-1.5 hover:text-primary transition-colors"
       >
         <ArrowLeft className="w-4 h-4" aria-hidden="true" />

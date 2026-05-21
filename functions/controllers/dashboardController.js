@@ -60,28 +60,28 @@ async function runFullRecalculation() {
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const compSnap = await db.collection("competition").get();
-  let totalActive = 0;
-  let totalWinners = 0;
+  // Fetch ONLY active competitions (usually very few) to get totalActive and endingSoon count.
+  const activeCompSnap = await db.collection("competition")
+    .where("status", "in", Array.from(ACTIVE_COMPETITION_STATUSES))
+    .get();
+
+  let totalActive = activeCompSnap.size;
   let endingSoon = 0;
 
-  compSnap.forEach(doc => {
+  activeCompSnap.forEach(doc => {
     const data = doc.data();
-    const status = (data.status || "").toLowerCase();
-    const hasWinner = Boolean(data.winner_ref);
-    
-    if (ACTIVE_COMPETITION_STATUSES.has(status)) {
-      totalActive++;
-      const drawDate = data.draw_date?.toDate?.() || (data.draw_date ? new Date(data.draw_date) : null);
-      if (drawDate && drawDate > now && drawDate <= sevenDaysFromNow) {
-        endingSoon++;
-      }
-    }
-
-    if (hasWinner || WINNER_COMPETITION_STATUSES.has(status)) {
-      totalWinners++;
+    const drawDate = data.draw_date?.toDate?.() || (data.draw_date ? new Date(data.draw_date) : null);
+    if (drawDate && drawDate > now && drawDate <= sevenDaysFromNow) {
+      endingSoon++;
     }
   });
+
+  // Count winner/completed competitions via cheap .count() aggregation query.
+  const winnersCountSnap = await db.collection("competition")
+    .where("status", "in", Array.from(WINNER_COMPETITION_STATUSES))
+    .count()
+    .get();
+  const totalWinners = winnersCountSnap.data().count;
 
   const userSnap = await db.collection("user")
     .where("is_verified", "==", true)
@@ -144,7 +144,10 @@ export const onCompetitionChangeDashboard = onDocumentUpdated("competition/{comp
   const before = event.data.before.data();
   const after = event.data.after.data();
 
-  if (before.status !== after.status || before.draw_date !== after.draw_date) {
+  const beforeTime = before.draw_date?.toMillis?.() || null;
+  const afterTime = after.draw_date?.toMillis?.() || null;
+
+  if (before.status !== after.status || beforeTime !== afterTime) {
     await runFullRecalculation();
   }
 });

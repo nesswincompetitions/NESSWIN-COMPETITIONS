@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { debounce, filterBySearch, normalizeTerm } from '@/shared/services/searchService';
 
 /**
@@ -34,14 +34,29 @@ export const useSearch = (
   const [searchTerm, setSearchTermState] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
+  // Keep track of the latest onSearch callback to avoid breaking the debouncer
+  const onSearchRef = useRef(onSearch);
+  useEffect(() => {
+    onSearchRef.current = onSearch;
+  }, [onSearch]);
+
   // Debounced search handler
-  const performSearch = useCallback(
-    debounce((term) => {
-      setIsSearching(false);
-      if (onSearch) onSearch(term);
-    }, debounceDelay),
-    [debounceDelay, onSearch]
+  const performSearch = useMemo(
+    () =>
+      // eslint-disable-next-line react-hooks/refs
+      debounce((term) => {
+        setIsSearching(false);
+        if (onSearchRef.current) onSearchRef.current(term);
+      }, debounceDelay),
+    [debounceDelay]
   );
+
+  // Cancel any pending debounced calls when the hook unmounts or delay changes
+  useEffect(() => {
+    return () => {
+      performSearch.cancel?.();
+    };
+  }, [performSearch]);
 
   // Handle search term change
   const setSearchTerm = useCallback((term) => {
@@ -91,7 +106,7 @@ export const useAdvancedSearch = (
   options = {}
 ) => {
   const {
-    priorityFields = [],
+    priorityFields: _priorityFields = [],
     additionalFilter = null,
     ...searchOptions
   } = options;

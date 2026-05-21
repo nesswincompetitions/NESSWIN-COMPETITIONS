@@ -311,7 +311,7 @@ export default function CompetitionDetails() {
       >
         <div className="pt-16 lg:pt-20">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <Breadcrumb title={c.title} />
+          <Breadcrumb title={c.title} fromSearch={location.state?.fromSearch || ""} />
           
           {(loading || c?.status === 'completed' || c?.status === 'winner_announced' || c?.status === 'end') ? (
             <>
