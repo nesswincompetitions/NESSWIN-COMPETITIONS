@@ -217,7 +217,7 @@ const ReferralsList = () => {
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden text-xs">
                             {user.photo_url ? (
-                              <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+                              <img src={user.photo_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                               (user.display_name || user.name || '?').charAt(0)
                             )}

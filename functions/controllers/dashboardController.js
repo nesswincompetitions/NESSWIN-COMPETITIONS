@@ -85,7 +85,6 @@ async function runFullRecalculation() {
 
   const userSnap = await db.collection("user")
     .where("is_verified", "==", true)
-    .where("is_deleted", "==", false)
     .count()
     .get();
   const registeredUsers = userSnap.data().count;
@@ -124,7 +123,7 @@ async function runFullRecalculation() {
     total_tickets_sold: totalTicketsSold,
     total_registered_users: registeredUsers,
     total_winners: totalWinners,
-    pending_winners: totalWinners,
+    pending_winners: admin.firestore.FieldValue.delete(),
     draws_ending_soon: endingSoon,
     open_support_chats: openSupportChats,
     closed_support_chats: closedSupportChats,
@@ -166,13 +165,10 @@ export const onUserChangeDashboard = onDocumentUpdated("user/{userId}", async (e
   const before = event.data.before.data();
   const after = event.data.after.data();
 
+  // If user completed onboarding / became verified
   if (!before.is_verified && after.is_verified) {
     await updateDashboard({
       total_registered_users: admin.firestore.FieldValue.increment(1)
-    });
-  } else if (before.is_deleted === false && after.is_deleted === true && after.is_verified) {
-    await updateDashboard({
-      total_registered_users: admin.firestore.FieldValue.increment(-1)
     });
   }
 });
@@ -181,7 +177,7 @@ export const onUserDeletedDashboard = onDocumentDeleted("user/{userId}", async (
   if (await markEventProcessed(event.id)) return;
   const data = event.data.data();
   
-  if (data.is_verified && !data.is_deleted) {
+  if (data.is_verified) {
     await updateDashboard({
       total_registered_users: admin.firestore.FieldValue.increment(-1)
     });
@@ -192,34 +188,37 @@ export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", asyn
   if (await markEventProcessed(event.id)) return;
   const data = event.data.data();
 
+  // Only decrement stats if the deleted order was actually paid (since unpaid orders are not counted in metrics)
+  if (data.status !== "paid") {
+    return;
+  }
+
   const batch = db.batch();
   const dashRef = db.doc(DASHBOARD_DOC_PATH);
   
+  const amount = Number(data.total_amount || 0);
+  const tickets = Number(data.total_ticket || 0);
+  const orderDate = data.created_at?.toDate?.() || new Date(data.created_at);
+  const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+  const todayStr = getTodayStr();
+
   const dashUpdates = {
     total_orders: admin.firestore.FieldValue.increment(-1),
+    total_revenue: admin.firestore.FieldValue.increment(-amount),
+    total_tickets_sold: admin.firestore.FieldValue.increment(-tickets),
     updated_at: admin.firestore.FieldValue.serverTimestamp()
   };
 
-  if (data.status === "paid") {
-    const amount = Number(data.total_amount || 0);
-    const tickets = Number(data.total_ticket || 0);
-    const orderDate = data.created_at?.toDate?.() || new Date(data.created_at);
-    const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-    const todayStr = getTodayStr();
-
-    dashUpdates.total_revenue = admin.firestore.FieldValue.increment(-amount);
-    dashUpdates.total_tickets_sold = admin.firestore.FieldValue.increment(-tickets);
-    if (orderDateStr === todayStr) {
-      dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(-tickets);
-    }
-
-    const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
-    batch.set(dailyRef, {
-      revenue: admin.firestore.FieldValue.increment(-amount),
-      tickets_sold: admin.firestore.FieldValue.increment(-tickets),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+  if (orderDateStr === todayStr) {
+    dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(-tickets);
   }
+
+  const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
+  batch.set(dailyRef, {
+    revenue: admin.firestore.FieldValue.increment(-amount),
+    tickets_sold: admin.firestore.FieldValue.increment(-tickets),
+    updated_at: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
 
   batch.set(dashRef, dashUpdates, { merge: true });
   await batch.commit();

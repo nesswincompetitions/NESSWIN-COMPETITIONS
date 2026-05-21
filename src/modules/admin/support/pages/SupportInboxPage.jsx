@@ -311,7 +311,7 @@ export default function SupportInboxPage() {
                             : 'bg-primary/10 text-primary'
                           }`}>
                           {chat.customerPhoto ? (
-                            <img src={chat.customerPhoto} alt="" className="h-full w-full object-cover" />
+                            <img src={chat.customerPhoto} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                           ) : (
                             chat.customerName?.slice(0, 2).toUpperCase() || 'U'
                           )}

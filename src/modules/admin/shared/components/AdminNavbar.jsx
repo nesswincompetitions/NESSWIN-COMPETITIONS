@@ -125,6 +125,7 @@ const AdminNavbar = () => {
                 src={userData.photo_url}
                 alt="Profile"
                 className="w-full h-full rounded-full object-cover"
+                referrerPolicy="no-referrer"
               />
             ) : (
               getInitials()

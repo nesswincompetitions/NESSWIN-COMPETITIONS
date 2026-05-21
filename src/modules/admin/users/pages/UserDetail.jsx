@@ -518,7 +518,7 @@ const UserDetail = () => {
               <div className="relative group">
                 <div className="w-24 h-24 rounded-full bg-[#121212] border-4 border-[#1a1a1a] shadow-xl flex items-center justify-center text-4xl font-bold text-white overflow-hidden relative">
                   {profile.photo_url || profile.profile_image ? (
-                    <img src={profile.photo_url || profile.profile_image} alt="" className="w-full h-full object-cover" />
+                    <img src={profile.photo_url || profile.profile_image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     (profile.display_name || profile.name || '?').charAt(0)
                   )}
