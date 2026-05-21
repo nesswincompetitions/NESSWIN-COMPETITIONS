@@ -9,10 +9,10 @@ import SearchInput from '@/shared/components/ui/SearchInput';
 import {
   Calendar, Download, Eye,
   ChevronDown, Users as UsersIcon, Loader2, CheckCircle2,
-  Ban, UserCheck, UserX
+  Ban, UserCheck, UserX, RefreshCcw
 } from 'lucide-react';
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
-import { useAdminUsersFeed } from '@/shared/hooks/useAdminData';
+import { useAdminUsersFeedPaginated } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
@@ -23,10 +23,19 @@ const UsersList = () => {
   
   const [activeStatus, setActiveStatus] = useState('All');
   const [sortBy, setSortBy] = useState('Newest');
-  const [currentPage, setCurrentPage] = useState(1);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: usersData, loading } = useAdminUsersFeed(50);
+  const { 
+    data: usersData, 
+    loading,
+    currentPage,
+    totalPages,
+    nextPage,
+    prevPage,
+    totalCount,
+    goToPage,
+    refresh
+  } = useAdminUsersFeedPaginated(sortBy, 20);
   const users = useMemo(() => usersData || [], [usersData]);
 
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
@@ -95,7 +104,6 @@ const UsersList = () => {
 
   const {
     currentUsers,
-    totalPages,
     totalFiltered,
   } = useMemo(() => {
     const filtered = users.filter((u) => {
@@ -115,26 +123,11 @@ const UsersList = () => {
       return matchesStatus && (nameMatch || emailMatch || phoneMatch);
     });
 
-    filtered.sort((a, b) => {
-      if (sortBy === 'Newest') {
-        const tA = (a.created_time || a.created_at)?.toMillis ? (a.created_time || a.created_at).toMillis() : 0;
-        const tB = (b.created_time || b.created_at)?.toMillis ? (b.created_time || b.created_at).toMillis() : 0;
-        return tB - tA;
-      }
-      if (sortBy === 'Spend') return (b.total_spent || 0) - (a.total_spent || 0);
-      return 0;
-    });
-
-    const start = (currentPage - 1) * itemsPerPage;
-    const paginated = filtered.slice(start, start + itemsPerPage);
-    const pages = Math.ceil(filtered.length / itemsPerPage) || 1;
-
     return {
-      currentUsers: paginated,
-      totalPages: pages,
+      currentUsers: filtered,
       totalFiltered: filtered.length,
     };
-  }, [users, activeStatus, sortBy, searchTerm, currentPage]);
+  }, [users, activeStatus, searchTerm]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -144,15 +137,20 @@ const UsersList = () => {
           <p className="text-gray-400 mt-1">{t('users.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2"
-            onClick={handleExportCSV}
-            disabled={!users.length}
-          >
+          <Button variant="outline" className="flex items-center gap-2 h-11 px-4" onClick={handleExportCSV} disabled={!users.length}>
             <Download size={16} />
-            {t('common.exportCsv')}
+            <span className="text-sm hidden sm:inline">{t('common.exportCsv')}</span>
           </Button>
+          <button
+            onClick={refresh}
+            title="Refresh Data"
+            className="w-11 h-11 flex items-center justify-center rounded-md border border-white/10 bg-transparent hover:border-yellow-500/40 hover:bg-yellow-500/5 transition-all duration-300 shrink-0 group"
+          >
+            <RefreshCcw
+              size={16}
+              className={`transition-all duration-500 ${loading ? 'animate-spin text-yellow-400' : 'text-yellow-400/70 group-hover:text-yellow-400 group-hover:rotate-180'}`}
+            />
+          </button>
         </div>
       </header>
 
@@ -163,7 +161,7 @@ const UsersList = () => {
               {['All', 'ACTIVE', 'SUSPENDED'].map((key) => (
                 <button
                   key={key}
-                  onClick={() => { setActiveStatus(key); setCurrentPage(1); }}
+                  onClick={() => { setActiveStatus(key); goToPage(1); }}
                   className={`px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 ${
                     activeStatus === key ? 'bg-white/10 text-white font-medium' : 'text-gray-400 hover:text-white'
                   }`}
@@ -176,7 +174,7 @@ const UsersList = () => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <SearchInput
                 value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                onChange={(e) => { setSearchTerm(e.target.value); goToPage(1); }}
                 placeholder={t('users.searchPlaceholder')}
                 className="flex-1 sm:w-64"
               />
@@ -209,7 +207,7 @@ const UsersList = () => {
                           type="button"
                           onClick={() => {
                             setSortBy(option.value);
-                            setCurrentPage(1);
+                            goToPage(1);
                             setIsSortOpen(false);
                           }}
                           className={`w-full text-left px-4 py-2 text-sm hover:bg-white/5 transition-colors cursor-pointer flex items-center justify-between ${
@@ -259,7 +257,7 @@ const UsersList = () => {
                         >
                           <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold overflow-hidden group-hover:ring-2 group-hover:ring-primary/50 transition-all">
                             {user.photo_url || user.profile_image ? (
-                              <img src={user.photo_url || user.profile_image} alt="" className="w-full h-full object-cover" />
+                              <img src={user.photo_url || user.profile_image} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
                               (user.display_name || user.name || '?').charAt(0)
                             )}
@@ -310,28 +308,34 @@ const UsersList = () => {
             )}
           </div>
 
-          {!loading && totalFiltered > 0 && (
+          {!loading && currentUsers.length > 0 && (
             <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-gray-400">
-                {t('common.showing')} {(currentPage - 1) * itemsPerPage + 1}-
-                {Math.min(currentPage * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}
+                {t('common.showing')} {currentUsers.length} users
+                {totalCount > 0 && ` (Total in DB: ${totalCount})`}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={currentPage <= 1 || loading} 
+                  onClick={prevPage}
+                >
                   {t('common.previous')}
                 </Button>
-                <div className="flex gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`w-8 h-8 rounded-md text-xs transition-colors ${currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'}`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
+                
+                <div className="px-3 py-1 bg-white/5 rounded-md text-sm font-medium text-white border border-white/10">
+                  {currentPage} / {Math.max(1, totalPages)}
                 </div>
-                <Button variant="outline" size="sm" className="h-8 text-xs bg-white/5" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={currentPage >= totalPages || loading} 
+                  onClick={nextPage}
+                >
                   {t('common.next')}
                 </Button>
               </div>

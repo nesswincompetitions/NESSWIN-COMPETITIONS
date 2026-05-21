@@ -10,7 +10,7 @@ import {
   Calendar, Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
-import { useAdminDashboardData, useAdminOrdersFeed } from '@/shared/hooks/useAdminData';
+import { useAdminDashboardData, useAdminOrdersFeedPaginated, useAdminCompetitionsFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 
@@ -22,11 +22,22 @@ const OrdersList = () => {
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const compDropdownRef = useRef(null);
 
-  const itemsPerPage = 20;
-  const { data: orders, loading: ordersLoading } = useAdminOrdersFeed(50);
+  const { data: allComps } = useAdminCompetitionsFeed();
+  
+  const { 
+    data: orders, 
+    loading: ordersLoading,
+    currentPage,
+    totalPages,
+    nextPage,
+    prevPage,
+    totalCount,
+    goToPage,
+    refresh
+  } = useAdminOrdersFeedPaginated(20);
+  
   const { data: dashboardStats, loading: statsLoading } = useAdminDashboardData();
   const loading = ordersLoading || statsLoading;
   const totalOrders = dashboardStats.totalOrders || 0;
@@ -86,14 +97,10 @@ const OrdersList = () => {
   };
 
   const uniqueCompetitions = useMemo(() => {
-    const comps = new Set();
-    orders.forEach(o => {
-      if (o.competitionName) comps.add(o.competitionName);
-    });
-    return Array.from(comps);
-  }, [orders]);
+    return allComps || [];
+  }, [allComps]);
 
-  const { currentOrders, totalFiltered, totalPages } = useMemo(() => {
+  const { currentOrders, totalFiltered } = useMemo(() => {
     const filtered = orders.filter(o => {
       const compTitle = o.competitionName || '';
       const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
@@ -111,18 +118,11 @@ const OrdersList = () => {
       return matchesComp && matchesSearch && matchesStatus;
     });
 
-    const totalFiltered = filtered.length;
-    const totalPages = Math.ceil(totalFiltered / itemsPerPage) || 1;
-    const safePage = Math.min(currentPage, totalPages);
-    const start = (safePage - 1) * itemsPerPage;
-    const paginated = filtered.slice(start, start + itemsPerPage);
-
     return { 
-      currentOrders: paginated, 
-      totalFiltered,
-      totalPages
+      currentOrders: filtered, 
+      totalFiltered: filtered.length
     };
-  }, [orders, selectedComp, searchTerm, currentPage, itemsPerPage, activeStatus]);
+  }, [orders, selectedComp, searchTerm, activeStatus]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -146,13 +146,23 @@ const OrdersList = () => {
           </Card>
           <Button 
             variant="outline" 
-            className="flex items-center gap-2 h-13"
+            className="flex items-center gap-2 h-11 px-4"
             onClick={handleExportCSV}
             disabled={!orders.length}
           >
             <Download size={16} />
             <span className="text-sm">{t('common.export')}</span>
           </Button>
+          <button
+            onClick={refresh}
+            title="Refresh Data"
+            className="w-11 h-11 flex items-center justify-center rounded-md border border-white/10 bg-transparent hover:border-yellow-500/40 hover:bg-yellow-500/5 transition-all duration-300 shrink-0 group"
+          >
+            <RefreshCcw
+              size={16}
+              className={`transition-all duration-500 ${loading ? 'animate-spin text-yellow-400' : 'text-yellow-400/70 group-hover:text-yellow-400 group-hover:rotate-180'}`}
+            />
+          </button>
         </div>
       </header>
 
@@ -171,6 +181,7 @@ const OrdersList = () => {
                   key={status.key}
                   onClick={() => { 
                     setActiveStatus(status.key); 
+                    goToPage(1);
                   }}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeStatus === status.key
                     ? 'bg-white/10 text-white font-medium'
@@ -185,7 +196,7 @@ const OrdersList = () => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <SearchInput
                 value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); }}
+                onChange={(e) => { setSearchTerm(e.target.value); goToPage(1); }}
                 placeholder={t('orders.searchPlaceholder')}
               />
 
@@ -193,11 +204,11 @@ const OrdersList = () => {
                 <select
                   className="w-full appearance-none bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 h-10 pr-8"
                   value={selectedComp}
-                  onChange={(e) => { setSelectedComp(e.target.value); }}
+                  onChange={(e) => { setSelectedComp(e.target.value); goToPage(1); }}
                 >
                   <option value="all" className="bg-[#121212]">{t('orders.filters.allCompetitions') || 'All Competitions'}</option>
-                  {uniqueCompetitions.map((comp, idx) => (
-                    <option key={idx} value={comp} className="bg-[#121212]">{comp}</option>
+                  {uniqueCompetitions.map((comp) => (
+                    <option key={comp.id} value={comp.name} className="bg-[#121212]">{comp.name}</option>
                   ))}
                 </select>
                 <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -291,42 +302,32 @@ const OrdersList = () => {
           </div>
 
           {!loading && currentOrders.length > 0 && (
-            <div className="p-4 border-t border-white/10 flex items-center justify-between">
+            <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-gray-400">
-                {t('common.showing')} {(Math.min(currentPage, totalPages) - 1) * itemsPerPage + 1}-{Math.min(Math.min(currentPage, totalPages) * itemsPerPage, totalFiltered)} {t('common.of')} {totalFiltered}
+                {t('common.showing')} {currentOrders.length} {t('orders.title')}
+                {totalCount > 0 && ` (Total in DB: ${totalCount})`}
               </p>
               <div className="flex items-center gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   className="h-8 text-xs bg-white/5" 
-                  disabled={currentPage === 1} 
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage <= 1 || loading} 
+                  onClick={prevPage}
                 >
                   {t('common.previous')}
                 </Button>
                 
-                <div className="flex gap-1 overflow-x-auto max-w-50 hide-scrollbar">
-                  {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => (
-                    <button
-                      key={i + 1}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`w-8 h-8 rounded-md text-xs shrink-0 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                        currentPage === i + 1 ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/10'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                  {totalPages > 10 && <span className="text-gray-500 self-center">...</span>}
+                <div className="px-3 py-1 bg-white/5 rounded-md text-sm font-medium text-white border border-white/10">
+                  {currentPage} / {Math.max(1, totalPages)}
                 </div>
 
                 <Button 
                   variant="outline" 
                   size="sm" 
                   className="h-8 text-xs bg-white/5" 
-                  disabled={currentPage === totalPages} 
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage >= totalPages || loading} 
+                  onClick={nextPage}
                 >
                   {t('common.next')}
                 </Button>

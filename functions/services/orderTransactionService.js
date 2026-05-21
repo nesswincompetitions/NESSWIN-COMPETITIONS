@@ -369,6 +369,25 @@ export async function runOrderTransaction(
       updated_at: serverNow,
     });
 
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+    const dashRef = db.doc("system_metrics/dashboard");
+    
+    transaction.set(dashRef, {
+      total_orders: admin.firestore.FieldValue.increment(1),
+      total_revenue: admin.firestore.FieldValue.increment(totalAmount),
+      total_tickets_sold: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
+      tickets_sold_today: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
+      updated_at: serverNow
+    }, { merge: true });
+
+    const dailyRef = db.collection("system_metrics/dashboard/daily_history").doc(todayStr);
+    transaction.set(dailyRef, {
+      revenue: admin.firestore.FieldValue.increment(totalAmount),
+      tickets_sold: admin.firestore.FieldValue.increment(totalTicketsToGenerate),
+      date: todayStr,
+      updated_at: serverNow
+    }, { merge: true });
+
     return {
       orderId: orderRef.id,
       tickets: ticketResults,

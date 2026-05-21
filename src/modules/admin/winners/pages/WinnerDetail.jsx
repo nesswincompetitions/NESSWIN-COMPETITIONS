@@ -33,10 +33,15 @@ const WinnerDetail = () => {
   const [attachmentFile, setAttachmentFile] = useState(null);
   const fileInputRef = useRef(null);
   const chatFileInputRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior = "smooth") => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior,
+      });
+    }
   };
 
   useEffect(() => {
@@ -102,10 +107,17 @@ const WinnerDetail = () => {
       limit(100)
     );
 
+    let isFirstLoad = true;
     const unsub = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setMessages(msgs);
-      scrollToBottom();
+      
+      if (isFirstLoad) {
+        setTimeout(() => scrollToBottom('auto'), 50);
+        isFirstLoad = false;
+      } else {
+        scrollToBottom('smooth');
+      }
 
       if (msgs.length > 0) {
         const lastMsg = msgs[msgs.length - 1];
@@ -467,7 +479,7 @@ const WinnerDetail = () => {
           </h2>
 
           <Card className="flex flex-col h-[600px] border-white/5 bg-[#0a0a0a]">
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-12">
                   <Mail className="text-gray-700 mb-4" size={48} />
@@ -512,7 +524,7 @@ const WinnerDetail = () => {
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
+
             </div>
 
             <form onSubmit={handleSendMessage} className="p-4 border-t border-white/10 bg-[#121212]/50 space-y-3">

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { doc, getDoc, limit, onSnapshot, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, limit, onSnapshot, orderBy, where, collection, getCountFromServer } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
+import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
 
 const ACTIVE_COMPETITION_STATUSES = [
   'active',
@@ -66,6 +67,8 @@ const mapCompetitionSummary = (competition) => {
 // Global client-side memory cache with TTL (5 minutes)
 const globalUserCache = {};
 const globalCompCache = {};
+const globalTicketCache = {};
+let globalResolvedWinners = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const getFromCache = (cache, id) => {
@@ -429,10 +432,10 @@ export const useAdminUsersFeed = (limitCount = 50) => {
 
 export const useAdminDashboardData = () => {
   const dashboardStats = useRealtimeDocument(['system_metrics', 'dashboard']);
+  const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }), []);
+  const todayHistory = useRealtimeDocument(['system_metrics', 'dashboard', 'daily_history', todayStr]);
   const { data: competitions, loading: competitionsLoading, error: competitionsError } = useRealtimeCollection('competition', []);
   const { data: recentOrders, loading: ordersLoading, error: ordersError } = useRecentOrders(5);
-  const { data: allOrders, loading: allOrdersLoading, error: allOrdersError } = useRealtimeCollection('order', []);
-  
   const { userMap, compMap, resolving } = useEnrichment(recentOrders, 'user_ref', 'competition_id');
 
   const activeCompetitionsList = useMemo(
@@ -498,11 +501,11 @@ export const useAdminDashboardData = () => {
 
   return {
     data: {
-      totalOrders: allOrders.length,
+      totalOrders: dashboardStats.data?.total_orders || 0,
       totalRevenue: dashboardStats.data?.total_revenue || 0,
       totalRegisteredUsers: dashboardStats.data?.total_registered_users || dashboardStats.data?.registered_users || 0,
-      ticketsSoldToday: dashboardStats.data?.tickets_sold_today || 0,
-      revenueToday: (dashboardStats.data?.tickets_sold_today || 0) * 5, // fallback calculation based on tickets sold today
+      ticketsSoldToday: todayHistory.data?.tickets_sold ?? dashboardStats.data?.tickets_sold_today ?? 0,
+      revenueToday:     todayHistory.data?.revenue      ?? 0,
       activeCompetitions: dashboardStats.data?.total_active_competitions || activeCompetitionsList.length,
       totalWinners: dashboardStats.data?.total_winners || dashboardStats.data?.pending_winners || totalWinners,
       drawsEndingSoon: dashboardStats.data?.draws_ending_soon || drawsEndingSoon,
@@ -510,8 +513,8 @@ export const useAdminDashboardData = () => {
       upcomingDrawsList,
       recentOrdersList,
     },
-    loading: dashboardStats.loading || competitionsLoading || ordersLoading || allOrdersLoading || resolving,
-    error: dashboardStats.error || competitionsError || ordersError || allOrdersError,
+    loading: dashboardStats.loading || competitionsLoading || ordersLoading || resolving,
+    error: dashboardStats.error || competitionsError || ordersError,
   };
 };
 
@@ -521,55 +524,104 @@ export const useWinnerCompetitionsFeed = () => {
     []
   );
 
-  const { data: competitions, loading, error } = useRealtimeCollection('competition', queryConstraints);
-  const [rows, setRows] = useState([]);
+  const { data: competitions, loading: collectionLoading, error } = useRealtimeCollection('competition', queryConstraints);
+  const [rows, setRows] = useState(() => globalResolvedWinners || []);
+  const [resolving, setResolving] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     const resolveRows = async () => {
-      const resolved = await Promise.all(competitions.map(async (competition) => {
-        const winnerUserRef = competition.winner_ref;
-        const winnerTicketRef = competition.winner_ticket_ref;
+      setResolving(true);
+      try {
+        // 1. Map all competitions into a clean array of parallel execution tasks
+        const resolutionPromises = competitions.map(async (competition) => {
+          // Fallback to winner_user_ref if provided, otherwise use standard winner_ref
+          const winnerUserRef = competition.winner_ref || competition.winner_user_ref;
+          const winnerTicketRef = competition.winner_ticket_ref;
 
-        const [winnerUserSnap, winnerTicketSnap] = await Promise.all([
-          winnerUserRef ? getDoc(winnerUserRef) : Promise.resolve(null),
-          winnerTicketRef ? getDoc(winnerTicketRef) : Promise.resolve(null),
-        ]);
+          const uId = getReferenceId(winnerUserRef);
+          const tId = getReferenceId(winnerTicketRef);
 
-        const winnerUser = winnerUserSnap?.exists() ? { id: winnerUserSnap.id, ...winnerUserSnap.data() } : null;
-        const winnerTicket = winnerTicketSnap?.exists() ? { id: winnerTicketSnap.id, ...winnerTicketSnap.data() } : null;
+          // Check cache first
+          const cachedUser = uId ? getFromCache(globalUserCache, uId) : null;
+          const cachedTicket = tId ? getFromCache(globalTicketCache, tId) : null;
 
-        return {
-          ...competition,
-          competition: competition.title || 'Untitled',
-          drawDate: competition.draw_date || null,
-          winnerName: winnerUser?.display_name || winnerUser?.name || 'Unknown User',
-          winnerEmail: winnerUser?.email || 'N/A',
-          winnerPhoto: winnerUser?.photo_url || winnerUser?.profile_image || '',
-          ticket: winnerTicket?.ticket_sequence || (winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A'),
-          status: competition.status || 'winner_announced',
-        };
-      }));
+          const fetchUserPromise = (!cachedUser && winnerUserRef)
+            ? getDoc(winnerUserRef).then((snap) => {
+                if (snap.exists()) {
+                  const data = { id: snap.id, ...snap.data() };
+                  setInCache(globalUserCache, snap.id, data);
+                  return data;
+                }
+                return null;
+              }).catch(() => null)
+            : Promise.resolve(cachedUser);
 
-      if (isMounted) {
-        setRows(resolved);
+          const fetchTicketPromise = (!cachedTicket && winnerTicketRef)
+            ? getDoc(winnerTicketRef).then((snap) => {
+                if (snap.exists()) {
+                  const data = { id: snap.id, ...snap.data() };
+                  setInCache(globalTicketCache, snap.id, data);
+                  return data;
+                }
+                return null;
+              }).catch(() => null)
+            : Promise.resolve(cachedTicket);
+
+          // 🚀 Fire both document reads for THIS competition in parallel (if not cached)
+          const [winnerUser, winnerTicket] = await Promise.all([
+            fetchUserPromise,
+            fetchTicketPromise
+          ]);
+
+          // Return the unified payload object cleanly, preserving fields for WinnersList.jsx
+          return {
+            ...competition,
+            competition: competition.title || 'Untitled',
+            drawDate: competition.draw_date || null,
+            winnerName: winnerUser?.display_name || winnerUser?.name || 'Unknown User',
+            winnerEmail: winnerUser?.email || 'N/A',
+            winnerPhoto: winnerUser?.photo_url || winnerUser?.profile_image || '',
+            ticket: winnerTicket?.ticket_sequence || (winnerTicket?.ticket_number ? `#${String(winnerTicket.ticket_number).padStart(4, '0')}` : 'N/A'),
+            status: competition.status || 'winner_announced',
+            winnerData: winnerUser,
+            ticketData: winnerTicket,
+          };
+        });
+
+        // 🧠 THE MAGIC TRICK: Fire ALL competitions' network requests at the exact same time!
+        const fullyResolvedCompetitions = await Promise.all(resolutionPromises);
+        
+        globalResolvedWinners = fullyResolvedCompetitions;
+
+        if (isMounted) {
+          setRows(fullyResolvedCompetitions);
+          setResolving(false);
+        }
+      } catch (err) {
+        console.error("Error resolving parallel feed references:", err);
+        if (isMounted) {
+          setRows(competitions); // Safe fallback
+          setResolving(false);
+        }
       }
     };
 
-    if (!loading) {
-      void resolveRows().catch((resolveError) => {
-        console.error('[useAdminData] Failed to resolve winner rows:', resolveError);
-        if (isMounted) setRows([]);
-      });
-    } else {
+    if (!collectionLoading && competitions?.length > 0) {
+      void resolveRows();
+    } else if (!collectionLoading) {
       setRows([]);
+      setResolving(false);
     }
 
     return () => { isMounted = false; };
-  }, [competitions, loading]);
+  }, [competitions, collectionLoading]);
 
-  return { data: rows, loading, error };
+  // If we already have globalResolvedWinners, we don't show the initial loading state
+  const isLoading = globalResolvedWinners ? false : (collectionLoading || resolving);
+
+  return { data: rows, loading: isLoading, error };
 };
 
 export const useCompetitionDraftsFeed = () => {
@@ -788,3 +840,161 @@ export const useUserBonusLogsRealtime = (userId) => {
 export const useCompetitionRealtime = (competitionId) => useRealtimeDocument(
   competitionId ? ['competition', competitionId] : []
 );
+
+// ─── Cursor-Based Paginated Feeds ────────────────────────────────────────────
+
+/**
+ * Paginated admin competitions feed.
+ * Orders by created_at desc. Status filtering done client-side to avoid
+ * requiring composite indexes (status != 'deleted' + orderBy status + orderBy created_at).
+ *
+ * @param {number} pageSize - Documents per page.
+ */
+export const useAdminCompetitionsFeedPaginated = (pageSize = 20) => {
+  const baseConstraints = useMemo(
+    () => [orderBy('created_at', 'desc')],
+    []
+  );
+
+  const result = useFirestorePagination({
+    collectionName: 'competition',
+    baseConstraints,
+    pageSize,
+    mode: 'paginate',
+  });
+
+  // Map items to competition summary format and filter out deleted
+  const data = useMemo(
+    () => result.items
+      .filter((c) => c.status !== 'deleted')
+      .map(mapCompetitionSummary),
+    [result.items]
+  );
+
+  return { ...result, data };
+};
+
+/**
+ * Paginated admin orders feed.
+ * Orders by created_at desc. Status filtering done client-side.
+ *
+ * @param {number} pageSize - Documents per page.
+ */
+export const useAdminOrdersFeedPaginated = (pageSize = 20) => {
+  const baseConstraints = useMemo(
+    () => [orderBy('created_at', 'desc')],
+    []
+  );
+
+  const result = useFirestorePagination({
+    collectionName: 'order',
+    baseConstraints,
+    pageSize,
+    mode: 'paginate',
+  });
+
+  const [userMap, setUserMap] = useState(() => getActiveCacheMap(globalUserCache));
+  const [compMap, setCompMap] = useState(() => getActiveCacheMap(globalCompCache));
+
+  // Enrich orders with user and competition names
+  useEffect(() => {
+    if (!result.items || result.items.length === 0) return;
+
+    const resolveRefs = async () => {
+      const missingUserIds = new Set();
+      const missingCompIds = new Set();
+
+      result.items.forEach((item) => {
+        const uId = getReferenceId(item.user_ref);
+        const cId = getReferenceId(item.competition_id);
+        if (uId && !userMap[uId] && !getFromCache(globalUserCache, uId)) missingUserIds.add(uId);
+        if (cId && !compMap[cId] && !getFromCache(globalCompCache, cId)) missingCompIds.add(cId);
+      });
+
+      if (missingUserIds.size === 0 && missingCompIds.size === 0) return;
+
+      try {
+        const [userSnaps, compSnaps] = await Promise.all([
+          Promise.all(Array.from(missingUserIds).map((id) => getDoc(doc(db, 'user', id)))),
+          Promise.all(Array.from(missingCompIds).map((id) => getDoc(doc(db, 'competition', id)))),
+        ]);
+
+        userSnaps.forEach((snap) => {
+          if (snap.exists()) {
+            const data = { id: snap.id, ...snap.data() };
+            setInCache(globalUserCache, snap.id, data);
+          }
+        });
+        compSnaps.forEach((snap) => {
+          if (snap.exists()) {
+            const data = { id: snap.id, ...snap.data() };
+            setInCache(globalCompCache, snap.id, data);
+          }
+        });
+
+        setUserMap((prev) => ({ ...prev, ...getActiveCacheMap(globalUserCache) }));
+        setCompMap((prev) => ({ ...prev, ...getActiveCacheMap(globalCompCache) }));
+      } catch (err) {
+        console.error('[useAdminOrdersFeedPaginated] Error resolving refs:', err);
+      }
+    };
+
+    void resolveRefs();
+  }, [result.items]);
+
+  const data = useMemo(() =>
+    result.items.map((order) => {
+      const userId = getReferenceId(order.user_ref);
+      const competitionId = getReferenceId(order.competition_id);
+      const user = userMap[userId];
+      const competition = compMap[competitionId];
+      return {
+        ...order,
+        userId,
+        userName: user?.display_name || user?.name || 'Unknown User',
+        userEmail: user?.email || 'N/A',
+        userPhoto: user?.photo_url || user?.profile_image || '',
+        competitionName: competition?.title || competition?.name || 'Unknown Competition',
+      };
+    }),
+    [result.items, userMap, compMap]
+  );
+
+  return { ...result, data };
+};
+
+/**
+ * Paginated admin users feed.
+ * Orders by created_time desc. Status/search filtering done client-side.
+ *
+ * @param {string} sortBy - 'Newest' or 'Spend'
+ * @param {number} pageSize - Documents per page.
+ */
+export const useAdminUsersFeedPaginated = (sortBy = 'Newest', pageSize = 20) => {
+  // Always order by created_time for consistent cursor-based pagination.
+  // Spend-based sorting is handled client-side over the loaded page.
+  const baseConstraints = useMemo(
+    () => [orderBy('created_time', 'desc')],
+    []
+  );
+
+  const result = useFirestorePagination({
+    collectionName: 'user',
+    baseConstraints,
+    pageSize,
+    mode: 'paginate',
+  });
+
+  const data = useMemo(() => {
+    const filtered = result.items.filter(
+      (u) => u.is_deleted !== true && u.role !== 'admin'
+    );
+
+    if (sortBy === 'Spend') {
+      return [...filtered].sort((a, b) => (b.total_spent || 0) - (a.total_spent || 0));
+    }
+    return filtered;
+  }, [result.items, sortBy]);
+
+  return { ...result, data };
+};

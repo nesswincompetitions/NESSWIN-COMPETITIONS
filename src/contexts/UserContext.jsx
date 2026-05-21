@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { useAuth } from '@/shared/state/AuthContext';
 
 const UserContext = createContext(undefined);
@@ -6,8 +6,10 @@ const UserContext = createContext(undefined);
 export function UserProvider({ children }) {
   const { userData, loading } = useAuth();
 
+  const value = useMemo(() => ({ userData, loading, error: null }), [userData, loading]);
+
   return (
-    <UserContext.Provider value={{ userData, loading, error: null }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

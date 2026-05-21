@@ -4,7 +4,6 @@ import {
   collection, 
   query, 
   where, 
-  getCountFromServer,
   getDocs,
   orderBy,
   limit
@@ -12,16 +11,26 @@ import {
 import { db } from '@/config/firebase';
 
 /**
+ * Returns today's date string in "YYYY-MM-DD" format (en-CA locale matches this).
+ */
+function getTodayStr() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+}
+
+/**
  * Fetches all 6 KPI stats for the Admin Dashboard.
  */
 export async function fetchDashboardStats() {
+  const todayStr = getTodayStr();
+
   const [
-    dashboardResult, activeResult, upcomingResult, ordersResult
+    dashboardResult, activeResult, upcomingResult, ordersResult, dailyHistoryResult
   ] = await Promise.allSettled([
     getDoc(doc(db, "system_metrics", "dashboard")),
     getDocs(query(collection(db, "competition"), where("status", "==", "active"), limit(10))),
     getDocs(query(collection(db, "competition"), where("status", "==", "active"), orderBy("draw_date", "asc"), limit(3))),
-    getDocs(query(collection(db, "order"), orderBy("created_at", "desc"), limit(5)))
+    getDocs(query(collection(db, "order"), orderBy("created_at", "desc"), limit(5))),
+    getDoc(doc(db, "system_metrics", "dashboard", "daily_history", todayStr))
   ]);
 
   const ok = (result, fallback) => {
@@ -30,12 +39,14 @@ export async function fetchDashboardStats() {
     return fallback;
   };
 
-  const dashboardSnap = ok(dashboardResult, null);
-  const activeSnap    = ok(activeResult,    null);
-  const upcomingSnap  = ok(upcomingResult,  null);
-  const ordersSnap    = ok(ordersResult,    null);
+  const dashboardSnap     = ok(dashboardResult,     null);
+  const activeSnap        = ok(activeResult,         null);
+  const upcomingSnap      = ok(upcomingResult,       null);
+  const ordersSnap        = ok(ordersResult,         null);
+  const dailyHistorySnap  = ok(dailyHistoryResult,   null);
 
-  const dashboardData = dashboardSnap?.exists?.() ? dashboardSnap.data() : {};
+  const dashboardData   = dashboardSnap?.exists?.()    ? dashboardSnap.data()    : {};
+  const dailyData       = dailyHistorySnap?.exists?.() ? dailyHistorySnap.data() : {};
 
   const activeCompetitionsList = activeSnap?.docs
     ? activeSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -71,7 +82,9 @@ export async function fetchDashboardStats() {
   return {
     totalRevenue:          dashboardData.total_revenue || 0,
     totalRegisteredUsers:  dashboardData.total_registered_users || dashboardData.registered_users || 0,
-    ticketsSoldToday:      dashboardData.tickets_sold_today || 0,
+    // Read from daily_history subcollection for accurate "today" figures
+    ticketsSoldToday:      dailyData.tickets_sold ?? dashboardData.tickets_sold_today ?? 0,
+    revenueToday:          dailyData.revenue      ?? 0,
     activeCompetitions:    dashboardData.total_active_competitions || 0,
     totalWinners:          dashboardData.total_winners || 0,
     drawsEndingSoon:       dashboardData.draws_ending_soon || 0,

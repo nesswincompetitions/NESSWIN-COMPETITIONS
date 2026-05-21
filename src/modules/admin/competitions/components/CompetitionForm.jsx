@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Select from '@/shared/components/ui/Select';
 import TimeSelect from '@/shared/components/ui/TimeSelect';
@@ -13,6 +13,16 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
   const [currentStep, setCurrentStep] = useState(0);
 
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+
+  const blobUrlsRef = useRef(new Set());
+
+  useEffect(() => {
+    return () => {
+      // Cleanup all object URLs created during the lifetime of this component
+      blobUrlsRef.current.forEach(url => URL.revokeObjectURL(url));
+      blobUrlsRef.current.clear();
+    };
+  }, []);
 
   const getInitialState = (data) => {
     const baseData = data || {};
@@ -119,7 +129,11 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    const newPreviews = files.map(file => URL.createObjectURL(file));
+    const newPreviews = files.map(file => {
+      const url = URL.createObjectURL(file);
+      blobUrlsRef.current.add(url);
+      return url;
+    });
 
     setFormData(prev => ({
       ...prev,
@@ -135,6 +149,7 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
 
       if (newPreviews[index]) {
         URL.revokeObjectURL(newPreviews[index]);
+        blobUrlsRef.current.delete(newPreviews[index]);
       }
 
       newImages.splice(index, 1);
@@ -152,7 +167,11 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
-    const newPreviews = files.map(file => URL.createObjectURL(file));
+    const newPreviews = files.map(file => {
+      const url = URL.createObjectURL(file);
+      blobUrlsRef.current.add(url);
+      return url;
+    });
 
     setFormData(prev => {
       const updatedQuestions = [...prev.questions];
@@ -173,6 +192,7 @@ const CompetitionForm = ({ isEditMode = false, competitionStatus = null, initial
 
       if (newPreviews[index]) {
         URL.revokeObjectURL(newPreviews[index]);
+        blobUrlsRef.current.delete(newPreviews[index]);
       }
 
       newImages.splice(index, 1);

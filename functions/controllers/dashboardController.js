@@ -90,24 +90,18 @@ async function runFullRecalculation() {
     .get();
   const registeredUsers = userSnap.data().count;
 
+  // Keep total_revenue and total_tickets_sold from atomic increments (do NOT re-scan all orders)
   const dashboardRef = db.doc(DASHBOARD_DOC_PATH);
   const dashboardSnap = await dashboardRef.get();
   const currentDash = dashboardSnap.data() || {};
   const totalRevenue = currentDash.total_revenue || 0;
   const totalTicketsSold = currentDash.total_tickets_sold || 0;
+  const totalOrders = currentDash.total_orders || 0;
 
-  const startOfToday = new Date(new Date().toLocaleString("en-US", { timeZone: TIMEZONE }));
-  startOfToday.setHours(0, 0, 0, 0);
-  
-  const ordersTodaySnap = await db.collection("order")
-    .where("status", "==", "paid")
-    .where("created_at", ">=", admin.firestore.Timestamp.fromDate(startOfToday))
-    .get();
-    
-  let ticketsSoldToday = 0;
-  ordersTodaySnap.forEach(doc => {
-    ticketsSoldToday += Number(doc.data().total_ticket || 0);
-  });
+  // Compute today's stats from daily_history subcollection (source of truth for "today")
+  const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(todayStr);
+  const dailySnap = await dailyRef.get();
+  const ticketsSoldToday = dailySnap.exists ? Number(dailySnap.data().tickets_sold || 0) : 0;
 
   const openChatsSnap = await db.collection("chats")
     .where("chat_type", "in", ["support", "winner_chat"])
@@ -130,17 +124,16 @@ async function runFullRecalculation() {
     total_tickets_sold: totalTicketsSold,
     total_registered_users: registeredUsers,
     total_winners: totalWinners,
-    pending_winners: totalWinners, // Kept for backward compatibility
+    pending_winners: totalWinners,
     draws_ending_soon: endingSoon,
     open_support_chats: openSupportChats,
     closed_support_chats: closedSupportChats,
+    total_orders: totalOrders,
   };
 
   await updateDashboard(dashboardData);
-  await updateDailyHistory(todayStr, {
-    tickets_sold: ticketsSoldToday,
-    revenue: ordersTodaySnap.docs.reduce((acc, doc) => acc + Number(doc.data().total_amount || 0), 0)
-  });
+  // Note: daily_history is the source of truth and is only written by orderTransactionService.
+  // We do NOT overwrite it here to avoid corrupting the per-day accumulation.
 
   logger.info("[DashboardMetrics] Recalculation complete.", dashboardData);
   return dashboardData;
@@ -195,87 +188,17 @@ export const onUserDeletedDashboard = onDocumentDeleted("user/{userId}", async (
   }
 });
 
-export const onOrderCreatedDashboard = onDocumentCreated("order/{orderId}", async (event) => {
-  if (await markEventProcessed(event.id)) return;
-  const data = event.data.data();
-
-  if (data.status === "paid") {
-    const amount = Number(data.total_amount || 0);
-    const tickets = Number(data.total_ticket || 0);
-    const todayStr = getTodayStr();
-
-    const batch = db.batch();
-    
-    const dashRef = db.doc(DASHBOARD_DOC_PATH);
-    batch.set(dashRef, {
-      total_revenue: admin.firestore.FieldValue.increment(amount),
-      total_tickets_sold: admin.firestore.FieldValue.increment(tickets),
-      tickets_sold_today: admin.firestore.FieldValue.increment(tickets),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(todayStr);
-    batch.set(dailyRef, {
-      revenue: admin.firestore.FieldValue.increment(amount),
-      tickets_sold: admin.firestore.FieldValue.increment(tickets),
-      date: todayStr,
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    await batch.commit();
-  }
-});
-
-export const onOrderChangeDashboard = onDocumentUpdated("order/{orderId}", async (event) => {
-  if (await markEventProcessed(event.id)) return;
-
-  const before = event.data.before.data();
-  const after = event.data.after.data();
-
-  const wasPaid = before.status === "paid";
-  const isPaid = after.status === "paid";
-
-  if (wasPaid === isPaid) {
-    return;
-  }
-
-  const incrementSign = isPaid ? 1 : -1;
-  const source = isPaid ? after : before;
-  const amount = Number(source.total_amount || 0) * incrementSign;
-  const tickets = Number(source.total_ticket || 0) * incrementSign;
-  const orderDate = source.created_at?.toDate?.() || new Date(source.created_at);
-  const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
-  const todayStr = getTodayStr();
-
-  const batch = db.batch();
-
-  const dashRef = db.doc(DASHBOARD_DOC_PATH);
-  const dashUpdates = {
-    total_revenue: admin.firestore.FieldValue.increment(amount),
-    total_tickets_sold: admin.firestore.FieldValue.increment(tickets),
-    updated_at: admin.firestore.FieldValue.serverTimestamp(),
-  };
-
-  if (orderDateStr === todayStr) {
-    dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(tickets);
-  }
-
-  batch.set(dashRef, dashUpdates, { merge: true });
-
-  const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
-  batch.set(dailyRef, {
-    revenue: admin.firestore.FieldValue.increment(amount),
-    tickets_sold: admin.firestore.FieldValue.increment(tickets),
-    date: orderDateStr,
-    updated_at: admin.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
-
-  await batch.commit();
-});
-
 export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", async (event) => {
   if (await markEventProcessed(event.id)) return;
   const data = event.data.data();
+
+  const batch = db.batch();
+  const dashRef = db.doc(DASHBOARD_DOC_PATH);
+  
+  const dashUpdates = {
+    total_orders: admin.firestore.FieldValue.increment(-1),
+    updated_at: admin.firestore.FieldValue.serverTimestamp()
+  };
 
   if (data.status === "paid") {
     const amount = Number(data.total_amount || 0);
@@ -284,18 +207,11 @@ export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", asyn
     const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
     const todayStr = getTodayStr();
 
-    const batch = db.batch();
-    
-    const dashRef = db.doc(DASHBOARD_DOC_PATH);
-    const dashUpdates = {
-      total_revenue: admin.firestore.FieldValue.increment(-amount),
-      total_tickets_sold: admin.firestore.FieldValue.increment(-tickets),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    };
+    dashUpdates.total_revenue = admin.firestore.FieldValue.increment(-amount);
+    dashUpdates.total_tickets_sold = admin.firestore.FieldValue.increment(-tickets);
     if (orderDateStr === todayStr) {
       dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(-tickets);
     }
-    batch.set(dashRef, dashUpdates, { merge: true });
 
     const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
     batch.set(dailyRef, {
@@ -303,9 +219,10 @@ export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", asyn
       tickets_sold: admin.firestore.FieldValue.increment(-tickets),
       updated_at: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-
-    await batch.commit();
   }
+
+  batch.set(dashRef, dashUpdates, { merge: true });
+  await batch.commit();
 });
 
 export const syncDashboardMetricsScheduled = onSchedule("0 * * * *", async () => {
@@ -316,7 +233,11 @@ export const onDayChangeSync = onSchedule({
   schedule: "0 0 * * *",
   timeZone: TIMEZONE
 }, async () => {
-  logger.info("[DashboardMetrics] Midnight rollover started.");
+  logger.info("[DashboardMetrics] Midnight rollover — resetting tickets_sold_today.");
+  // Reset the top-level counter so it starts fresh for the new day.
+  // The daily_history for the new day will be populated by the first order.
+  await updateDashboard({ tickets_sold_today: 0 });
+  // Then run a full recalculation to ensure all other stats are consistent.
   await runFullRecalculation();
 });
 

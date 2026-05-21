@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -10,11 +10,11 @@ import Modal from '@/shared/components/ui/Modal';
 import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import {
   Plus, Calendar, Download,
-  Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X
+  Eye, Edit, Trash2, ChevronLeft, ChevronRight, FileEdit, Loader2, X, RefreshCcw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { deleteCompetition } from '@/modules/admin/competitions/services/adminCompetitionService';
-import { useAdminCompetitionsFeed } from '@/shared/hooks/useAdminData';
+import { useAdminCompetitionsFeedPaginated } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { formatStatus } from '@/shared/utils/formatters';
 
@@ -41,7 +41,17 @@ const CompetitionsList = () => {
     { key: 'Drafts', label: t('common.drafts') },
   ];
 
-  const { data: competitions, loading } = useAdminCompetitionsFeed();
+  const { 
+    data: competitions, 
+    loading,
+    currentPage,
+    totalPages,
+    nextPage,
+    prevPage,
+    totalCount,
+    goToPage,
+    refresh
+  } = useAdminCompetitionsFeedPaginated(20);
 
   // Force re-render every minute to update countdown-based statuses
   const [, setTick] = useState(0);
@@ -148,6 +158,7 @@ const CompetitionsList = () => {
 
   const clearDateFilter = () => {
     setDateRange({ start: '', end: '' });
+    goToPage(1);
   };
 
   return (
@@ -167,6 +178,16 @@ const CompetitionsList = () => {
             <Plus size={18} />
             {t('competitions.createNew')}
           </Button>
+          <button
+            onClick={refresh}
+            title="Refresh Data"
+            className="w-10 h-10 flex items-center justify-center rounded-md border border-white/10 bg-transparent hover:border-yellow-500/40 hover:bg-yellow-500/5 transition-all duration-300 shrink-0 group"
+          >
+            <RefreshCcw
+              size={16}
+              className={`transition-all duration-500 ${loading ? 'animate-spin text-yellow-400' : 'text-yellow-400/70 group-hover:text-yellow-400 group-hover:rotate-180'}`}
+            />
+          </button>
         </div>
       </header>
 
@@ -180,7 +201,7 @@ const CompetitionsList = () => {
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
+                  onClick={() => { setActiveTab(tab.key); goToPage(1); }}
                   className={`cursor-pointer px-4 py-1.5 text-sm rounded-md transition-colors whitespace-nowrap flex-1 lg:flex-none ${activeTab === tab.key
                     ? 'bg-white/10 text-white font-medium'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -195,7 +216,7 @@ const CompetitionsList = () => {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
               <SearchInput
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => { setSearchTerm(e.target.value); goToPage(1); }}
                 placeholder={t('competitions.searchPlaceholder')}
               />
 
@@ -347,12 +368,40 @@ const CompetitionsList = () => {
             </TableBody>
           </Table>
 
-          {/* Pagination (Static for now) */}
-          <div className="p-4 border-t border-white/10 flex items-center justify-between">
-            <p className="text-sm text-gray-400">
-              Showing <span className="font-medium text-white">{filteredCompetitions.length}</span> competitions
-            </p>
-          </div>
+          {/* Pagination */}
+          {!loading && filteredCompetitions.length > 0 && (
+            <div className="p-4 border-t border-white/10 flex items-center justify-between">
+              <p className="text-sm text-gray-400">
+                Showing <span className="font-medium text-white">{filteredCompetitions.length}</span> competitions 
+                {totalCount > 0 && ` (Total in DB: ${totalCount})`}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={currentPage <= 1 || loading} 
+                  onClick={prevPage}
+                >
+                  <ChevronLeft size={14} className="mr-1" />
+                  {t('common.previous')}
+                </Button>
+                <div className="px-3 py-1 bg-white/5 rounded-md text-sm font-medium text-white border border-white/10">
+                  {currentPage} / {Math.max(1, totalPages)}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs bg-white/5" 
+                  disabled={currentPage >= totalPages || loading} 
+                  onClick={nextPage}
+                >
+                  {t('common.next')}
+                  <ChevronRight size={14} className="ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -365,7 +414,7 @@ const CompetitionsList = () => {
         actions={
           <>
             <Button variant="outline" onClick={clearDateFilter}>{t('modals.competitions.clearFilter')}</Button>
-            <Button variant="primary" onClick={() => setDateModalOpen(false)}>{t('modals.competitions.applyFilter')}</Button>
+            <Button variant="primary" onClick={() => { setDateModalOpen(false); goToPage(1); }}>{t('modals.competitions.applyFilter')}</Button>
           </>
         }
       >

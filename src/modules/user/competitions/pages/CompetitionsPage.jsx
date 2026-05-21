@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
-import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCircle } from 'lucide-react';
+import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
+import { orderBy } from 'firebase/firestore';
+import { Clock, Flame, ShoppingCart, Sparkles, Tag, Users, Ticket, Lock, CheckCircle, Loader2 } from 'lucide-react';
 import CountdownTimer from '@/shared/components/ui/CountdownTimer';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
-import { subscribeLiveCompetitions } from '@/modules/user/competitions/services/competitionService';
 import { getCachedCompetitionList, cacheCompetitionList } from '@/shared/services/competitionCache';
 import { useUserTicketedCompetitions } from '@/modules/user/competitions/hooks/useUserTicketedCompetitions';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
@@ -319,8 +320,6 @@ export default function CompetitionsPage() {
   const [activeStatusKey, setActiveStatusKey] = useState("all");
   const [activeCategoryKey, setActiveCategoryKey] = useState("allCategories");
   const [nowTs] = useState(() => Date.now());
-  const [liveCompetitions, setLiveCompetitions] = useState(() => getCachedCompetitionList('all_competitions') || []);
-  const [loading, setLoading] = useState(() => !getCachedCompetitionList('all_competitions'));
   const { ticketedIds } = useUserTicketedCompetitions();
   const [searchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
@@ -331,50 +330,51 @@ export default function CompetitionsPage() {
     }
   }, [statusParam]);
 
-  useEffect(() => {
-    const unsubscribe = subscribeLiveCompetitions(
-      (comps) => {
-        const fetchedComps = comps.map((data) => {
-          const drawDateObj = data.draw_date ? data.draw_date.toDate() : null;
-          return {
-            id: data.id,
-            image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
-            images: data.image || [],
-            badgeType: data.status === 'active' ? 'new' : 'ended',
-            badgeLabel: data.status,
-            ticketPrice: data.ticket_price || 0,
-            ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
-            category: data.category || 'Other',
-            tag: data.tag || '',
-            title: data.title || 'Untitled',
-            subTitle: data.sub_title || '',
-            priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
-            sold: data.sold_tickets || 0,
-            total: data.total_tickets || 1000,
-            endsAt: data.draw_date ? data.draw_date.toMillis() : null,
-            created_at: data.created_at?.toMillis() || 0,
-            drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
-            drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-            description: data.description || '',
-            included: data.included_things || [],
-            status: data.status,
-            is_featured: data.is_featured || false
-          };
-        });
+  const baseConstraints = useMemo(() => [orderBy('created_at', 'desc')], []);
+  const {
+    items: rawCompetitions,
+    loading,
+    loadingMore,
+    hasMore,
+    nextPage: loadMore,
+  } = useFirestorePagination({
+    collectionName: 'competition',
+    baseConstraints,
+    pageSize: 12,
+    mode: 'append',
+  });
 
-        const sorted = fetchedComps.sort((a, b) => b.created_at - a.created_at);
-        cacheCompetitionList('all_competitions', sorted);
-        setLiveCompetitions(sorted);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Error subscribing competitions:', err);
-        setLoading(false);
-      }
-    );
-
-    return unsubscribe;
-  }, []);
+  const liveCompetitions = useMemo(() => {
+    return rawCompetitions
+      .filter((data) => data.status !== 'draft' && data.status !== 'deleted')
+      .map((data) => {
+        const drawDateObj = data.draw_date?.toDate ? data.draw_date.toDate() : (data.draw_date ? new Date(data.draw_date) : null);
+        return {
+          id: data.id,
+          image: data.image?.[0] || 'https://images.unsplash.com/photo-1553985214-1c3f33cf3ecb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080',
+          images: data.image || [],
+          badgeType: data.status === 'active' ? 'new' : 'ended',
+          badgeLabel: data.status,
+          ticketPrice: data.ticket_price || 0,
+          ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+          category: data.category || 'Other',
+          tag: data.tag || '',
+          title: data.title || 'Untitled',
+          subTitle: data.sub_title || '',
+          priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+          sold: data.sold_tickets || 0,
+          total: data.total_tickets || 1000,
+          endsAt: data.draw_date?.toMillis ? data.draw_date.toMillis() : (data.draw_date ? new Date(data.draw_date).getTime() : null),
+          created_at: data.created_at?.toMillis ? data.created_at.toMillis() : (data.created_at ? new Date(data.created_at).getTime() : 0),
+          drawDate: drawDateObj ? drawDateObj.toLocaleDateString() : '',
+          drawTime: drawDateObj ? drawDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+          description: data.description || '',
+          included: data.included_things || [],
+          status: data.status,
+          is_featured: data.is_featured || false
+        };
+      });
+  }, [rawCompetitions]);
 
 
   const filtered = liveCompetitions.filter((c) => {
@@ -482,15 +482,36 @@ export default function CompetitionsPage() {
               ))}
             </div>
           ) : filtered.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((comp, index) => (
-                <Reveal key={comp.id} delay={index * 65}>
-                  <CompetitionCard
-                    competition={comp}
-                    hasTicket={ticketedIds.has(comp.id)}
-                  />
-                </Reveal>
-              ))}
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filtered.map((comp, index) => (
+                  <Reveal key={comp.id} delay={index * 65}>
+                    <CompetitionCard
+                      competition={comp}
+                      hasTicket={ticketedIds.has(comp.id)}
+                    />
+                  </Reveal>
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-8">
+                  <button
+                    onClick={loadMore}
+                    disabled={loadingMore}
+                    className="cursor-pointer inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-xs font-bold tracking-[0.2em] uppercase bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_oklch(0.78_0.14_78/0.3)] hover:scale-105 active:scale-95 border border-primary/25"
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-(--color-primary-foreground)" />
+                        {t('common.loading') || 'Loading...'}
+                      </>
+                    ) : (
+                      t('common.loadMore') || 'Load More'
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-24 text-muted-foreground">
