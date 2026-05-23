@@ -378,8 +378,7 @@ const CompetitionsList = () => {
           {!loading && filteredCompetitions.length > 0 && (
             <div className="p-4 border-t border-white/10 flex items-center justify-between">
               <p className="text-sm text-gray-400">
-                Showing <span className="font-medium text-white">{filteredCompetitions.length}</span> competitions 
-                {totalCount > 0 && ` (Total in DB: ${totalCount})`}
+                {t('common.showing')} <span className="font-medium text-white">{filteredCompetitions.length}</span> {t('common.of')} <span className="font-medium text-white">{totalCount || filteredCompetitions.length}</span> {t('sidebar.competitions').toLowerCase()}
               </p>
               <div className="flex items-center gap-2">
                 <Button 

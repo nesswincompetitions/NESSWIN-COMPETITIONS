@@ -33,7 +33,7 @@ function StatusBadge({ type, label }) {
     colorClasses = "bg-red-600/35 text-white border-red-500/50 shadow-[0_0_12px_rgba(220,38,38,0.3)]";
   } else if (isCompleted || isActive || isWinnerAnnounced || isHot) {
     colorClasses = "bg-emerald-600/35 text-white border-emerald-400/50 shadow-[0_0_12px_rgba(5,150,105,0.3)]";
-  } else if (isDrawing) {
+  } else if (isDrawing || isDrawSoon) {
     colorClasses = "bg-amber-600/35 text-white border-amber-500/50 shadow-[0_0_12px_rgba(245,158,11,0.3)]";
   } else if (type === "ended") {
     colorClasses = "bg-zinc-800/80 text-zinc-400 border-zinc-700/50 grayscale";

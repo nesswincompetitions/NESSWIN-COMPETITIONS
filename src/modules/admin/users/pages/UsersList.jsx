@@ -311,8 +311,7 @@ const UsersList = () => {
           {!loading && currentUsers.length > 0 && (
             <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
               <p className="text-xs text-gray-400">
-                {t('common.showing')} {currentUsers.length} users
-                {totalCount > 0 && ` (Total in DB: ${totalCount})`}
+                {t('common.showing')} <span className="font-medium text-white">{currentUsers.length}</span> {t('common.of')} <span className="font-medium text-white">{totalCount || currentUsers.length}</span> {t('sidebar.users').toLowerCase()}
               </p>
               <div className="flex items-center gap-2">
                 <Button 
