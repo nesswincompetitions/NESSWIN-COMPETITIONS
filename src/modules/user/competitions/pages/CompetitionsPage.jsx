@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { m as motion, AnimatePresence } from 'framer-motion';
 import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
@@ -352,6 +352,10 @@ export default function CompetitionsPage() {
   const [nowTs] = useState(() => Date.now());
   const { ticketedIds } = useUserTicketedCompetitions();
 
+  const observerRef = useRef(null);
+  // Track how many filtered cards were rendered before latest page loaded
+  const prevFilteredCountRef = useRef(0);
+
   const baseConstraints = useMemo(() => [orderBy('created_at', 'desc')], []);
   const {
     items: rawCompetitions,
@@ -365,6 +369,22 @@ export default function CompetitionsPage() {
     pageSize: 12,
     mode: 'append',
   });
+
+  // Pure infinite scroll — trigger 400px before bottom for zero-lag feel
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0, rootMargin: '400px' }
+    );
+
+    const currentRef = observerRef.current;
+    if (currentRef) observer.observe(currentRef);
+    return () => { if (currentRef) observer.unobserve(currentRef); };
+  }, [hasMore, loadingMore, loadMore]);
 
   const liveCompetitions = useMemo(() => {
     return rawCompetitions
@@ -425,6 +445,14 @@ export default function CompetitionsPage() {
 
     return statusMatch && categoryMatch;
   });
+
+  // After a loadMore completes, advance the "batch start" cursor so that
+  // next batch gets fresh stagger delays and existing cards stay at delay=0.
+  useLayoutEffect(() => {
+    if (!loadingMore) {
+      prevFilteredCountRef.current = filtered.length;
+    }
+  }, [loadingMore, filtered.length]);
 
   return (
     <div className="min-h-screen bg-(--color-background)">
@@ -504,34 +532,34 @@ export default function CompetitionsPage() {
               ))}
             </div>
           ) : filtered.length > 0 ? (
-            <div className="space-y-12">
+            <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map((comp, index) => (
-                  <Reveal key={comp.id} delay={index * 65}>
-                    <CompetitionCard
-                      competition={comp}
-                      hasTicket={ticketedIds.has(comp.id)}
-                    />
-                  </Reveal>
-                ))}
+                {filtered.map((comp, index) => {
+                  const batchStart = prevFilteredCountRef.current;
+                  const isNewCard = index >= batchStart;
+                  // Animate new cards with a small per-card delay, capped so last card
+                  // never waits more than 200ms — no visible lag
+                  const delay = isNewCard
+                    ? Math.min(index - batchStart, 4) * 50
+                    : 0;
+                  return (
+                    <Reveal key={comp.id} delay={delay}>
+                      <CompetitionCard
+                        competition={comp}
+                        hasTicket={ticketedIds.has(comp.id)}
+                      />
+                    </Reveal>
+                  );
+                })}
               </div>
 
-              {hasMore && (
-                <div className="flex justify-center pt-8">
-                  <button
-                    onClick={loadMore}
-                    disabled={loadingMore}
-                    className="cursor-pointer inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-xs font-bold tracking-[0.2em] uppercase bg-primary text-(--color-primary-foreground) hover:opacity-90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_oklch(0.78_0.14_78/0.3)] hover:scale-105 active:scale-95 border border-primary/25"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-(--color-primary-foreground)" />
-                        {t('common.loading') || 'Loading...'}
-                      </>
-                    ) : (
-                      t('common.loadMore') || 'Load More'
-                    )}
-                  </button>
+              {/* Invisible sentinel — sits below grid, triggers next page load */}
+              <div ref={observerRef} className="h-4 w-full mt-8" />
+
+              {/* Subtle loading indicator — only visible while fetching */}
+              {loadingMore && (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary opacity-60" />
                 </div>
               )}
             </div>
