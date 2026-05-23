@@ -30,7 +30,8 @@
     "winnerAnnounced": "Ganador anunciado",
     "completed": "Completado",
     "drawCompleted": "Sorteo completado",
-    "viewWinners": "Ver ganador"
+    "viewWinners": "Ver ganador",
+    "loadMore": "Cargar más"
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",

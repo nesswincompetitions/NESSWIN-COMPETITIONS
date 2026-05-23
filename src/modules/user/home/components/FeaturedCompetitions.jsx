@@ -50,7 +50,7 @@ function CompetitionCard({ competition, onNavigate, hasTicket }) {
         />
         <div className="absolute inset-0 bg-linear-to-t from-card via-card/20 to-transparent" />
         <div className="absolute top-3 left-3">
-          <Badge variant={(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? "ended" : badgeType}>
+          <Badge variant={isSoldOut ? "danger" : (isClosed || isReadyToDraw || isDrawing || isEnded) ? "ended" : badgeType}>
             {(isClosed || isReadyToDraw || isDrawing || isSoldOut || isEnded) ? (
               <Lock className="w-3 h-3" aria-hidden="true" />
             ) : (

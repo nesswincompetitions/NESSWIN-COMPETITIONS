@@ -50,7 +50,8 @@ const CompetitionsList = () => {
     prevPage,
     totalCount,
     goToPage,
-    refresh
+    refresh,
+    setItems
   } = useAdminCompetitionsFeedPaginated(20);
 
   // Force re-render every minute to update countdown-based statuses
@@ -71,17 +72,22 @@ const CompetitionsList = () => {
       return;
     }
 
+    const compId = competitionToDelete.id;
+    
+    // Optimistic UI Update: remove the competition from local state immediately
+    setItems(prevItems => prevItems.filter(c => c.id !== compId));
+    setDeleteModalOpen(false);
+    setCompetitionToDelete(null);
+
     const loadingToast = toast.loading('Deleting competition...');
     try {
-      await deleteCompetition(competitionToDelete.id);
-      
+      await deleteCompetition(compId);
       toast.success('Competition deleted successfully', { id: loadingToast });
-      setDeleteModalOpen(false);
     } catch (err) {
       console.error('Error deleting:', err);
       toast.error('Failed to delete competition', { id: loadingToast });
-    } finally {
-      setCompetitionToDelete(null);
+      // Revert optimistic update if the API call fails
+      refresh();
     }
   };
 

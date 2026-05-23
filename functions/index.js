@@ -22,6 +22,7 @@ export {
 	onCompetitionDeletedDashboard,
 	onUserChangeDashboard,
 	onUserDeletedDashboard,
+	onOrderCreatedDashboard,
 	onOrderDeletedDashboard,
 	onChatCreatedDashboard,
 	onChatUpdatedDashboard,

@@ -30,7 +30,8 @@
     "winnerAnnounced": "Gagnant annoncé",
     "completed": "Terminé",
     "drawCompleted": "Tirage terminé",
-    "viewWinners": "Voir le gagnant"
+    "viewWinners": "Voir le gagnant",
+    "loadMore": "Charger plus"
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",

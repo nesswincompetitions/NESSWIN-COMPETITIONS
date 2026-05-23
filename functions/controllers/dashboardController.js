@@ -187,6 +187,46 @@ export const onUserDeletedDashboard = onDocumentDeleted("user/{userId}", async (
   }
 });
 
+export const onOrderCreatedDashboard = onDocumentCreated("order/{orderId}", async (event) => {
+  if (await markEventProcessed(event.id)) return;
+  const data = event.data.data();
+
+  if (data.status !== "paid") {
+    return;
+  }
+
+  const batch = db.batch();
+  const dashRef = db.doc(DASHBOARD_DOC_PATH);
+  
+  const amount = Number(data.total_amount || 0);
+  const tickets = Number(data.total_ticket || 0);
+  const orderDate = data.created_at?.toDate?.() || new Date(data.created_at);
+  const orderDateStr = orderDate.toLocaleDateString("en-CA", { timeZone: TIMEZONE });
+  const todayStr = getTodayStr();
+
+  const dashUpdates = {
+    total_orders: admin.firestore.FieldValue.increment(1),
+    total_revenue: admin.firestore.FieldValue.increment(amount),
+    total_tickets_sold: admin.firestore.FieldValue.increment(tickets),
+    updated_at: admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  if (orderDateStr === todayStr) {
+    dashUpdates.tickets_sold_today = admin.firestore.FieldValue.increment(tickets);
+  }
+
+  const dailyRef = db.collection(DAILY_HISTORY_PATH).doc(orderDateStr);
+  batch.set(dailyRef, {
+    revenue: admin.firestore.FieldValue.increment(amount),
+    tickets_sold: admin.firestore.FieldValue.increment(tickets),
+    date: orderDateStr,
+    updated_at: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  batch.set(dashRef, dashUpdates, { merge: true });
+  await batch.commit();
+});
+
 export const onOrderDeletedDashboard = onDocumentDeleted("order/{orderId}", async (event) => {
   if (await markEventProcessed(event.id)) return;
   const data = event.data.data();

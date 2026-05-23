@@ -207,7 +207,10 @@ export const fetchUserNotifications = (userUid, callback, isAdmin = false) => {
   );
 
   const unsubscribeUserNotifications = onSnapshot(
-    collection(db, 'ff_user_push_notifications'),
+    query(
+      collection(db, 'ff_user_push_notifications'),
+      where('user_refs', '==', userPath)
+    ),
     (snapshot) => {
       userNotifications = snapshot.docs
         .map((docSnap) => {
@@ -217,8 +220,7 @@ export const fetchUserNotifications = (userUid, callback, isAdmin = false) => {
             ...data,
             is_read: normalizeReadFlag(data),
           };
-        })
-        .filter(matchesRecipient);
+        });
 
       emit();
     },

@@ -12,7 +12,7 @@
  */
 export const debounce = (func, delay = 300) => {
   let timeoutId;
-  
+
   const debounced = (...args) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
@@ -31,7 +31,8 @@ export const debounce = (func, delay = 300) => {
  * @returns {boolean} Whether text contains the search term
  */
 export const searchMatch = (text, term) => {
-  if (!text || !term) return true;
+  if (!term) return true;
+  if (!text) return false;
   return String(text).toLowerCase().includes(String(term).toLowerCase());
 };
 
@@ -44,7 +45,7 @@ export const searchMatch = (text, term) => {
  */
 export const multiFieldSearch = (item, searchTerm, fields = []) => {
   if (!searchTerm || !item || fields.length === 0) return true;
-  
+
   return fields.some(field => {
     const value = item[field];
     return searchMatch(value, searchTerm);
@@ -60,7 +61,7 @@ export const multiFieldSearch = (item, searchTerm, fields = []) => {
  */
 export const filterBySearch = (items, searchTerm, searchFields = []) => {
   if (!searchTerm || !items || !Array.isArray(items)) return items;
-  
+
   return items.filter(item => multiFieldSearch(item, searchTerm, searchFields));
 };
 
@@ -73,7 +74,7 @@ export const filterBySearch = (items, searchTerm, searchFields = []) => {
  */
 export const sortByRelevance = (items, searchTerm, priorityFields = []) => {
   if (!searchTerm || !items) return items;
-  
+
   return [...items].sort((a, b) => {
     let aScore = 999;
     let bScore = 999;
@@ -104,7 +105,7 @@ export const sortByRelevance = (items, searchTerm, priorityFields = []) => {
  */
 export const highlightMatch = (text, term) => {
   if (!text || !term) return text;
-  
+
   const regex = new RegExp(`(${term})`, 'gi');
   return String(text).replace(regex, '<mark>$1</mark>');
 };
@@ -116,13 +117,13 @@ export const highlightMatch = (text, term) => {
  */
 export const getSearchSuggestion = (term) => {
   if (!term) return '';
-  
+
   const suggestions = {
     'iphone': 'Did you mean "iPhone"?',
     'ipad': 'Did you mean "iPad"?',
     'mac': 'Did you mean "Mac"?',
   };
-  
+
   const lower = term.toLowerCase();
   return suggestions[lower] || '';
 };

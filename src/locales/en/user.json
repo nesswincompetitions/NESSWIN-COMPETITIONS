@@ -31,7 +31,8 @@
     "drawCompleted": "Draw Completed",
     "viewWinners": "View Winner",
     "active": "Active",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "loadMore": "Load More"
   },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",

@@ -11,35 +11,41 @@ import { buildNotificationPayload } from "../services/orderNotificationService.j
 export const grantAdminBonus = onCall(async (request) => {
   await assertAdmin(request);
 
-    const { userId, quantity, reason = "" } = request.data || {};
+  const { userId, quantity, reason = "" } = request.data || {};
 
-    try {
-      const qty = Number(quantity);
-      if (!Number.isInteger(qty) || qty <= 0) {
-        throw new HttpsError("invalid-argument", "Quantity must be a positive integer.");
-      }
-      if (qty > 1000) {
-        throw new HttpsError("invalid-argument", "Maximum 1000 tickets per grant.");
-      }
-      if (!userId || typeof userId !== "string") {
-        throw new HttpsError("invalid-argument", "userId is required.");
-      }
+  try {
+    const qty = Number(quantity);
+    if (!Number.isInteger(qty) || qty <= 0) {
+      throw new HttpsError("invalid-argument", "Quantity must be a positive integer.");
+    }
+    if (qty > 5000) {
+      throw new HttpsError("invalid-argument", "Maximum 5000 tickets per grant.");
+    }
+    if (!userId || typeof userId !== "string") {
+      throw new HttpsError("invalid-argument", "userId is required.");
+    }
 
-      const userRef = db.collection("user").doc(userId);
-      const userSnap = await userRef.get();
-      if (!userSnap.exists) {
-        throw new HttpsError("not-found", "User not found.");
-      }
+    const userRef = db.collection("user").doc(userId);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
 
-      const batches = [];
-      let currentBatch = db.batch();
-      let opCount = 0;
+    const adminRef = db.collection("user").doc(request.auth.uid);
+    const MAX_TICKETS_PER_BATCH = 400; // Leaves plenty of room for user update, log, and notification
+    let remainingQty = qty;
+    let grantedSoFar = 0;
+
+    // Process in sequential, self-contained atomic chunks
+    while (remainingQty > 0) {
+      const chunkSize = Math.min(remainingQty, MAX_TICKETS_PER_BATCH);
+      const batch = db.batch();
       const serverTs = admin.firestore.FieldValue.serverTimestamp();
 
-      const adminRef = db.collection("user").doc(request.auth.uid);
-      for (let i = 0; i < qty; i++) {
+      // 1. Create referral docs for this chunk
+      for (let i = 0; i < chunkSize; i++) {
         const referralRef = db.collection("referrals").doc();
-        currentBatch.set(referralRef, {
+        batch.set(referralRef, {
           referrer_id: userRef,
           referred_user_id: adminRef,
           referral_code: "ADMIN_BONUS",
@@ -48,60 +54,20 @@ export const grantAdminBonus = onCall(async (request) => {
           reward_issued: false,
           created_at: serverTs,
         });
-        opCount++;
-        if (opCount >= 400) {
-          batches.push(currentBatch);
-          currentBatch = db.batch();
-          opCount = 0;
-        }
       }
 
-      currentBatch.update(userRef, {
-        free_tickets: admin.firestore.FieldValue.increment(qty),
-        total_free_tickets: admin.firestore.FieldValue.increment(qty),
+      // 2. Increment user balance for this chunk only
+      batch.update(userRef, {
+        free_tickets: admin.firestore.FieldValue.increment(chunkSize),
+        total_free_tickets: admin.firestore.FieldValue.increment(chunkSize),
         updated_at: serverTs,
       });
-      opCount++;
-      if (opCount >= 400) {
-        batches.push(currentBatch);
-        currentBatch = db.batch();
-        opCount = 0;
-      }
 
-      const notifRef = db.collection("ff_user_push_notifications").doc();
-      currentBatch.set(notifRef, {
-        user_refs: userRef.path,
-        notification_title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
-        notification_text: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
-        notification_image_url: "",
-        scheduled_time: null,
-        notification_sound: "default",
-        category: "rewards",
-        type: "free_ticket_earned",
-        cta_text: "View",
-        initial_page_name: "MyTickets",
-        parameter_data: JSON.stringify({ quantity: qty, reason: "admin_bonus", admin_note: reason }),
-        status: "",
-        is_read: false,
-        num_sent: 0,
-        sender: userRef,
-        chat_ref: null,
-        order_ref: null,
-        competition_ref: null,
-        timestamp: serverTs,
-        created_at: serverTs,
-      });
-      opCount++;
-      if (opCount >= 400) {
-        batches.push(currentBatch);
-        currentBatch = db.batch();
-        opCount = 0;
-      }
-
+      // 3. Create a log entry specifically for this chunk
       const logRef = db.collection("free_ticket_log").doc();
-      currentBatch.set(logRef, {
+      batch.set(logRef, {
         user_id: userRef,
-        quantity: qty,
+        quantity: chunkSize,
         reason: reason || "Admin Bonus",
         reward_type: "admin_bonus",
         admin_note: reason,
@@ -110,16 +76,51 @@ export const grantAdminBonus = onCall(async (request) => {
         type: "grant",
         created_at: serverTs,
       });
-      opCount++;
 
-      batches.push(currentBatch);
+      // 4. If this is the final chunk, send the consolidated notification
+      if (remainingQty === chunkSize) {
+        const notifRef = db.collection("ff_user_push_notifications").doc();
+        batch.set(notifRef, {
+          user_refs: userRef.path,
+          notification_title: `🎁 ${qty} Free Ticket${qty !== 1 ? 's' : ''} Granted!`,
+          notification_text: `You've received ${qty} free ticket${qty !== 1 ? 's' : ''} from an admin.${reason ? ` Reason: ${reason}` : ''}`,
+          notification_image_url: "",
+          scheduled_time: null,
+          notification_sound: "default",
+          category: "rewards",
+          type: "free_ticket_earned",
+          cta_text: "View",
+          initial_page_name: "MyTickets",
+          parameter_data: JSON.stringify({ quantity: qty, reason: "admin_bonus", admin_note: reason }),
+          status: "",
+          is_read: false,
+          num_sent: 0,
+          sender: userRef,
+          chat_ref: null,
+          order_ref: null,
+          competition_ref: null,
+          timestamp: serverTs,
+          created_at: serverTs,
+        });
+      }
 
-      await Promise.all(batches.map((b) => b.commit()));
+      try {
+        await batch.commit();
+        grantedSoFar += chunkSize;
+        remainingQty -= chunkSize;
+      } catch (chunkErr) {
+        logger.error(`[grantAdminBonus] Batch commit failed after granting ${grantedSoFar} tickets.`, chunkErr);
+        throw new HttpsError(
+          "aborted",
+          `Partial success: Granted ${grantedSoFar} out of ${qty} tickets before failing. Please try again for the remainder.`
+        );
+      }
+    }
 
-    logger.info(`[grantAdminBonus] Granted ${qty} tickets to user=${userId}`);
-
-    return { success: true, message: `Granted ${qty} ticket${qty !== 1 ? 's' : ''}.` };
+    logger.info(`[grantAdminBonus] Successfully granted all ${qty} tickets to user=${userId}`);
+    return { success: true, message: `Granted ${qty} ticket${qty !== 1 ? 's' : ''} successfully.` };
   } catch (err) {
+    if (err instanceof HttpsError) throw err;
     logger.error("[grantAdminBonus] Error:", err?.message || err);
     throw toHttpsError(err, "Failed to grant admin bonus.");
   }
