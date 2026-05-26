@@ -84,6 +84,7 @@ function SocialLogin({ loading }) {
       await signInWithGoogle();
       toast.success("Signed in with Google!");
     } catch (error) {
+      console.error("Google Sign-In Error:", error);
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         // User dismissed the popup — silent, no toast needed
       } else if (error.code === 'auth/account-exists-with-different-credential') {
@@ -103,6 +104,7 @@ function SocialLogin({ loading }) {
       await signInWithApple();
       toast.success("Signed in with Apple!");
     } catch (error) {
+      console.error("Apple Sign-In Error:", error);
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         // User dismissed the popup — silent, no toast needed
       } else if (error.code === 'auth/account-exists-with-different-credential') {
@@ -151,6 +153,12 @@ function SignUpForm() {
     e.preventDefault();
     if (!form.name || !form.email || !form.password || !form.date_of_birth) {
       toast.error("Please fill in all fields");
+      return;
+    }
+
+    const nameRegex = /^[\p{L}\s\-'’]+$/u;
+    if (!nameRegex.test(form.name.trim())) {
+      toast.error("Name should only contain letters, spaces, hyphens, or apostrophes.");
       return;
     }
 

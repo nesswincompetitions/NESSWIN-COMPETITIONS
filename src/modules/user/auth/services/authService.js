@@ -126,7 +126,8 @@ export const logout = async () => {
 };
 
 export const passwordReset = async (email) => {
-  await sendPasswordResetEmail(auth, email);
+  const cleanEmail = email.trim().toLowerCase();
+  await sendPasswordResetEmail(auth, cleanEmail);
 };
 
 // ─── Step 2: Phone Verification ───────────────────────────────────────────────

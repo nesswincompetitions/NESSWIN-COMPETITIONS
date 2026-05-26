@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -19,10 +19,33 @@ const WinnersList = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [dateModalOpen, setDateModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' });
+  const [dateError, setDateError] = useState('');
   const { data: winners, loading } = useWinnerCompetitionsFeed();
+
+  useEffect(() => {
+    if (dateModalOpen) {
+      setTempDateRange(dateRange);
+    }
+    setDateError('');
+  }, [dateModalOpen, dateRange]);
 
   const clearDateFilter = () => {
     setDateRange({ start: '', end: '' });
+    setTempDateRange({ start: '', end: '' });
+    setDateError('');
+    setDateModalOpen(false);
+  };
+
+  const handleApplyDateFilter = () => {
+    if (tempDateRange.start && tempDateRange.end && new Date(tempDateRange.end) < new Date(tempDateRange.start)) {
+      const errMsg = t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date');
+      setDateError(errMsg);
+      toast.error(errMsg);
+      return;
+    }
+    setDateRange(tempDateRange);
+    setDateModalOpen(false);
   };
 
   const handleExportCSV = () => {
@@ -284,7 +307,7 @@ const WinnersList = () => {
         actions={
           <>
             <Button variant="outline" onClick={clearDateFilter}>{t('modals.competitions.clearFilter')}</Button>
-            <Button variant="primary" onClick={() => setDateModalOpen(false)}>{t('modals.competitions.applyFilter')}</Button>
+            <Button variant="primary" onClick={handleApplyDateFilter}>{t('modals.competitions.applyFilter')}</Button>
           </>
         }
       >
@@ -293,8 +316,19 @@ const WinnersList = () => {
             <label className="text-sm font-medium text-gray-400">{t('modals.competitions.startDate')}</label>
             <input 
               type="date" 
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+              value={tempDateRange.start}
+              onChange={(e) => {
+                const startVal = e.target.value;
+                setTempDateRange(prev => {
+                  const updated = { ...prev, start: startVal };
+                  if (updated.end && startVal && new Date(updated.end) < new Date(startVal)) {
+                    setDateError(t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date'));
+                  } else {
+                    setDateError('');
+                  }
+                  return updated;
+                });
+              }}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
             />
           </div>
@@ -302,12 +336,28 @@ const WinnersList = () => {
             <label className="text-sm font-medium text-gray-400">{t('modals.competitions.endDate')}</label>
             <input 
               type="date" 
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+              value={tempDateRange.end}
+              onChange={(e) => {
+                const endVal = e.target.value;
+                setTempDateRange(prev => {
+                  const updated = { ...prev, end: endVal };
+                  if (updated.start && endVal && new Date(endVal) < new Date(updated.start)) {
+                    setDateError(t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date'));
+                  } else {
+                    setDateError('');
+                  }
+                  return updated;
+                });
+              }}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
             />
           </div>
         </div>
+        {dateError && (
+          <p className="text-red-400 text-xs mt-2 font-medium bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
+            {dateError}
+          </p>
+        )}
       </Modal>
     </div>
   );

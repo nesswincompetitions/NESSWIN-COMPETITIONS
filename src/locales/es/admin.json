@@ -693,6 +693,7 @@
       "endDate": "Fecha de fin",
       "clearFilter": "Limpiar filtro",
       "applyFilter": "Aplicar filtro",
+      "invalidDateRange": "La fecha de finalización no puede ser anterior a la fecha de inicio",
       "noCompetitionsFound": "No se encontraron sorteos que coincidan con sus criterios."
     }
   }

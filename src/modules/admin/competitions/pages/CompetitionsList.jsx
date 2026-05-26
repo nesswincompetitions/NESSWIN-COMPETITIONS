@@ -26,6 +26,8 @@ const CompetitionsList = () => {
   
   // Date filter state
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [tempDateRange, setTempDateRange] = useState({ start: '', end: '' });
+  const [dateError, setDateError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
   const navigate = useNavigate();
@@ -60,6 +62,13 @@ const CompetitionsList = () => {
     const timer = setInterval(() => setTick(t => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (dateModalOpen) {
+      setTempDateRange(dateRange);
+    }
+    setDateError('');
+  }, [dateModalOpen, dateRange]);
 
   const handleDelete = async () => {
     if (!competitionToDelete) return;
@@ -164,6 +173,21 @@ const CompetitionsList = () => {
 
   const clearDateFilter = () => {
     setDateRange({ start: '', end: '' });
+    setTempDateRange({ start: '', end: '' });
+    setDateError('');
+    setDateModalOpen(false);
+    goToPage(1);
+  };
+
+  const handleApplyDateFilter = () => {
+    if (tempDateRange.start && tempDateRange.end && new Date(tempDateRange.end) < new Date(tempDateRange.start)) {
+      const errMsg = t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date');
+      setDateError(errMsg);
+      toast.error(errMsg);
+      return;
+    }
+    setDateRange(tempDateRange);
+    setDateModalOpen(false);
     goToPage(1);
   };
 
@@ -419,7 +443,7 @@ const CompetitionsList = () => {
         actions={
           <>
             <Button variant="outline" onClick={clearDateFilter}>{t('modals.competitions.clearFilter')}</Button>
-            <Button variant="primary" onClick={() => { setDateModalOpen(false); goToPage(1); }}>{t('modals.competitions.applyFilter')}</Button>
+            <Button variant="primary" onClick={handleApplyDateFilter}>{t('modals.competitions.applyFilter')}</Button>
           </>
         }
       >
@@ -428,21 +452,48 @@ const CompetitionsList = () => {
             <label className="text-sm font-medium text-gray-400">{t('modals.competitions.startDate')}</label>
             <input 
               type="date" 
-              value={dateRange.start}
-              onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark"
+              value={tempDateRange.start}
+              onChange={(e) => {
+                const startVal = e.target.value;
+                setTempDateRange(prev => {
+                  const updated = { ...prev, start: startVal };
+                  if (updated.end && startVal && new Date(updated.end) < new Date(startVal)) {
+                    setDateError(t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date'));
+                  } else {
+                    setDateError('');
+                  }
+                  return updated;
+                });
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-400">{t('modals.competitions.endDate')}</label>
             <input 
               type="date" 
-              value={dateRange.end}
-              onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark"
+              value={tempDateRange.end}
+              onChange={(e) => {
+                const endVal = e.target.value;
+                setTempDateRange(prev => {
+                  const updated = { ...prev, end: endVal };
+                  if (updated.start && endVal && new Date(endVal) < new Date(updated.start)) {
+                    setDateError(t('modals.competitions.invalidDateRange', 'End date cannot be earlier than start date'));
+                  } else {
+                    setDateError('');
+                  }
+                  return updated;
+                });
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-primary/50 transition-colors scheme-dark cursor-pointer"
             />
           </div>
         </div>
+        {dateError && (
+          <p className="text-red-400 text-xs mt-2 font-medium bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">
+            {dateError}
+          </p>
+        )}
       </Modal>
 
       {/* Delete Confirmation Modal */}

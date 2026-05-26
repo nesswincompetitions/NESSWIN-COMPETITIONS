@@ -72,10 +72,16 @@ export default function ForgotPasswordPage() {
     try {
       await passwordReset(email);
       setSubmitted(true);
-      toast.success("Reset link sent to your email!");
+      toast.success("If an account exists for this email, a password reset link has been sent.");
     } catch (error) {
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-email') {
-        toast.error("No account found with this email address.");
+      if (error.code === 'auth/user-not-found') {
+        // Fallback in case email enumeration protection is disabled in Firebase
+        setSubmitted(true);
+        toast.success("If an account exists for this email, a password reset link has been sent.");
+      } else if (error.code === 'auth/invalid-email') {
+        toast.error("Invalid email address. Please check and try again.");
+      } else if (error.code === 'auth/user-disabled') {
+        toast.error("This account has been suspended. Please contact support.");
       } else if (error.code === 'auth/too-many-requests') {
         toast.error("Too many requests. Please wait a moment and try again.");
       } else {
@@ -131,7 +137,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <h2 className="text-2xl font-serif font-bold text-[var(--color-foreground)] mb-3">Check Your Email</h2>
                 <p className="text-sm text-[var(--color-muted-foreground)] mb-8 leading-relaxed">
-                  We've sent a password reset link to <span className="text-[var(--color-foreground)] font-semibold">{email}</span>. 
+                  If an account exists for <span className="text-[var(--color-foreground)] font-semibold">{email}</span>, a password reset link has been sent. 
                   Please check your inbox and follow the instructions.
                 </p>
                 <button 

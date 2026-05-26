@@ -26,6 +26,12 @@ const OrdersList = () => {
 
   const { data: allComps } = useAdminCompetitionsFeed();
   
+  const selectedCompId = useMemo(() => {
+    if (selectedComp === 'all') return 'all';
+    const comp = allComps?.find(c => c.name === selectedComp);
+    return comp ? comp.id : 'all';
+  }, [selectedComp, allComps]);
+  
   const { 
     data: orders, 
     loading: ordersLoading,
@@ -36,7 +42,7 @@ const OrdersList = () => {
     totalCount,
     goToPage,
     refresh
-  } = useAdminOrdersFeedPaginated(20);
+  } = useAdminOrdersFeedPaginated({ selectedCompId, activeStatus }, 20);
   
   const { data: dashboardStats, loading: statsLoading } = useAdminDashboardData();
   const loading = ordersLoading || statsLoading;
@@ -102,27 +108,20 @@ const OrdersList = () => {
 
   const { currentOrders, totalFiltered } = useMemo(() => {
     const filtered = orders.filter(o => {
-      const compTitle = o.competitionName || '';
-      const matchesComp = selectedComp === 'all' || compTitle === selectedComp;
-
       const search = searchTerm.toLowerCase();
       const orderId = (o.id || '').toLowerCase();
       const userName = (o.userName || '').toLowerCase();
       const userEmail = (o.userEmail || '').toLowerCase();
       
       const matchesSearch = orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
-      
-      const orderStatus = (o.status || '').toLowerCase();
-      const matchesStatus = activeStatus === 'all' || orderStatus === activeStatus;
-      
-      return matchesComp && matchesSearch && matchesStatus;
+      return matchesSearch;
     });
 
     return { 
       currentOrders: filtered, 
       totalFiltered: filtered.length
     };
-  }, [orders, selectedComp, searchTerm, activeStatus]);
+  }, [orders, searchTerm]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">

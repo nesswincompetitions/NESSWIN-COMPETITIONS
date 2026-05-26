@@ -928,15 +928,28 @@ export const useAdminCompetitionsFeedPaginated = (pageSize = 20) => {
 
 /**
  * Paginated admin orders feed.
- * Orders by created_at desc. Status filtering done client-side.
+ * Orders by created_at desc. Supports server-side filtering by status and competition.
  *
+ * @param {object} filters - Filter criteria (selectedCompId, activeStatus).
  * @param {number} pageSize - Documents per page.
  */
-export const useAdminOrdersFeedPaginated = (pageSize = 20) => {
-  const baseConstraints = useMemo(
-    () => [orderBy('created_at', 'desc')],
-    []
-  );
+export const useAdminOrdersFeedPaginated = (filters = {}, pageSize = 20) => {
+  const { selectedCompId, activeStatus } = filters;
+
+  const baseConstraints = useMemo(() => {
+    const constraints = [];
+
+    if (activeStatus && activeStatus !== 'all') {
+      constraints.push(where('status', '==', activeStatus));
+    }
+
+    if (selectedCompId && selectedCompId !== 'all') {
+      constraints.push(where('competition_id', '==', doc(db, 'competition', selectedCompId)));
+    }
+
+    constraints.push(orderBy('created_at', 'desc'));
+    return constraints;
+  }, [selectedCompId, activeStatus]);
 
   const result = useFirestorePagination({
     collectionName: 'order',

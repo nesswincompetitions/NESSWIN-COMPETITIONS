@@ -693,6 +693,7 @@
       "endDate": "Date de fin",
       "clearFilter": "Effacer le filtre",
       "applyFilter": "Appliquer le filtre",
+      "invalidDateRange": "La date de fin ne peut pas être antérieure à la date de début",
       "noCompetitionsFound": "Aucun concours ne correspond à vos critères."
     }
   }

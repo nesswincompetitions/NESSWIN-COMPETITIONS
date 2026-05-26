@@ -708,6 +708,7 @@
       "endDate": "End Date",
       "clearFilter": "Clear Filter",
       "applyFilter": "Apply Filter",
+      "invalidDateRange": "End date cannot be earlier than start date",
       "noCompetitionsFound": "No competitions found matching your criteria."
     }
   }
