@@ -34,7 +34,8 @@ const UsersList = () => {
     prevPage,
     totalCount,
     goToPage,
-    refresh
+    refresh,
+    setItems
   } = useAdminUsersFeedPaginated(sortBy, 20);
   const users = useMemo(() => usersData || [], [usersData]);
 
@@ -82,6 +83,12 @@ const UsersList = () => {
     if (!userToToggle) return;
     setIsUpdating(true);
     const newStatus = userToToggle.is_active === false;
+
+    // Optimistic UI Update: update the local state immediately
+    setItems(prevItems => prevItems.map(user => 
+      user.id === userToToggle.id ? { ...user, is_active: newStatus } : user
+    ));
+
     try {
       await updateUserStatus(userToToggle.id, newStatus);
       toast.success(`User ${newStatus ? 'activated' : 'suspended'} successfully`);
@@ -89,6 +96,10 @@ const UsersList = () => {
     } catch (error) {
       console.error('Error updating user status:', error);
       toast.error('Failed to update user status');
+      // Revert optimistic update on failure
+      setItems(prevItems => prevItems.map(user => 
+        user.id === userToToggle.id ? { ...user, is_active: !newStatus } : user
+      ));
     } finally {
       setIsUpdating(false);
       setUserToToggle(null);
