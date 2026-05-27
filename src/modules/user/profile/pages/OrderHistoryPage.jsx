@@ -43,6 +43,7 @@ const STATUS_CONFIG = {
 
 function OrderCard({ order }) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [expanded, setExpanded] = React.useState(false);
   const [tickets, setTickets] = React.useState([]);
   const [loadingTickets, setLoadingTickets] = React.useState(false);
@@ -80,31 +81,49 @@ function OrderCard({ order }) {
     || t(`profile.ordersPage.status.${status === 'succeeded' ? 'completed' : 'default'}`) 
     || cfg.label;
 
+  const compId = competition?.id || order.competition_id;
+  const handleCompetitionClick = () => {
+    if (compId) {
+      navigate(`/competitions/${compId}`);
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_8px_30px_rgba(0,0,0,0.22)] duration-300">
       {/* Header row */}
       <div className="flex items-center gap-4 p-5">
-        {/* Thumb */}
-        <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-[var(--color-border)]/40">
-          {image ? (
-            <img src={image} alt={competition?.title} className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[var(--color-muted)]/20">
-              <ShoppingBag className="w-6 h-6 text-[var(--color-muted-foreground)]/40" />
-            </div>
-          )}
-        </div>
+        {/* Clickable Competition Area */}
+        <div 
+          onClick={handleCompetitionClick}
+          className={`flex items-center gap-4 flex-1 min-w-0 rounded-xl p-1.5 -m-1.5 transition-all duration-300 ${
+            compId ? 'cursor-pointer group hover:bg-[var(--color-muted)]/10' : ''
+          }`}
+        >
+          {/* Thumb */}
+          <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-[var(--color-border)]/40 group-hover:border-[var(--color-primary)]/40 group-hover:shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)] transition-all duration-300">
+            {image ? (
+              <img src={image} alt={competition?.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out" loading="lazy" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-[var(--color-muted)]/20">
+                <ShoppingBag className="w-6 h-6 text-[var(--color-muted-foreground)]/40 group-hover:text-[var(--color-primary)]/60 transition-colors" />
+              </div>
+            )}
+          </div>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--color-primary)] mb-0.5">
-            {competition?.category ?? 'Competition'}
-          </p>
-          <h3 className="text-sm font-bold text-[var(--color-foreground)] truncate">
-            {competition?.title ?? 'Unknown Competition'}
-          </h3>
-          <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
-            {formatDate(created_at, i18n.language)}
-          </p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--color-primary)] mb-0.5">
+              {competition?.category ?? 'Competition'}
+            </p>
+            <div className="relative inline-flex flex-col max-w-full">
+              <h3 className="text-sm font-bold text-[var(--color-foreground)] truncate group-hover:text-[var(--color-primary)] transition-colors duration-300">
+                {competition?.title ?? 'Unknown Competition'}
+              </h3>
+              <div className="h-[1.5px] w-0 bg-[var(--color-primary)] group-hover:w-full transition-all duration-300 ease-out mt-[1px] rounded-full"></div>
+            </div>
+            <p className="text-[11px] text-[var(--color-muted-foreground)] mt-0.5">
+              {formatDate(created_at, i18n.language)}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-col items-end gap-2 shrink-0">
