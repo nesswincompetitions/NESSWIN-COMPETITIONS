@@ -93,16 +93,13 @@ function OrderCard({ order }) {
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_8px_30px_rgba(0,0,0,0.22)] duration-300">
-      {/* Header row */}
       <div className="flex items-center gap-4 p-5">
-        {/* Clickable Competition Area */}
         <div
           onClick={handleCompetitionClick}
           className={`flex items-center gap-4 flex-1 min-w-0 rounded-xl p-1.5 -m-1.5 transition-all duration-300 ${
             compId ? 'cursor-pointer group hover:bg-[var(--color-muted)]/10' : ''
           }`}
         >
-          {/* Thumb */}
           <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-[var(--color-border)]/40 group-hover:border-[var(--color-primary)]/40 group-hover:shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.1)] transition-all duration-300">
             {image ? (
               <img src={image} alt={competition?.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out" loading="lazy" />
@@ -139,7 +136,6 @@ function OrderCard({ order }) {
         </div>
       </div>
 
-      {/* Quick stats */}
       <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
         {[
           { label: t('profile.ordersPage.tickets'), value: total_ticket ?? 0, icon: Ticket },
@@ -154,7 +150,6 @@ function OrderCard({ order }) {
         ))}
       </div>
 
-      {/* Expand toggle */}
       <button
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer border-t border-[var(--color-border)]/30"
@@ -162,7 +157,6 @@ function OrderCard({ order }) {
         {expanded ? <><ChevronUp className="w-3.5 h-3.5" /> {t('profile.ordersPage.hideDetails')}</> : <><ChevronDown className="w-3.5 h-3.5" /> {t('profile.ordersPage.viewDetails')}</>}
       </button>
 
-      {/* Expanded detail */}
       {expanded && (
         <div className="border-t border-[var(--color-border)]/30 px-5 pb-5 pt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -181,7 +175,6 @@ function OrderCard({ order }) {
             ))}
           </div>
 
-          {/* Tickets List */}
           <div className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">{t('profile.ordersPage.orderTickets')}</p>
@@ -261,18 +254,16 @@ export default function OrderHistoryPage() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
 
-  // ── Pagination state ─────────────────────────────────────────────────────
   const [currentPage, setCurrentPage]       = useState(1);
-  const [pages, setPages]                   = useState({});      // { 1: [orders], 2: [orders], ... }
-  const [cursors, setCursors]               = useState({});      // { 1: lastDoc, 2: lastDoc, ... }
+  const [pages, setPages]                   = useState({});
+  const [cursors, setCursors]               = useState({});
   const [totalCount, setTotalCount]         = useState(0);
   const [loading, setLoading]               = useState(true);
-  const [pageLoading, setPageLoading]       = useState(false);   // for subsequent pages
+  const [pageLoading, setPageLoading]       = useState(false);
   const unsubscribeRef                      = useRef(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
-  // ── Subscribe to page 1 (live) ────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser?.uid) {
       setPages({});
@@ -284,13 +275,11 @@ export default function OrderHistoryPage() {
 
     setLoading(true);
 
-    // Clean up any existing subscription
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
 
-    // Reset all page state when user changes
     setPages({});
     setCursors({});
     setCurrentPage(1);
@@ -318,11 +307,9 @@ export default function OrderHistoryPage() {
     };
   }, [currentUser?.uid]);
 
-  // ── Navigate to a page ───────────────────────────────────────────────────
   const goToPage = useCallback(async (targetPage) => {
     if (targetPage === currentPage) return;
 
-    // Buttery smooth scroll to the top of the orders list section
     const scrollTarget = document.getElementById('orders-list-top');
     if (scrollTarget) {
       const top = scrollTarget.getBoundingClientRect().top + window.scrollY - 100;
@@ -331,13 +318,11 @@ export default function OrderHistoryPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // If we already fetched this page, just switch to it instantly
     if (pages[targetPage]) {
       setCurrentPage(targetPage);
       return;
     }
 
-    // We need to fetch it — requires cursor from the previous page
     const cursorDoc = cursors[targetPage - 1];
     if (!cursorDoc) return;
 
@@ -388,7 +373,6 @@ export default function OrderHistoryPage() {
           </div>
         ) : currentOrders.length > 0 ? (
           <div className="space-y-6">
-            {/* Orders list with page-transition fade */}
             <motion.div
               key={currentPage}
               initial={{ opacity: 0, y: 20 }}
@@ -404,10 +388,8 @@ export default function OrderHistoryPage() {
               )}
             </motion.div>
 
-            {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-10">
-                {/* Prev */}
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1 || pageLoading}
@@ -416,7 +398,6 @@ export default function OrderHistoryPage() {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {/* Page numbers — smart windowing */}
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter(page => {
@@ -440,8 +421,8 @@ export default function OrderHistoryPage() {
                           disabled={pageLoading}
                           className={`w-10 h-10 rounded-xl border font-bold text-sm transition-all ${
                             currentPage === item
-                              ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
-                              : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40 disabled:opacity-50'
+                                ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
+                                : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40 disabled:opacity-50'
                           }`}
                         >
                           {item}
@@ -451,7 +432,6 @@ export default function OrderHistoryPage() {
                   }
                 </div>
 
-                {/* Next */}
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages || pageLoading}
@@ -462,7 +442,6 @@ export default function OrderHistoryPage() {
               </div>
             )}
 
-            {/* Page indicator */}
             {totalPages > 1 && (
               <p className="text-center text-xs text-[var(--color-muted-foreground)] mt-2">
                 Page {currentPage} of {totalPages}

@@ -42,14 +42,11 @@ const STATUS_MAP = {
   default:          { label: 'Pending',          classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
 };
 
-// ── Competition Group Card ────────────────────────────────────────────────────
-
 function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab }) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { competition, orders } = compData;
 
-  // Lazily load tickets only when card is mounted (only visible cards mount)
   const [tickets, setTickets] = useState([]);
   const [ticketsLoaded, setTicketsLoaded] = useState(false);
 
@@ -92,7 +89,6 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
 
   return (
     <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden flex flex-col shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] transition-shadow duration-300">
-      {/* Clickable header */}
       <div
         className="flex flex-col sm:flex-row cursor-pointer group hover:bg-[var(--color-muted)]/5 transition-colors duration-200"
         onClick={() => navigate(`/competitions/${competition?.id}`)}
@@ -156,7 +152,6 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
         </div>
       </div>
 
-      {/* Ticket numbers strip */}
       <div className="border-t border-[var(--color-border)]/40 p-5 bg-[var(--color-muted)]/5 flex flex-col gap-3">
         {!ticketsLoaded ? (
           <div className="flex gap-2">
@@ -222,8 +217,6 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
   );
 }
 
-// ── Skeleton ─────────────────────────────────────────────────────────────────
-
 function GroupSkeleton() {
   return (
     <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden flex flex-col animate-pulse">
@@ -248,8 +241,6 @@ function GroupSkeleton() {
     </div>
   );
 }
-
-// ── Pagination Controls ───────────────────────────────────────────────────────
 
 function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
@@ -308,8 +299,6 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
-
 export default function MyTicketsPage() {
   const { currentUser } = useAuth();
   const navigate        = useNavigate();
@@ -317,7 +306,7 @@ export default function MyTicketsPage() {
   const { t }           = useTranslation();
 
   const [activeTab, setActiveTab]               = useState(location.state?.tab || 'active');
-  const [allOrders, setAllOrders]               = useState([]);   // raw flat orders, all fetched
+  const [allOrders, setAllOrders]               = useState([]);
   const [loading, setLoading]                   = useState(true);
   const [currentPage, setCurrentPage]           = useState(1);
   const [selectedCompData, setSelectedCompData] = useState(null);
@@ -329,7 +318,6 @@ export default function MyTicketsPage() {
     navigate('/profile', { replace: true, state: { scrollToTop: true } });
   };
 
-  // ── Subscribe to all orders (capped at 200) ───────────────────────────────
   useEffect(() => {
     if (!currentUser?.uid) { setLoading(false); return; }
     setLoading(true);
@@ -341,10 +329,8 @@ export default function MyTicketsPage() {
     return unsub;
   }, [currentUser?.uid]);
 
-  // Reset page when tab changes
   useEffect(() => { setCurrentPage(1); }, [activeTab]);
 
-  // ── Group orders by competition ───────────────────────────────────────────
   const groupedComps = React.useMemo(() => {
     const groups = {};
     allOrders.forEach(order => {
@@ -353,7 +339,6 @@ export default function MyTicketsPage() {
       if (!groups[compId]) {
         groups[compId] = { competition: order.competition, orders: [] };
       }
-      // Keep freshest competition data (first order = most recent)
       if (order.competition && !groups[compId].competition) {
         groups[compId].competition = order.competition;
       }
@@ -362,7 +347,6 @@ export default function MyTicketsPage() {
     return groups;
   }, [allOrders]);
 
-  // ── Filter by active tab ──────────────────────────────────────────────────
   const filteredGroups = React.useMemo(() => {
     return Object.values(groupedComps).filter(group => {
       const compStatus = group.competition?.status;
@@ -373,7 +357,6 @@ export default function MyTicketsPage() {
     });
   }, [groupedComps, activeTab]);
 
-  // ── Paginate the filtered groups (client-side, instant) ──────────────────
   const totalPages    = Math.max(1, Math.ceil(filteredGroups.length / GROUPS_PER_PAGE));
   const currentGroups = filteredGroups.slice(
     (currentPage - 1) * GROUPS_PER_PAGE,
@@ -383,7 +366,6 @@ export default function MyTicketsPage() {
   const handlePageChange = useCallback((page) => {
     setCurrentPage(page);
 
-    // Buttery smooth scroll to the top of the tickets list section
     const scrollTarget = document.getElementById('tickets-list-top');
     if (scrollTarget) {
       const top = scrollTarget.getBoundingClientRect().top + window.scrollY - 100;
@@ -393,7 +375,6 @@ export default function MyTicketsPage() {
     }
   }, []);
 
-  // ── Top stats ─────────────────────────────────────────────────────────────
   const totalTickets = allOrders.reduce((s, o) => s + (o.total_ticket || 0), 0);
   const freeBonus    = allOrders.reduce((s, o) => s + (o.free_ticket  || 0), 0);
   const wonCount     = Object.values(groupedComps).filter(g => g.orders.some(o => o.is_winner)).length;
@@ -402,7 +383,6 @@ export default function MyTicketsPage() {
     <div className="min-h-screen bg-[var(--color-background)] pt-24 pb-16 px-4">
       <div className="max-w-3xl mx-auto">
 
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={handleBack}
@@ -413,7 +393,6 @@ export default function MyTicketsPage() {
           <h1 className="text-2xl font-serif font-bold text-[var(--color-foreground)]">{t('profile.myTickets')}</h1>
         </div>
 
-        {/* Top Stats */}
         <div className="grid grid-cols-3 gap-3 mb-8">
           {[
             { icon: Ticket,      value: totalTickets, label: t('profile.ticketsPage.totalTickets', { count: totalTickets }).replace(String(totalTickets), '').trim() },
@@ -428,7 +407,6 @@ export default function MyTicketsPage() {
           ))}
         </div>
 
-        {/* Tabs */}
         <div className="flex bg-[var(--color-card)] border border-[var(--color-border)]/60 rounded-xl p-1.5 mb-8 shadow-sm" id="tickets-list-top">
           {['active', 'past', 'won'].map(tab => (
             <button
@@ -445,7 +423,6 @@ export default function MyTicketsPage() {
           ))}
         </div>
 
-        {/* Content */}
         {loading ? (
           <div className="space-y-6">
             {Array.from({ length: 3 }).map((_, i) => <GroupSkeleton key={i} />)}
@@ -502,7 +479,6 @@ export default function MyTicketsPage() {
           </div>
         )}
 
-        {/* View All Tickets Modal */}
         <Modal
           isOpen={!!selectedCompData}
           onClose={() => setSelectedCompData(null)}
@@ -515,7 +491,6 @@ export default function MyTicketsPage() {
           <TicketModal compData={selectedCompData} uid={currentUser?.uid} activeTab={activeTab} onClose={() => setSelectedCompData(null)} />
         </Modal>
 
-        {/* Winner Review Modal */}
         <Modal
           isOpen={!!reviewCompId}
           onClose={() => setReviewCompId(null)}
@@ -534,8 +509,6 @@ export default function MyTicketsPage() {
     </div>
   );
 }
-
-// ── Ticket Modal (loads tickets if not already there) ─────────────────────────
 
 function TicketModal({ compData, uid, activeTab, onClose }) {
   const { t } = useTranslation();

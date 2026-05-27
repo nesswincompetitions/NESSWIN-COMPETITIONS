@@ -23,24 +23,13 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '@/config/firebase';
 
-// ─── Basic Profile Update ────────────────────────────────────────────────────
-
-/**
- * Updates a user profile document with merge semantics.
- * Safe to use for partial updates (e.g. photo_url, display_name).
- */
 export const updateProfile = async (uid, data) => {
   const userRef = doc(db, 'user', uid);
   await setDoc(userRef, data, { merge: true });
 };
 
-/**
- * Updates a username after checking for uniqueness in the user collection.
- */
 export const updateUsername = async (uid, newUsername) => {
   const cleanNew = newUsername.trim().toLowerCase();
-  
-  // Check if username is already taken by another user
   const q = query(collection(db, 'user'), where('user_name', '==', cleanNew));
   const snap = await getDocs(q);
   
@@ -49,20 +38,13 @@ export const updateUsername = async (uid, newUsername) => {
     if (takenByOther) {
       throw new Error("Username is already taken.");
     }
-    return; // It's already the user's own username
+    return;
   }
 
-  // Update the user document
   const userRef = doc(db, 'user', uid);
   await setDoc(userRef, { user_name: cleanNew }, { merge: true });
 };
 
-// ─── Edit Profile ────────────────────────────────────────────────────────────
-
-/**
- * Re-authenticates the user with their current password.
- * Required before sensitive operations (email change, delete).
- */
 export const reauthenticate = async (currentPassword) => {
   const user = auth.currentUser;
   if (!user || !user.email) throw new Error('No authenticated user.');
@@ -70,10 +52,6 @@ export const reauthenticate = async (currentPassword) => {
   await reauthenticateWithCredential(user, credential);
 };
 
-/**
- * Updates display_name and optionally email/password.
- * Email/password changes require re-authentication first.
- */
 export const saveEditedProfile = async (uid, { displayName, newEmail, newPassword }) => {
   const updates = {};
   if (displayName) updates.display_name = displayName.trim();
@@ -92,27 +70,12 @@ export const saveEditedProfile = async (uid, { displayName, newEmail, newPasswor
   }
 };
 
-// ─── Delete Account ──────────────────────────────────────────────────────────
-
-/**
- * Deletes the Firestore user document and the Firebase Auth account.
- * Requires fresh re-authentication before calling.
- */
 export const deleteAccount = async () => {
   const softDeleteUser = httpsCallable(functions, 'softDeleteUser');
   const result = await softDeleteUser();
   return result.data;
 };
 
-// ─── Shared Helpers ──────────────────────────────────────────────────────────
-
-/**
- * Deduplicates and resolves a list of Firestore competition document references.
- * Returns a Map from competition ID → competition data.
- * This is highly efficient: it fetches each unique competition exactly once,
- * regardless of how many tickets/orders reference it.
- * Time complexity: O(U) where U = number of unique competitions.
- */
 const resolveCompetitionMap = async (items) => {
   const refs = items
     .map((item) => item?.competition_id)
@@ -136,10 +99,6 @@ const resolveCompetitionMap = async (items) => {
   return Object.fromEntries(entries);
 };
 
-/**
- * Enriches a flat list of raw Firestore docs with resolved competition data.
- * Accepts a pre-fetched competitionMap to avoid redundant reads.
- */
 const enrichWithCompetition = (rawItems, competitionMap) =>
   rawItems.map((item) => ({
     ...item,
@@ -150,26 +109,8 @@ const enrichWithCompetition = (rawItems, competitionMap) =>
       null,
   }));
 
-// ─── Order History — Cursor-Based Pagination ─────────────────────────────────
-
 const ORDERS_PAGE_SIZE = 10;
 
-/**
- * [ORDERS - PAGE 1] Live real-time subscription for the first page of orders.
- *
- * Why onSnapshot here?
- * The first page is the most recent orders. A user can complete a purchase
- * and expect to see it appear instantly. onSnapshot with limit(10) makes that
- * happen while only ever reading a maximum of 10 documents from Firestore.
- *
- * Returns an unsubscribe function AND passes { orders, lastDoc, hasMore } to onData.
- * The caller must store `lastDoc` to use for fetching subsequent pages.
- *
- * @param {string} uid
- * @param {function} onData - Called with { orders, lastDoc, totalCount }
- * @param {function} onError
- * @returns {function} unsubscribe
- */
 export const subscribeOrdersFirstPage = (uid, onData, onError) => {
   if (!uid) {
     onData({ orders: [], lastDoc: null, totalCount: 0 });
@@ -177,12 +118,10 @@ export const subscribeOrdersFirstPage = (uid, onData, onError) => {
   }
 
   const userRef = doc(db, 'user', uid);
-
   let active = true;
   let resolvedTotalCount = 0;
-  let latestData = null; // Stores { orders, lastDoc } once snapshot fires
+  let latestData = null;
 
-  // Fire off a one-time count query in parallel to know total pages up-front.
   const countQ = query(
     collection(db, 'order'),
     where('user_ref', '==', userRef)
@@ -192,7 +131,6 @@ export const subscribeOrdersFirstPage = (uid, onData, onError) => {
     .then((snap) => {
       if (!active) return;
       resolvedTotalCount = snap.data().count;
-      // If snapshot already fired and we have data, update the UI with the real count.
       if (latestData) {
         onData({
           orders: latestData.orders,
@@ -241,18 +179,6 @@ export const subscribeOrdersFirstPage = (uid, onData, onError) => {
   };
 };
 
-
-/**
- * [ORDERS - PAGE N] Fetches a subsequent page of orders using a cursor.
- *
- * Uses getDocs (static, one-time read) instead of onSnapshot because:
- * - Historical pages don't need real-time updates.
- * - This is 100x cheaper: one read per page instead of a persistent socket.
- *
- * @param {string} uid
- * @param {DocumentSnapshot} cursorDoc - The last document from the previous page.
- * @returns {Promise<{ orders, lastDoc, hasMore }>}
- */
 export const fetchOrdersNextPage = async (uid, cursorDoc) => {
   if (!uid || !cursorDoc) return { orders: [], lastDoc: null, hasMore: false };
 
@@ -261,7 +187,7 @@ export const fetchOrdersNextPage = async (uid, cursorDoc) => {
     collection(db, 'order'),
     where('user_ref', '==', userRef),
     orderBy('created_at', 'desc'),
-    startAfter(cursorDoc),          // 🚀 Cursor-based — skips already-seen data
+    startAfter(cursorDoc),
     limit(ORDERS_PAGE_SIZE)
   );
 
@@ -272,39 +198,13 @@ export const fetchOrdersNextPage = async (uid, cursorDoc) => {
   const competitionMap = await resolveCompetitionMap(rawOrders);
   const orders = enrichWithCompetition(rawOrders, competitionMap);
   const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-
-  // If we got a full page, there might be more data; if partial, we're at the end.
   const hasMore = snapshot.docs.length === ORDERS_PAGE_SIZE;
 
   return { orders, lastDoc, hasMore };
 };
 
-// ─── My Tickets — Capped Real-Time Subscription ──────────────────────────────
-
-/**
- * My Tickets architecture note:
- * Tickets are GROUPED by competition for display. Cursor-based pagination on
- * orders maps poorly to groups (10 orders for 2 competitions = 2 groups, not 10).
- *
- * Solution: Fetch all user orders up to MAX_ORDERS with a single capped onSnapshot.
- * The UI groups the flat order list by competition (O(N) client-side) and paginates
- * the resulting GROUPS. This is fast (browsers handle arrays of hundreds trivially),
- * gives live updates, and always shows correct groups per page.
- *
- * MAX_ORDERS = 200 means we read at most 200 docs. For 99.9% of users this covers
- * their entire history. Power users beyond 200 orders can contact support (edge case).
- */
 const MAX_ORDERS_FOR_TICKETS = 200;
 
-/**
- * Live real-time subscription for ALL user orders (capped at 200).
- * Returns flat enriched orders. The UI is responsible for grouping + paginating.
- *
- * @param {string} uid
- * @param {function} onData - Called with enriched orders array
- * @param {function} onError
- * @returns {function} unsubscribe
- */
 export const subscribeUserOrdersForTickets = (uid, onData, onError) => {
   if (!uid) {
     onData([]);
@@ -316,7 +216,7 @@ export const subscribeUserOrdersForTickets = (uid, onData, onError) => {
     collection(db, 'order'),
     where('user_ref', '==', userRef),
     orderBy('created_at', 'desc'),
-    limit(MAX_ORDERS_FOR_TICKETS)  // Safety cap — never reads the whole database
+    limit(MAX_ORDERS_FOR_TICKETS)
   );
 
   return onSnapshot(
@@ -335,14 +235,6 @@ export const subscribeUserOrdersForTickets = (uid, onData, onError) => {
   );
 };
 
-/**
- * Fetches all tickets for a given competition that belong to this user.
- * Called lazily only for competitions currently visible on the page.
- *
- * @param {string} uid
- * @param {string} competitionId
- * @returns {Promise<ticket[]>}
- */
 export const fetchTicketsForCompetition = async (uid, competitionId) => {
   if (!uid || !competitionId) return [];
   const userRef = doc(db, 'user', uid);
@@ -350,38 +242,37 @@ export const fetchTicketsForCompetition = async (uid, competitionId) => {
   const q = query(
     collection(db, 'ticket'),
     where('user_id', '==', userRef),
-    where('competition_id', '==', compRef),
-    orderBy('ticket_number', 'asc')
+    where('competition_id', '==', compRef)
   );
   try {
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch {
+    const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
+    return tickets;
+  } catch (err) {
+    console.error('[fetchTicketsForCompetition] Error:', err);
     return [];
   }
 };
 
-// ─── Order Tickets (for expanding an order card) ─────────────────────────────
-
-
-/**
- * Fetches all tickets for a specific order.
- */
 export const fetchOrderTickets = async (orderId) => {
   if (!orderId) return [];
   const orderRef = doc(db, 'order', orderId);
   const q = query(
     collection(db, 'ticket'),
-    where('order_id', '==', orderRef),
-    orderBy('ticket_number', 'asc')
+    where('order_id', '==', orderRef)
   );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await getDocs(q);
+    const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
+    return tickets;
+  } catch (err) {
+    console.error('[fetchOrderTickets] Error:', err);
+    return [];
+  }
 };
 
-/**
- * Realtime tickets feed for a single order.
- */
 export const subscribeOrderTickets = (orderId, onData, onError) => {
   if (!orderId) {
     onData([]);
@@ -391,25 +282,20 @@ export const subscribeOrderTickets = (orderId, onData, onError) => {
   const orderRef = doc(db, 'order', orderId);
   const q = query(
     collection(db, 'ticket'),
-    where('order_id', '==', orderRef),
-    orderBy('ticket_number', 'asc')
+    where('order_id', '==', orderRef)
   );
 
   return onSnapshot(
     q,
     (snapshot) => {
-      onData(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const tickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
+      onData(tickets);
     },
     onError
   );
 };
 
-// ─── Legacy Functions (kept for backward compatibility) ──────────────────────
-
-/**
- * @deprecated Use subscribeOrdersFirstPage + fetchOrdersNextPage instead.
- * Kept to avoid breaking any other components that still call this.
- */
 export const subscribeUserOrders = (uid, onData, onError) => {
   if (!uid) {
     onData([]);
@@ -435,9 +321,6 @@ export const subscribeUserOrders = (uid, onData, onError) => {
   );
 };
 
-/**
- * @deprecated Use subscribeTicketsFirstPage + fetchTicketsNextPage instead.
- */
 export const subscribeUserTickets = (uid, onData, onError) => {
   if (!uid) {
     onData([]);
@@ -463,9 +346,6 @@ export const subscribeUserTickets = (uid, onData, onError) => {
   );
 };
 
-/**
- * @deprecated Use subscribeTicketsFirstPage + fetchTicketsNextPage instead.
- */
 export const fetchUserTickets = async (uid) => {
   if (!uid) return [];
 
@@ -498,9 +378,6 @@ export const fetchUserTickets = async (uid) => {
   );
 };
 
-/**
- * @deprecated Use subscribeOrdersFirstPage + fetchOrdersNextPage instead.
- */
 export const fetchUserOrders = async (uid) => {
   if (!uid) return [];
 
