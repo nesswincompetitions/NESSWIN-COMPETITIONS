@@ -187,11 +187,7 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
               </button>
             )}
           </div>
-        ) : (
-          <div className="text-sm text-[var(--color-muted-foreground)] italic">
-            {t('profile.ticketsPage.ticketsProcessing')}
-          </div>
-        )}
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 bg-[var(--color-muted)]/20 px-2.5 py-1 rounded-md border border-[var(--color-border)]/40">
@@ -591,11 +587,7 @@ function TicketModal({ compData, uid, activeTab, onClose }) {
               </div>
             ))}
           </div>
-        ) : (
-          <p className="text-center text-sm text-[var(--color-muted-foreground)] py-8">
-            {t('profile.ticketsPage.ticketsProcessing')}
-          </p>
-        )}
+        ) : null}
       </div>
       <div className="mt-6 pt-6 border-t border-[var(--color-border)]/40">
         <button
