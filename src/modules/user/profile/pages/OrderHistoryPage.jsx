@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
-import { subscribeUserOrders, subscribeOrderTickets } from '@/modules/user/profile/services/profileService';
+import {
+  subscribeOrdersFirstPage,
+  fetchOrdersNextPage,
+  subscribeOrderTickets,
+} from '@/modules/user/profile/services/profileService';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -16,9 +21,13 @@ import {
   ChevronUp,
   Hash,
   Gift,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
-import { useState as useLocalState } from 'react';
+
+const ITEMS_PER_PAGE = 10;
 
 const formatDate = (ts, langCode) => {
   if (!ts) return 'N/A';
@@ -50,13 +59,12 @@ function OrderCard({ order }) {
   const {
     id, competition, total_ticket, free_ticket, free_used, total_amount,
     subtotal, discount_amount, discount_percent, pack_type,
-    currency, created_at, paid_at, status, stripe_status,
+    currency, created_at, paid_at, status,
     question_answer,
   } = order;
 
   useEffect(() => {
     if (!expanded) return undefined;
-
     setLoadingTickets(true);
     const unsubscribe = subscribeOrderTickets(
       id,
@@ -70,22 +78,17 @@ function OrderCard({ order }) {
         setLoadingTickets(false);
       }
     );
-
     return unsubscribe;
   }, [expanded, id]);
 
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG[status === 'succeeded' ? 'completed' : 'default'];
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['default'];
   const StatusIcon = cfg.icon;
   const image = competition?.image?.[0];
-  const statusLabel = t(`profile.ordersPage.status.${status}`) 
-    || t(`profile.ordersPage.status.${status === 'succeeded' ? 'completed' : 'default'}`) 
-    || cfg.label;
-
+  const statusLabel = t(`profile.ordersPage.status.${status}`, cfg.label);
   const compId = competition?.id || order.competition_id;
+
   const handleCompetitionClick = () => {
-    if (compId) {
-      navigate(`/competitions/${compId}`);
-    }
+    if (compId) navigate(`/competitions/${compId}`);
   };
 
   return (
@@ -93,7 +96,7 @@ function OrderCard({ order }) {
       {/* Header row */}
       <div className="flex items-center gap-4 p-5">
         {/* Clickable Competition Area */}
-        <div 
+        <div
           onClick={handleCompetitionClick}
           className={`flex items-center gap-4 flex-1 min-w-0 rounded-xl p-1.5 -m-1.5 transition-all duration-300 ${
             compId ? 'cursor-pointer group hover:bg-[var(--color-muted)]/10' : ''
@@ -143,7 +146,7 @@ function OrderCard({ order }) {
           { label: t('profile.ordersPage.freeUsed'), value: free_used ?? 0, icon: Ticket },
           { label: t('profile.ordersPage.bonusGot'), value: free_ticket ?? 0, icon: Gift },
           { label: t('profile.ordersPage.pack'), value: pack_type ?? '—', icon: CreditCard },
-        ].map(({ label, value, icon: Icon }) => (
+        ].map(({ label, value }) => (
           <div key={label} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-1">
             <p className="text-[9px] uppercase tracking-[0.15em] font-bold text-[var(--color-muted-foreground)]">{label}</p>
             <p className="text-sm font-bold text-[var(--color-foreground)]">{value}</p>
@@ -183,10 +186,10 @@ function OrderCard({ order }) {
             <div className="flex items-center justify-between mb-3">
               <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">{t('profile.ordersPage.orderTickets')}</p>
               <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-md">
-                {t('profile.ordersPage.totalTicketsCount', { count: total_ticket + (free_ticket || 0) + (free_used || 0) })}
+                {t('profile.ordersPage.totalTicketsCount', { count: (total_ticket || 0) + (free_ticket || 0) + (free_used || 0) })}
               </span>
             </div>
-            
+
             {loadingTickets ? (
               <div className="flex items-center justify-center py-4">
                 <LoadingSpinner fullScreen={false} size="w-4 h-4" message="" />
@@ -223,52 +226,136 @@ function OrderCard({ order }) {
   );
 }
 
+function OrderSkeleton() {
+  return (
+    <div className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] animate-pulse">
+      <div className="flex items-center gap-4 p-5">
+        <div className="w-14 h-14 rounded-xl shrink-0 bg-[var(--color-muted)]/30" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="h-2 bg-[var(--color-muted)]/50 rounded w-1/4" />
+          <div className="h-4 bg-[var(--color-muted)]/60 rounded w-2/3" />
+          <div className="h-2 bg-[var(--color-muted)]/40 rounded w-1/3" />
+        </div>
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <div className="h-5 w-20 bg-[var(--color-muted)]/30 rounded-full" />
+          <div className="h-5 w-16 bg-[var(--color-muted)]/40 rounded" />
+        </div>
+      </div>
+      <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
+        {Array.from({ length: 4 }).map((_, j) => (
+          <div key={j} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-2">
+            <div className="h-2 w-10 bg-[var(--color-muted)]/30 rounded" />
+            <div className="h-4 w-6 bg-[var(--color-muted)]/40 rounded" />
+          </div>
+        ))}
+      </div>
+      <div className="w-full flex items-center justify-center gap-1.5 py-2.5 border-t border-[var(--color-border)]/30">
+        <div className="h-3 w-24 bg-[var(--color-muted)]/30 rounded" />
+      </div>
+    </div>
+  );
+}
+
 export default function OrderHistoryPage() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
 
+  // ── Pagination state ─────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage]       = useState(1);
+  const [pages, setPages]                   = useState({});      // { 1: [orders], 2: [orders], ... }
+  const [cursors, setCursors]               = useState({});      // { 1: lastDoc, 2: lastDoc, ... }
+  const [totalCount, setTotalCount]         = useState(0);
+  const [loading, setLoading]               = useState(true);
+  const [pageLoading, setPageLoading]       = useState(false);   // for subsequent pages
+  const unsubscribeRef                      = useRef(null);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+
+  // ── Subscribe to page 1 (live) ────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser?.uid) {
-      setOrders([]);
+      setPages({});
+      setCursors({});
+      setTotalCount(0);
       setLoading(false);
-      return undefined;
+      return;
     }
 
     setLoading(true);
-    const unsubscribe = subscribeUserOrders(
+
+    // Clean up any existing subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    // Reset all page state when user changes
+    setPages({});
+    setCursors({});
+    setCurrentPage(1);
+
+    const unsub = subscribeOrdersFirstPage(
       currentUser.uid,
-      (nextOrders) => {
-        setOrders(nextOrders);
+      ({ orders, lastDoc, totalCount: count }) => {
+        setPages(prev => ({ ...prev, 1: orders }));
+        setCursors(prev => ({ ...prev, 1: lastDoc }));
+        setTotalCount(count);
         setLoading(false);
       },
-      (e) => {
-        console.error('Failed to subscribe orders', e);
-        setOrders([]);
+      (err) => {
+        console.error('[OrderHistory] Subscription error:', err);
         setLoading(false);
       }
     );
 
-    return unsubscribe;
+    unsubscribeRef.current = unsub;
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+    };
   }, [currentUser?.uid]);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  // ── Navigate to a page ───────────────────────────────────────────────────
+  const goToPage = useCallback(async (targetPage) => {
+    if (targetPage === currentPage) return;
 
-  const totalSpent = orders.reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
+    // Buttery smooth scroll to the top of the orders list section
+    const scrollTarget = document.getElementById('orders-list-top');
+    if (scrollTarget) {
+      const top = scrollTarget.getBoundingClientRect().top + window.scrollY - 100;
+      window.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-  // Pagination Logic
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentOrders = orders.slice(indexOfFirstItem, indexOfLastItem);
+    // If we already fetched this page, just switch to it instantly
+    if (pages[targetPage]) {
+      setCurrentPage(targetPage);
+      return;
+    }
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    // We need to fetch it — requires cursor from the previous page
+    const cursorDoc = cursors[targetPage - 1];
+    if (!cursorDoc) return;
+
+    setPageLoading(true);
+    try {
+      const { orders, lastDoc } = await fetchOrdersNextPage(currentUser.uid, cursorDoc);
+      setPages(prev => ({ ...prev, [targetPage]: orders }));
+      setCursors(prev => ({ ...prev, [targetPage]: lastDoc }));
+      setCurrentPage(targetPage);
+    } catch (err) {
+      console.error('[OrderHistory] Error fetching page:', err);
+    } finally {
+      setPageLoading(false);
+    }
+  }, [currentPage, pages, cursors, currentUser?.uid]);
+
+  const currentOrders = pages[currentPage] || [];
+  const totalSpent = Object.values(pages).flat().reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] pt-24 pb-16 px-4">
@@ -280,85 +367,106 @@ export default function OrderHistoryPage() {
           <ArrowLeft className="w-4 h-4" /> {t('profile.backToProfile')}
         </button>
 
-        <div className="mb-8">
-          <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">{t('profile.ordersPage.purchaseHistory')}</p>
+        <div className="mb-8" id="orders-list-top">
+          <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">
+            {t('profile.ordersPage.purchaseHistory')}
+          </p>
           <h1 className="text-3xl font-bold text-[var(--color-foreground)]">{t('profile.orderHistory')}</h1>
-          {!loading && orders.length > 0 && (
+          {!loading && totalCount > 0 && (
             <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              {t('profile.ordersPage.ordersCount', { count: orders.length, amount: formatCurrency(totalSpent, 'EUR', i18n.language) })}
+              {t('profile.ordersPage.ordersCount', {
+                count: totalCount,
+                amount: formatCurrency(totalSpent, 'EUR', i18n.language)
+              })}
             </p>
           )}
         </div>
 
         {loading ? (
           <div className="space-y-6">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-[var(--color-border)]/60 bg-[var(--color-card)] overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12)] animate-pulse">
-                <div className="flex items-center gap-4 p-5">
-                  <div className="w-14 h-14 rounded-xl shrink-0 bg-[var(--color-muted)]/30" />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="h-2 bg-[var(--color-muted)]/50 rounded w-1/4" />
-                    <div className="h-4 bg-[var(--color-muted)]/60 rounded w-2/3" />
-                    <div className="h-2 bg-[var(--color-muted)]/40 rounded w-1/3" />
-                  </div>
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <div className="h-5 w-20 bg-[var(--color-muted)]/30 rounded-full" />
-                    <div className="h-5 w-16 bg-[var(--color-muted)]/40 rounded" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-px bg-[var(--color-border)]/30">
-                  {Array.from({ length: 4 }).map((_, j) => (
-                    <div key={j} className="bg-[var(--color-card)] flex flex-col items-center py-3 px-2 gap-2">
-                      <div className="h-2 w-10 bg-[var(--color-muted)]/30 rounded" />
-                      <div className="h-4 w-6 bg-[var(--color-muted)]/40 rounded" />
-                    </div>
-                  ))}
-                </div>
-                <div className="w-full flex items-center justify-center gap-1.5 py-2.5 border-t border-[var(--color-border)]/30">
-                  <div className="h-3 w-24 bg-[var(--color-muted)]/30 rounded" />
-                </div>
-              </div>
-            ))}
+            {Array.from({ length: 4 }).map((_, i) => <OrderSkeleton key={i} />)}
           </div>
-        ) : orders.length > 0 ? (
+        ) : currentOrders.length > 0 ? (
           <div className="space-y-6">
-            <div className="space-y-4">
+            {/* Orders list with page-transition fade */}
+            <motion.div
+              key={currentPage}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+              className={`space-y-4 transition-opacity duration-300 ${pageLoading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}
+            >
               {currentOrders.map((o) => <OrderCard key={o.id} order={o} />)}
-            </div>
+              {pageLoading && (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-6 h-6 text-[var(--color-primary)] animate-spin" />
+                </div>
+              )}
+            </motion.div>
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-10">
+                {/* Prev */}
                 <button
-                  onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1 || pageLoading}
+                  className="w-10 h-10 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] flex items-center justify-center text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 hover:border-[var(--color-primary)]/40 transition-all"
                 >
-                  {t('profile.ticketsPage.prev', 'Prev')}
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div className="flex items-center gap-1 overflow-x-auto max-w-full px-2 hide-scrollbar">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`w-10 h-10 rounded-xl border font-bold text-sm transition-all shrink-0 ${
-                        currentPage === page
-                          ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
-                          : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+
+                {/* Page numbers — smart windowing */}
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      if (totalPages <= 7) return true;
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .reduce((acc, page, idx, arr) => {
+                      if (idx > 0 && page - arr[idx - 1] > 1) acc.push('...');
+                      acc.push(page);
+                      return acc;
+                    }, [])
+                    .map((item, idx) =>
+                      item === '...' ? (
+                        <span key={`ellipsis-${idx}`} className="w-10 h-10 flex items-center justify-center text-[var(--color-muted-foreground)] text-sm">…</span>
+                      ) : (
+                        <button
+                          key={item}
+                          onClick={() => goToPage(item)}
+                          disabled={pageLoading}
+                          className={`w-10 h-10 rounded-xl border font-bold text-sm transition-all ${
+                            currentPage === item
+                              ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white shadow-lg shadow-primary/20'
+                              : 'border-[var(--color-border)]/60 bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40 disabled:opacity-50'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )
+                  }
                 </div>
+
+                {/* Next */}
                 <button
-                  onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-4 py-2 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] text-sm font-bold text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 transition-colors"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages || pageLoading}
+                  className="w-10 h-10 rounded-xl border border-[var(--color-border)]/60 bg-[var(--color-card)] flex items-center justify-center text-[var(--color-foreground)] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--color-muted)]/10 hover:border-[var(--color-primary)]/40 transition-all"
                 >
-                  {t('profile.ticketsPage.next', 'Next')}
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+            )}
+
+            {/* Page indicator */}
+            {totalPages > 1 && (
+              <p className="text-center text-xs text-[var(--color-muted-foreground)] mt-2">
+                Page {currentPage} of {totalPages}
+              </p>
             )}
           </div>
         ) : (
