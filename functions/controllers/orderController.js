@@ -209,6 +209,8 @@ export const processOrder = onCall(async (request) => {
             parameterData: {
               orderRef: orderRef.path,
               competitionRef: competitionRef.path,
+              compName: compTitle,
+              quantity: totalAllocated,
             },
           })
         )

@@ -116,6 +116,8 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
               parameterData: {
                 orderRef: orderRef.path,
                 competitionRef: competitionRef.path,
+                compName: compTitle,
+                quantity: result.tickets?.length || orderData.ticket_quantity || 1,
               },
             })
           )

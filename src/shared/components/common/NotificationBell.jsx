@@ -35,7 +35,7 @@ const useTranslateNotification = () => {
     }
 
     const compName = params.competition_title || params.compName || 'Competition';
-    const ticketCount = params.quantity || 1;
+    const ticketCount = params.quantity || params.count || 1;
 
     // Type checking matches
     if (notif.type === 'payment_success') {
