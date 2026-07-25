@@ -11,6 +11,8 @@ import { useState, useEffect } from 'react';
 import Reveal from '@/shared/components/ui/Reveal';
 import { useTranslation } from 'react-i18next';
 
+import { usePlatformStats } from '@/modules/user/home/hooks/usePlatformStats';
+
 /**
  * Lightweight hook — returns true once, after `delay` ms.
  * Used to trigger the page-load entrance animation.
@@ -53,16 +55,28 @@ function HeroEntry({ children, index = 0, baseDelay = 350 }) {
 export default function HeroSection() {
   const { t } = useTranslation();
   const loaded = usePageLoaded(120); // background is instant; content waits 120ms
+  const { stats: dbStats, loading: statsLoading } = usePlatformStats();
+
+  const formatPrizes = (amount) => {
+    if (amount === 0) return "€0";
+    if (amount >= 1_000_000) {
+      return `€${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    }
+    if (amount >= 1_000) {
+      return `€${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+    }
+    return `€${amount.toLocaleString()}`;
+  };
+
   const stats = [
-    { icon: Users, value: "52 847", label: t("hero.stats.participants") },
-    { icon: Trophy, value: "1 247", label: t("hero.stats.winners") },
-    { icon: ShieldCheck, value: "2.3M€", label: t("hero.stats.prizes") },
-    { icon: Globe, value: "12", label: t("hero.stats.countries") },
+    { icon: Users, value: statsLoading ? "0" : dbStats.participants.toLocaleString(), label: t("hero.stats.participants") },
+    { icon: Trophy, value: statsLoading ? "0" : dbStats.winners.toLocaleString(), label: t("hero.stats.winners") },
+    { icon: ShieldCheck, value: statsLoading ? "€0" : formatPrizes(dbStats.prizes), label: t("hero.stats.prizes") },
+    { icon: Globe, value: statsLoading ? "0" : dbStats.countries.toLocaleString(), label: t("hero.stats.countries") },
   ];
 
   const trustBadges = [
     { label: t("hero.trustBadges.securePayments") },
-    { label: t("hero.trustBadges.notarizedDraws") },
     { label: t("hero.trustBadges.publicResults") },
   ];
 
@@ -131,7 +145,7 @@ export default function HeroSection() {
               transition: `opacity 1.1s cubic-bezier(0.16,1,0.3,1) 480ms, transform 1.1s cubic-bezier(0.16,1,0.3,1) 480ms`,
             }}
           >
-            <div className="space-y-1 w-full max-w-[100vw] px-2 sm:px-4 overflow-hidden">
+            <div className="space-y-1 w-full max-w-[100vw] px-2 sm:px-4 overflow-visible pb-2">
               <h1 className="font-serif text-[2.5rem] leading-[1.1] sm:text-7xl lg:text-[5.5rem] font-bold sm:leading-[1.05] tracking-tight text-(--color-foreground) break-words">
                 {t("hero.titleTop")}
               </h1>
@@ -221,14 +235,6 @@ export default function HeroSection() {
                   aria-hidden="true"
                 />
                 {t("hero.trustBadges.securePayments")}
-              </span>
-              <span className="text-border">·</span>
-              <span className="flex items-center gap-1.5">
-                <ShieldCheck
-                  className="w-3.5 h-3.5 text-primary"
-                  aria-hidden="true"
-                />
-                {t("hero.trustBadges.notarizedDraws")}
               </span>
               <span className="text-border">·</span>
               <span className="flex items-center gap-1.5">

@@ -35,9 +35,9 @@
   },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
-    "titleTop": "Gagnez l'",
-    "titleBottom": "Extraordinaire",
-    "subtitle": "Voitures de luxe, montres, voyages de rêve - accessibles à tous. Participez dès 2 € et tentez votre chance dans nos tirages certifiés.",
+    "titleTop": "Vivez l'",
+    "titleBottom": "Extraordinaire.",
+    "subtitle": "Rejoignez nos concours certifiés basés sur les compétences et tentez de gagner des prix exceptionnels, notamment des voitures de luxe, des montres de prestige et des vacances de rêve. Une expérience premium fondée sur l'équité, la transparence et la sécurité.",
     "seeCompetitions": "Voir les concours",
     "ourWinners": "Nos gagnants",
     "stats": {
@@ -48,7 +48,6 @@
     },
     "trustBadges": {
       "securePayments": "Paiements sécurisés",
-      "notarizedDraws": "Tirages notariés",
       "publicResults": "Résultats publics"
     }
   },
@@ -73,7 +72,7 @@
       },
       "three": {
         "title": "Tirage en direct",
-        "desc": "Suivez le tirage en temps réel, supervisé par un notaire. Complètement transparent et vérifiable."
+        "desc": "Suivez le tirage en direct et en temps réel. Chaque tirage est totalement transparent et vérifiable."
       },
       "four": {
         "title": "Récupérez votre lot",
@@ -119,7 +118,7 @@
     "subtitle": "Rejoignez des milliers de participants dans nos concours premium. Le prochain gagnant, c'est peut-être vous.",
     "signIn": "Connexion",
     "nextDraw": "Voir le prochain tirage",
-    "legal": "En participant, vous acceptez nos conditions. Concours légaux réservés aux adultes. Tirages supervisés par notaire."
+    "legal": "En participant, vous acceptez nos conditions. Concours légaux réservés aux adultes."
   },
   "footer": {
     "getItOn": "Disponible sur",
@@ -193,7 +192,7 @@
     "participantsSubtitle": "Chaque achat de ticket est listé ici. Transparence totale sur tous les participants.",
     "participants": "participant(s)",
     "ticketCount": "ticket(s)",
-    "transparencyNote": "Cette liste est mise à jour en temps réel. Chaque participant est affiché avec son nom public ou réel. Les tirages sont supervisés par un notaire certifié et filmés en direct.",
+    "transparencyNote": "Cette liste est mise à jour en temps réel. Chaque participant est affiché avec son nom public ou réel. Les tirages sont filmés en direct.",
     "buy10Get1Free": "🎁 1 ticket GRATUIT pour chaque tranche de 10 tickets achetés",
     "individualTickets": "Tickets Individuels",
     "advantageousPacks": "Packs Avantageux",

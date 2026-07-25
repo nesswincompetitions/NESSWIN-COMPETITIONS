@@ -35,9 +35,9 @@
   },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",
-    "titleTop": "Gana lo",
-    "titleBottom": "Extraordinario",
-    "subtitle": "Coches de lujo, relojes, viajes de ensueño — accesibles para todos. Participa desde 2€ y prueba tu suerte en nuestros sorteos certificados.",
+    "titleTop": "Vive lo",
+    "titleBottom": "Extraordinario.",
+    "subtitle": "Únase a nuestras competiciones certificadas basadas en habilidades y compita por premios excepcionales, que incluyen coches de lujo, relojes prestigiosos y vacaciones de ensueño. Una experiencia premium basada en la equidad, transparencia y seguridad.",
     "seeCompetitions": "Ver Sorteos",
     "ourWinners": "Nuestros Ganadores",
     "stats": {
@@ -48,7 +48,6 @@
     },
     "trustBadges": {
       "securePayments": "Pagos seguros",
-      "notarizedDraws": "Sorteos ante notario",
       "publicResults": "Resultados públicos"
     }
   },
@@ -73,7 +72,7 @@
       },
       "three": {
         "title": "Sorteo en Vivo",
-        "desc": "Mira el sorteo en tiempo real, supervisado por un notario. Completamente transparente y verificable."
+        "desc": "Mira el sorteo en vivo en tiempo real. Cada sorteo es completamente transparente y verificable."
       },
       "four": {
         "title": "Reclama Tu Premio",
@@ -119,7 +118,7 @@
     "subtitle": "Únete a miles de participantes en nuestros sorteos premium. El próximo ganador podrías ser tú.",
     "signIn": "Iniciar Sesión",
     "nextDraw": "Ver Próximo Sorteo",
-    "legal": "Al participar, aceptas nuestros términos. Sorteos legales, abiertos a adultos. Sorteos supervisados por notario."
+    "legal": "Al participar, aceptas nuestros términos. Sorteos legales, abiertos a adultos."
   },
   "footer": {
     "getItOn": "Disponible en",
@@ -193,7 +192,7 @@
     "participantsSubtitle": "Cada compra de entrada se enumera aquí. Transparencia total sobre todos los participantes.",
     "participants": "participante(s)",
     "ticketCount": "entrada(s)",
-    "transparencyNote": "Esta lista se actualiza en tiempo real. Cada participante se enumera con su nombre de usuario público o nombre real. Los sorteos están supervisados por un notario certificado y se filman en vivo.",
+    "transparencyNote": "Esta lista se actualiza en tiempo real. Cada participante se enumera con su nombre de usuario público o nombre real. Los sorteos se filman en vivo.",
     "buy10Get1Free": "🎁 1 entrada GRATIS por cada 10 entradas compradas",
     "individualTickets": "Entradas Individuales",
     "advantageousPacks": "Paquetes Ventajosos",

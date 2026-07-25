@@ -36,9 +36,9 @@
   },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",
-    "titleTop": "Win the",
-    "titleBottom": "Extraordinary",
-    "subtitle": "Luxury cars, watches, dream trips — accessible to everyone. Participate from €2 and try your luck in our certified draws.",
+    "titleTop": "Experience the",
+    "titleBottom": "Extraordinary.",
+    "subtitle": "Join our certified skill-based competitions and compete for exceptional prizes, including luxury cars, prestigious watches, and dream vacations. A premium experience built on fairness, transparency, and security.",
     "seeCompetitions": "See Competitions",
     "ourWinners": "Our Winners",
     "stats": {
@@ -49,7 +49,6 @@
     },
     "trustBadges": {
       "securePayments": "Secure payments",
-      "notarizedDraws": "Notarized draws",
       "publicResults": "Public results"
     }
   },
@@ -74,7 +73,7 @@
       },
       "three": {
         "title": "Live Draw",
-        "desc": "Watch the draw in real time, supervised by a notary. Completely transparent and verifiable."
+        "desc": "Watch the draw live in real time. Every draw is fully transparent and verifiable."
       },
       "four": {
         "title": "Claim Your Prize",
@@ -120,7 +119,7 @@
     "subtitle": "Join thousands of participants in our premium competitions. The next winner could be you.",
     "signIn": "Sign In",
     "nextDraw": "Watch Next Draw",
-    "legal": "By participating, you accept our terms. Legal competitions, open to adults. Draws supervised by notary."
+    "legal": "By participating, you accept our terms. Legal competitions, open to adults."
   },
   "footer": {
     "getItOn": "Get it on",
@@ -194,7 +193,7 @@
     "participantsSubtitle": "Every ticket purchase is listed here. Full transparency on all participants.",
     "participants": "participant(s)",
     "ticketCount": "ticket(s)",
-    "transparencyNote": "This list is updated in real time. Every participant is listed by their public username or real name. Draws are supervised by a certified notary and filmed live.",
+    "transparencyNote": "This list is updated in real time. Every participant is listed by their public username or real name. Draws are filmed live.",
     "buy10Get1Free": "🎁 1 FREE ticket for every 10 tickets purchased",
     "individualTickets": "Individual Tickets",
     "advantageousPacks": "Advantageous Packs",

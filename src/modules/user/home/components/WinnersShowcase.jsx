@@ -97,6 +97,7 @@ const COLOR_THEMES = [
 
 function WinnerCard({ winner, onWatchVideo }) {
   const { i18n, t } = useTranslation();
+  const [imgError, setImgError] = useState(false);
   const { initials, name, photoUrl, handoverVideoUrl, prizeName, amount, quote, drawDateRaw, ticketPrice, accentFrom, accentTo, trophyColor, badgeColor } = winner;
 
   // Localized placeholder
@@ -119,8 +120,13 @@ function WinnerCard({ winner, onWatchVideo }) {
       {/* Winner header */}
       <div className="flex items-center gap-3 relative z-10 shrink-0">
         <div className="w-12 h-12 rounded-full border-2 border-primary/30 flex items-center justify-center font-serif text-lg font-bold bg-linear-to-br from-primary/20 to-primary/5 text-(--color-foreground) shrink-0 overflow-hidden">
-          {photoUrl ? (
-            <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+          {photoUrl && !imgError ? (
+            <img 
+              src={photoUrl} 
+              alt={name} 
+              className="w-full h-full object-cover" 
+              onError={() => setImgError(true)}
+            />
           ) : (
             initials
           )}
