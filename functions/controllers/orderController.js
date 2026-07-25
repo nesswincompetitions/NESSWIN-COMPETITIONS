@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { onCall, HttpsError, onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
@@ -285,13 +285,18 @@ export const createStripeCheckoutSession = onCall(async (request) => {
     freeTicketsToUse = 0,
     referralsToBurn = [],
     origin,
+    success_url,
+    cancel_url,
+    success_path,
+    cancel_path,
+    notification_page_name,
   } = request.data;
 
   if (!competitionId || typeof competitionId !== "string") {
     throw new HttpsError("invalid-argument", "competitionId is required.");
   }
-  if (!origin || typeof origin !== "string") {
-    throw new HttpsError("invalid-argument", "origin is required.");
+  if ((!origin || typeof origin !== "string") && (!success_url || !cancel_url)) {
+    throw new HttpsError("invalid-argument", "origin is required unless both success_url and cancel_url are provided.");
   }
 
   const qty = Number(ticketQuantity);
@@ -348,6 +353,36 @@ export const createStripeCheckoutSession = onCall(async (request) => {
     // Schedule Sniper Cloud Task for abandoned cart notifications
     await schedulePaymentPendingTask(orderRef.id, uid);
 
+    let successUrlFinal = success_url;
+    if (!successUrlFinal) {
+      const path = success_path || "/profile/tickets";
+      successUrlFinal = `${origin}${path}`;
+    }
+    const sep1 = successUrlFinal.includes("?") ? "&" : "?";
+    successUrlFinal = `${successUrlFinal}${sep1}success=true&order_id=${orderRef.id}`;
+
+    let cancelUrlFinal = cancel_url;
+    if (!cancelUrlFinal) {
+      const path = cancel_path || `/competitions/${competitionId}`;
+      cancelUrlFinal = `${origin}${path}`;
+    }
+    const sep2 = cancelUrlFinal.includes("?") ? "&" : "?";
+    cancelUrlFinal = `${cancelUrlFinal}${sep2}cancel=true`;
+
+    // Stripe checkout success_url and cancel_url must start with http:// or https://
+    // If they are custom schemes, wrap them in our paymentRedirect Cloud Function endpoint
+    const isCustomScheme = (url) => url && !url.startsWith("http://") && !url.startsWith("https://");
+
+    if (isCustomScheme(successUrlFinal)) {
+      const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
+      successUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(successUrlFinal)}`;
+    }
+
+    if (isCustomScheme(cancelUrlFinal)) {
+      const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
+      cancelUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(cancelUrlFinal)}`;
+    }
+
     const stripe = new Stripe(stripeSecretKey);
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -365,10 +400,11 @@ export const createStripeCheckoutSession = onCall(async (request) => {
         },
       ],
       mode: "payment",
-      success_url: `${origin}/profile/tickets?success=true&order_id=${orderRef.id}`,
-      cancel_url: `${origin}/competitions/${competitionId}?cancel=true`,
+      success_url: successUrlFinal,
+      cancel_url: cancelUrlFinal,
       metadata: {
         orderId: orderRef.id,
+        notificationPageName: notification_page_name || "OrderHistory",
       },
     });
 
@@ -383,4 +419,14 @@ export const createStripeCheckoutSession = onCall(async (request) => {
     logger.error("[createStripeCheckoutSession] Error:", err.message);
     throw toHttpsError(err, "Failed to create Stripe checkout session.");
   }
+});
+
+export const paymentRedirect = onRequest({ cors: true }, (req, res) => {
+  const { redirect_url } = req.query;
+  if (!redirect_url || typeof redirect_url !== "string") {
+    res.status(400).send("Missing redirect_url query parameter.");
+    return;
+  }
+  logger.info(`[paymentRedirect] Redirecting to: ${redirect_url}`);
+  res.redirect(302, redirect_url);
 });

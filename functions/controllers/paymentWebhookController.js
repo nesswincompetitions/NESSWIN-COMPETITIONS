@@ -32,6 +32,7 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
     const session = event.data.object;
     const orderId = session.metadata?.orderId;
     const paymentIntentId = session.payment_intent;
+    const notificationPageName = session.metadata?.notificationPageName || "OrderHistory";
 
     if (!orderId) {
       logger.error("[stripeWebhook] Missing orderId in session metadata.");
@@ -111,7 +112,7 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
               competitionRef: competitionRef,
               senderRef: userRef,
               ctaText: "View Tickets",
-              pageName: "OrderHistory",
+              pageName: notificationPageName,
               parameterData: {
                 orderRef: orderRef.path,
                 competitionRef: competitionRef.path,
@@ -154,7 +155,7 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
                 orderRef: orderRef,
                 competitionRef: competitionRef,
                 senderRef: userRef,
-                pageName: "OrderHistory",
+                pageName: notificationPageName,
                 parameterData: {
                   orderRef: orderRef.path,
                   competitionRef: competitionRef.path,

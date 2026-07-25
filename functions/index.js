@@ -1,4 +1,4 @@
-export { processOrder, initiateOrder, createStripeCheckoutSession } from "./controllers/orderController.js";
+export { processOrder, initiateOrder, createStripeCheckoutSession, paymentRedirect } from "./controllers/orderController.js";
 export { paymentPendingWorker } from "./controllers/orderNotificationCloudTasksController.js";
 export {
 	notifyWinnerOnFirstAdminMessage,
