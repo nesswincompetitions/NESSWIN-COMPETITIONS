@@ -4,6 +4,8 @@ import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
 import { runOrderTransaction } from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
+import { getOrderPricing } from "../services/orderPricingService.js";
+import Stripe from "stripe";
 import { CloudTasksClient } from "@google-cloud/tasks";
 
 const tasksClient = new CloudTasksClient();
@@ -274,4 +276,111 @@ export const processOrder = onCall(async (request) => {
   }
 });
 
-// Removed aggregateOrderMetrics (now handled by dashboardController.js)
+export const createStripeCheckoutSession = onCall(async (request) => {
+  const uid = assertAuthenticated(request);
+  const {
+    competitionId,
+    ticketQuantity,
+    questionAnswer,
+    freeTicketsToUse = 0,
+    referralsToBurn = [],
+    origin,
+  } = request.data;
+
+  if (!competitionId || typeof competitionId !== "string") {
+    throw new HttpsError("invalid-argument", "competitionId is required.");
+  }
+  if (!origin || typeof origin !== "string") {
+    throw new HttpsError("invalid-argument", "origin is required.");
+  }
+
+  const qty = Number(ticketQuantity);
+  if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
+    throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
+  }
+  if (qty > 100) {
+    throw new HttpsError("invalid-argument", "Maximum 100 tickets per order.");
+  }
+
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new HttpsError("failed-precondition", "Stripe secret key is not configured on the server.");
+  }
+
+  try {
+    const competitionRef = db.collection("competition").doc(competitionId);
+    const compSnap = await competitionRef.get();
+    if (!compSnap.exists) {
+      throw new HttpsError("not-found", "Competition not found.");
+    }
+    const compData = compSnap.data();
+    if (compData.status !== "active") {
+      throw new HttpsError("failed-precondition", "Competition is not active.");
+    }
+
+    const ticketPrice = Number(compData.ticket_price || 0);
+    const { discount } = getOrderPricing(qty);
+    const subtotal = qty * ticketPrice;
+    const discountAmount = subtotal * discount;
+    const totalAmount = subtotal - discountAmount;
+
+    if (totalAmount <= 0) {
+      throw new HttpsError("invalid-argument", "This session requires payment. Use processOrder for free purchases.");
+    }
+
+    const orderRef = db.collection("order").doc();
+    const userRef = db.collection("user").doc(uid);
+
+    // Save pending order with all checkout details
+    await orderRef.set({
+      user_ref: userRef,
+      competition_id: competitionRef,
+      status: "pending",
+      ticket_quantity: qty,
+      free_tickets_to_use: Number(freeTicketsToUse) || 0,
+      referrals_to_burn: Array.isArray(referralsToBurn) ? referralsToBurn : [],
+      question_answer: questionAnswer || {},
+      total_amount: totalAmount,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // Schedule Sniper Cloud Task for abandoned cart notifications
+    await schedulePaymentPendingTask(orderRef.id, uid);
+
+    const stripe = new Stripe(stripeSecretKey);
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `${compData.title || "Competition Entry"} - Nesswin`,
+              images: compData.image && compData.image.length > 0 ? [compData.image[0]] : [],
+            },
+            unit_amount: Math.round(totalAmount * 100), // in cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${origin}/profile/tickets?success=true&order_id=${orderRef.id}`,
+      cancel_url: `${origin}/competitions/${competitionId}?cancel=true`,
+      metadata: {
+        orderId: orderRef.id,
+      },
+    });
+
+    // Update the pending order with stripe details
+    await orderRef.update({
+      stripe_checkout_session_id: session.id,
+      updated_at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { sessionUrl: session.url };
+  } catch (err) {
+    logger.error("[createStripeCheckoutSession] Error:", err.message);
+    throw toHttpsError(err, "Failed to create Stripe checkout session.");
+  }
+});

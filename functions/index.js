@@ -1,4 +1,4 @@
-export { processOrder, initiateOrder } from "./controllers/orderController.js";
+export { processOrder, initiateOrder, createStripeCheckoutSession } from "./controllers/orderController.js";
 export { paymentPendingWorker } from "./controllers/orderNotificationCloudTasksController.js";
 export {
 	notifyWinnerOnFirstAdminMessage,
@@ -31,3 +31,4 @@ export {
 	syncDashboardMetrics,
 } from "./controllers/dashboardController.js";
 export { onCompetitionStatusUpdate } from "./controllers/competitionNotificationController.js";
+export { stripeWebhook } from "./controllers/paymentWebhookController.js";

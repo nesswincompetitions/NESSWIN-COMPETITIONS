@@ -13,6 +13,7 @@ import { db, functions } from '@/config/firebase';
 
 // ── Cloud Function callable ────────────────────────────────────────────────────
 const processOrderFn = httpsCallable(functions, 'processOrder');
+const createStripeCheckoutSessionFn = httpsCallable(functions, 'createStripeCheckoutSession');
 
 // ── Pricing helper (mirrors backend — used for UI-only computation) ────────────
 function getOrderPricing(qty) {
@@ -121,12 +122,26 @@ export function useCheckout({
           .map((r) => ({ id: r.id })),
       };
 
-      const { data: result } = await processOrderFn(payload);
-
-      setOrderResult(result);
-      toast.success(`${result.tickets.length} ticket${result.tickets.length > 1 ? 's' : ''} confirmed! 🎉`);
-
-      if (onSuccess) onSuccess(result);
+      if (isZeroPayment) {
+        // Free purchase: Process directly without Stripe
+        const { data: result } = await processOrderFn(payload);
+        setOrderResult(result);
+        toast.success(`${result.tickets.length} ticket${result.tickets.length > 1 ? 's' : ''} confirmed! 🎉`);
+        if (onSuccess) onSuccess(result);
+      } else {
+        // Paid purchase: Create Stripe Checkout Session and redirect
+        const { data: result } = await createStripeCheckoutSessionFn({
+          ...payload,
+          origin: window.location.origin
+        });
+        
+        if (result?.sessionUrl) {
+          toast.loading('Redirecting to secure checkout...');
+          window.location.href = result.sessionUrl;
+        } else {
+          throw new Error('Failed to retrieve checkout URL.');
+        }
+      }
     } catch (err) {
       const msg = err?.message || 'Order failed. Please try again.';
       setCheckoutError(msg);
@@ -141,6 +156,7 @@ export function useCheckout({
     referralTicketsToUse,
     pendingReferrals,
     questionAnswerMap,
+    isZeroPayment,
     onSuccess,
   ]);
 

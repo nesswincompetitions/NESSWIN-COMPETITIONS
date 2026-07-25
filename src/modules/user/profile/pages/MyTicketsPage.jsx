@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
+import { toast } from 'react-hot-toast';
 import {
   subscribeUserOrdersForTickets,
   fetchTicketsForCompetition,
@@ -328,6 +329,15 @@ export default function MyTicketsPage() {
     );
     return unsub;
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('success') === 'true') {
+      toast.success(t('checkout.paymentSuccessToast') || 'Payment confirmed! Your tickets are being generated. 🎉');
+      // Clear URL params to avoid showing the toast again on refresh
+      navigate('/profile/tickets', { replace: true });
+    }
+  }, [location.search, navigate, t]);
 
   useEffect(() => { setCurrentPage(1); }, [activeTab]);
 
