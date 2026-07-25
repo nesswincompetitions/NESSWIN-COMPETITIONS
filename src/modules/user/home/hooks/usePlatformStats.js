@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 
 export function usePlatformStats() {
@@ -20,17 +20,13 @@ export function usePlatformStats() {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        let participants = 0;
+      async (snapshot) => {
         let winners = 0;
         let prizes = 0;
 
         snapshot.forEach((doc) => {
           const data = doc.data();
           const status = data.status;
-
-          // Add to participants (total tickets sold across all valid competitions)
-          participants += Number(data.sold_tickets) || 0;
 
           // Add to prizes (sum of all prize values)
           prizes += Number(data.prize_value) || 0;
@@ -41,12 +37,26 @@ export function usePlatformStats() {
           }
         });
 
-        setStats({
-          participants,
-          winners,
-          prizes,
-          countries: 0, // Defaulting to 0 as per implementation plan fallback
-        });
+        try {
+          // Count total registered users (participants)
+          const userCountSnap = await getCountFromServer(collection(db, 'user'));
+          const userCount = userCountSnap.data().count;
+
+          setStats({
+            participants: userCount,
+            winners,
+            prizes,
+            countries: 0, // Defaulting to 0 as per implementation plan fallback
+          });
+        } catch (err) {
+          console.error('Error counting users for platform stats:', err);
+          setStats({
+            participants: 0,
+            winners,
+            prizes,
+            countries: 0,
+          });
+        }
         setLoading(false);
       },
       (error) => {
