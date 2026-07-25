@@ -333,7 +333,7 @@ export default function MyTicketsPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (params.get('success') === 'true') {
-      toast.success(t('checkout.paymentSuccessToast') || 'Payment confirmed! Your tickets are being generated. 🎉');
+      toast.success('Payment confirmed! Your tickets are being generated. 🎉');
       // Clear URL params to avoid showing the toast again on refresh
       navigate('/profile/tickets', { replace: true });
     }
