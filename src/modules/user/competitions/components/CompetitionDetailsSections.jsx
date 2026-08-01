@@ -322,7 +322,7 @@ function SelectTicketPanel({
                     </span>
                     <p className="text-sm font-bold text-white pt-1">{pack.name}</p>
                     <p className="text-xs text-muted-foreground">{pack.tickets} {t('common.tickets')}</p>
-                    <p className="text-lg font-black text-primary pt-0.5">{packPrice} €</p>
+                    <p className="text-lg font-black text-primary pt-0.5">£{packPrice}</p>
                   </div>
                   {isActive && (
                     <div className="absolute inset-0 rounded-2xl border-2 border-primary/40 animate-pulse pointer-events-none" />
@@ -366,7 +366,7 @@ function SelectTicketPanel({
                 <Tag className="w-3.5 h-3.5" />
                 <span className="font-bold">{t('common.discount')}</span>
               </div>
-              <span className="font-bold text-emerald-400">-{discountAmt.toFixed(2)} €</span>
+              <span className="font-bold text-emerald-400">-£{discountAmt.toFixed(2)}</span>
             </div>
           )}
 
@@ -398,11 +398,11 @@ function SelectTicketPanel({
             {referralQty > 0 && paidQty === 0 ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">FREE</span>
-                <span className="text-2xl font-black text-emerald-400">0.00 €</span>
+                <span className="text-2xl font-black text-emerald-400">£0.00</span>
               </div>
             ) : (
               <span className={`text-2xl font-black ${totalAmount === 0 ? 'text-muted-foreground' : 'text-primary'}`}>
-                {totalAmount.toFixed(2)} €
+                £{totalAmount.toFixed(2)}
               </span>
             )}
           </div>
@@ -515,7 +515,7 @@ export function TicketPurchaseCard({
             </p>
           </div>
           <div className="bg-primary text-(--color-primary-foreground) text-xs font-black px-3 py-1.5 rounded-full shadow-lg tracking-wide shrink-0 ml-2">
-            {ticketPrice} € {t("competitionDetails.perTicket")}
+            £{ticketPrice} {t("competitionDetails.perTicket")}
           </div>
         </div>
       </div>
@@ -611,7 +611,7 @@ export function TicketPurchaseCard({
               ))}
             </div>
             <div className="text-xs text-muted-foreground pt-2 border-t border-border/40 mt-3">
-              Total: <span className="font-bold text-primary">{orderResult.totalAmount} €</span> · Order #{orderResult.orderId.slice(0, 8)}
+              Total: <span className="font-bold text-primary">£{orderResult.totalAmount}</span> · Order #{orderResult.orderId.slice(0, 8)}
             </div>
             {competition.status === 'active' && onBuyMore && (
               <button
@@ -796,7 +796,7 @@ export function BigCountdown({ endsAt }) {
 export function StatsGrid({ ticketPrice, maxTickets, sold, priceLabel }) {
   const { t } = useTranslation();
   const stats = [
-    { label: t("competitionDetails.stats.ticketPrice"), value: `${ticketPrice || 0} €` },
+    { label: t("competitionDetails.stats.ticketPrice"), value: `£${ticketPrice || 0}` },
     { label: t("competitionDetails.stats.maxTickets"), value: (maxTickets || 0).toLocaleString() },
     { label: t("competitionDetails.stats.ticketsSold"), value: (sold || 0).toLocaleString() },
     { label: t("competitionDetails.stats.prizeValue"), value: priceLabel || t("common.loading") },

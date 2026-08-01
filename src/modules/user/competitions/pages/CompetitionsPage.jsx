@@ -134,7 +134,7 @@ function CompetitionCard({ competition, hasTicket }) {
         </div>
         <div className="absolute top-3 right-3 bg-(--color-background)/90 backdrop-blur-sm rounded-full px-2.5 py-1 text-xs font-bold text-primary flex items-center gap-1">
           <Tag className="w-3 h-3" aria-hidden="true" />
-          {ticketPrice}€
+          £{ticketPrice}
         </div>
         {!isWinnerAnnounced && !isCompleted && (
           <div className="absolute bottom-3 left-3">
@@ -398,12 +398,12 @@ export default function CompetitionsPage() {
           badgeType: data.status === 'active' ? 'new' : 'ended',
           badgeLabel: data.status,
           ticketPrice: data.ticket_price || 0,
-          ticketPriceLabel: `${data.ticket_price || 0}€/ticket`,
+          ticketPriceLabel: `£${data.ticket_price || 0}/ticket`,
           category: data.category || 'Other',
           tag: data.tag || '',
           title: data.title || 'Untitled',
           subTitle: data.sub_title || '',
-          priceLabel: `${data.prize_value?.toLocaleString() || 0} €`,
+          priceLabel: `£${data.prize_value?.toLocaleString() || 0}`,
           sold: data.sold_tickets || 0,
           total: data.total_tickets || 1000,
           endsAt: data.draw_date?.toMillis ? data.draw_date.toMillis() : (data.draw_date ? new Date(data.draw_date).getTime() : null),

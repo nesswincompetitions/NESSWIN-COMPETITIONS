@@ -209,7 +209,7 @@ export async function runOrderTransaction(
       subtotal,
       discount_amount: discountAmount,
       total_amount: totalAmount,
-      currency: "EUR",
+      currency: "GBP",
       status: "paid",
       is_winner: false,
       stripe_payment_intent_id: "",

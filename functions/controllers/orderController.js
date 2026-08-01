@@ -391,7 +391,7 @@ export const createStripeCheckoutSession = onCall(async (request) => {
       line_items: [
         {
           price_data: {
-            currency: "eur",
+            currency: "gbp",
             product_data: {
               name: `${compData.title || "Competition Entry"} - Nesswin`,
               images: compData.image && compData.image.length > 0 ? [compData.image[0]] : [],

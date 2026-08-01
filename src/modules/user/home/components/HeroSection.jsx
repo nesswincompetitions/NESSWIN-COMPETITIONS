@@ -58,20 +58,20 @@ export default function HeroSection() {
   const { stats: dbStats, loading: statsLoading } = usePlatformStats();
 
   const formatPrizes = (amount) => {
-    if (amount === 0) return "€0";
+    if (amount === 0) return "£0";
     if (amount >= 1_000_000) {
-      return `€${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+      return `£${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
     }
     if (amount >= 1_000) {
-      return `€${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+      return `£${(amount / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
     }
-    return `€${amount.toLocaleString()}`;
+    return `£${amount.toLocaleString()}`;
   };
 
   const stats = [
     { icon: Users, value: statsLoading ? "0" : dbStats.participants.toLocaleString(), label: t("hero.stats.participants") },
     { icon: Trophy, value: statsLoading ? "0" : dbStats.winners.toLocaleString(), label: t("hero.stats.winners") },
-    { icon: ShieldCheck, value: statsLoading ? "€0" : formatPrizes(dbStats.prizes), label: t("hero.stats.prizes") },
+    { icon: ShieldCheck, value: statsLoading ? "£0" : formatPrizes(dbStats.prizes), label: t("hero.stats.prizes") },
     { icon: Globe, value: statsLoading ? "0" : dbStats.countries.toLocaleString(), label: t("hero.stats.countries") },
   ];
 

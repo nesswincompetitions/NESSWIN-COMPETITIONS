@@ -36,7 +36,7 @@ const formatDate = (ts, langCode) => {
   return d.toLocaleDateString(currentLang, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
-const formatCurrency = (value, currency = 'EUR', langCode) => {
+const formatCurrency = (value, currency = 'GBP', langCode) => {
   if (value == null) return 'N/A';
   const currentLang = langCode === 'fr' ? 'fr-FR' : (langCode === 'es' ? 'es-ES' : 'en-GB');
   return new Intl.NumberFormat(currentLang, { style: 'currency', currency }).format(value);
@@ -131,7 +131,7 @@ function OrderCard({ order }) {
             {statusLabel}
           </span>
           <p className="text-base font-bold text-[var(--color-foreground)]">
-            {formatCurrency(total_amount, currency ?? 'EUR', i18n.language)}
+            {formatCurrency(total_amount, currency ?? 'GBP', i18n.language)}
           </p>
         </div>
       </div>
@@ -361,7 +361,7 @@ export default function OrderHistoryPage() {
             <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
               {t('profile.ordersPage.ordersCount', {
                 count: totalCount,
-                amount: formatCurrency(totalSpent, 'EUR', i18n.language)
+                amount: formatCurrency(totalSpent, 'GBP', i18n.language)
               })}
             </p>
           )}

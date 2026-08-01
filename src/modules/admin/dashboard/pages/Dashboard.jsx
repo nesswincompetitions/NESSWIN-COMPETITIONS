@@ -28,7 +28,7 @@ const Dashboard = () => {
   const kpiData = [
     { title: t('dashboard.kpi.activeCompetitions'), value: stats.activeCompetitions.toLocaleString(), icon: Trophy, color: 'text-primary' },
     { title: t('dashboard.kpi.ticketsSoldToday'), value: stats.ticketsSoldToday.toLocaleString(), icon: Ticket, color: 'text-emerald-400' },
-    { title: t('dashboard.kpi.totalRevenue'), value: `€${stats.totalRevenue.toLocaleString()}`, icon: PoundSterling, color: 'text-yellow-400' },
+    { title: t('dashboard.kpi.totalRevenue'), value: `£${stats.totalRevenue.toLocaleString()}`, icon: PoundSterling, color: 'text-yellow-400' },
     { title: t('dashboard.kpi.registeredUsers'), value: stats.totalRegisteredUsers.toLocaleString(), icon: Users, color: 'text-blue-400' },
     { title: t('dashboard.kpi.totalWinners'), value: stats.totalWinners.toLocaleString(), icon: CheckCircle, color: 'text-orange-400' },
     { title: t('dashboard.kpi.drawsEndingSoon'), value: stats.drawsEndingSoon.toLocaleString(), icon: Clock, color: 'text-red-400' },
@@ -182,7 +182,7 @@ const Dashboard = () => {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>€{revenue.toLocaleString()}</TableCell>
+                      <TableCell>£{revenue.toLocaleString()}</TableCell>
                       <TableCell>
                         {comp.draw_date?.toMillis
                           ? new Date(comp.draw_date.toMillis()).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -250,7 +250,7 @@ const Dashboard = () => {
                     </TableCell>
                     <TableCell className="max-w-37.5 truncate">{order.competitionName}</TableCell>
                     <TableCell>{order.total_ticket}</TableCell>
-                    <TableCell className="text-white font-medium">€{order.total_amount.toLocaleString()}</TableCell>
+                    <TableCell className="text-white font-medium">£{order.total_amount.toLocaleString()}</TableCell>
                     <TableCell className="text-gray-400 text-xs">{formatRelativeTime(order.created_at)}</TableCell>
                   </TableRow>
                 ))}
