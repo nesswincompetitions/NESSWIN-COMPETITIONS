@@ -2,7 +2,7 @@ import {
   ShieldCheck,
   Trophy,
   Users,
-  Globe,
+  Ticket,
   ArrowRight,
   CirclePlay,
 } from "lucide-react";
@@ -72,7 +72,7 @@ export default function HeroSection() {
     { icon: Users, value: statsLoading ? "0" : dbStats.participants.toLocaleString(), label: t("hero.stats.participants") },
     { icon: Trophy, value: statsLoading ? "0" : dbStats.winners.toLocaleString(), label: t("hero.stats.winners") },
     { icon: ShieldCheck, value: statsLoading ? "£0" : formatPrizes(dbStats.prizes), label: t("hero.stats.prizes") },
-    { icon: Globe, value: statsLoading ? "0" : dbStats.countries.toLocaleString(), label: t("hero.stats.countries") },
+    { icon: Ticket, value: statsLoading ? "0" : dbStats.activeDraws.toLocaleString(), label: t("hero.stats.activeDraws") },
   ];
 
   const trustBadges = [

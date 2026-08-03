@@ -7,7 +7,7 @@ export function usePlatformStats() {
     participants: 0,
     winners: 0,
     prizes: 0,
-    countries: 0,
+    activeDraws: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -23,6 +23,7 @@ export function usePlatformStats() {
       async (snapshot) => {
         let winners = 0;
         let prizes = 0;
+        let activeDraws = 0;
 
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -35,6 +36,11 @@ export function usePlatformStats() {
           if (['winner_announced', 'completed'].includes(status)) {
             winners += 1;
           }
+
+          // Count active draws
+          if (status === 'active') {
+            activeDraws += 1;
+          }
         });
 
         try {
@@ -46,7 +52,7 @@ export function usePlatformStats() {
             participants: userCount,
             winners,
             prizes,
-            countries: 0, // Defaulting to 0 as per implementation plan fallback
+            activeDraws,
           });
         } catch (err) {
           console.error('Error counting users for platform stats:', err);
@@ -54,7 +60,7 @@ export function usePlatformStats() {
             participants: 0,
             winners,
             prizes,
-            countries: 0,
+            activeDraws,
           });
         }
         setLoading(false);
