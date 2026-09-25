@@ -123,7 +123,8 @@
   "footer": {
     "getItOn": "Disponible sur",
     "downloadOn": "Télécharger dans l'",
-    "appInstallText": "Ceci est notre application, cliquez pour l'installer",
+    "comingSoon": "Bientôt disponible",
+    "appInstallText": "Disponible sur Google Play. L’application iOS arrive bientôt.",
     "description": "La plateforme premium de concours à lots. Lots exceptionnels, tirages certifiés, transparence totale.",
     "platform": "Plateforme",
     "company": "Entreprise",

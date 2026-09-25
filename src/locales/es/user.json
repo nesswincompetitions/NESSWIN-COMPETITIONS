@@ -123,7 +123,8 @@
   "footer": {
     "getItOn": "Disponible en",
     "downloadOn": "Consíguelo en el",
-    "appInstallText": "Esta es nuestra aplicación, haz clic para instalarla",
+    "comingSoon": "Próximamente",
+    "appInstallText": "Disponible en Google Play. La aplicación para iOS llegará pronto.",
     "description": "La plataforma de sorteos de premios premium. Premios excepcionales, sorteos certificados, transparencia total.",
     "platform": "Plataforma",
     "company": "Empresa",
