@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   User,
   Mail,
@@ -12,6 +13,13 @@ import {
 } from "lucide-react";
 import { toast } from 'react-hot-toast';
 import { signUpWithEmail, signInWithEmail, signInWithGoogle, signInWithApple } from '@/modules/user/auth/services/authService';
+
+// ─── App-level (codeless) errors carry English service messages ─────────────────
+// Map the recognized suspended-account message to a localized string; any other
+// unexpected codeless error gets a safe localized fallback instead of raw text.
+const isSuspendedMessage = (message) => /suspend/i.test(message || '');
+const localizeServiceError = (t, error) =>
+  isSuspendedMessage(error?.message) ? t('auth.errors.suspended') : t('auth.errors.unknown');
 
 // ─── Reusable Input Field ─────────────────────────────────────────────────────
 function InputField({ id, name, type, label, placeholder, value, onChange, focused, onFocus, onBlur, icon: Icon, rightSlot }) {
@@ -31,11 +39,12 @@ function InputField({ id, name, type, label, placeholder, value, onChange, focus
 
 // ─── Password Strength ────────────────────────────────────────────────────────
 function PasswordStrength({ password }) {
+  const { t } = useTranslation();
   if (!password) return null;
   const getStrength = () => {
-    if (password.length < 6) return { label: "Weak", color: "bg-red-500", width: "w-1/3", textColor: "text-red-400" };
-    if (password.length < 10) return { label: "Fair", color: "bg-amber-500", width: "w-2/3", textColor: "text-amber-400" };
-    return { label: "Strong", color: "bg-emerald-500", width: "w-full", textColor: "text-emerald-400" };
+    if (password.length < 6) return { label: t('auth.strength.weak'), color: "bg-red-500", width: "w-1/3", textColor: "text-red-400" };
+    if (password.length < 10) return { label: t('auth.strength.fair'), color: "bg-amber-500", width: "w-2/3", textColor: "text-amber-400" };
+    return { label: t('auth.strength.strong'), color: "bg-emerald-500", width: "w-full", textColor: "text-emerald-400" };
   };
   const s = getStrength();
   return (
@@ -43,7 +52,7 @@ function PasswordStrength({ password }) {
       <div className="w-full h-1 rounded-full bg-[var(--color-muted)]/40 overflow-hidden">
         <div className={`h-full rounded-full transition-all duration-300 ${s.color} ${s.width}`} />
       </div>
-      <p className={`text-[11px] font-medium ${s.textColor}`}>{s.label} password</p>
+      <p className={`text-[11px] font-medium ${s.textColor}`}>{s.label}</p>
     </div>
   );
 }
@@ -70,31 +79,33 @@ function CardHeader({ eyebrow, title, subtitle }) {
 }
 
 function SubmitButton({ label, icon: Icon, loading }) {
+  const { t } = useTranslation();
   return (
     <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_oklch(0.78_0.14_78/0.3)] hover:shadow-[0_0_45px_oklch(0.78_0.14_78/0.5)] cursor-pointer disabled:opacity-50">
-      {loading ? "Please wait..." : label}
+      {loading ? t('auth.common.loading') : label}
       {!loading && <Icon className="w-4 h-4" aria-hidden="true" />}
     </button>
   );
 }
 
 function SocialLogin({ loading }) {
+  const { t } = useTranslation();
   const handleGoogle = async () => {
     try {
       await signInWithGoogle();
-      toast.success("Signed in with Google!");
+      toast.success(t('auth.success.google'));
     } catch (error) {
       console.error("Google Sign-In Error:", error);
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         // User dismissed the popup — silent, no toast needed
       } else if (error.code === 'auth/account-exists-with-different-credential') {
-        toast.error("An account already exists with this email. Try signing in with email/password.");
+        toast.error(t('auth.errors.googleAccountExists'));
       } else if (error.code === 'auth/popup-blocked') {
-        toast.error("Popup was blocked. Please allow popups for this site and try again.");
+        toast.error(t('auth.errors.providerPopupBlocked'));
       } else if (error.code === 'auth/user-disabled') {
-        toast.error("This account has been suspended. Please contact support.");
+        toast.error(t('auth.errors.suspended'));
       } else {
-        toast.error("Sign in with Google failed. Please try again.");
+        toast.error(t('auth.errors.googleFailed'));
       }
     }
   };
@@ -102,19 +113,19 @@ function SocialLogin({ loading }) {
   const handleApple = async () => {
     try {
       await signInWithApple();
-      toast.success("Signed in with Apple!");
+      toast.success(t('auth.success.apple'));
     } catch (error) {
       console.error("Apple Sign-In Error:", error);
       if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
         // User dismissed the popup — silent, no toast needed
       } else if (error.code === 'auth/account-exists-with-different-credential') {
-        toast.error("An account already exists with this email. Try signing in with a different method.");
+        toast.error(t('auth.errors.appleAccountExists'));
       } else if (error.code === 'auth/popup-blocked') {
-        toast.error("Popup was blocked. Please allow popups for this site and try again.");
+        toast.error(t('auth.errors.providerPopupBlocked'));
       } else if (error.code === 'auth/user-disabled') {
-        toast.error("This account has been suspended. Please contact support.");
+        toast.error(t('auth.errors.suspended'));
       } else {
-        toast.error("Sign in with Apple failed. Please try again.");
+        toast.error(t('auth.errors.appleFailed'));
       }
     }
   };
@@ -123,7 +134,7 @@ function SocialLogin({ loading }) {
     <div className="mt-6 space-y-4">
       <div className="relative">
         <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-[var(--color-border)]" /></div>
-        <div className="relative flex justify-center text-xs uppercase"><span className="bg-[var(--color-card)] px-2 text-[var(--color-muted-foreground)]">Or continue with</span></div>
+        <div className="relative flex justify-center text-xs uppercase"><span className="bg-[var(--color-card)] px-2 text-[var(--color-muted-foreground)]">{t('auth.common.orContinueWith')}</span></div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <button type="button" disabled={loading} onClick={handleGoogle} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]/20 transition-colors cursor-pointer text-sm font-medium text-[var(--color-foreground)]">
@@ -141,6 +152,7 @@ function SocialLogin({ loading }) {
 
 // ─── Sign Up Form ─────────────────────────────────────────────────────────────
 function SignUpForm() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ name: "", email: "", password: "", date_of_birth: "" });
   const [focused, setFocused] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -152,13 +164,13 @@ function SignUpForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.password || !form.date_of_birth) {
-      toast.error("Please fill in all fields");
+      toast.error(t('auth.validation.fillAllFields'));
       return;
     }
 
     const nameRegex = /^[\p{L}\s\-'’]+$/u;
     if (!nameRegex.test(form.name.trim())) {
-      toast.error("Name should only contain letters, spaces, hyphens, or apostrophes.");
+      toast.error(t('auth.validation.invalidName'));
       return;
     }
 
@@ -168,29 +180,29 @@ function SignUpForm() {
     const age = Math.abs(ageDate.getUTCFullYear() - 1970);
     
     if (age < 18) {
-      toast.error("You must be 18 or older to register.");
+      toast.error(t('auth.validation.underage'));
       return;
     }
 
     setLoading(true);
     try {
       await signUpWithEmail(form.email, form.password, form.name, form.date_of_birth);
-      toast.success("Account created successfully!");
+      toast.success(t('auth.success.accountCreated'));
       navigate('/onboarding');
     } catch (error) {
       if (error.code === 'auth/email-already-in-use') {
-        toast.error("This email is already registered. Try signing in instead.");
+        toast.error(t('auth.errors.emailInUse'));
       } else if (error.code === 'auth/invalid-email') {
-        toast.error("Invalid email address. Please check and try again.");
+        toast.error(t('auth.errors.invalidEmail'));
       } else if (error.code === 'auth/weak-password') {
-        toast.error("Password is too weak. Please use at least 8 characters.");
+        toast.error(t('auth.errors.weakPassword'));
       } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Too many attempts. Please wait a moment and try again.");
+        toast.error(t('auth.errors.tooManyAttempts'));
       } else if (error.message && !error.code) {
         // Custom app-level errors (e.g. from checkAndCreateUserDocument)
-        toast.error(error.message);
+        toast.error(localizeServiceError(t, error));
       } else {
-        toast.error("Account creation failed. Please try again.");
+        toast.error(t('auth.errors.signupFailed'));
       }
       setLoading(false);
     }
@@ -198,21 +210,21 @@ function SignUpForm() {
 
   return (
     <AuthCard>
-      <CardHeader eyebrow="Join NessWin" title="Create Account" subtitle="Start winning extraordinary prizes today" />
+      <CardHeader eyebrow={t('auth.signup.eyebrow')} title={t('auth.signup.title')} subtitle={t('auth.signup.subtitle')} />
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <InputField id="signup-name" name="name" type="text" label="Full Name" placeholder="Enter your full name" value={form.name} onChange={handleChange} focused={focused === "name"} onFocus={() => setFocused("name")} onBlur={() => setFocused("")} icon={User} />
-        <InputField id="signup-email" name="email" type="email" label="Email Address" placeholder="Enter your email" value={form.email} onChange={handleChange} focused={focused === "email"} onFocus={() => setFocused("email")} onBlur={() => setFocused("")} icon={Mail} />
-        <InputField id="signup-dob" name="date_of_birth" type="date" label="Date of Birth" placeholder="Select date of birth" value={form.date_of_birth} onChange={handleChange} focused={focused === "date_of_birth"} onFocus={() => setFocused("date_of_birth")} onBlur={() => setFocused("")} icon={CalendarDays} />
+        <InputField id="signup-name" name="name" type="text" label={t('auth.signup.fullNameLabel')} placeholder={t('auth.signup.fullNamePlaceholder')} value={form.name} onChange={handleChange} focused={focused === "name"} onFocus={() => setFocused("name")} onBlur={() => setFocused("")} icon={User} />
+        <InputField id="signup-email" name="email" type="email" label={t('auth.signup.emailLabel')} placeholder={t('auth.signup.emailPlaceholder')} value={form.email} onChange={handleChange} focused={focused === "email"} onFocus={() => setFocused("email")} onBlur={() => setFocused("")} icon={Mail} />
+        <InputField id="signup-dob" name="date_of_birth" type="date" label={t('auth.signup.dobLabel')} placeholder={t('auth.signup.dobPlaceholder')} value={form.date_of_birth} onChange={handleChange} focused={focused === "date_of_birth"} onFocus={() => setFocused("date_of_birth")} onBlur={() => setFocused("")} icon={CalendarDays} />
         <div className="space-y-1.5 pb-2">
-          <InputField id="signup-password" name="password" type={showPassword ? "text" : "password"} label="Password" placeholder="Enter your password (Min. 8 characters)" value={form.password} onChange={handleChange} focused={focused === "password"} onFocus={() => setFocused("password")} onBlur={() => setFocused("")} icon={Lock} rightSlot={<button type="button" onClick={() => setShowPassword((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer shrink-0" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
+          <InputField id="signup-password" name="password" type={showPassword ? "text" : "password"} label={t('auth.signup.passwordLabel')} placeholder={t('auth.signup.passwordPlaceholder')} value={form.password} onChange={handleChange} focused={focused === "password"} onFocus={() => setFocused("password")} onBlur={() => setFocused("")} icon={Lock} rightSlot={<button type="button" onClick={() => setShowPassword((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer shrink-0" aria-label={showPassword ? t('auth.common.hidePassword') : t('auth.common.showPassword')}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
           <PasswordStrength password={form.password} />
         </div>
-        <SubmitButton label="Create Account" icon={ArrowRight} loading={loading} />
+        <SubmitButton label={t('auth.signup.submit')} icon={ArrowRight} loading={loading} />
       </form>
       <SocialLogin loading={loading} />
       <div className="mt-6 text-center">
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Already have an account? <Link to="/signin" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign In</Link>
+          {t('auth.signup.haveAccount')} <Link to="/signin" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">{t('auth.signup.signInLink')}</Link>
         </p>
       </div>
     </AuthCard>
@@ -221,6 +233,7 @@ function SignUpForm() {
 
 // ─── Sign In Form ─────────────────────────────────────────────────────────────
 function SignInForm() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [focused, setFocused] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -231,31 +244,31 @@ function SignInForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
-      toast.error("Please fill in all fields");
+      toast.error(t('auth.validation.fillAllFields'));
       return;
     }
     setLoading(true);
     try {
       await signInWithEmail(form.email, form.password);
-      toast.success("Signed in successfully!");
+      toast.success(t('auth.success.signedIn'));
     } catch (error) {
       if (
         error.code === 'auth/wrong-password' ||
         error.code === 'auth/user-not-found' ||
         error.code === 'auth/invalid-credential'
       ) {
-        toast.error("Incorrect email or password. Please try again.");
+        toast.error(t('auth.errors.invalidCredential'));
       } else if (error.code === 'auth/invalid-email') {
-        toast.error("Invalid email address. Please check and try again.");
+        toast.error(t('auth.errors.invalidEmail'));
       } else if (error.code === 'auth/user-disabled') {
-        toast.error("This account has been suspended. Please contact support.");
+        toast.error(t('auth.errors.suspended'));
       } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Too many failed attempts. Please wait a moment and try again.");
+        toast.error(t('auth.errors.tooManySigninAttempts'));
       } else if (error.message && !error.code) {
         // Custom app-level errors (e.g. suspended account)
-        toast.error(error.message);
+        toast.error(localizeServiceError(t, error));
       } else {
-        toast.error("Sign in failed. Please try again.");
+        toast.error(t('auth.errors.signinFailed'));
       }
       setLoading(false);
     }
@@ -263,21 +276,21 @@ function SignInForm() {
 
   return (
     <AuthCard>
-      <CardHeader eyebrow="Welcome Back" title="Sign In" subtitle="Enter your credentials to access your account" />
+      <CardHeader eyebrow={t('auth.signin.eyebrow')} title={t('auth.signin.title')} subtitle={t('auth.signin.subtitle')} />
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
-        <InputField id="signin-email" name="email" type="email" label="Email Address" placeholder="Enter your email" value={form.email} onChange={handleChange} focused={focused === "email"} onFocus={() => setFocused("email")} onBlur={() => setFocused("")} icon={Mail} />
+        <InputField id="signin-email" name="email" type="email" label={t('auth.signin.emailLabel')} placeholder={t('auth.signin.emailPlaceholder')} value={form.email} onChange={handleChange} focused={focused === "email"} onFocus={() => setFocused("email")} onBlur={() => setFocused("")} icon={Mail} />
         <div className="space-y-1.5 pb-2">
-          <InputField id="signin-password" name="password" type={showPassword ? "text" : "password"} label="Password" placeholder="Enter your password" value={form.password} onChange={handleChange} focused={focused === "password"} onFocus={() => setFocused("password")} onBlur={() => setFocused("")} icon={Lock} rightSlot={<button type="button" onClick={() => setShowPassword((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer shrink-0" aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
+          <InputField id="signin-password" name="password" type={showPassword ? "text" : "password"} label={t('auth.signin.passwordLabel')} placeholder={t('auth.signin.passwordPlaceholder')} value={form.password} onChange={handleChange} focused={focused === "password"} onFocus={() => setFocused("password")} onBlur={() => setFocused("")} icon={Lock} rightSlot={<button type="button" onClick={() => setShowPassword((v) => !v)} className="text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors cursor-pointer shrink-0" aria-label={showPassword ? t('auth.common.hidePassword') : t('auth.common.showPassword')}>{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>} />
           <div className="flex justify-end pt-1">
-            <Link to="/forgot-password" className="text-xs text-[var(--color-primary)] hover:underline font-medium">Forgot password?</Link>
+            <Link to="/forgot-password" className="text-xs text-[var(--color-primary)] hover:underline font-medium">{t('auth.signin.forgotPassword')}</Link>
           </div>
         </div>
-        <SubmitButton label="Sign In" icon={LogIn} loading={loading} />
+        <SubmitButton label={t('auth.signin.submit')} icon={LogIn} loading={loading} />
       </form>
       <SocialLogin loading={loading} />
       <div className="mt-6 text-center">
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          Don't have an account yet? <Link to="/signup" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">Sign Up</Link>
+          {t('auth.signin.noAccount')} <Link to="/signup" className="text-[var(--color-primary)] font-semibold hover:underline cursor-pointer transition-all">{t('auth.signin.signUpLink')}</Link>
         </p>
       </div>
     </AuthCard>

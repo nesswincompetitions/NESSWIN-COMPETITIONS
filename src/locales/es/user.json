@@ -33,6 +33,94 @@
     "viewWinners": "Ver ganador",
     "loadMore": "Cargar más"
   },
+  "auth": {
+    "signup": {
+      "eyebrow": "Únete a NessWin",
+      "title": "Crear cuenta",
+      "subtitle": "Empieza a ganar premios extraordinarios hoy mismo",
+      "fullNameLabel": "Nombre completo",
+      "fullNamePlaceholder": "Introduce tu nombre completo",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "Introduce tu correo electrónico",
+      "dobLabel": "Fecha de nacimiento",
+      "dobPlaceholder": "Selecciona tu fecha de nacimiento",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Introduce tu contraseña (mín. 8 caracteres)",
+      "submit": "Crear cuenta",
+      "haveAccount": "¿Ya tienes una cuenta?",
+      "signInLink": "Iniciar sesión"
+    },
+    "signin": {
+      "eyebrow": "Bienvenido de nuevo",
+      "title": "Iniciar sesión",
+      "subtitle": "Introduce tus credenciales para acceder a tu cuenta",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "Introduce tu correo electrónico",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Introduce tu contraseña",
+      "submit": "Iniciar sesión",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "noAccount": "¿Aún no tienes una cuenta?",
+      "signUpLink": "Regístrate"
+    },
+    "common": {
+      "loading": "Espera por favor...",
+      "orContinueWith": "O continúa con",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña"
+    },
+    "strength": {
+      "weak": "Contraseña débil",
+      "fair": "Contraseña aceptable",
+      "strong": "Contraseña fuerte"
+    },
+    "validation": {
+      "fillAllFields": "Por favor, completa todos los campos",
+      "invalidName": "El nombre solo debe contener letras, espacios, guiones o apóstrofes.",
+      "underage": "Debes tener al menos 18 años para registrarte.",
+      "enterEmail": "Por favor, introduce tu correo electrónico"
+    },
+    "success": {
+      "accountCreated": "¡Cuenta creada correctamente!",
+      "signedIn": "¡Sesión iniciada correctamente!",
+      "google": "¡Sesión iniciada con Google!",
+      "apple": "¡Sesión iniciada con Apple!"
+    },
+    "errors": {
+      "emailInUse": "Este correo electrónico ya está registrado. Intenta iniciar sesión.",
+      "invalidEmail": "Correo electrónico no válido. Revísalo e inténtalo de nuevo.",
+      "weakPassword": "La contraseña es demasiado débil. Usa al menos 8 caracteres.",
+      "tooManyAttempts": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+      "signupFailed": "No se pudo crear la cuenta. Inténtalo de nuevo.",
+      "invalidCredential": "Correo electrónico o contraseña incorrectos. Inténtalo de nuevo.",
+      "tooManySigninAttempts": "Demasiados intentos fallidos. Espera un momento e inténtalo de nuevo.",
+      "signinFailed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
+      "suspended": "Tu cuenta ha sido suspendida. Ponte en contacto con el soporte.",
+      "googleAccountExists": "Ya existe una cuenta con este correo electrónico. Intenta iniciar sesión con correo electrónico/contraseña.",
+      "providerPopupBlocked": "La ventana emergente fue bloqueada. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.",
+      "googleFailed": "No se pudo iniciar sesión con Google. Inténtalo de nuevo.",
+      "appleAccountExists": "Ya existe una cuenta con este correo electrónico. Intenta iniciar sesión con otro método.",
+      "appleFailed": "No se pudo iniciar sesión con Apple. Inténtalo de nuevo.",
+      "unknown": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "forgot": {
+      "eyebrow": "Seguridad",
+      "title": "Restablecer contraseña",
+      "subtitle": "Introduce tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "Introduce tu correo electrónico",
+      "submit": "Enviar enlace de restablecimiento",
+      "sending": "Enviando...",
+      "sentToast": "Si existe una cuenta para este correo electrónico, se ha enviado un enlace de restablecimiento.",
+      "successTitle": "Revisa tu correo electrónico",
+      "successPrefix": "Si existe una cuenta para",
+      "successSuffix": ", se ha enviado un enlace de restablecimiento. Revisa tu bandeja de entrada y sigue las instrucciones.",
+      "tryAgain": "¿No recibiste el correo? Inténtalo de nuevo",
+      "backToSignIn": "Volver al inicio de sesión",
+      "tooManyRequests": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+      "resetFailed": "No se pudo enviar el enlace. Inténtalo de nuevo."
+    }
+  },
   "hero": {
     "liveBadge": "Sorteos en vivo · Certificados · Transparentes",
     "titleTop": "Vive lo",

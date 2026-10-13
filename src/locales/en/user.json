@@ -34,6 +34,94 @@
     "loading": "Loading...",
     "loadMore": "Load More"
   },
+  "auth": {
+    "signup": {
+      "eyebrow": "Join NessWin",
+      "title": "Create Account",
+      "subtitle": "Start winning extraordinary prizes today",
+      "fullNameLabel": "Full Name",
+      "fullNamePlaceholder": "Enter your full name",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "Enter your email",
+      "dobLabel": "Date of Birth",
+      "dobPlaceholder": "Select date of birth",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password (Min. 8 characters)",
+      "submit": "Create Account",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign In"
+    },
+    "signin": {
+      "eyebrow": "Welcome Back",
+      "title": "Sign In",
+      "subtitle": "Enter your credentials to access your account",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "Enter your email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "submit": "Sign In",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account yet?",
+      "signUpLink": "Sign Up"
+    },
+    "common": {
+      "loading": "Please wait...",
+      "orContinueWith": "Or continue with",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password"
+    },
+    "strength": {
+      "weak": "Weak password",
+      "fair": "Fair password",
+      "strong": "Strong password"
+    },
+    "validation": {
+      "fillAllFields": "Please fill in all fields",
+      "invalidName": "Name should only contain letters, spaces, hyphens, or apostrophes.",
+      "underage": "You must be 18 or older to register.",
+      "enterEmail": "Please enter your email address"
+    },
+    "success": {
+      "accountCreated": "Account created successfully!",
+      "signedIn": "Signed in successfully!",
+      "google": "Signed in with Google!",
+      "apple": "Signed in with Apple!"
+    },
+    "errors": {
+      "emailInUse": "This email is already registered. Try signing in instead.",
+      "invalidEmail": "Invalid email address. Please check and try again.",
+      "weakPassword": "Password is too weak. Please use at least 8 characters.",
+      "tooManyAttempts": "Too many attempts. Please wait a moment and try again.",
+      "signupFailed": "Account creation failed. Please try again.",
+      "invalidCredential": "Incorrect email or password. Please try again.",
+      "tooManySigninAttempts": "Too many failed attempts. Please wait a moment and try again.",
+      "signinFailed": "Sign in failed. Please try again.",
+      "suspended": "Your account has been suspended. Please contact support.",
+      "googleAccountExists": "An account already exists with this email. Try signing in with email/password.",
+      "providerPopupBlocked": "Popup was blocked. Please allow popups for this site and try again.",
+      "googleFailed": "Sign in with Google failed. Please try again.",
+      "appleAccountExists": "An account already exists with this email. Try signing in with a different method.",
+      "appleFailed": "Sign in with Apple failed. Please try again.",
+      "unknown": "Something went wrong. Please try again."
+    },
+    "forgot": {
+      "eyebrow": "Security",
+      "title": "Reset Password",
+      "subtitle": "Enter your email and we'll send you a link to reset your password",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "Enter your email",
+      "submit": "Send Reset Link",
+      "sending": "Sending...",
+      "sentToast": "If an account exists for this email, a password reset link has been sent.",
+      "successTitle": "Check Your Email",
+      "successPrefix": "If an account exists for",
+      "successSuffix": ", a password reset link has been sent. Please check your inbox and follow the instructions.",
+      "tryAgain": "Didn't receive the email? Try again",
+      "backToSignIn": "Back to Sign In",
+      "tooManyRequests": "Too many requests. Please wait a moment and try again.",
+      "resetFailed": "Failed to send reset link. Please try again."
+    }
+  },
   "hero": {
     "liveBadge": "Live Draws · Certified · Transparent",
     "titleTop": "Experience the",

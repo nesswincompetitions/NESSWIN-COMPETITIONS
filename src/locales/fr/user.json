@@ -33,6 +33,94 @@
     "viewWinners": "Voir le gagnant",
     "loadMore": "Charger plus"
   },
+  "auth": {
+    "signup": {
+      "eyebrow": "Rejoignez NessWin",
+      "title": "Créer un compte",
+      "subtitle": "Commencez à gagner des prix extraordinaires dès aujourd'hui",
+      "fullNameLabel": "Nom complet",
+      "fullNamePlaceholder": "Entrez votre nom complet",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "Entrez votre e-mail",
+      "dobLabel": "Date de naissance",
+      "dobPlaceholder": "Sélectionnez votre date de naissance",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez votre mot de passe (min. 8 caractères)",
+      "submit": "Créer un compte",
+      "haveAccount": "Vous avez déjà un compte ?",
+      "signInLink": "Se connecter"
+    },
+    "signin": {
+      "eyebrow": "Bon retour",
+      "title": "Connexion",
+      "subtitle": "Entrez vos identifiants pour accéder à votre compte",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "Entrez votre e-mail",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez votre mot de passe",
+      "submit": "Se connecter",
+      "forgotPassword": "Mot de passe oublié ?",
+      "noAccount": "Vous n'avez pas encore de compte ?",
+      "signUpLink": "S'inscrire"
+    },
+    "common": {
+      "loading": "Veuillez patienter...",
+      "orContinueWith": "Ou continuer avec",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe"
+    },
+    "strength": {
+      "weak": "Mot de passe faible",
+      "fair": "Mot de passe moyen",
+      "strong": "Mot de passe fort"
+    },
+    "validation": {
+      "fillAllFields": "Veuillez remplir tous les champs",
+      "invalidName": "Le nom ne doit contenir que des lettres, des espaces, des traits d'union ou des apostrophes.",
+      "underage": "Vous devez avoir au moins 18 ans pour vous inscrire.",
+      "enterEmail": "Veuillez entrer votre adresse e-mail"
+    },
+    "success": {
+      "accountCreated": "Compte créé avec succès !",
+      "signedIn": "Connexion réussie !",
+      "google": "Connecté avec Google !",
+      "apple": "Connecté avec Apple !"
+    },
+    "errors": {
+      "emailInUse": "Cet e-mail est déjà enregistré. Essayez plutôt de vous connecter.",
+      "invalidEmail": "Adresse e-mail invalide. Veuillez vérifier et réessayer.",
+      "weakPassword": "Le mot de passe est trop faible. Veuillez utiliser au moins 8 caractères.",
+      "tooManyAttempts": "Trop de tentatives. Veuillez patienter un moment et réessayer.",
+      "signupFailed": "La création du compte a échoué. Veuillez réessayer.",
+      "invalidCredential": "E-mail ou mot de passe incorrect. Veuillez réessayer.",
+      "tooManySigninAttempts": "Trop de tentatives échouées. Veuillez patienter un moment et réessayer.",
+      "signinFailed": "La connexion a échoué. Veuillez réessayer.",
+      "suspended": "Votre compte a été suspendu. Veuillez contacter le support.",
+      "googleAccountExists": "Un compte existe déjà avec cet e-mail. Essayez de vous connecter avec e-mail/mot de passe.",
+      "providerPopupBlocked": "La fenêtre contextuelle a été bloquée. Veuillez autoriser les fenêtres contextuelles pour ce site et réessayer.",
+      "googleFailed": "La connexion avec Google a échoué. Veuillez réessayer.",
+      "appleAccountExists": "Un compte existe déjà avec cet e-mail. Essayez de vous connecter avec une autre méthode.",
+      "appleFailed": "La connexion avec Apple a échoué. Veuillez réessayer.",
+      "unknown": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "forgot": {
+      "eyebrow": "Sécurité",
+      "title": "Réinitialiser le mot de passe",
+      "subtitle": "Entrez votre e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "Entrez votre e-mail",
+      "submit": "Envoyer le lien de réinitialisation",
+      "sending": "Envoi en cours...",
+      "sentToast": "Si un compte existe pour cet e-mail, un lien de réinitialisation du mot de passe a été envoyé.",
+      "successTitle": "Vérifiez votre e-mail",
+      "successPrefix": "Si un compte existe pour",
+      "successSuffix": ", un lien de réinitialisation du mot de passe a été envoyé. Veuillez vérifier votre boîte de réception et suivre les instructions.",
+      "tryAgain": "Vous n'avez pas reçu l'e-mail ? Réessayez",
+      "backToSignIn": "Retour à la connexion",
+      "tooManyRequests": "Trop de demandes. Veuillez patienter un moment et réessayer.",
+      "resetFailed": "L'envoi du lien de réinitialisation a échoué. Veuillez réessayer."
+    }
+  },
   "hero": {
     "liveBadge": "Tirages en direct · Certifiés · Transparence",
     "titleTop": "Vivez l'",

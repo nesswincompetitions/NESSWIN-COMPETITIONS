@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Mail,
   ArrowRight,
@@ -46,16 +47,17 @@ function CardHeader({ eyebrow, title, subtitle }) {
   );
 }
 
-function SubmitButton({ label, icon: Icon, loading }) {
+function SubmitButton({ label, loadingLabel, icon: Icon, loading }) {
   return (
     <button type="submit" disabled={loading} className="w-full h-12 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold tracking-wide flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-300 shadow-[0_0_30px_oklch(0.78_0.14_78/0.3)] hover:shadow-[0_0_45px_oklch(0.78_0.14_78/0.5)] cursor-pointer disabled:opacity-50">
-      {loading ? "Sending..." : label}
+      {loading ? loadingLabel : label}
       {!loading && <Icon className="w-4 h-4" aria-hidden="true" />}
     </button>
   );
 }
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [focused, setFocused] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,27 +67,27 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email) {
-      toast.error("Please enter your email address");
+      toast.error(t('auth.validation.enterEmail'));
       return;
     }
     setLoading(true);
     try {
       await passwordReset(email);
       setSubmitted(true);
-      toast.success("If an account exists for this email, a password reset link has been sent.");
+      toast.success(t('auth.forgot.sentToast'));
     } catch (error) {
       if (error.code === 'auth/user-not-found') {
         // Fallback in case email enumeration protection is disabled in Firebase
         setSubmitted(true);
-        toast.success("If an account exists for this email, a password reset link has been sent.");
+        toast.success(t('auth.forgot.sentToast'));
       } else if (error.code === 'auth/invalid-email') {
-        toast.error("Invalid email address. Please check and try again.");
+        toast.error(t('auth.errors.invalidEmail'));
       } else if (error.code === 'auth/user-disabled') {
-        toast.error("This account has been suspended. Please contact support.");
+        toast.error(t('auth.errors.suspended'));
       } else if (error.code === 'auth/too-many-requests') {
-        toast.error("Too many requests. Please wait a moment and try again.");
+        toast.error(t('auth.forgot.tooManyRequests'));
       } else {
-        toast.error("Failed to send reset link. Please try again.");
+        toast.error(t('auth.forgot.resetFailed'));
       }
     } finally {
       setLoading(false);
@@ -108,26 +110,26 @@ export default function ForgotPasswordPage() {
           <AuthCard>
             {!submitted ? (
               <>
-                <CardHeader 
-                  eyebrow="Security" 
-                  title="Reset Password" 
-                  subtitle="Enter your email and we'll send you a link to reset your password" 
+                <CardHeader
+                  eyebrow={t('auth.forgot.eyebrow')}
+                  title={t('auth.forgot.title')}
+                  subtitle={t('auth.forgot.subtitle')}
                 />
                 <form onSubmit={handleSubmit} noValidate className="space-y-6">
-                  <InputField 
-                    id="reset-email" 
-                    name="email" 
-                    type="email" 
-                    label="Email Address" 
-                    placeholder="Enter your email" 
-                    value={email} 
-                    onChange={(e) => setEmail(e.target.value)} 
-                    focused={focused === "email"} 
-                    onFocus={() => setFocused("email")} 
-                    onBlur={() => setFocused("")} 
-                    icon={Mail} 
+                  <InputField
+                    id="reset-email"
+                    name="email"
+                    type="email"
+                    label={t('auth.forgot.emailLabel')}
+                    placeholder={t('auth.forgot.emailPlaceholder')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    focused={focused === "email"}
+                    onFocus={() => setFocused("email")}
+                    onBlur={() => setFocused("")}
+                    icon={Mail}
                   />
-                  <SubmitButton label="Send Reset Link" icon={ArrowRight} loading={loading} />
+                  <SubmitButton label={t('auth.forgot.submit')} loadingLabel={t('auth.forgot.sending')} icon={ArrowRight} loading={loading} />
                 </form>
               </>
             ) : (
@@ -135,16 +137,15 @@ export default function ForgotPasswordPage() {
                 <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6 border border-emerald-500/20">
                   <Mail className="w-10 h-10 text-emerald-400" />
                 </div>
-                <h2 className="text-2xl font-serif font-bold text-[var(--color-foreground)] mb-3">Check Your Email</h2>
+                <h2 className="text-2xl font-serif font-bold text-[var(--color-foreground)] mb-3">{t('auth.forgot.successTitle')}</h2>
                 <p className="text-sm text-[var(--color-muted-foreground)] mb-8 leading-relaxed">
-                  If an account exists for <span className="text-[var(--color-foreground)] font-semibold">{email}</span>, a password reset link has been sent. 
-                  Please check your inbox and follow the instructions.
+                  {t('auth.forgot.successPrefix')} <span className="text-[var(--color-foreground)] font-semibold">{email}</span>{t('auth.forgot.successSuffix')}
                 </p>
-                <button 
+                <button
                   onClick={() => setSubmitted(false)}
                   className="text-xs text-[var(--color-primary)] font-bold tracking-widest uppercase hover:underline cursor-pointer"
                 >
-                  Didn't receive the email? Try again
+                  {t('auth.forgot.tryAgain')}
                 </button>
               </div>
             )}
@@ -152,7 +153,7 @@ export default function ForgotPasswordPage() {
             <div className="mt-8 text-center border-t border-[var(--color-border)]/40 pt-6">
               <Link to="/signin" className="inline-flex items-center gap-2 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors group">
                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                Back to Sign In
+                {t('auth.forgot.backToSignIn')}
               </Link>
             </div>
           </AuthCard>
