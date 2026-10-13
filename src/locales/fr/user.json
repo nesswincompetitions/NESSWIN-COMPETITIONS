@@ -338,7 +338,8 @@
     "title": "Nos gagnants",
     "subtitle": "Ils ont participé, ils ont gagné. Découvrez les heureux gagnants de nos concours et leurs témoignages.",
     "ticket": "Ticket",
-    "noComments": "Aucun commentaire"
+    "noComments": "Aucun commentaire",
+    "noWinnersYet": "Aucun gagnant annoncé pour le moment. Revenez bientôt !"
   },
   "profile": {
     "back": "Retour",

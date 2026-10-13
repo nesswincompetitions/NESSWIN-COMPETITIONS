@@ -339,7 +339,8 @@
     "title": "Our Winners",
     "subtitle": "They participated, they won. Discover the lucky winners of our competitions and their testimonials.",
     "ticket": "Ticket",
-    "noComments": "No comments"
+    "noComments": "No comments",
+    "noWinnersYet": "No winners announced yet. Check back soon!"
   },
   "profile": {
     "back": "Back",

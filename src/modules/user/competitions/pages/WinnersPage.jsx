@@ -239,6 +239,7 @@ function WinnersHero() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WinnersPage() {
+  const { t } = useTranslation();
   const [winners, setWinners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeVideoUrl, setActiveVideoUrl] = useState(null);
@@ -295,7 +296,7 @@ export default function WinnersPage() {
           ) : winners.length === 0 ? (
             <div className="text-center py-20">
               <p className="text-[var(--color-muted-foreground)] text-lg">
-                No winners announced yet. Check back soon!
+                {t('winnersPage.noWinnersYet')}
               </p>
             </div>
           ) : (

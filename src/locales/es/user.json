@@ -338,7 +338,8 @@
     "title": "Nuestros Ganadores",
     "subtitle": "Participaron, ganaron. Descubre a los afortunados ganadores de nuestros sorteos y sus testimonios.",
     "ticket": "Entrada",
-    "noComments": "Sin comentarios"
+    "noComments": "Sin comentarios",
+    "noWinnersYet": "Aún no se han anunciado ganadores. ¡Vuelve pronto!"
   },
   "profile": {
     "back": "Atrás",
