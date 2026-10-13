@@ -340,7 +340,9 @@
     "subtitle": "They participated, they won. Discover the lucky winners of our competitions and their testimonials.",
     "ticket": "Ticket",
     "noComments": "No comments",
-    "noWinnersYet": "No winners announced yet. Check back soon!"
+    "noWinnersYet": "No winners announced yet. Check back soon!",
+    "videoModalTitle": "Prize Handover Video",
+    "videoNotSupported": "Your browser does not support HTML5 video."
   },
   "profile": {
     "back": "Back",

@@ -339,7 +339,9 @@
     "subtitle": "Participaron, ganaron. Descubre a los afortunados ganadores de nuestros sorteos y sus testimonios.",
     "ticket": "Entrada",
     "noComments": "Sin comentarios",
-    "noWinnersYet": "Aún no se han anunciado ganadores. ¡Vuelve pronto!"
+    "noWinnersYet": "Aún no se han anunciado ganadores. ¡Vuelve pronto!",
+    "videoModalTitle": "Video de entrega del premio",
+    "videoNotSupported": "Tu navegador no admite videos HTML5."
   },
   "profile": {
     "back": "Atrás",

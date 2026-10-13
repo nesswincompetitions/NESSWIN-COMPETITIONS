@@ -339,7 +339,9 @@
     "subtitle": "Ils ont participé, ils ont gagné. Découvrez les heureux gagnants de nos concours et leurs témoignages.",
     "ticket": "Ticket",
     "noComments": "Aucun commentaire",
-    "noWinnersYet": "Aucun gagnant annoncé pour le moment. Revenez bientôt !"
+    "noWinnersYet": "Aucun gagnant annoncé pour le moment. Revenez bientôt !",
+    "videoModalTitle": "Vidéo de remise du prix",
+    "videoNotSupported": "Votre navigateur ne prend pas en charge les vidéos HTML5."
   },
   "profile": {
     "back": "Retour",

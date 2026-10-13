@@ -8,6 +8,7 @@ import { subscribeRecentWinners } from '../services/competitionService';
 // ─── VideoModal ─────────────────────────────────────────────────────────────
 
 function VideoModal({ videoUrl, onClose }) {
+  const { t } = useTranslation();
   const modalContent = (
     <div 
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
@@ -36,7 +37,7 @@ function VideoModal({ videoUrl, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)]/60 bg-[var(--color-muted)]/10">
           <h3 className="font-serif text-lg font-bold text-[var(--color-foreground)] flex items-center gap-2">
-            <span>Prize Handover Video</span> 🎁
+            <span>{t('winnersPage.videoModalTitle')}</span> 🎁
           </h3>
           <button
             onClick={onClose}
@@ -57,7 +58,7 @@ function VideoModal({ videoUrl, onClose }) {
             className="w-full h-full object-contain shadow-inner bg-black"
           >
             <source src={videoUrl} type="video/mp4" />
-            <p>Your browser does not support HTML5 video.</p>
+            <p>{t('winnersPage.videoNotSupported')}</p>
           </video>
         </div>
       </div>
