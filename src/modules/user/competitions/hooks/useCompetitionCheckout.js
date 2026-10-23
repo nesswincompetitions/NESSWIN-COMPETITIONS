@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db, functions } from '@/config/firebase';
 import { processOrder } from '@/modules/user/competitions/services/orderService';
+import { isReferralCreditUsable } from '@/modules/user/referrals/services/referralService';
 
 // ── Cloud Function callables ───────────────────────────────────────────────────
 const getSkillQuestionFn = httpsCallable(functions, 'getSkillQuestion');
@@ -204,7 +205,9 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       referralsQuery,
       (snap) => {
         if (!isMounted) return;
-        setPendingReferrals(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setPendingReferrals(snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((d) => isReferralCreditUsable(d)));
       },
       (err) => {
         console.error('Error subscribing referrals:', err);

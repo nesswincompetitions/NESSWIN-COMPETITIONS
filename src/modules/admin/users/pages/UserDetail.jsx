@@ -25,8 +25,33 @@ import { toast } from 'react-hot-toast';
 import { formatStatus } from '@/shared/utils/formatters';
 import Modal from '@/shared/components/ui/Modal';
 import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
+import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { Clock } from 'lucide-react';
+
+const renderBonusStatus = (entry, t) => {
+  const hasUsed = entry.used_quantity > 0;
+  const hasRevoked = entry.revoked_quantity > 0;
+  const hasRevocable = entry.revocable_quantity > 0;
+  const stateCount = [hasUsed, hasRevoked, hasRevocable].filter(Boolean).length;
+
+  if (stateCount > 1 || (entry.unsupported_quantity > 0 && stateCount > 0)) {
+    return <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">{t('bonusTickets.status.mixed')}</Badge>;
+  }
+  if (entry.unsupported_quantity > 0) {
+    return <Badge variant="warning" className="bg-yellow-400/10 text-yellow-300 border-yellow-400/20">{t('bonusTickets.status.unsupported')}</Badge>;
+  }
+  if (hasRevoked) {
+    return <Badge variant="warning" className="bg-red-400/10 text-red-400 border-red-400/20">{t('bonusTickets.status.revoked', { count: entry.revoked_quantity })}</Badge>;
+  }
+  if (entry.reward_issued) {
+    return <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">{t('bonusTickets.status.used')}</Badge>;
+  }
+  if (hasUsed) {
+    return <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">{t('bonusTickets.status.usedCount', { count: entry.used_quantity })}</Badge>;
+  }
+  return <Badge variant="success">{t('bonusTickets.status.available')}</Badge>;
+};
 
 const UserDetail = () => {
   const { id } = useParams();
@@ -69,6 +94,7 @@ const UserDetail = () => {
   const [bonusQuantity, setBonusQuantity] = useState(1);
   const [bonusReason, setBonusReason] = useState('');
   const [isSubmittingBonus, setIsSubmittingBonus] = useState(false);
+  const [revokeTarget, setRevokeTarget] = useState(null);
 
 
   useEffect(() => {
@@ -388,38 +414,57 @@ const UserDetail = () => {
                   <TableHead>Quantity</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bonusLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="py-12 text-center text-gray-500 italic">No bonus history found</TableCell>
+                    <TableCell colSpan={5} className="py-12 text-center text-gray-500 italic">No bonus history found</TableCell>
                   </TableRow>
                 ) : bonusLogs.map(log => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <span className="font-medium text-white">
-                        {(log.reason || 'Bonus').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                <TableRow key={log.id}>
+                  <TableCell>
+                    <span className="font-medium text-white">
+                      {(log.reason || 'Bonus').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1">
+                        <span className="text-emerald-400 font-bold">+{log.revocable_quantity}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                          {t('bonusTickets.table.revocable')}
+                        </span>
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-emerald-400 font-bold">+{log.quantity}</span>
-                    </TableCell>
-                    <TableCell>
-                      {log.reward_issued ? (
-                        <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">Used</Badge>
-                      ) : log.used_quantity > 0 ? (
-                        <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">
-                          Used {log.used_quantity}
-                        </Badge>
-                      ) : (
-                        <Badge variant="success">Available</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-gray-400 text-sm whitespace-nowrap">
-                      {formatDate(log.created_at || log.createdAt)}
-                    </TableCell>
-                  </TableRow>
+                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                        {t('bonusTickets.table.breakdown', {
+                          total: log.quantity,
+                          used: log.used_quantity,
+                          revoked: log.revoked_quantity,
+                          unsupported: log.unsupported_quantity,
+                        })}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {renderBonusStatus(log, t)}
+                  </TableCell>
+                  <TableCell className="text-gray-400 text-sm whitespace-nowrap">
+                    {formatDate(log.created_at || log.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {log.revocable_quantity > 0 && (
+                      <Button
+                        variant="outline"
+                        className="flex items-center gap-1.5 h-9"
+                        onClick={() => setRevokeTarget({ ...log, userName: profile?.display_name || profile?.name || t('users.detail.title') })}
+                      >
+                        <Ban size={14} /> {t('bonusTickets.revoke.open')}
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
                 ))}
               </TableBody>
             </Table>
@@ -660,6 +705,21 @@ const UserDetail = () => {
           </div>
         </form>
       </Modal>
+
+      {revokeTarget && (
+        <RevokeBonusModal
+          isOpen={!!revokeTarget}
+          onClose={() => setRevokeTarget(null)}
+          userId={id}
+          userName={revokeTarget.userName}
+          entryReason={revokeTarget.reason}
+          totalQuantity={revokeTarget.quantity}
+          usedQuantity={revokeTarget.used_quantity}
+          revokedQuantity={revokeTarget.revoked_quantity}
+          unusedQuantity={revokeTarget.revocable_quantity}
+          creditIds={revokeTarget.revocableIds || []}
+        />
+      )}
     </div>
   );
 };

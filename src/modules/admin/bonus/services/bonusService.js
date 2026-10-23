@@ -67,6 +67,37 @@ export async function grantAdminBonus(userId, quantity, reason = '') {
 }
 
 /**
+ * Revokes all remaining unused admin bonus credits represented by the given credit IDs.
+ *
+ * Backend contract (revokeAdminBonus callable):
+ * - reason is mandatory, all IDs are validated server-side before any mutation
+ * - returns { success, complete, outcome, revokedCount, eligibleCount,
+ *            remainingCount, retryable, retryableCreditIds, skippedRedeemed,
+ *            skippedRevoked, drift, balanceInvalid, stateChanges }
+ * - success is true only for outcome="complete". Partial progress is reported
+ *   with outcome="partial"; blocked state/balance outcomes use "blocked".
+ * - retryableCreditIds are response-time candidates, not live-state guarantees;
+ *   the backend validates every ID again before a retry mutates anything.
+ * - partial completion and balance/state conflicts are returned as structured
+ *   outcomes; only unexpected first-chunk operational failures throw "aborted"
+ *
+ * @param {string} userId - Target user ID owning the credits
+ * @param {string[]} creditIds - Referral document IDs submitted by the UI grouping
+ * @param {string} reason - Mandatory admin reason
+ * @returns {Promise<Object>}
+ */
+export async function revokeAdminBonus(userId, creditIds, reason) {
+  try {
+    const revoke = httpsCallable(functions, 'revokeAdminBonus');
+    const resp = await revoke({ userId, creditIds, reason });
+    return resp.data;
+  } catch (error) {
+    console.error("[BonusService] Error revoking admin bonus credits:", error);
+    throw error;
+  }
+}
+
+/**
  * Fetches the audit trail for all bonus/free tickets from free_ticket_log.
  */
 export async function fetchBonusTicketsList() {

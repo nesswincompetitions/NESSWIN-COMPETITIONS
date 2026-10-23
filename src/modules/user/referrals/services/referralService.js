@@ -15,6 +15,12 @@ import { db } from '@/config/firebase';
 const REFERRALS_COLLECTION = 'referrals';
 const USERS_COLLECTION = 'user';
 
+// UI eligibility only; redemption remains authoritative in runOrderTransaction.
+export const isReferralCreditUsable = (referral) =>
+  typeof referral?.reward_issued === 'boolean' &&
+  referral.reward_issued === false &&
+  (referral.reward_revoked === undefined || referral.reward_revoked === false);
+
 /**
  * Fetch pending referral rewards for a referrer.
  * @param {string} uid
@@ -39,7 +45,7 @@ export const fetchPendingReferralRewards = async (uid) => {
       updateTime: d.updateTime,
       ...d.data(),
     }))
-    .filter((d) => d.reward_type !== 'admin_bonus');
+    .filter((d) => d.reward_type !== 'admin_bonus' && isReferralCreditUsable(d));
 };
 
 /**
@@ -250,7 +256,7 @@ export const claimSingleReferralReward = async (uid, referralId) => {
 
   const referral = referralSnap.data();
 
-  if (referral.reward_issued || referral.reward_type !== 'free_ticket') {
+  if (!isReferralCreditUsable(referral) || referral.reward_type !== 'free_ticket') {
     throw new Error('Referral reward is not claimable.');
   }
   if (!referral.referrer_id || referral.referrer_id.id !== uid) {

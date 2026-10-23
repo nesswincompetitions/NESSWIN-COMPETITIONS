@@ -634,6 +634,8 @@
     "table": {
       "user": "Utilisateur",
       "tickets": "Tickets",
+      "revocable": "révocables",
+      "breakdown": "Total {{total}} · Utilisés {{used}} · Révoqués {{revoked}} · Non pris en charge {{unsupported}}",
       "reason": "Raison",
       "issuedBy": "Émis par",
       "date": "Date",
@@ -650,6 +652,40 @@
     "empty": {
       "title": "Aucun ticket bonus émis",
       "desc": "Les enregistrements de tickets bonus apparaîtront ici."
+    },
+    "status": {
+      "mixed": "Statut mixte",
+      "unsupported": "Données non prises en charge",
+      "revoked": "{{count}} révoqué(s)",
+      "used": "Utilisé",
+      "usedCount": "{{count}} utilisé(s)",
+      "available": "Disponible"
+    },
+    "revoke": {
+      "title": "Révoquer les tickets bonus inutilisés",
+      "open": "Révoquer",
+      "legacyWarning": "Cette ligne regroupe les crédits par utilisateur, raison et horodatage de création identique. Le schéma ne contient aucun identifiant de subvention ; elle peut donc encore réunir des crédits de plusieurs subventions. La révocation ne s'applique qu'aux crédits exacts inutilisés de cette ligne.",
+      "eligibility": "Cette ligne affiche {{total}} crédits au total : {{used}} utilisés, {{revoked}} révoqués, {{eligible}} actuellement révocables. Cette action soumettra exactement {{selected}} crédits inutilisés. Les crédits déjà échangés contre des tickets ne sont jamais révoqués.",
+      "blockedNotice": "Cette demande n'a pas pu être traitée en toute sécurité. Fermez cette fenêtre et rouvrez-la après actualisation des données de crédits avant de réessayer.",
+      "reasonLabel": "Raison (obligatoire)",
+      "reasonPlaceholder": "Expliquez pourquoi ces crédits sont révoqués",
+      "submitting": "Révocation...",
+      "confirm": "Révoquer les crédits inutilisés",
+      "retry": "Réessayer le reste",
+      "partialNotice": "La révocation est reprise : réessayer relance la révocation des crédits restants sans double décrément du solde.",
+      "driftNotice": "Le solde free_tickets stocké ne permettait pas le décrément complet ; la révocation s'est arrêtée sans produire de solde négatif.",
+      "balanceInvalidNotice": "Le solde stocké est invalide ; la révocation s'est arrêtée sans décrément. Corrigez le solde et réessayez après réconciliation.",
+      "successMessage": "{{count}} crédit(s) révoqué(s) avec succès.",
+      "partialSummary": "{{revoked}} crédit(s) sur {{eligible}} éligibles ont été révoqués.",
+      "nothingRevoked": "Aucun crédit n'a été révoqué dans cette demande.",
+      "nothingToRevoke": "Aucun crédit n'avait besoin d'être révoqué ; les crédits demandés sont déjà échangés ou révoqués.",
+      "skippedRedeemed": "{{count}} crédit(s) déjà échangé(s) contre des tickets ont été ignorés.",
+      "skippedRevoked": "{{count}} crédit(s) déjà révoqué(s) ont été ignorés.",
+      "remainingNotice": "{{count}} crédit(s) restent révocables lors d'une nouvelle tentative.",
+      "stateChangeNotice": "L'état des crédits a changé après la prévalidation ; les crédits concernés sont exclus.",
+      "errorToast": "Échec de la révocation des crédits",
+      "excludedNotice": "{{count}} crédit(s) n'ont pas pu être révoqués car leur état a changé (propriétaire/type/absent) ; exclus de cette relance.",
+      "reconcileNotice": "Le solde nécessite une réconciliation avant que les crédits restants puissent être révoqués en toute sécurité. Réessayer sans corriger le solde ne réussira pas."
     }
   },
   "settings": {

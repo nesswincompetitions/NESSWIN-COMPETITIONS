@@ -76,6 +76,32 @@
         { "fieldPath": "order_id", "order": "ASCENDING" },
         { "fieldPath": "ticket_number", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reward_type", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "referrer_id", "order": "ASCENDING" },
+        { "fieldPath": "reward_type", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "referrer_id", "order": "ASCENDING" },
+        { "fieldPath": "reward_issued", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
