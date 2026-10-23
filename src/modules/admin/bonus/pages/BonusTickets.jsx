@@ -15,7 +15,55 @@ import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import Tooltip from '@/shared/components/ui/Tooltip';
+import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
+import BonusEntryAction from '@/shared/components/admin/BonusEntryAction';
+import { isActiveBonusEntry } from '@/modules/admin/bonus/utils/bonusEntrySelectors';
 import { m as motion, AnimatePresence } from 'framer-motion';
+
+const isSupportedAdminBonusCredit = (ticket) =>
+  typeof ticket.reward_value === 'number' &&
+  Number.isInteger(ticket.reward_value) &&
+  ticket.reward_value === 1 &&
+  typeof ticket.reward_issued === 'boolean' &&
+  (ticket.reward_revoked === undefined || typeof ticket.reward_revoked === 'boolean') &&
+  !(ticket.reward_issued && ticket.reward_revoked);
+
+const getDisplayedCreditQuantity = (credit) => {
+  const quantity = Number(credit.reward_value || credit.quantity || 1);
+  return Number.isFinite(quantity) ? quantity : 1;
+};
+
+const renderBonusStatus = (entry, t) => {
+  const hasUsed = entry.used_quantity > 0;
+  const hasRevoked = entry.revoked_quantity > 0;
+  const hasRevocable = entry.revocable_quantity > 0;
+  const stateCount = [hasUsed, hasRevoked, hasRevocable].filter(Boolean).length;
+
+  if (stateCount > 1 || (entry.unsupported_quantity > 0 && stateCount > 0)) {
+    return (
+      <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">
+        {t('bonusTickets.status.mixed')}
+      </Badge>
+    );
+  }
+  if (entry.unsupported_quantity > 0) {
+    return (
+      <Badge variant="warning" className="bg-yellow-400/10 text-yellow-300 border-yellow-400/20">
+        {t('bonusTickets.status.unsupported')}
+      </Badge>
+    );
+  }
+  if (hasRevoked) {
+    return <Badge variant="warning" className="bg-red-400/10 text-red-400 border-red-400/20">{t('bonusTickets.status.revoked', { count: entry.revoked_quantity })}</Badge>;
+  }
+  if (entry.reward_issued) {
+    return <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">{t('bonusTickets.status.used')}</Badge>;
+  }
+  if (hasUsed) {
+    return <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">{t('bonusTickets.status.usedCount', { count: entry.used_quantity })}</Badge>;
+  }
+  return <Badge variant="success">{t('bonusTickets.status.available')}</Badge>;
+};
 
 const BonusTickets = () => {
   const { t } = useTranslation('admin');
@@ -30,6 +78,8 @@ const BonusTickets = () => {
   const totalIssued = useMemo(() => {
     return ticketsRaw
       .filter(t => t.reward_type === 'admin_bonus' || t.reason === 'admin_bonus' || t.type === 'grant')
+      // Preserve the historical dashboard metric. Strict reward_value validation
+      // is intentionally limited to revocation eligibility below.
       .reduce((sum, t) => sum + Number(t.reward_value || t.quantity || 1), 0);
   }, [ticketsRaw]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,18 +92,28 @@ const BonusTickets = () => {
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [revokeTarget, setRevokeTarget] = useState(null);
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
 
   const tickets = useMemo(() => {
     const groups = {};
     
     ticketsRaw.forEach((ticket) => {
-        const userId = ticket.referrer_id?.id || (typeof ticket.referrer_id === 'string' ? ticket.referrer_id : null);
+        const referrer = ticket.referrer_id;
+        const userId = typeof referrer === 'string' ? referrer.split('/').pop() : referrer?.id;
         const reason = ticket.admin_note || ticket.reason || 'Admin Bonus';
-        const time = ticket.created_at?.toMillis ? Math.floor(ticket.created_at.toMillis() / 2000) : 0;
-        
-        const key = `${userId}_${reason}_${time}`;
+        // Group by the available display metadata only. There is no grant_id in
+        // the schema, so this row is never treated as a canonical grant. Missing
+        // timestamps are isolated by document ID to avoid merging unknown grants.
+        const createdAt = ticket.created_at || ticket.createdAt;
+        const time = createdAt?.toMillis
+          ? createdAt.toMillis()
+          : createdAt
+            ? new Date(createdAt).getTime()
+            : null;
+        const timeKey = Number.isFinite(time) ? time : `missing_${ticket.id}`;
+
+        const key = `${userId}_${reason}_${timeKey}`;
         
         if (!groups[key]) {
           const user = userMap[userId];
@@ -63,15 +123,28 @@ const BonusTickets = () => {
             userName: user?.display_name || user?.name || 'Unknown User',
             quantity: 0,
             used_quantity: 0,
+            revoked_quantity: 0,
+            revocable_quantity: 0,
+            unsupported_quantity: 0,
             reason,
-            ids: []
+            ids: [],
+            revocableIds: []
           };
         }
         
-        const val = Number(ticket.reward_value || ticket.quantity || 1);
+        const supported = isSupportedAdminBonusCredit(ticket);
+        const val = getDisplayedCreditQuantity(ticket);
         groups[key].quantity += val;
-        if (ticket.reward_issued) {
+        if (!supported) {
+          groups[key].unsupported_quantity += val;
+        } else if (ticket.reward_issued) {
           groups[key].used_quantity += val;
+        } else if (ticket.reward_revoked) {
+          groups[key].revoked_quantity += val;
+        } else {
+          // Only unused admin_bonus credits are revocable; backend remains authoritative
+          groups[key].revocable_quantity += val;
+          groups[key].revocableIds.push(ticket.id);
         }
         groups[key].ids.push(ticket.id);
       });
@@ -89,8 +162,8 @@ const BonusTickets = () => {
       (ticket.competitionTitle || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     if (activeStatus === 'all') return matchesSearch;
-    if (activeStatus === 'used') return matchesSearch && ticket.reward_issued;
-    if (activeStatus === 'active') return matchesSearch && !ticket.reward_issued;
+    if (activeStatus === 'used') return matchesSearch && ticket.used_quantity > 0;
+    if (activeStatus === 'active') return matchesSearch && isActiveBonusEntry(ticket);
     
     return matchesSearch;
   });
@@ -303,6 +376,7 @@ const BonusTickets = () => {
                     <TableHead>{t('bonusTickets.table.reason')}</TableHead>
                     <TableHead>{t('bonusTickets.table.date')}</TableHead>
                     <TableHead className="text-right">{t('common.status')}</TableHead>
+                    <TableHead className="text-right">{t('common.actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -310,9 +384,24 @@ const BonusTickets = () => {
                     <TableRow key={ticket.id}>
                       <TableCell className="font-medium text-white">{ticket.userName}</TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-bold font-mono px-2 py-1 rounded-md text-emerald-400 bg-emerald-400/10`}>
-                          +{ticket.quantity}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="flex items-center gap-1">
+                            <span className={`font-bold font-mono px-2 py-1 rounded-md text-emerald-400 bg-emerald-400/10`}>
+                              +{ticket.revocable_quantity}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                              {t('bonusTickets.table.revocable')}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                            {t('bonusTickets.table.breakdown', {
+                              total: ticket.quantity,
+                              used: ticket.used_quantity,
+                              revoked: ticket.revoked_quantity,
+                              unsupported: ticket.unsupported_quantity,
+                            })}
+                          </span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-gray-300">
@@ -323,16 +412,9 @@ const BonusTickets = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
+                      <TableCell className="text-right">{renderBonusStatus(ticket, t)}</TableCell>
                       <TableCell className="text-right">
-                        {ticket.reward_issued ? (
-                          <Badge variant="neutral" className="bg-white/5 border-white/10 opacity-50">Used</Badge>
-                        ) : ticket.used_quantity > 0 ? (
-                          <Badge variant="warning" className="bg-orange-400/10 text-orange-400 border-orange-400/20">
-                            Used {ticket.used_quantity}
-                          </Badge>
-                        ) : (
-                          <Badge variant="success">Available</Badge>
-                        )}
+                        <BonusEntryAction entry={ticket} onRevoke={setRevokeTarget} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -462,6 +544,21 @@ const BonusTickets = () => {
           </div>
         </form>
       </Modal>
+
+      {revokeTarget && (
+        <RevokeBonusModal
+          isOpen={!!revokeTarget}
+          onClose={() => setRevokeTarget(null)}
+          userId={revokeTarget.userId}
+          userName={revokeTarget.userName}
+          entryReason={revokeTarget.reason}
+          totalQuantity={revokeTarget.quantity}
+          usedQuantity={revokeTarget.used_quantity}
+          revokedQuantity={revokeTarget.revoked_quantity}
+          unusedQuantity={revokeTarget.revocable_quantity}
+          creditIds={revokeTarget.revocableIds || []}
+        />
+      )}
     </div>
   );
 };

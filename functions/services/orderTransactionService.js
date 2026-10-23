@@ -1,4 +1,5 @@
 import { getOrderPricing } from "./orderPricingService.js";
+import { assertReferralRedeemable } from "./referralEligibility.js";
 
 /**
  * Derives a short uppercase prefix from a competition title.
@@ -120,12 +121,7 @@ export async function runOrderTransaction(
       const refId = referralRefs[i].id;
 
       if (!snap.exists) throw new Error(`Referral ${refId} not found.`);
-      if (snap.data().reward_issued) {
-        throw new Error(`Referral ${refId} was already redeemed.`);
-      }
-      if (snap.data().referrer_id?.path !== userRef.path) {
-        throw new Error(`Referral ${refId} does not belong to you.`);
-      }
+      assertReferralRedeemable(snap.data(), refId, userRef.path);
       validReferralCount++;
     }
 

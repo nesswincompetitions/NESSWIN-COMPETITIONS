@@ -861,20 +861,49 @@ export const useUserBonusLogsRealtime = (userId) => {
     const groups = {};
     logs.forEach(log => {
       const reason = log.admin_note || log.reason || 'Admin Bonus';
-      const time = log.created_at?.toMillis ? Math.floor(log.created_at.toMillis() / 2000) : 0;
-      const key = `${reason}_${time}`;
+      // Group by the available display metadata only. There is no grant_id in
+      // the schema, so this row is never treated as a canonical grant. Missing
+      // timestamps are isolated by document ID to avoid merging unknown grants.
+      const createdAt = log.created_at || log.createdAt;
+      const time = createdAt?.toMillis
+        ? createdAt.toMillis()
+        : createdAt
+          ? new Date(createdAt).getTime()
+          : null;
+      const timeKey = Number.isFinite(time) ? time : `missing_${log.id}`;
+      const key = `${reason}_${timeKey}`;
 
       if (!groups[key]) {
         groups[key] = {
           ...log,
           quantity: 0,
           used_quantity: 0,
-          ids: []
+          revoked_quantity: 0,
+          revocable_quantity: 0,
+          unsupported_quantity: 0,
+          ids: [],
+          revocableIds: []
         };
       }
-      const val = Number(log.reward_value || log.quantity || 1);
+      const supported = typeof log.reward_value === 'number' &&
+        Number.isInteger(log.reward_value) &&
+        log.reward_value === 1 &&
+        typeof log.reward_issued === 'boolean' &&
+        (log.reward_revoked === undefined || typeof log.reward_revoked === 'boolean') &&
+        !(log.reward_issued && log.reward_revoked);
+      const rawQuantity = Number(log.reward_value || log.quantity || 1);
+      const val = Number.isFinite(rawQuantity) ? rawQuantity : 1;
       groups[key].quantity += val;
-      if (log.reward_issued) groups[key].used_quantity += val;
+      if (!supported) {
+        groups[key].unsupported_quantity += val;
+      } else if (log.reward_issued) {
+        groups[key].used_quantity += val;
+      } else if (log.reward_revoked) {
+        groups[key].revoked_quantity += val;
+      } else {
+        groups[key].revocable_quantity += val;
+        groups[key].revocableIds.push(log.id);
+      }
       groups[key].ids.push(log.id);
     });
 

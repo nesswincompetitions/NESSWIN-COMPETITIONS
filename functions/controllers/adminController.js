@@ -3,6 +3,7 @@ import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
+import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
 
 /**
  * Callable: grantAdminBonus
@@ -125,6 +126,14 @@ export const grantAdminBonus = onCall(async (request) => {
     throw toHttpsError(err, "Failed to grant admin bonus.");
   }
 });
+
+/**
+ * Callable: revokeAdminBonus
+ * Payload: { userId: string, creditIds: string[], reason: string }
+ */
+export const revokeAdminBonus = onCall(
+  createRevokeAdminBonusHandler({ db, admin, logger, assertAdmin, HttpsError })
+);
 
 /**
  * Callable: refundOrder

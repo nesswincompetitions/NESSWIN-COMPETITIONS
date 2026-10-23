@@ -649,6 +649,8 @@
     "table": {
       "user": "User",
       "tickets": "Tickets",
+      "revocable": "revocable",
+      "breakdown": "Total {{total}} · Used {{used}} · Revoked {{revoked}} · Unsupported {{unsupported}}",
       "reason": "Reason",
       "issuedBy": "Issued By",
       "date": "Date",
@@ -665,6 +667,40 @@
     "empty": {
       "title": "No bonus tickets issued",
       "desc": "Bonus ticket records will appear here."
+    },
+    "status": {
+      "mixed": "Mixed status",
+      "unsupported": "Unsupported data",
+      "revoked": "Revoked {{count}}",
+      "used": "Used",
+      "usedCount": "Used {{count}}",
+      "available": "Available"
+    },
+    "revoke": {
+      "title": "Revoke Unused Bonus Tickets",
+      "open": "Revoke",
+      "revokedBadge": "Revoked",
+      "eligibility": "This row shows {{total}} total credit(s): {{used}} used, {{revoked}} revoked, {{eligible}} currently revocable. This action will submit exactly {{selected}} unused credit(s). Credits already redeemed into tickets are never revoked.",
+      "blockedNotice": "This request could not be processed safely. Close this dialog and reopen it after the credit data has refreshed before trying again.",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "Explain why these credits are being revoked",
+      "submitting": "Revoking...",
+      "confirm": "Revoke unused credits",
+      "retry": "Retry remaining",
+      "partialNotice": "Revocation is resumable: retrying re-rolls the remaining credits safely without double-decrementing the balance.",
+      "driftNotice": "The stored free_tickets balance could not support the full decrement; revocation stopped without producing a negative balance.",
+      "balanceInvalidNotice": "The stored balance is invalid; revocation stopped without decrement. Resolve the balance and retry after reconciliation.",
+      "successMessage": "Revoked {{count}} credit(s) successfully.",
+      "partialSummary": "{{revoked}} of {{eligible}} eligible credit(s) were revoked.",
+      "nothingRevoked": "No credits were revoked in this request.",
+      "nothingToRevoke": "No credits needed to be revoked; the requested credits are already redeemed or revoked.",
+      "skippedRedeemed": "Skipped {{count}} credit(s) already redeemed into competition tickets.",
+      "skippedRevoked": "Skipped {{count}} credit(s) already revoked.",
+      "remainingNotice": "{{count}} credit(s) remain revocable on retry.",
+      "stateChangeNotice": "Credit state changed after prevalidation; the affected credits are excluded.",
+      "errorToast": "Failed to revoke credits",
+      "excludedNotice": "{{count}} credit(s) could not be revoked because their state changed (ownership/reward type/missing); they are excluded from this retry.",
+      "reconcileNotice": "The balance requires reconciliation before the remaining credits can be safely revoked. Retrying without fixing the balance will not succeed."
     }
   },
   "settings": {

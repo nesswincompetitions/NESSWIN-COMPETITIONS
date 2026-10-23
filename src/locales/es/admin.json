@@ -634,6 +634,8 @@
     "table": {
       "user": "Usuario",
       "tickets": "Entradas",
+      "revocable": "revocables",
+      "breakdown": "Total {{total}} · Usados {{used}} · Revocados {{revoked}} · No compatibles {{unsupported}}",
       "reason": "Razón",
       "issuedBy": "Emitido por",
       "date": "Fecha",
@@ -650,6 +652,40 @@
     "empty": {
       "title": "No se han emitido entradas bonus",
       "desc": "Los registros de entradas bonus aparecerán aquí."
+    },
+    "status": {
+      "mixed": "Estado mixto",
+      "unsupported": "Datos no compatibles",
+      "revoked": "{{count}} revocado(s)",
+      "used": "Usado",
+      "usedCount": "{{count}} usado(s)",
+      "available": "Disponible"
+    },
+    "revoke": {
+      "title": "Revocar boletos de bono no usados",
+      "open": "Revocar",
+      "revokedBadge": "Revocado",
+      "eligibility": "Esta fila muestra {{total}} créditos en total: {{used}} usados, {{revoked}} revocados, {{eligible}} actualmente revocables. Esta acción enviará exactamente {{selected}} créditos sin usar. Los créditos ya canjeados en boletos nunca se revocan.",
+      "blockedNotice": "Esta solicitud no se pudo procesar de forma segura. Cierre este diálogo y vuelva a abrirlo después de que se actualicen los datos de créditos antes de intentarlo de nuevo.",
+      "reasonLabel": "Razón (obligatoria)",
+      "reasonPlaceholder": "Explique por qué se revocan estos créditos",
+      "submitting": "Revocando...",
+      "confirm": "Revocar créditos no usados",
+      "retry": "Reintentar el resto",
+      "partialNotice": "La revocación se puede reanudar: reintentar procesa los créditos restantes de forma segura sin doble descuento del saldo.",
+      "driftNotice": "El saldo free_tickets almacenado no permitía el descuento completo; la revocación se detuvo sin producir un saldo negativo.",
+      "balanceInvalidNotice": "El saldo almacenado no es válido; la revocación se detuvo sin descuento. Resuelva el saldo y reintente tras la reconciliación.",
+      "successMessage": "{{count}} crédito(s) revocado(s) correctamente.",
+      "partialSummary": "Se revocaron {{revoked}} de {{eligible}} créditos elegibles.",
+      "nothingRevoked": "No se revocó ningún crédito en esta solicitud.",
+      "nothingToRevoke": "No fue necesario revocar créditos; los créditos solicitados ya están canjeados o revocados.",
+      "skippedRedeemed": "Se omitieron {{count}} crédito(s) ya canjeados en boletos.",
+      "skippedRevoked": "Se omitieron {{count}} crédito(s) ya revocados.",
+      "remainingNotice": "{{count}} crédito(s) siguen siendo revocables al reintentar.",
+      "stateChangeNotice": "El estado de los créditos cambió después de la prevalidación; los créditos afectados quedan excluidos.",
+      "errorToast": "Error al revocar créditos",
+      "excludedNotice": "{{count}} crédito(s) no pudieron revocarse porque su estado cambió (propietario/tipo/ausente); excluidos de este reintento.",
+      "reconcileNotice": "El saldo requiere reconciliación antes de revocar los créditos restantes de forma segura. Reintentar sin corregir el saldo no tendrá éxito."
     }
   },
   "settings": {
