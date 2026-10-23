@@ -17,6 +17,8 @@ export default function Button({
       "bg-primary text-(--color-primary-foreground) hover:opacity-90 shadow-[0_0_35px_oklch(0.78_0.14_78/0.35)] hover:shadow-[0_0_50px_oklch(0.78_0.14_78/0.55)]",
     outline:
       "border border-border text-(--color-foreground) hover:border-[oklch(0.78_0.14_78/0.4)] hover:bg-[oklch(0.78_0.14_78/0.05)]",
+    danger:
+      "border border-red-500/30 bg-red-500/5 text-red-400 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   };
 
   const sizes = {

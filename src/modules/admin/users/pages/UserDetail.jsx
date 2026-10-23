@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import {
-  ArrowLeft, Edit3, AlertTriangle, Ban, Key, LayoutDashboard,
+  ArrowLeft, Edit3, AlertTriangle, Key, LayoutDashboard,
   ShoppingCart, Trophy, Users as UsersIcon, Ticket, FileText, Plus, Send, Mail, Loader2, CheckCircle2,
   Phone, User, Share2, Eye
 } from 'lucide-react';
@@ -26,6 +26,7 @@ import { formatStatus } from '@/shared/utils/formatters';
 import Modal from '@/shared/components/ui/Modal';
 import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
 import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
+import BonusEntryAction from '@/shared/components/admin/BonusEntryAction';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { Clock } from 'lucide-react';
 
@@ -454,15 +455,13 @@ const UserDetail = () => {
                     {formatDate(log.created_at || log.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    {log.revocable_quantity > 0 && (
-                      <Button
-                        variant="outline"
-                        className="flex items-center gap-1.5 h-9"
-                        onClick={() => setRevokeTarget({ ...log, userName: profile?.display_name || profile?.name || t('users.detail.title') })}
-                      >
-                        <Ban size={14} /> {t('bonusTickets.revoke.open')}
-                      </Button>
-                    )}
+                    <BonusEntryAction
+                      entry={log}
+                      onRevoke={(entry) => setRevokeTarget({
+                        ...entry,
+                        userName: profile?.display_name || profile?.name || t('users.detail.title'),
+                      })}
+                    />
                   </TableCell>
                 </TableRow>
                 ))}

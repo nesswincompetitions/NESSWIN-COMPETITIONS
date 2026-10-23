@@ -664,7 +664,7 @@
     "revoke": {
       "title": "Revocar boletos de bono no usados",
       "open": "Revocar",
-      "legacyWarning": "Esta fila agrupa créditos por usuario, razón y marca de tiempo de creación idéntica. El esquema no incluye un identificador de concesión, por lo que aún podría combinar créditos de varias concesiones; la revocación aplica solo a los créditos exactos no usados de esta fila.",
+      "revokedBadge": "Revocado",
       "eligibility": "Esta fila muestra {{total}} créditos en total: {{used}} usados, {{revoked}} revocados, {{eligible}} actualmente revocables. Esta acción enviará exactamente {{selected}} créditos sin usar. Los créditos ya canjeados en boletos nunca se revocan.",
       "blockedNotice": "Esta solicitud no se pudo procesar de forma segura. Cierre este diálogo y vuelva a abrirlo después de que se actualicen los datos de créditos antes de intentarlo de nuevo.",
       "reasonLabel": "Razón (obligatoria)",

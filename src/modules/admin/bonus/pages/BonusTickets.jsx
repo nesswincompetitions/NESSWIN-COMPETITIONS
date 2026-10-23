@@ -7,7 +7,7 @@ import Badge from '@/shared/components/ui/Badge';
 import Modal from '@/shared/components/ui/Modal';
 import { limit, orderBy, where } from 'firebase/firestore';
 import {
-  Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2, Download, Ban
+  Search, Plus, Upload, Settings, Ticket, HelpCircle, Loader2, Download
 } from 'lucide-react';
 import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
 import { useRecentUsers } from '@/shared/hooks/useAdminData';
@@ -16,6 +16,7 @@ import { exportToCSV } from '@/shared/utils/csvExport';
 import { toast } from 'react-hot-toast';
 import Tooltip from '@/shared/components/ui/Tooltip';
 import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
+import BonusEntryAction from '@/shared/components/admin/BonusEntryAction';
 import { isActiveBonusEntry } from '@/modules/admin/bonus/utils/bonusEntrySelectors';
 import { m as motion, AnimatePresence } from 'framer-motion';
 
@@ -413,16 +414,7 @@ const BonusTickets = () => {
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(ticket.created_at)}</TableCell>
                       <TableCell className="text-right">{renderBonusStatus(ticket, t)}</TableCell>
                       <TableCell className="text-right">
-                        {ticket.revocable_quantity > 0 && (
-                          <Button
-                            variant="outline"
-                            aria-label="revoke"
-                            className="flex items-center gap-1.5 h-9"
-                            onClick={() => setRevokeTarget(ticket)}
-                          >
-                            <Ban size={14} /> {t('bonusTickets.revoke.open')}
-                          </Button>
-                        )}
+                        <BonusEntryAction entry={ticket} onRevoke={setRevokeTarget} />
                       </TableCell>
                     </TableRow>
                   ))}

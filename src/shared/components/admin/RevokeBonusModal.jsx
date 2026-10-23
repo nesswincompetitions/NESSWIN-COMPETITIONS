@@ -49,12 +49,12 @@ const RevokeBonusModal = ({
   const selectedCount = activeIds.length;
   const displayedEligible = partial ? (partial.remainingCount ?? 0) : unusedQuantity;
   const partialSummary = partial
-    ? (partial.revokedCount > 0
-        ? t('bonusTickets.revoke.partialSummary', {
-            revoked: partial.revokedCount,
-            eligible: partial.eligibleCount ?? (partial.revokedCount + (partial.remainingCount ?? 0)),
-          })
-        : t('bonusTickets.revoke.nothingRevoked'))
+    ? partial.revokedCount > 0
+      ? t('bonusTickets.revoke.partialSummary', {
+          revoked: partial.revokedCount,
+          eligible: partial.eligibleCount ?? partial.revokedCount + (partial.remainingCount ?? 0),
+        })
+      : t('bonusTickets.revoke.nothingRevoked')
     : '';
   const canSubmit =
     isOpen &&
@@ -87,7 +87,7 @@ const RevokeBonusModal = ({
         toast.success(
           result.revokedCount > 0
             ? t('bonusTickets.revoke.successMessage', { count: result.revokedCount })
-            : t('bonusTickets.revoke.nothingToRevoke')
+            : t('bonusTickets.revoke.nothingToRevoke'),
         );
         onClose();
         return;
@@ -99,15 +99,19 @@ const RevokeBonusModal = ({
       setRetryIds(nextIds);
       setExcludedCount(result?.stateChangeCount ?? 0);
 
-      const resultSummary = result.revokedCount > 0
-        ? t('bonusTickets.revoke.partialSummary', {
-            revoked: result.revokedCount,
-            eligible: result.eligibleCount ?? (result.revokedCount + (result.remainingCount ?? 0)),
-          })
-        : t('bonusTickets.revoke.nothingRevoked');
+      const resultSummary =
+        result.revokedCount > 0
+          ? t('bonusTickets.revoke.partialSummary', {
+              revoked: result.revokedCount,
+              eligible: result.eligibleCount ?? result.revokedCount + (result.remainingCount ?? 0),
+            })
+          : t('bonusTickets.revoke.nothingRevoked');
 
       setPartial(result);
-      if (result?.outcome === 'blocked' || (result?.outcome === undefined && result?.success === false)) {
+      if (
+        result?.outcome === 'blocked' ||
+        (result?.outcome === undefined && result?.success === false)
+      ) {
         toast.error(resultSummary);
       } else {
         toast(resultSummary, { duration: 6000 });
@@ -128,21 +132,12 @@ const RevokeBonusModal = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title={t('bonusTickets.revoke.title')}
-    >
+    <Modal isOpen={isOpen} onClose={handleClose} title={t('bonusTickets.revoke.title')}>
       <div className="space-y-4">
         <div className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300">
           <span className="font-medium text-white">{userName}</span>
           <span className="text-gray-500 mx-2">·</span>
           {entryReason}
-        </div>
-
-        <div className="flex items-start gap-3 px-3 py-2.5 bg-yellow-400/10 border border-yellow-400/30 rounded-lg text-sm text-yellow-300">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>{t('bonusTickets.revoke.legacyWarning')}</span>
         </div>
 
         <div className="flex items-start gap-3 px-3 py-2.5 bg-orange-400/10 border border-orange-400/30 rounded-lg text-sm text-orange-300">
@@ -178,9 +173,12 @@ const RevokeBonusModal = ({
                 {t('bonusTickets.revoke.excludedNotice', { count: excludedCount })}
               </p>
             )}
-            {partial.retryable === false && !partial.drift && !partial.balanceInvalid && partial.stateChangeCount === 0 && (
-              <p className="text-yellow-300">{t('bonusTickets.revoke.stateChangeNotice')}</p>
-            )}
+            {partial.retryable === false &&
+              !partial.drift &&
+              !partial.balanceInvalid &&
+              partial.stateChangeCount === 0 && (
+                <p className="text-yellow-300">{t('bonusTickets.revoke.stateChangeNotice')}</p>
+              )}
             {partial.skippedRedeemed > 0 && (
               <p className="text-gray-400">
                 {t('bonusTickets.revoke.skippedRedeemed', { count: partial.skippedRedeemed })}
@@ -191,19 +189,25 @@ const RevokeBonusModal = ({
                 {t('bonusTickets.revoke.skippedRevoked', { count: partial.skippedRevoked })}
               </p>
             )}
-            {partial.retryable && !partial.drift && !partial.balanceInvalid && partial.remainingCount > 0 && (
-              <p className="text-gray-400">
-                {t('bonusTickets.revoke.remainingNotice', { count: partial.remainingCount })}
-              </p>
-            )}
-            {partial.retryable && !partial.drift && !partial.balanceInvalid && partial.remainingCount > 0 && (
-              <p className="text-gray-400">{t('bonusTickets.revoke.partialNotice')}</p>
-            )}
+            {partial.retryable &&
+              !partial.drift &&
+              !partial.balanceInvalid &&
+              partial.remainingCount > 0 && (
+                <p className="text-gray-400">
+                  {t('bonusTickets.revoke.remainingNotice', { count: partial.remainingCount })}
+                </p>
+              )}
+            {partial.retryable &&
+              !partial.drift &&
+              !partial.balanceInvalid &&
+              partial.remainingCount > 0 && (
+                <p className="text-gray-400">{t('bonusTickets.revoke.partialNotice')}</p>
+              )}
             {(partial.drift || partial.balanceInvalid) && (
               <p className="text-gray-400">{t('bonusTickets.revoke.reconcileNotice')}</p>
             )}
             <Button
-              variant="outline"
+              variant="danger"
               onClick={handleSubmit}
               disabled={!retryable}
               className="flex items-center gap-2"
@@ -221,7 +225,7 @@ const RevokeBonusModal = ({
           <textarea
             required
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={e => setReason(e.target.value)}
             placeholder={t('bonusTickets.revoke.reasonPlaceholder')}
             className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
             disabled={isSubmitting}
@@ -230,17 +234,12 @@ const RevokeBonusModal = ({
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleClose}
-          disabled={isSubmitting}
-        >
+        <Button type="button" variant="outline" onClick={handleClose} disabled={isSubmitting}>
           {t('common.cancel')}
         </Button>
         <Button
           type="button"
-          variant="primary"
+          variant="danger"
           onClick={handleSubmit}
           disabled={!canSubmit}
           className="flex items-center gap-2"

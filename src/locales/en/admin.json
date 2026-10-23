@@ -679,7 +679,7 @@
     "revoke": {
       "title": "Revoke Unused Bonus Tickets",
       "open": "Revoke",
-      "legacyWarning": "This row groups credits by user, reason and identical creation timestamp. There is no grant identifier in the schema, so it may still combine credits from more than one grant; revocation applies only to the exact unused credits behind this row.",
+      "revokedBadge": "Revoked",
       "eligibility": "This row shows {{total}} total credit(s): {{used}} used, {{revoked}} revoked, {{eligible}} currently revocable. This action will submit exactly {{selected}} unused credit(s). Credits already redeemed into tickets are never revoked.",
       "blockedNotice": "This request could not be processed safely. Close this dialog and reopen it after the credit data has refreshed before trying again.",
       "reasonLabel": "Reason (required)",
