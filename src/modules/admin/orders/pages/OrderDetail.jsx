@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId } from '@/shared/hooks/useAdminData';
 import { refundOrder } from '@/modules/admin/orders/services/ordersService';
+import { formatStatus } from '@/shared/utils/formatters';
 import { toast } from 'react-hot-toast';
 
 const OrderDetail = () => {
@@ -124,11 +125,28 @@ const OrderDetail = () => {
                   <Hash size={16} /> {t('orders.detail.ticketNumbers')} ({order.total_ticket || 0})
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {tickets.length > 0 ? tickets.map(tk => (
-                    <span key={tk.id} className="px-3 py-1.5 bg-[#121212] border border-white/10 text-primary font-mono text-sm rounded-md shadow-sm">
-                      {tk.ticket_sequence}
-                    </span>
-                  )) : (
+                  {tickets.length > 0 ? tickets.map(tk => {
+                    const ticketStatus = String(tk.status || 'active').toLowerCase();
+                    return (
+                      <span
+                        key={tk.id}
+                        className={`px-3 py-1.5 border font-mono text-sm rounded-md shadow-sm flex items-center gap-2 ${
+                          ticketStatus === 'invalid'
+                            ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                            : ticketStatus === 'cancelled'
+                              ? 'bg-white/5 border-white/10 text-gray-500'
+                              : ticketStatus === 'winner'
+                                ? 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400'
+                                : 'bg-[#121212] border-white/10 text-primary'
+                        }`}
+                      >
+                        {tk.ticket_sequence}
+                        <span className="text-[9px] uppercase tracking-wider opacity-80">
+                          {formatStatus(ticketStatus)}
+                        </span>
+                      </span>
+                    );
+                  }) : (
                     <span className="text-gray-500 italic text-sm">No tickets found</span>
                   )}
                 </div>

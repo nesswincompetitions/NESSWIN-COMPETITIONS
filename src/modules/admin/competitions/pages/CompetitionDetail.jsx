@@ -8,9 +8,10 @@ import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
   ArrowLeft, Trophy, ExternalLink,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
+import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
 
 import { toast } from 'react-hot-toast';
 import { Timestamp, deleteField, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
@@ -29,6 +30,14 @@ import {
 import { uploadImages } from '@/shared/services/storageService';
 import { formatStatus } from '@/shared/utils/formatters';
 import { exportToCSV } from '@/shared/utils/csvExport';
+
+const PARTICIPANT_INVALIDATION_BLOCKED_STATUSES = new Set([
+  'drawing',
+  'winner_announced',
+  'completed',
+  'end',
+  'closed',
+]);
 
 const CompetitionDetail = () => {
   const { id } = useParams();
@@ -58,6 +67,8 @@ const CompetitionDetail = () => {
   
   const [participantTicketsModalOpen, setParticipantTicketsModalOpen] = useState(false);
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
+  const [invalidateTarget, setInvalidateTarget] = useState(null);
+  const [participantsRefreshKey, setParticipantsRefreshKey] = useState(0);
 
   const lastProcessedTabRef = React.useRef(null);
   const lastFetchedParticipantsRef = React.useRef(null);
@@ -214,7 +225,12 @@ const CompetitionDetail = () => {
     if (activeTab === 'participants') {
       fetchParticipants();
     }
-  }, [activeTab, competition?.participants]);
+  }, [activeTab, competition?.participants, participantsRefreshKey]);
+
+  const handleInvalidationSuccess = () => {
+    lastFetchedParticipantsRef.current = null;
+    setParticipantsRefreshKey((key) => key + 1);
+  };
 
   const handleExportCSV = () => {
     if (!participantsData || participantsData.length === 0) {
@@ -580,87 +596,132 @@ const CompetitionDetail = () => {
     </div>
   );
 
-  const renderParticipants = () => (
-    <Card className="fade-in">
-      <div className="p-6 border-b border-white/10 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">{t('competitions.detail.participants.title')}</h2>
-          <p className="text-sm text-gray-400 mt-1">{t('competitions.detail.participants.subtitle')}</p>
+  const renderParticipants = () => {
+    return (
+      <Card className="fade-in">
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">{t('competitions.detail.participants.title')}</h2>
+            <p className="text-sm text-gray-400 mt-1">{t('competitions.detail.participants.subtitle')}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={loadingParticipants || participantsData.length === 0}
+          >
+            {t('common.exportCsv')}
+          </Button>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleExportCSV}
-          disabled={loadingParticipants || participantsData.length === 0}
-        >
-          {t('common.exportCsv')}
-        </Button>
-      </div>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('competitions.detail.participants.tableUser')}</TableHead>
-              <TableHead>{t('competitions.detail.participants.tableEmail')}</TableHead>
-              <TableHead>{t('competitions.detail.participants.tableTickets')}</TableHead>
-              <TableHead>{t('competitions.detail.participants.tableStatus')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loadingParticipants ? (
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
-                  <Loader2 size={32} className="animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">Loading participant data...</p>
-                </TableCell>
+                <TableHead>{t('competitions.detail.participants.tableUser')}</TableHead>
+                <TableHead>{t('competitions.detail.participants.tableEmail')}</TableHead>
+                <TableHead>{t('competitions.detail.participants.tableTickets')}</TableHead>
+                <TableHead>{t('competitions.detail.participants.tableStatus')}</TableHead>
+                <TableHead className="text-right">{t('competitions.detail.participants.tableActions')}</TableHead>
               </TableRow>
-            ) : participantsData.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4}>
-                  <div className="flex items-center justify-center w-full py-16 text-gray-500">
-                    No participants found for this competition.
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : participantsData.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium text-white">{p.name}</TableCell>
-                <TableCell className="text-gray-400">{p.email}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1 max-w-50">
-                    {p.tickets.slice(0, 3).map((ticket, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-primary font-mono">
-                        #{ticket}
-                      </span>
-                    ))}
-                    {p.tickets.length > 3 && (
-                      <button 
-                        onClick={() => {
-                          setSelectedParticipantForTickets(p);
-                          setParticipantTicketsModalOpen(true);
-                        }}
-                        className="px-2 py-0.5 text-[10px] text-primary hover:text-primary/80 font-bold underline cursor-pointer transition-colors"
+            </TableHeader>
+            <TableBody>
+              {loadingParticipants ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-12">
+                    <Loader2 size={32} className="animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Loading participant data...</p>
+                  </TableCell>
+                </TableRow>
+              ) : participantsData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <div className="flex items-center justify-center w-full py-16 text-gray-500">
+                      No participants found for this competition.
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : participantsData.map((p) => {
+                const ticketDetails = p.ticketDetails?.length > 0
+                  ? p.ticketDetails
+                  : p.tickets.map((sequence, index) => ({
+                      id: `${p.id}-${index}`,
+                      sequence,
+                      status: '',
+                      isWinner: false,
+                    }));
+                const activeTicketCount = p.activeTicketCount ?? ticketDetails.filter((ticket) => ticket.status === 'active').length;
+                const invalidatedTicketCount = p.invalidatedTicketCount ?? 0;
+                const cancelledTicketCount = p.cancelledTicketCount ?? 0;
+
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium text-white">{p.name}</TableCell>
+                    <TableCell className="text-gray-400">{p.email}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1 max-w-50">
+                        {ticketDetails.slice(0, 3).map((ticket) => (
+                          <span
+                            key={ticket.id}
+                            className={`px-2 py-0.5 border rounded text-[10px] font-mono ${
+                              ticket.status === 'invalid'
+                                ? 'bg-red-500/10 border-red-500/20 text-red-400 line-through'
+                                : ticket.status === 'cancelled'
+                                  ? 'bg-white/5 border-white/10 text-gray-500 line-through'
+                                  : ticket.isWinner || ticket.status === 'winner'
+                                    ? 'bg-yellow-400/10 border-yellow-400/30 text-yellow-400'
+                                    : 'bg-white/5 border-white/10 text-primary'
+                            }`}
+                          >
+                            #{ticket.sequence}
+                          </span>
+                        ))}
+                        {ticketDetails.length > 3 && (
+                          <button
+                            onClick={() => {
+                              setSelectedParticipantForTickets(p);
+                              setParticipantTicketsModalOpen(true);
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-primary hover:text-primary/80 font-bold underline cursor-pointer transition-colors"
+                          >
+                            +{ticketDetails.length - 3} more
+                          </button>
+                        )}
+                        {ticketDetails.length === 0 && (
+                          <span className="text-gray-600 text-[10px]">No tickets</span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[10px] text-gray-500">
+                        {t('competitions.detail.participants.activeCount', { count: activeTicketCount })}
+                        {invalidatedTicketCount > 0 && ` · ${t('competitions.detail.participants.invalidatedCount', { count: invalidatedTicketCount })}`}
+                        {cancelledTicketCount > 0 && ` · ${t('competitions.detail.participants.cancelledCount', { count: cancelledTicketCount })}`}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={p.status === 'Active' ? 'success' : 'neutral'}>
+                        {p.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="h-9"
+                        disabled={activeTicketCount === 0}
+                        onClick={() => setInvalidateTarget(p)}
                       >
-                        +{p.tickets.length - 3} more
-                      </button>
-                    )}
-                    {p.tickets.length === 0 && (
-                      <span className="text-gray-600 text-[10px]">No tickets</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={p.status === 'Active' ? 'success' : 'neutral'}>
-                    {p.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
+                        <Ban size={14} />
+                        {t('competitions.detail.participants.invalidate.open')}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  };
 
   const mapToFormData = () => {
     const getLocalInfo = (ts) => {
@@ -1127,13 +1188,36 @@ const CompetitionDetail = () => {
         <div className="space-y-6 py-2">
           <div className="max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {selectedParticipantForTickets?.tickets.map((ticket, idx) => (
+              {(selectedParticipantForTickets?.ticketDetails?.length > 0
+                ? selectedParticipantForTickets.ticketDetails
+                : (selectedParticipantForTickets?.tickets || []).map((sequence, index) => ({
+                    id: `${selectedParticipantForTickets?.id || 'ticket'}-${index}`,
+                    sequence,
+                    status: '',
+                    isWinner: false,
+                  }))
+              ).map((ticket) => (
                 <div 
-                  key={idx}
+                  key={ticket.id}
                   className="flex flex-col p-3 rounded-xl bg-white/5 border border-white/10 hover:border-primary/30 transition-all group"
                 >
                   <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1 group-hover:text-primary/70 transition-colors">{t('competitions.detail.participants.tableTickets')}</span>
-                  <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">#{ticket}</span>
+                  <span className="text-sm font-mono font-bold text-white group-hover:text-primary transition-colors">#{ticket.sequence}</span>
+                  <span className="mt-1">
+                    <Badge
+                      variant={
+                        ticket.status === 'invalid'
+                          ? 'danger'
+                          : ticket.status === 'cancelled'
+                            ? 'neutral'
+                            : ticket.isWinner || ticket.status === 'winner'
+                              ? 'popular'
+                              : 'success'
+                      }
+                    >
+                      {t(`competitions.detail.participants.ticketStatus.${ticket.status || 'active'}`, ticket.status || 'active')}
+                    </Badge>
+                  </span>
                 </div>
               ))}
             </div>
@@ -1187,6 +1271,24 @@ const CompetitionDetail = () => {
           </div>
         </div>
       </Modal>
+      <InvalidateTicketsModal
+        isOpen={!!invalidateTarget}
+        onClose={() => setInvalidateTarget(null)}
+        userId={invalidateTarget?.id}
+        userName={invalidateTarget?.name}
+        competitionId={competition?.id}
+        competitionTitle={competition?.title}
+        activeTicketCount={invalidateTarget?.activeTicketCount ?? 0}
+        alreadyInvalidCount={invalidateTarget?.invalidatedTicketCount ?? 0}
+        cancelledCount={invalidateTarget?.cancelledTicketCount ?? 0}
+        hasWinnerTicket={invalidateTarget?.hasWinnerTicket === true}
+        finalityBlocked={
+          PARTICIPANT_INVALIDATION_BLOCKED_STATUSES.has(String(competition?.status || '').toLowerCase()) ||
+          Boolean(competition?.winner_ref) ||
+          Boolean(competition?.winner_ticket_ref)
+        }
+        onSuccess={handleInvalidationSuccess}
+      />
     </div>
   );
 };

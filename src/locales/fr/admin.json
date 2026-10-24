@@ -189,8 +189,37 @@
         "tableEmail": "E-mail",
         "tableTickets": "Tickets",
         "tableStatus": "Statut",
+        "tableActions": "Actions",
         "modalTitle": "Tickets du participant",
-        "modalDesc": "Affichage de tous les {{count}} tickets de {{name}}"
+        "modalDesc": "Affichage de tous les {{count}} tickets de {{name}}",
+        "activeCount": "{{count}} actif(s)",
+        "invalidatedCount": "{{count}} invalidé(s)",
+        "cancelledCount": "{{count}} annulé(s)",
+        "ticketStatus": {
+          "active": "Actif",
+          "invalid": "Invalidé",
+          "cancelled": "Annulé",
+          "winner": "Gagnant"
+        },
+        "invalidate": {
+          "open": "Invalider les tickets",
+          "title": "Invalider les tickets de l'utilisateur",
+          "warning": "Cette action invalide uniquement les tickets éligibles. Elle ne rembourse pas les paiements, ne libère pas de capacité, ne renumérote pas les tickets et ne supprime pas l'historique des participants.",
+          "affected": "{{count}} ticket(s) actif(s) seront invalidés.",
+          "alreadyInvalid": "{{count}} ticket(s) déjà invalidé(s) seront conservés sans modification.",
+          "cancelled": "{{count}} ticket(s) annulé(s) resteront annulés.",
+          "finalityBlocked": "Ce concours a atteint un état de tirage ou de gagnant protégé. Les tickets ne peuvent pas être invalidés.",
+          "winnerBlocked": "Un ticket gagnant a été trouvé pour cet utilisateur. Les tickets gagnants ne peuvent pas être invalidés.",
+          "noActive": "Aucun ticket actif n'est éligible à l'invalidation.",
+          "reasonLabel": "Motif",
+          "reasonPlaceholder": "Expliquez pourquoi ces tickets sont invalidés",
+          "confirmCheckbox": "Je comprends que cette action n'émet aucun remboursement et ne libère aucune capacité.",
+          "confirm": "Invalider les tickets éligibles",
+          "submitting": "Invalidation...",
+          "success": "{{count}} ticket(s) invalidé(s).",
+          "nothing": "Aucun ticket n'avait besoin d'être invalidé.",
+          "error": "Échec de l'invalidation des tickets."
+        }
       },
       "draw": {
         "title": "Tirage & Sélection du gagnant",
@@ -412,7 +441,8 @@
         "competition": "Concours",
         "ticketsHeld": "Tickets détenus",
         "drawDate": "Date du tirage",
-        "status": "Statut"
+        "status": "Statut",
+        "invalidatedCount": "{{count}} invalidé(s)"
       },
       "referralsTab": {
         "title": "Données de parrainage",

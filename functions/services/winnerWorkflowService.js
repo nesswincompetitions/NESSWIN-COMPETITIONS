@@ -1,5 +1,6 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { admin, db } from "../config/firebaseAdmin.js";
+import { isTicketBlockedFromWinnerSelection } from "./ticketEligibility.js";
 
 const HANDOOVER_KEYS = [
   "id_proof_url",
@@ -132,7 +133,7 @@ export async function selectWinnerTransaction(
   const ticketSnap = await transaction.get(ticketRef);
   const ticketData = ticketSnap.data();
 
-  if (normalizeStatus(ticketData.status) === "invalid") {
+  if (isTicketBlockedFromWinnerSelection(ticketData.status)) {
     throw new HttpsError("failed-precondition", "The selected ticket is invalid and cannot be selected as a winner.");
   }
 

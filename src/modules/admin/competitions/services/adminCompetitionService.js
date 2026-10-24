@@ -136,35 +136,62 @@ export const fetchCompetitionParticipants = async (competitionId, participantUid
       allTicketDocs.push(docSnap);
     }
   });
-  
+
+  const getReferenceId = (value) => {
+    if (!value) return null;
+    if (typeof value === 'string') {
+      const parts = value.split('/').filter(Boolean);
+      return parts.length > 0 ? parts[parts.length - 1] : null;
+    }
+    return value.id || null;
+  };
+
   const ticketMap = {};
   allTicketDocs.forEach(docSnap => {
     const data = docSnap.data();
     const rawUid = data.user_id || data.user_ref || data.uid || data.user;
-    const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+    const uid = getReferenceId(rawUid);
     
     if (uid) {
       if (!ticketMap[uid]) ticketMap[uid] = [];
       const tNum = data.ticket_sequence ?? data.ticket_number ?? data.ticket;
-      if (tNum) ticketMap[uid].push(tNum);
+      if (tNum !== undefined && tNum !== null && tNum !== '') {
+        ticketMap[uid].push({
+          id: docSnap.id,
+          sequence: String(tNum),
+          ticketNumber: Number(data.ticket_number) || 0,
+          status: String(data.status || '').toLowerCase(),
+          isWinner: data.is_winner === true,
+        });
+      }
     }
+  });
+
+  Object.values(ticketMap).forEach(details => {
+    details.sort((a, b) => a.ticketNumber - b.ticketNumber);
   });
 
   const participantsList = [];
 
   for (const rawUid of participantUids) {
-    const uid = rawUid?.id ?? (typeof rawUid === 'string' ? rawUid : null);
+    const uid = getReferenceId(rawUid);
     if (!uid) continue;
 
     const userDoc = await getDoc(doc(db, 'user', uid));
     const userData = userDoc.exists() ? userDoc.data() : { display_name: 'Unknown User', email: 'N/A', is_active: false };
+    const ticketDetails = ticketMap[uid] || [];
 
     participantsList.push({
       id: uid,
       name: userData.display_name || userData.name || 'Unknown User',
       email: userData.email || 'N/A',
       phone_number: userData.phone_number || userData.phone || 'N/A',
-      tickets: ticketMap[uid] || [],
+      tickets: ticketDetails.map((ticket) => ticket.sequence),
+      ticketDetails,
+      activeTicketCount: ticketDetails.filter((ticket) => ticket.status === 'active').length,
+      invalidatedTicketCount: ticketDetails.filter((ticket) => ticket.status === 'invalid').length,
+      cancelledTicketCount: ticketDetails.filter((ticket) => ticket.status === 'cancelled').length,
+      hasWinnerTicket: ticketDetails.some((ticket) => ticket.isWinner || ticket.status === 'winner'),
       status: userData.is_active ? 'Active' : 'Inactive',
       joinedDate: userData.created_at?.toMillis ? new Date(userData.created_at.toMillis()).toLocaleDateString() : 'N/A'
     });

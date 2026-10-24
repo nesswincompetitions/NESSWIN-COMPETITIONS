@@ -189,8 +189,37 @@
         "tableEmail": "Correo",
         "tableTickets": "Entradas",
         "tableStatus": "Estado",
+        "tableActions": "Acciones",
         "modalTitle": "Entradas del participante",
-        "modalDesc": "Viendo las {{count}} entradas de {{name}}"
+        "modalDesc": "Viendo las {{count}} entradas de {{name}}",
+        "activeCount": "{{count}} activas",
+        "invalidatedCount": "{{count}} invalidadas",
+        "cancelledCount": "{{count}} canceladas",
+        "ticketStatus": {
+          "active": "Activa",
+          "invalid": "Invalidada",
+          "cancelled": "Cancelada",
+          "winner": "Ganadora"
+        },
+        "invalidate": {
+          "open": "Invalidar entradas",
+          "title": "Invalidar entradas del usuario",
+          "warning": "Esto solo invalida las entradas elegibles. No reembolsa pagos, no libera capacidad, no renumera entradas ni elimina el historial de participantes.",
+          "affected": "Se invalidarán {{count}} entrada(s) activa(s).",
+          "alreadyInvalid": "Se conservarán sin cambios {{count}} entrada(s) ya invalidadas.",
+          "cancelled": "{{count}} entrada(s) cancelada(s) permanecerán canceladas.",
+          "finalityBlocked": "Este sorteo ha alcanzado un estado protegido de sorteo o ganador. Las entradas no pueden invalidarse.",
+          "winnerBlocked": "Se encontró una entrada ganadora para este usuario. Las entradas ganadoras no pueden invalidarse.",
+          "noActive": "No hay entradas activas elegibles para invalidar.",
+          "reasonLabel": "Motivo",
+          "reasonPlaceholder": "Explique por qué se invalidan estas entradas",
+          "confirmCheckbox": "Entiendo que esta acción no emite un reembolso ni libera capacidad.",
+          "confirm": "Invalidar entradas elegibles",
+          "submitting": "Invalidando...",
+          "success": "Se invalidaron {{count}} entrada(s).",
+          "nothing": "No fue necesario invalidar entradas.",
+          "error": "No se pudieron invalidar las entradas."
+        }
       },
       "draw": {
         "title": "Sorteo y Selección del ganador",
@@ -412,7 +441,8 @@
         "competition": "Sorteo",
         "ticketsHeld": "Entradas en posesión",
         "drawDate": "Fecha del sorteo",
-        "status": "Estado"
+        "status": "Estado",
+        "invalidatedCount": "{{count}} invalidadas"
       },
       "referralsTab": {
         "title": "Datos de referidos",

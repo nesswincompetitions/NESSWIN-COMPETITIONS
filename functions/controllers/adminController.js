@@ -4,6 +4,7 @@ import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
+import { createInvalidateUserCompetitionTicketsHandler } from "../services/ticketInvalidationService.js";
 
 /**
  * Callable: grantAdminBonus
@@ -133,6 +134,14 @@ export const grantAdminBonus = onCall(async (request) => {
  */
 export const revokeAdminBonus = onCall(
   createRevokeAdminBonusHandler({ db, admin, logger, assertAdmin, HttpsError })
+);
+
+/**
+ * Callable: invalidateUserCompetitionTickets
+ * Payload: { userId: string, competitionId: string, reason: string }
+ */
+export const invalidateUserCompetitionTickets = onCall(
+  createInvalidateUserCompetitionTicketsHandler({ db, admin, logger, assertAdmin, HttpsError })
 );
 
 /**

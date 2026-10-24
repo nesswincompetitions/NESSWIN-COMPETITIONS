@@ -189,8 +189,37 @@
         "tableEmail": "Email",
         "tableTickets": "Tickets",
         "tableStatus": "Status",
+        "tableActions": "Actions",
         "modalTitle": "Participant Tickets",
-        "modalDesc": "Viewing all {{count}} tickets for {{name}}"
+        "modalDesc": "Viewing all {{count}} tickets for {{name}}",
+        "activeCount": "{{count}} active",
+        "invalidatedCount": "{{count}} invalidated",
+        "cancelledCount": "{{count}} cancelled",
+        "ticketStatus": {
+          "active": "Active",
+          "invalid": "Invalidated",
+          "cancelled": "Cancelled",
+          "winner": "Winner"
+        },
+        "invalidate": {
+          "open": "Invalidate tickets",
+          "title": "Invalidate User Tickets",
+          "warning": "This invalidates eligible tickets only. It does not refund payments, release capacity, renumber tickets, or remove participant history.",
+          "affected": "{{count}} active ticket(s) will be invalidated.",
+          "alreadyInvalid": "{{count}} already invalidated ticket(s) will be preserved unchanged.",
+          "cancelled": "{{count}} cancelled ticket(s) will remain cancelled.",
+          "finalityBlocked": "This competition has reached a protected draw or winner state. Tickets cannot be invalidated.",
+          "winnerBlocked": "A winning ticket was found for this user. Winner tickets cannot be invalidated.",
+          "noActive": "There are no active tickets eligible for invalidation.",
+          "reasonLabel": "Reason",
+          "reasonPlaceholder": "Explain why these tickets are being invalidated",
+          "confirmCheckbox": "I understand this action does not issue a refund or release capacity.",
+          "confirm": "Invalidate eligible tickets",
+          "submitting": "Invalidating...",
+          "success": "Invalidated {{count}} ticket(s).",
+          "nothing": "No tickets needed to be invalidated.",
+          "error": "Failed to invalidate tickets."
+        }
       },
       "draw": {
         "title": "Draw & Winner Selection",
@@ -412,7 +441,8 @@
         "competition": "Competition",
         "ticketsHeld": "Tickets Held",
         "drawDate": "Draw Date",
-        "status": "Status"
+        "status": "Status",
+        "invalidatedCount": "{{count}} invalidated"
       },
       "referralsTab": {
         "title": "Referrals Data",

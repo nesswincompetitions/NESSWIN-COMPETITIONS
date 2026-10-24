@@ -8,10 +8,12 @@ import {
   onSnapshot,
   doc,
   orderBy,
+  getDocs,
 } from 'firebase/firestore';
 import { db, functions } from '@/config/firebase';
 import { processOrder } from '@/modules/user/competitions/services/orderService';
 import { isReferralCreditUsable } from '@/modules/user/referrals/services/referralService';
+import { isInvalidatedTicket } from '@/shared/utils/ticketStatus';
 
 // ── Cloud Function callables ───────────────────────────────────────────────────
 const getSkillQuestionFn = httpsCallable(functions, 'getSkillQuestion');
@@ -218,7 +220,9 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
       ticketsQuery,
       (snap) => {
         if (!isMounted) return;
-        const tickets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const tickets = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((ticket) => !isInvalidatedTicket(ticket));
         setUserTickets(tickets);
         setUserHasTickets(tickets.length > 0);
 
@@ -440,7 +444,11 @@ export function useCompetitionCheckout({ currentUser, userData, competitionId, c
         orderBy('created_at', 'desc')
       );
       const snap = await getDocs(q);
-      setUserTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setUserTickets(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter((ticket) => !isInvalidatedTicket(ticket))
+      );
 
       // Optimistically update competition stats in UI
       setCompetition((prev) => ({

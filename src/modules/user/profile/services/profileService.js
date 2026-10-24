@@ -22,6 +22,7 @@ import {
 } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '@/config/firebase';
+import { isInvalidatedTicket } from '@/shared/utils/ticketStatus';
 
 export const updateProfile = async (uid, data) => {
   const userRef = doc(db, 'user', uid);
@@ -246,7 +247,9 @@ export const fetchTicketsForCompetition = async (uid, competitionId) => {
   );
   try {
     const snap = await getDocs(q);
-    const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const tickets = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter((ticket) => !isInvalidatedTicket(ticket));
     tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
     return tickets;
   } catch (err) {
@@ -264,7 +267,9 @@ export const fetchOrderTickets = async (orderId) => {
   );
   try {
     const snap = await getDocs(q);
-    const tickets = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const tickets = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter((ticket) => !isInvalidatedTicket(ticket));
     tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
     return tickets;
   } catch (err) {
@@ -288,7 +293,9 @@ export const subscribeOrderTickets = (orderId, onData, onError) => {
   return onSnapshot(
     q,
     (snapshot) => {
-      const tickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const tickets = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((ticket) => !isInvalidatedTicket(ticket));
       tickets.sort((a, b) => (a.ticket_number || 0) - (b.ticket_number || 0));
       onData(tickets);
     },
@@ -337,7 +344,9 @@ export const subscribeUserTickets = (uid, onData, onError) => {
   return onSnapshot(
     q,
     async (snapshot) => {
-      const rawTickets = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const rawTickets = snapshot.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((ticket) => !isInvalidatedTicket(ticket));
       const competitionMap = await resolveCompetitionMap(rawTickets);
       const tickets = enrichWithCompetition(rawTickets, competitionMap);
       onData(tickets);
@@ -370,11 +379,13 @@ export const fetchUserTickets = async (uid) => {
   };
 
   return Promise.all(
-    snap.docs.map(async (d) => {
-      const data = d.data();
-      const competition = await fetchComp(data.competition_id);
-      return { id: d.id, ...data, competition };
-    })
+    snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((ticket) => !isInvalidatedTicket(ticket))
+      .map(async (data) => {
+        const competition = await fetchComp(data.competition_id);
+        return { ...data, competition };
+      })
   );
 };
 
