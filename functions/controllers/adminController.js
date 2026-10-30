@@ -4,7 +4,10 @@ import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
 import { createInvalidateUserCompetitionTicketsHandler } from "../services/ticketInvalidationService.js";
-import { createIncreaseUserCompetitionTicketsHandler } from "../services/ticketAdjustmentService.js";
+import {
+  createDecreaseUserCompetitionTicketsHandler,
+  createIncreaseUserCompetitionTicketsHandler,
+} from "../services/ticketAdjustmentService.js";
 import { createRefundOrderHandler } from "../services/refundOrderService.js";
 
 /**
@@ -151,6 +154,14 @@ export const invalidateUserCompetitionTickets = onCall(
  */
 export const increaseUserCompetitionTickets = onCall(
   createIncreaseUserCompetitionTicketsHandler({ db, admin, logger, assertAdmin, HttpsError })
+);
+
+/**
+ * Callable: decreaseUserCompetitionTickets
+ * Payload: { userId, competitionId, orderId, origin, quantity, reason, requestId }
+ */
+export const decreaseUserCompetitionTickets = onCall(
+  createDecreaseUserCompetitionTicketsHandler({ db, admin, logger, assertAdmin, HttpsError })
 );
 
 /**

@@ -13,3 +13,18 @@ export const increaseUserCompetitionTickets = ({
     { userId, competitionId, orderId, quantity, reason, requestId },
     'Failed to add tickets.'
   );
+
+export const decreaseUserCompetitionTickets = ({
+  userId,
+  competitionId,
+  orderId,
+  origin,
+  quantity,
+  reason,
+  requestId,
+}) =>
+  callFunction(
+    'decreaseUserCompetitionTickets',
+    { userId, competitionId, orderId, origin, quantity, reason, requestId },
+    'Failed to remove tickets.'
+  );

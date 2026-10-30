@@ -15,6 +15,7 @@ export function buildTicketAdjustmentRecord({
   ticketNumbers = [],
   ticketSequences = [],
   quantityScope = null,
+  requestedOrigin = null,
   previousQuantity = null,
   newQuantity = null,
   activeCountScope = null,
@@ -45,6 +46,7 @@ export function buildTicketAdjustmentRecord({
     quantity,
     direction,
     quantity_scope: quantityScope,
+    requested_origin: requestedOrigin,
     previous_quantity: previousQuantity,
     new_quantity: newQuantity,
     ticket_ids: ticketIds,
@@ -95,6 +97,12 @@ export function adjustmentReplayMatches(existing, expected) {
   if (existingUser !== expectedUser) return false;
   if (existingCompetition !== expectedCompetition) return false;
   if (expectedOrder && existingOrder !== expectedOrder) return false;
+  if (
+    expected.requestedOrigin !== undefined &&
+    existing.requested_origin !== expected.requestedOrigin
+  ) {
+    return false;
+  }
 
   if (expected.ticketIds !== undefined) {
     const existingIds = normalizeReplayTicketIds(existing.ticket_ids);

@@ -5,13 +5,14 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import { 
-  ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, PlusCircle,
+  ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, PlusCircle, MinusCircle,
   CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2
 } from 'lucide-react';
 import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId, ADMIN_TICKET_VIEW_LIMIT } from '@/shared/hooks/useAdminData';
 import { formatStatus } from '@/shared/utils/formatters';
 import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import IncreaseTicketsModal from '@/shared/components/admin/IncreaseTicketsModal';
+import DecreaseTicketsModal from '@/shared/components/admin/DecreaseTicketsModal';
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -21,6 +22,7 @@ const OrderDetail = () => {
   const { data: order, loading: orderLoading } = useOrderRealtime(id);
   const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
   const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
+  const [isDecreaseOpen, setIsDecreaseOpen] = useState(false);
   const loading = orderLoading || ticketsLoading;
 
   const formatDate = (ts) => {
@@ -61,6 +63,12 @@ const OrderDetail = () => {
     !order.competition_winner_ref &&
     !order.competition_winner_ticket_ref &&
     order.is_winner !== true;
+  const canDecreaseTickets =
+    (order.status || '').toLowerCase() === 'paid' &&
+    ['active', 'sold_out'].includes(competitionStatus) &&
+    !order.competition_winner_ref &&
+    !order.competition_winner_ticket_ref &&
+    order.is_winner !== true;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -95,6 +103,16 @@ const OrderDetail = () => {
                 >
                   <PlusCircle size={16} />
                   {t('orders.detail.increase.open')}
+                </Button>
+              )}
+              {canDecreaseTickets && (
+                <Button
+                  variant="danger"
+                  className="flex items-center gap-2"
+                  onClick={() => setIsDecreaseOpen(true)}
+                >
+                  <MinusCircle size={16} />
+                  {t('orders.detail.decrease.open')}
                 </Button>
               )}
               <Button
@@ -292,6 +310,15 @@ const OrderDetail = () => {
       <IncreaseTicketsModal
         isOpen={isIncreaseOpen}
         onClose={() => setIsIncreaseOpen(false)}
+        order={order}
+        userName={order.user_name}
+        competitionTitle={order.competition_title}
+        tickets={tickets}
+      />
+
+      <DecreaseTicketsModal
+        isOpen={isDecreaseOpen}
+        onClose={() => setIsDecreaseOpen(false)}
         order={order}
         userName={order.user_name}
         competitionTitle={order.competition_title}

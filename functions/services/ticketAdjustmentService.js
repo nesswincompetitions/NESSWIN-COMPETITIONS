@@ -4,9 +4,12 @@ import {
   getCompetitionInventoryBlock,
   getReferenceId,
   isFiniteNonNegativeInteger,
+  isWinnerTicket,
   normalizeAdjustmentReason,
   normalizeRequestId,
   normalizeStatus,
+  ticketBelongsToCompetition,
+  ticketBelongsToUser,
 } from "./ticketAdjustmentPolicy.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
@@ -15,7 +18,12 @@ import {
 } from "./ticketAdjustmentAudit.js";
 import { formatTicketSequence, generateTicketPrefix } from "./orderTransactionService.js";
 import { normalizeTicketStatus } from "./ticketEligibility.js";
-import { TICKET_ORIGIN } from "./ticketOrigin.js";
+import {
+  countTicketOrigins,
+  getDecreaseOriginValues,
+  getTicketOrigin,
+  TICKET_ORIGIN,
+} from "./ticketOrigin.js";
 
 function normalizeQuantity(value) {
   const quantity = Number(value);
@@ -58,6 +66,21 @@ function assertOrderEligibility(orderData, userId, competitionId, HttpsError) {
   }
   if (orderData.is_winner === true) {
     throw new HttpsError("failed-precondition", "Tickets cannot be added to a winning order.");
+  }
+}
+
+function assertDecreaseOrderEligibility(orderData, userId, competitionId, HttpsError) {
+  if (getReferenceId(orderData.user_ref) !== userId) {
+    throw new HttpsError("failed-precondition", "The order does not belong to the specified user.");
+  }
+  if (getReferenceId(orderData.competition_id) !== competitionId) {
+    throw new HttpsError("failed-precondition", "The order does not belong to the specified competition.");
+  }
+  if (normalizeStatus(orderData.status) !== "paid") {
+    throw new HttpsError("failed-precondition", "Tickets can only be adjusted on a paid order.");
+  }
+  if (orderData.is_winner === true) {
+    throw new HttpsError("failed-precondition", "Tickets cannot be adjusted on a winning order.");
   }
 }
 
@@ -461,6 +484,309 @@ export function createIncreaseUserCompetitionTicketsHandler({
 
     logger.info(
       `[increaseUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} order=${orderId} added=${result.addedCount}`
+    );
+
+    return result;
+  };
+}
+export function createDecreaseUserCompetitionTicketsHandler({
+  db,
+  admin,
+  logger,
+  assertAdmin,
+  HttpsError,
+}) {
+  return async function handleDecreaseUserCompetitionTickets(request) {
+    const adminUid = await assertAdmin(request);
+    const { userId, competitionId, orderId, origin, quantity, reason, requestId } =
+      request.data || {};
+
+    if (!userId || typeof userId !== "string") {
+      throw new HttpsError("invalid-argument", "userId is required.");
+    }
+    if (!competitionId || typeof competitionId !== "string") {
+      throw new HttpsError("invalid-argument", "competitionId is required.");
+    }
+    if (!orderId || typeof orderId !== "string") {
+      throw new HttpsError("invalid-argument", "orderId is required.");
+    }
+
+    const requestedOrigin = typeof origin === "string" ? origin.trim() : "";
+    const originValues = getDecreaseOriginValues(requestedOrigin);
+    if (!originValues) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Unsupported ticket origin for decrease. Paid, bonus, admin adjustment, or a supported bonus origin is required."
+      );
+    }
+
+    const decreaseQuantity = normalizeQuantity(quantity);
+    if (!decreaseQuantity) {
+      throw new HttpsError("invalid-argument", "quantity must be a positive integer.");
+    }
+    if (decreaseQuantity > ADJUSTMENT_MAX_TICKETS) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Maximum ${ADJUSTMENT_MAX_TICKETS} tickets can be decreased per request.`
+      );
+    }
+
+    const reasonText = normalizeAdjustmentReason(reason);
+    if (!reasonText) {
+      throw new HttpsError("invalid-argument", "A reason is required to decrease tickets.");
+    }
+
+    const normalizedRequestId = normalizeRequestId(requestId);
+    if (!normalizedRequestId) {
+      throw new HttpsError("invalid-argument", "A valid requestId is required.");
+    }
+
+    const userRef = db.collection("user").doc(userId);
+    const competitionRef = db.collection("competition").doc(competitionId);
+    const orderRef = db.collection("order").doc(orderId);
+    const adminRef = db.collection("user").doc(adminUid);
+    const replayExpectation = {
+      operation: "ticket_decrease",
+      source: "admin_order_decrease",
+      direction: "decrease",
+      quantity: decreaseQuantity,
+      requestedOrigin,
+      reason: reasonText,
+      userRef,
+      competitionRef,
+      primaryOrderRef: orderRef,
+    };
+
+    const existingAdjustment = await db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(normalizedRequestId)
+      .get();
+    if (existingAdjustment.exists) {
+      const existing = existingAdjustment.data();
+      if (!adjustmentReplayMatches(existing, replayExpectation)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This request ID was already used for a different ticket adjustment."
+        );
+      }
+      return { ...existing.result, idempotentReplay: true };
+    }
+
+    const [userSnap, competitionSnap, orderSnap] = await Promise.all([
+      userRef.get(),
+      competitionRef.get(),
+      orderRef.get(),
+    ]);
+
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    if (!competitionSnap.exists) {
+      throw new HttpsError("not-found", "Competition not found.");
+    }
+    if (!orderSnap.exists) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
+      allowSoldOut: true,
+      requireDrawDate: true,
+    });
+    if (preflightBlock) {
+      throw new HttpsError("failed-precondition", preflightBlock);
+    }
+    assertDecreaseOrderEligibility(orderSnap.data(), userId, competitionId, HttpsError);
+
+    const result = await db.runTransaction(async (transaction) => {
+      const adjustmentRef = db
+        .collection(TICKET_ADJUSTMENTS_COLLECTION)
+        .doc(normalizedRequestId);
+      const existingAdjustment = await transaction.get(adjustmentRef);
+      if (existingAdjustment.exists) {
+        const existing = existingAdjustment.data();
+        if (!adjustmentReplayMatches(existing, replayExpectation)) {
+          throw new HttpsError(
+            "failed-precondition",
+            "This request ID was already used for a different ticket adjustment."
+          );
+        }
+        return { ...existing.result, idempotentReplay: true };
+      }
+
+      const [freshCompetitionSnap, freshOrderSnap, freshUserSnap] = await Promise.all([
+        transaction.get(competitionRef),
+        transaction.get(orderRef),
+        transaction.get(userRef),
+      ]);
+
+      if (!freshUserSnap.exists) {
+        throw new HttpsError("not-found", "User not found.");
+      }
+      if (!freshCompetitionSnap.exists) {
+        throw new HttpsError("not-found", "Competition not found.");
+      }
+      if (!freshOrderSnap.exists) {
+        throw new HttpsError("not-found", "Order not found.");
+      }
+
+      const freshCompetition = freshCompetitionSnap.data();
+      const freshOrder = freshOrderSnap.data();
+
+      const freshBlock = getCompetitionAdjustmentBlock(freshCompetition, {
+        allowSoldOut: true,
+        requireDrawDate: true,
+      });
+      if (freshBlock) {
+        throw new HttpsError("failed-precondition", freshBlock);
+      }
+      assertDecreaseOrderEligibility(freshOrder, userId, competitionId, HttpsError);
+
+      const orderTicketsSnap = await transaction.get(
+        db.collection("ticket").where("order_id", "==", orderRef)
+      );
+      const orderTickets = orderTicketsSnap.docs;
+      orderTickets.forEach((docSnap) => {
+        const ticketData = docSnap.data();
+        if (
+          !ticketBelongsToUser(ticketData, userId) ||
+          !ticketBelongsToCompetition(ticketData, competitionId)
+        ) {
+          throw new HttpsError(
+            "failed-precondition",
+            "An order-linked ticket has inconsistent user or competition references. No tickets were changed."
+          );
+        }
+      });
+
+      const activeTickets = orderTickets.filter(
+        (docSnap) => normalizeTicketStatus(docSnap.data()?.status) === "active"
+      );
+      const originSet = new Set(originValues);
+      const candidates = activeTickets
+        .map((docSnap) => ({ docSnap, data: docSnap.data() }))
+        .filter(({ data }) => !isWinnerTicket(data))
+        .filter(({ data }) => originSet.has(getTicketOrigin(data)))
+        .map(({ docSnap, data }) => {
+          const ticketNumber = data.ticket_number;
+          const ticketSequence = data.ticket_sequence;
+          if (
+            !isFiniteNonNegativeInteger(ticketNumber) ||
+            typeof ticketSequence !== "string" ||
+            !ticketSequence.trim()
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "An eligible ticket has a malformed number or sequence. No tickets were changed."
+            );
+          }
+          return {
+            docSnap,
+            ticketId: docSnap.id,
+            ticketNumber,
+            ticketSequence,
+            origin: getTicketOrigin(data),
+          };
+        })
+        .sort((left, right) => left.ticketNumber - right.ticketNumber);
+
+      if (candidates.length < decreaseQuantity) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Only ${candidates.length} eligible active ticket${candidates.length === 1 ? "" : "s"} exist for the requested origin. No tickets were changed.`
+        );
+      }
+
+      const selectedTickets = candidates.slice(-decreaseQuantity);
+      const orderActiveCountBefore = activeTickets.length;
+      const orderActiveCountAfter = orderActiveCountBefore - selectedTickets.length;
+      const activeCountBefore = candidates.length;
+      const activeCountAfter = activeCountBefore - selectedTickets.length;
+      const now = admin.firestore.FieldValue.serverTimestamp();
+
+      selectedTickets.forEach(({ docSnap }) => {
+        transaction.update(docSnap.ref, {
+          status: "invalid",
+          invalidated_at: now,
+          invalidated_by: adminRef,
+          invalidation_reason: reasonText,
+          status_before_invalidation: "active",
+          updated_at: now,
+        });
+      });
+
+      const ticketIds = selectedTickets.map(({ ticketId }) => ticketId);
+      const ticketNumbers = selectedTickets.map(({ ticketNumber }) => ticketNumber);
+      const ticketSequences = selectedTickets.map(({ ticketSequence }) => ticketSequence);
+      const ticketOrigins = selectedTickets.map(({ origin: ticketOrigin }) => ticketOrigin);
+      const originBreakdown = countTicketOrigins(ticketOrigins);
+      const inventoryBefore = buildInventorySnapshot(freshCompetition);
+      const inventoryAfter = { ...inventoryBefore };
+
+      const result = {
+        success: true,
+        complete: true,
+        operation: "ticket_decrease",
+        orderId,
+        competitionId,
+        userId,
+        requestedOrigin,
+        decreasedCount: selectedTickets.length,
+        ticketIds,
+        ticketNumbers,
+        ticketSequences,
+        ticketOrigins,
+        originBreakdown,
+        activeTicketCountBefore: activeCountBefore,
+        activeTicketCountAfter: activeCountAfter,
+        orderActiveTicketCountBefore: orderActiveCountBefore,
+        orderActiveTicketCountAfter: orderActiveCountAfter,
+        inventoryBefore,
+        inventoryAfter,
+        paymentEffect: "none",
+      };
+
+      transaction.set(
+        adjustmentRef,
+        buildTicketAdjustmentRecord({
+          operation: "ticket_decrease",
+          source: "admin_order_decrease",
+          userRef,
+          competitionRef,
+          orderRefs: [orderRef],
+          primaryOrderRef: orderRef,
+          quantity: selectedTickets.length,
+          direction: "decrease",
+          ticketIds,
+          ticketNumbers,
+          ticketSequences,
+          ticketOrigins,
+          quantityScope: "order_origin_active_tickets",
+          requestedOrigin,
+          previousQuantity: activeCountBefore,
+          newQuantity: activeCountAfter,
+          activeCountScope: "order_origin",
+          activeCountBefore,
+          activeCountAfter,
+          selectedCountBefore: activeCountBefore,
+          selectedCountAfter: activeCountAfter,
+          inventoryBefore,
+          inventoryAfter,
+          orderSnapshot: buildOrderSnapshot(freshOrder),
+          reason: reasonText,
+          actorRef: adminRef,
+          actorRole: "admin",
+          paymentEffect: "none",
+          requestId: normalizedRequestId,
+          result,
+          serverNow: now,
+        })
+      );
+
+      return result;
+    });
+
+    logger.info(
+      `[decreaseUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} order=${orderId} origin=${requestedOrigin} decreased=${result.decreasedCount}`
     );
 
     return result;

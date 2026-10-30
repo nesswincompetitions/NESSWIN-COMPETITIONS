@@ -22,6 +22,19 @@ export const REFERRAL_REWARD_TYPES = Object.freeze({
   LEGACY_REFERRAL: "referral",
 });
 
+export const BONUS_TICKET_ORIGINS = Object.freeze([
+  TICKET_ORIGIN.PACK_BONUS,
+  TICKET_ORIGIN.REFERRAL_CREDIT,
+  TICKET_ORIGIN.REFERRAL_USE_BONUS,
+  TICKET_ORIGIN.ADMIN_BONUS,
+]);
+
+export const DECREASE_ORIGIN_GROUPS = Object.freeze({
+  PAID: TICKET_ORIGIN.PAID,
+  BONUS: "bonus",
+  ADMIN_ADJUSTMENT: TICKET_ORIGIN.ADMIN_ADJUSTMENT,
+});
+
 const VALID_ORIGINS = new Set(Object.values(TICKET_ORIGIN));
 const VALID_REFERRAL_REWARD_TYPES = new Set(Object.values(REFERRAL_REWARD_TYPES));
 
@@ -46,6 +59,20 @@ export function getReferralTicketOrigin(rewardType) {
     return TICKET_ORIGIN.REFERRAL_CREDIT;
   }
   return TICKET_ORIGIN.LEGACY_UNKNOWN;
+}
+
+export function getDecreaseOriginValues(origin) {
+  if (origin === DECREASE_ORIGIN_GROUPS.BONUS) {
+    return [...BONUS_TICKET_ORIGINS];
+  }
+  if (
+    origin === TICKET_ORIGIN.PAID ||
+    origin === TICKET_ORIGIN.ADMIN_ADJUSTMENT ||
+    BONUS_TICKET_ORIGINS.includes(origin)
+  ) {
+    return [origin];
+  }
+  return null;
 }
 
 export function countTicketOrigins(origins = []) {
