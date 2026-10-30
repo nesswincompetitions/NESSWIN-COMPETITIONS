@@ -513,6 +513,8 @@
       "confirmRefund": "Are you sure you want to refund this order? This action cannot be undone.",
       "refundSuccess": "Order refunded successfully",
       "refundFailed": "Failed to refund order",
+      "refundUnavailable": "Refund unavailable",
+      "refundUnavailableNote": "Payment-provider refunds are not available in this release. No refund request was sent and no order, ticket, or payment data was changed.",
       "orderDetails": "Order Details",
       "competition": "Competition",
       "ticketNumbers": "Ticket Numbers",

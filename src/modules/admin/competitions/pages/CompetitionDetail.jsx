@@ -14,7 +14,7 @@ import Modal from '@/shared/components/ui/Modal';
 import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
 
 import { toast } from 'react-hot-toast';
-import { Timestamp, deleteField, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
+import { Timestamp, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { 
   updateCompetition, 
@@ -25,7 +25,6 @@ import {
 import {
   selectCompetitionWinner,
   startCompetitionLiveDraw,
-  updateCompetitionHandover,
 } from '@/modules/admin/competitions/services/winnerWorkflowService';
 import { uploadImages } from '@/shared/services/storageService';
 import { formatStatus } from '@/shared/utils/formatters';
@@ -59,11 +58,10 @@ const CompetitionDetail = () => {
   const [competition, setCompetition] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [, setLoadingQuestions] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isStartingDraw, setIsStartingDraw] = useState(false);
   const [isSelectingWinner, setIsSelectingWinner] = useState(false);
-  const [handoverActionLoading, setHandoverActionLoading] = useState('');
   const [participantsData, setParticipantsData] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   
@@ -354,14 +352,12 @@ const CompetitionDetail = () => {
         await syncCompetitionQuestions(id, qsToSync);
       }
 
-      await updateCompetition(id, {
-        ...updateData,
-        sub_title: deleteField(),
-      });
+      const saved = await updateCompetition(id, updateData);
 
       setCompetition(prev => ({
         ...prev,
         ...updateData,
+        status: saved?.status || updateData.status,
         draw_date: Timestamp.fromMillis(drawDateTimestamp),
       }));
 
@@ -450,22 +446,6 @@ const CompetitionDetail = () => {
       toast.error(isKnown ? err.message : 'Failed to select winner. Please try again.', { id: loadingToast });
     } finally {
       setIsSelectingWinner(false);
-    }
-  };
-
-  const handleHandoverAction = async (stage) => {
-    if (!competition?.id) return;
-
-    setHandoverActionLoading(stage);
-    const loadingToast = toast.loading('Updating handover...');
-    try {
-      await updateCompetitionHandover(competition.id, stage);
-      toast.success('Handover updated', { id: loadingToast });
-    } catch (err) {
-      console.error('Error updating handover:', err);
-      toast.error('Failed to update handover status. Please try again.', { id: loadingToast });
-    } finally {
-      setHandoverActionLoading('');
     }
   };
 

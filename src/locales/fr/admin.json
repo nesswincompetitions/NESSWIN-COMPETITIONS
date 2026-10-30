@@ -498,6 +498,8 @@
     "detail": {
       "backToOrders": "Retour aux commandes",
       "refundOrder": "Rembourser la commande",
+      "refundUnavailable": "Remboursement indisponible",
+      "refundUnavailableNote": "Les remboursements du fournisseur de paiement ne sont pas disponibles dans cette version. Aucune demande de remboursement n'a été envoyée et aucune commande, aucun ticket ni aucun paiement n'a été modifié.",
       "orderDetails": "Détails de la commande",
       "competition": "Concours",
       "ticketNumbers": "Numéros de tickets",

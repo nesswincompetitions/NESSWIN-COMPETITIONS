@@ -498,6 +498,8 @@
     "detail": {
       "backToOrders": "Volver a pedidos",
       "refundOrder": "Reembolsar pedido",
+      "refundUnavailable": "Reembolso no disponible",
+      "refundUnavailableNote": "Los reembolsos del proveedor de pagos no están disponibles en esta versión. No se envió ninguna solicitud de reembolso ni se modificaron pedidos, boletos o pagos.",
       "orderDetails": "Detalles del pedido",
       "competition": "Sorteo",
       "ticketNumbers": "Números de entrada",

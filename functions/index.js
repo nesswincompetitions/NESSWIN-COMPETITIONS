@@ -3,6 +3,7 @@ export { paymentPendingWorker } from "./controllers/orderNotificationCloudTasksC
 export {
 	notifyWinnerOnFirstAdminMessage,
 	selectCompetitionWinner,
+	startCompetitionLiveDraw,
 	updateCompetitionHandover,
 } from "./controllers/winnerWorkflowController.js";
 export {
@@ -16,6 +17,7 @@ export { getSkillQuestion, submitSkillAnswer } from "./controllers/skillGateCont
 
 // Admin & Dashboard
 export { grantAdminBonus, revokeAdminBonus, invalidateUserCompetitionTickets, increaseUserCompetitionTickets, refundOrder } from "./controllers/adminController.js";
+export { deleteAdminCompetition, saveAdminCompetition } from "./controllers/competitionAdminController.js";
 export {
 	onCompetitionChangeDashboard,
 	onCompetitionCreatedDashboard,

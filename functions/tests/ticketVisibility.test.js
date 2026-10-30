@@ -7,9 +7,11 @@ import {
 } from '../../src/shared/utils/ticketStatus.js';
 
 describe('ticket status visibility helpers', () => {
-  it('normalizes ticket status values', () => {
+  it('normalizes ticket status values with legacy empty statuses treated as active', () => {
     assert.equal(normalizeTicketStatus({ status: ' INVALID ' }), 'invalid');
-    assert.equal(normalizeTicketStatus({}), '');
+    assert.equal(normalizeTicketStatus({}), 'active');
+    assert.equal(normalizeTicketStatus({ status: '' }), 'active');
+    assert.equal(normalizeTicketStatus({ status: '   ' }), 'active');
   });
 
   it('filters only invalid tickets from user-facing views', () => {

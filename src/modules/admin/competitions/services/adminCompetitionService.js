@@ -7,11 +7,11 @@ import {
   getDoc, 
   updateDoc, 
   addDoc,
-  writeBatch,
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { callFunction } from '@/shared/services/functionClient';
 
 export const fetchAdminCompetitionDetail = async (id) => {
   const compDoc = await getDoc(doc(db, 'competition', id));
@@ -46,20 +46,37 @@ export const fetchAdminCompetitionDetail = async (id) => {
 };
 
 export const updateCompetition = async (id, data) => {
-  const compRef = doc(db, 'competition', id);
-  await updateDoc(compRef, {
-    ...data,
-    updated_at: serverTimestamp(),
-  });
+  const fields = { ...data };
+  const draw_date = fields.draw_date;
+  delete fields.draw_date;
+  delete fields.status;
+  delete fields.sub_title;
+
+  const payload = {
+    competitionId: id,
+    isDraft: false,
+    fields,
+  };
+
+  if (draw_date !== undefined) {
+    payload.draw_date_millis = draw_date?.toMillis
+      ? draw_date.toMillis()
+      : (typeof draw_date === 'number' ? draw_date : null);
+  }
+
+  return callFunction(
+    'saveAdminCompetition',
+    payload,
+    'Failed to save competition.'
+  );
 };
 
-export const deleteCompetition = async (id) => {
-  const competitionRef = doc(db, 'competition', id);
-  await updateDoc(competitionRef, {
-    status: 'deleted',
-    updated_at: serverTimestamp()
-  });
-};
+export const deleteCompetition = async (id) =>
+  callFunction(
+    'deleteAdminCompetition',
+    { competitionId: id },
+    'Failed to delete competition.'
+  );
 
 export const syncCompetitionQuestions = async (competitionId, questions) => {
   const batch = questions.map(async (q) => {

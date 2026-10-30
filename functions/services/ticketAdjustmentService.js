@@ -14,6 +14,7 @@ import {
   buildTicketAdjustmentRecord,
 } from "./ticketAdjustmentAudit.js";
 import { formatTicketSequence, generateTicketPrefix } from "./orderTransactionService.js";
+import { normalizeTicketStatus } from "./ticketEligibility.js";
 
 function normalizeQuantity(value) {
   const quantity = Number(value);
@@ -183,7 +184,7 @@ async function countActiveOrderTickets(transaction, db, orderRef) {
     db.collection("ticket").where("order_id", "==", orderRef)
   );
   return snapshot.docs.filter(
-    (docSnap) => normalizeStatus(docSnap.data()?.status) === "active"
+    (docSnap) => normalizeTicketStatus(docSnap.data()?.status) === "active"
   ).length;
 }
 

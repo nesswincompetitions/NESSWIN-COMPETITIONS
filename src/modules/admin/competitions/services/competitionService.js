@@ -1,16 +1,15 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   query,
   serverTimestamp,
-  setDoc,
   Timestamp,
   where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { callFunction } from "@/shared/services/functionClient";
 import { uploadImages } from "@/shared/services/storageService";
 import { toast } from "react-hot-toast";
 
@@ -56,67 +55,36 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
   const loadingToast = toast.loading(isDraft ? "Saving draft..." : "Creating competition...");
 
   try {
-    const competitionRef = id
-      ? doc(db, "competition", id)
-      : doc(collection(db, "competition"));
-
-    const existingSnap = id ? await getDoc(competitionRef) : null;
-    const existingData = existingSnap?.exists() ? existingSnap.data() : null;
-
     const competitionImages = await uploadImages(formData.images || [], "competitions");
-
     const drawDateTimestamp = toTimestampFromDateAndTime(formData.drawEndDate, formData.drawEndTime);
 
-    const competitionPayload = {
-      title: String(formData.title || "").trim(),
-      description: String(formData.description || "").trim(),
-      category: String(formData.category || "").trim(),
-      tag: String(formData.tag || "").trim(),
-      prize_name: String(formData.prizeName || "").trim(),
-      instagram_live_url: String(formData.instagramLiveLink || "").trim(),
-      ticket_price: Number(formData.ticketPrice) || 0,
-      prize_value: Number(formData.prizeValue) || 0,
-      total_tickets: Math.max(0, Number.parseInt(formData.maxTickets, 10) || 0),
-      draw_date: drawDateTimestamp,
-      included_things: sanitizeIncludedThings(formData.includedThings),
-      is_featured: Boolean(formData.isFeatured),
-      image: competitionImages,
+    const saved = await callFunction(
+      "saveAdminCompetition",
+      {
+        competitionId: id || null,
+        isDraft,
+        notifyOnPublish: true,
+        fields: {
+          title: String(formData.title || "").trim(),
+          description: String(formData.description || "").trim(),
+          category: String(formData.category || "").trim(),
+          tag: String(formData.tag || "").trim(),
+          prize_name: String(formData.prizeName || "").trim(),
+          instagram_live_url: String(formData.instagramLiveLink || "").trim(),
+          ticket_price: Number(formData.ticketPrice) || 0,
+          prize_value: Number(formData.prizeValue) || 0,
+          total_tickets: Math.max(0, Number.parseInt(formData.maxTickets, 10) || 0),
+          included_things: sanitizeIncludedThings(formData.includedThings),
+          is_featured: Boolean(formData.isFeatured),
+          image: competitionImages,
+        },
+        draw_date_millis: drawDateTimestamp ? drawDateTimestamp.toMillis() : null,
+      },
+      "Failed to save competition."
+    );
 
-      status: isDraft ? "draft" : "active",
-      stock_quantity: Math.max(0, Number.parseInt(formData.maxTickets, 10) || 0),
-      sold_tickets: existingData?.sold_tickets ?? 0,
-      last_ticket_sequence: existingData?.last_ticket_sequence ?? 0,
-      participants: Array.isArray(existingData?.participants) ? existingData.participants : [],
-      created_at: existingData?.created_at ?? serverTimestamp(),
-      updated_at: serverTimestamp(),
-    };
-
-    const isTransitioningToActive = !isDraft && (!existingData || existingData.status === "draft");
-
-    const batch = writeBatch(db);
-    batch.set(competitionRef, competitionPayload);
-
-    if (isTransitioningToActive) {
-      // Broadcast notification for new competition
-      const broadcastNotifRef = doc(collection(db, "ff_push_notifications"));
-      batch.set(broadcastNotifRef, {
-        initial_page_name: "Competitions",
-        notification_text: `A new competition for ${formData.prizeName} is now live! Join now.`,
-        notification_title: "New Competition Launched! 🚀",
-        num_sent: 0,
-        parameter_data: JSON.stringify({
-          compitation: competitionRef.path,
-          competition_ref: competitionRef.path,
-          competitionId: competitionRef.id,
-        }),
-        status: "",
-        target_audience: "All",
-        timestamp: serverTimestamp(),
-        user_refs: "",
-      });
-    }
-
-    await batch.commit();
+    const competitionId = saved.competitionId;
+    const competitionRef = doc(db, "competition", competitionId);
 
     if (Array.isArray(formData.questions)) {
       const existingQuestionsQuery = query(
@@ -169,19 +137,9 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
   }
 };
 
-export const deleteCompetitionWithQuestions = async (competitionId) => {
-  const competitionRef = doc(db, "competition", competitionId);
-
-  const questionsQuery = query(
-    collection(db, "questions"),
-    where("competition_id", "==", competitionRef),
+export const deleteCompetitionWithQuestions = async (competitionId) =>
+  callFunction(
+    "deleteAdminCompetition",
+    { competitionId, deleteQuestions: true },
+    "Failed to delete competition."
   );
-
-  const questionsSnap = await getDocs(questionsQuery);
-
-  const batch = writeBatch(db);
-  questionsSnap.forEach((questionDoc) => batch.delete(questionDoc.ref));
-  batch.delete(competitionRef);
-
-  await batch.commit();
-};

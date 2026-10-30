@@ -1,24 +1,14 @@
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/config/firebase';
 import { callFunction } from '@/shared/services/functionClient';
 
 /**
- * Changes competition status to 'drawing' via Client SDK for instant UI feedback.
+ * Starts the live draw through the trusted backend callable.
  */
-export const startCompetitionLiveDraw = async (competitionId) => {
-  try {
-    const compRef = doc(db, 'competition', competitionId);
-    await updateDoc(compRef, {
-      status: 'drawing',
-      draw_started_at: serverTimestamp(),
-      updated_at: serverTimestamp(),
-    });
-    return { success: true };
-  } catch (error) {
-    console.error('[WinnerWorkflowService] Error starting live draw:', error);
-    throw new Error('Failed to start the live draw via SDK.');
-  }
-};
+export const startCompetitionLiveDraw = (competitionId) =>
+  callFunction(
+    'startCompetitionLiveDraw',
+    { competitionId },
+    'Failed to start the live draw.'
+  );
 
 /**
  * Selecting a winner remains a Cloud Function for security and transaction integrity.

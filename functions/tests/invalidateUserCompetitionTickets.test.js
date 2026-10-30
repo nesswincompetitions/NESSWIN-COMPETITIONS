@@ -497,6 +497,37 @@ describe('invalidateUserCompetitionTickets', () => {
     assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
   });
 
+  it('invalidates missing and empty legacy statuses in the all-active path', async () => {
+    const db = new MemoryDB();
+    const refs = seedBase(db);
+
+    addTicket(db, 'legacyMissing', {
+      user_id: refs.userRef,
+      competition_id: refs.competitionRef,
+      ticket_number: 1,
+      ticket_sequence: 'C1O001',
+      is_winner: false,
+    });
+    addTicket(db, 'legacyEmpty', {
+      user_id: refs.userRef,
+      competition_id: refs.competitionRef,
+      ticket_number: 2,
+      ticket_sequence: 'C1O002',
+      status: '',
+      is_winner: false,
+    });
+
+    const result = await makeHandler(db)({
+      data: { userId: 'u1', competitionId: 'c1', reason: 'legacy cleanup' },
+    });
+
+    assert.equal(result.invalidatedCount, 2);
+    assert.equal(db.snapshot('ticket', 'legacyMissing').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 'legacyMissing').data().status_before_invalidation, 'active');
+    assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status_before_invalidation, 'active');
+  });
+
   it('rejects over-limit requests without partial writes', async () => {
     const db = new MemoryDB();
     const refs = seedBase(db);

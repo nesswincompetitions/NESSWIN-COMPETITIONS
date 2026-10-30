@@ -13,6 +13,7 @@ describe('winner ticket eligibility', () => {
   it('keeps active and legacy unset statuses selectable', () => {
     assert.equal(isTicketBlockedFromWinnerSelection('active'), false);
     assert.equal(isTicketBlockedFromWinnerSelection(''), false);
+    assert.equal(isTicketBlockedFromWinnerSelection('   '), false);
     assert.equal(isTicketBlockedFromWinnerSelection(undefined), false);
     assert.equal(isTicketBlockedFromWinnerSelection('winner'), false);
   });

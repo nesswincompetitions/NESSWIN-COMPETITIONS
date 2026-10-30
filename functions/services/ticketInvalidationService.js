@@ -5,10 +5,10 @@ import {
   isFiniteNonNegativeInteger,
   isWinnerTicket,
   normalizeRequestId,
-  normalizeStatus,
   ticketBelongsToCompetition,
   ticketBelongsToUser,
 } from "./ticketAdjustmentPolicy.js";
+import { normalizeTicketStatus } from "./ticketEligibility.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
   adjustmentReplayMatches,
@@ -235,7 +235,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
               "Winning tickets cannot be invalidated. No tickets were changed."
             );
           }
-          if (normalizeStatus(ticketData.status) !== "active") {
+          if (normalizeTicketStatus(ticketData.status) !== "active") {
             throw new HttpsError(
               "failed-precondition",
               "Every selected ticket must be active. No tickets were changed."
@@ -397,7 +397,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
           );
         }
 
-        const status = normalizeStatus(ticketData.status);
+        const status = normalizeTicketStatus(ticketData.status);
         if (status === "active") {
           toInvalidate.push({ ref: expectedDoc.ref, sequence: ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id });
         } else if (status === "invalid") {

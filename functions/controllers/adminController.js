@@ -2,11 +2,10 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
-import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
 import { createInvalidateUserCompetitionTicketsHandler } from "../services/ticketInvalidationService.js";
 import { createIncreaseUserCompetitionTicketsHandler } from "../services/ticketAdjustmentService.js";
-import { partitionRefundTickets } from "../services/ticketAdjustmentPolicy.js";
+import { createRefundOrderHandler } from "../services/refundOrderService.js";
 
 /**
  * Callable: grantAdminBonus
@@ -156,82 +155,8 @@ export const increaseUserCompetitionTickets = onCall(
 
 /**
  * Callable: refundOrder
- * Marks an order as Refunded and cancels cancellable tickets while preserving
- * prior invalidation and winner outcomes.
+ * Rejects until a real payment-provider refund workflow exists.
  */
-export const refundOrder = onCall(async (request) => {
-  const adminUid = await assertAdmin(request);
-  const { orderId } = request.data || {};
-
-  if (!orderId || typeof orderId !== "string") {
-    throw new HttpsError("invalid-argument", "orderId is required.");
-  }
-
-  try {
-    const orderRef = db.collection("order").doc(orderId);
-    const orderSnap = await orderRef.get();
-
-    if (!orderSnap.exists) {
-      throw new HttpsError("not-found", "Order not found.");
-    }
-
-    const orderData = orderSnap.data();
-    if (orderData.status === "Refunded") {
-      return { success: true, message: "Order is already refunded." };
-    }
-
-    const userRef = orderData.user_ref;
-    const competitionRef = orderData.competition_id;
-    const adminRef = db.collection("user").doc(adminUid);
-
-    const ticketsSnap = await db.collection("ticket")
-      .where("order_id", "==", orderRef)
-      .get();
-
-    const { cancellable: cancellableTickets, preserved } = partitionRefundTickets(ticketsSnap.docs);
-
-    const batch = db.batch();
-    const now = admin.firestore.FieldValue.serverTimestamp();
-
-    batch.update(orderRef, {
-      status: "Refunded",
-      updated_at: now,
-    });
-
-    cancellableTickets.forEach((ticketDoc) => {
-      batch.update(ticketDoc.ref, {
-        status: "cancelled",
-        updated_at: now,
-      });
-    });
-
-    const notifRef = db.collection("ff_user_push_notifications").doc();
-    batch.set(notifRef, buildNotificationPayload({
-      type: "refund_processed",
-      title: "Order Refunded 💸",
-      text: "Your order has been cancelled and a refund has been processed.",
-      status: "refunded",
-      userRefs: userRef.path,
-      userRef: userRef,
-      orderRef: orderRef,
-      competitionRef: competitionRef,
-      senderRef: adminRef,
-      pageName: "OrderHistory",
-      parameterData: { orderId },
-    }));
-
-    await batch.commit();
-
-    logger.info(`[refundOrder] Admin ${adminUid} refunded order ${orderId}. ${cancellableTickets.length} tickets cancelled; ${preserved.length} protected tickets preserved.`);
-
-    return {
-      success: true,
-      message: "Order refunded and tickets cancelled successfully.",
-      ticketsCancelled: cancellableTickets.length,
-      ticketsPreserved: preserved.length,
-    };
-  } catch (err) {
-    logger.error("[refundOrder] Error:", err.message);
-    throw toHttpsError(err, "Failed to refund order.");
-  }
-});
+export const refundOrder = onCall(
+  createRefundOrderHandler({ assertAdmin, HttpsError })
+);

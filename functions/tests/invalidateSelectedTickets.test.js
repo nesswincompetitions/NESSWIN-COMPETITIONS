@@ -419,6 +419,39 @@ describe('selected ticket invalidation', () => {
     assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
   });
 
+  it('invalidates missing and empty legacy statuses as active tickets', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    db.setDocument('ticket', 'legacyMissing', {
+      user_id: refs.userRef,
+      competition_id: refs.competitionRef,
+      order_id: refs.orderRef,
+      ticket_number: 8,
+      ticket_sequence: 'TC008',
+      is_winner: false,
+    });
+    db.setDocument('ticket', 'legacyEmpty', {
+      user_id: refs.userRef,
+      competition_id: refs.competitionRef,
+      order_id: refs.orderRef,
+      ticket_number: 9,
+      ticket_sequence: 'TC009',
+      status: '',
+      is_winner: false,
+    });
+
+    const result = await makeHandler(db)(request({
+      ticketIds: ['legacyMissing', 'legacyEmpty'],
+      requestId: 'req-legacy-status-selected',
+    }));
+
+    assert.equal(result.invalidatedCount, 2);
+    assert.equal(db.snapshot('ticket', 'legacyMissing').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 'legacyMissing').data().status_before_invalidation, 'active');
+    assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status_before_invalidation, 'active');
+  });
+
   it('preserves legacy all-active behavior when ticketIds are omitted', async () => {
     const db = new MemoryDB();
     seed(db);

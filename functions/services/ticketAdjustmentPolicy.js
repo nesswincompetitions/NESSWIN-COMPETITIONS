@@ -1,3 +1,5 @@
+import { normalizeTicketStatus } from "./ticketEligibility.js";
+
 export const ADJUSTMENT_MAX_TICKETS = 400;
 export const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
@@ -28,7 +30,7 @@ export function getReferenceId(value) {
 }
 
 export function isWinnerTicket(data) {
-  return data?.is_winner === true || normalizeStatus(data?.status) === "winner";
+  return data?.is_winner === true || normalizeTicketStatus(data?.status) === "winner";
 }
 
 export function ticketBelongsToUser(data, userId) {
@@ -107,6 +109,69 @@ export function getCompetitionAdjustmentBlock(
   return null;
 }
 
+const COMPETITION_MUTATION_BLOCKED_STATUSES = new Set([
+  "ready_to_draw",
+  "drawing",
+  "winner_announced",
+  "completed",
+  "end",
+  "closed",
+  "cancelled",
+  "deleted",
+]);
+
+export function getCompetitionMutationBlock(competitionData) {
+  if (!competitionData) {
+    return "Competition not found.";
+  }
+
+  if (competitionHasWinnerReference(competitionData)) {
+    return "Competition details cannot be changed after a winner has been declared.";
+  }
+
+  const status = normalizeStatus(competitionData.status);
+  if (COMPETITION_MUTATION_BLOCKED_STATUSES.has(status)) {
+    return "Competition details cannot be changed after the draw has started or the competition has closed.";
+  }
+
+  return null;
+}
+
+export function getLiveDrawStartBlock(competitionData, { now = Date.now() } = {}) {
+  if (!competitionData) {
+    return "Competition not found.";
+  }
+
+  if (competitionHasWinnerReference(competitionData)) {
+    return "The live draw cannot start because a winner has already been declared.";
+  }
+
+  const status = normalizeStatus(competitionData.status);
+  if (status === "drawing") {
+    return "The live draw has already started.";
+  }
+  if (status !== "ready_to_draw") {
+    return "Only competitions that are ready to draw can start the live draw.";
+  }
+
+  if (!String(competitionData.instagram_live_url || "").trim()) {
+    return "The Instagram Live URL is required before the live draw can start.";
+  }
+
+  const drawDate = getDrawDateState(competitionData.draw_date);
+  if (!drawDate.present) {
+    return "The competition draw date is missing, so the live draw cannot be started.";
+  }
+  if (!drawDate.valid) {
+    return "The competition draw date is invalid, so the live draw cannot be started.";
+  }
+  if (drawDate.millis > now) {
+    return "The competition draw date has not been reached yet.";
+  }
+
+  return null;
+}
+
 export function getCompetitionInventoryBlock(competitionData) {
   if (!competitionData) {
     return "Competition not found.";
@@ -142,7 +207,7 @@ export function partitionRefundTickets(ticketDocs) {
 
   ticketDocs.forEach((ticketDoc) => {
     const ticketData = ticketDoc.data();
-    if (!isWinnerTicket(ticketData) && normalizeStatus(ticketData?.status) !== "invalid") {
+    if (!isWinnerTicket(ticketData) && normalizeTicketStatus(ticketData?.status) !== "invalid") {
       cancellable.push(ticketDoc);
     } else {
       preserved.push(ticketDoc);

@@ -3,6 +3,7 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
+import { createStartCompetitionLiveDrawHandler } from "../services/liveDrawService.js";
 import {
   buildWinnerFirstMessageNotificationId,
   normalizeText,
@@ -21,6 +22,21 @@ function getChatRef(chatId) {
 function getWinnerMessageNotificationRef(chatId) {
   return db.collection("ff_user_push_notifications").doc(buildWinnerFirstMessageNotificationId(chatId));
 }
+
+export const startCompetitionLiveDraw = onCall(async (request) => {
+  try {
+    return await createStartCompetitionLiveDrawHandler({
+      db,
+      admin,
+      logger,
+      assertAdmin,
+      HttpsError,
+    })(request);
+  } catch (error) {
+    logger.error("[startCompetitionLiveDraw] Error:", error);
+    throw toHttpsError(error, "Failed to start the live draw.");
+  }
+});
 
 export const selectCompetitionWinner = onCall(async (request) => {
   const adminUid = await assertAdmin(request);

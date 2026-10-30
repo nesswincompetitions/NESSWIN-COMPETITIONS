@@ -42,6 +42,10 @@ export class MemoryDocRef {
   async get() {
     return this.db.snapshot(this.collectionName, this.id);
   }
+
+  async update(data) {
+    this.db.applyWrites([{ type: 'update', path: this.path, data }]);
+  }
 }
 
 function compareQueryValues(left, right) {
@@ -149,6 +153,32 @@ export class MemoryCollection {
   }
 }
 
+export class MemoryBatch {
+  constructor(db) {
+    this.db = db;
+    this.writes = [];
+  }
+
+  update(ref, data) {
+    this.writes.push({ type: 'update', path: ref.path, data });
+    return this;
+  }
+
+  set(ref, data) {
+    this.writes.push({ type: 'set', path: ref.path, data });
+    return this;
+  }
+
+  delete(ref) {
+    this.writes.push({ type: 'delete', path: ref.path });
+    return this;
+  }
+
+  async commit() {
+    this.db.applyWrites(this.writes);
+  }
+}
+
 export class MemoryTransaction {
   constructor(db) {
     this.db = db;
@@ -182,6 +212,10 @@ export class MemoryTransaction {
   set(ref, data) {
     this.writes.push({ type: 'set', path: ref.path, data });
   }
+
+  delete(ref) {
+    this.writes.push({ type: 'delete', path: ref.path });
+  }
 }
 
 function applyFieldValues(current, data) {
@@ -199,6 +233,8 @@ function applyFieldValues(current, data) {
           (addition) => !existing.some((item) => valuesEqual(item, addition)),
         ),
       ];
+    } else if (value && typeof value === 'object' && '__mockDelete' in value) {
+      delete next[key];
     } else {
       next[key] = value;
     }
@@ -236,6 +272,10 @@ export class MemoryDB {
     return new MemoryCollection(this, name);
   }
 
+  batch() {
+    return new MemoryBatch(this);
+  }
+
   version(path) {
     return this.versions.get(path) ?? 0;
   }
@@ -264,6 +304,8 @@ export class MemoryDB {
           throw new Error(`Cannot update missing document ${path}`);
         }
         store.set(id, applyFieldValues(existing, data));
+      } else if (type === 'delete') {
+        store.delete(id);
       } else {
         store.set(id, { ...data });
       }
@@ -299,14 +341,22 @@ export class MemoryDB {
 }
 
 export function createMockAdmin() {
+  const deletedAuthUsers = [];
   return {
+    deletedAuthUsers,
     firestore: {
       FieldValue: {
         serverTimestamp: () => ({ __mockServerTimestamp: true }),
         increment: (value) => ({ __mockIncrement: value }),
         arrayUnion: (...values) => ({ __mockArrayUnion: values }),
+        delete: () => ({ __mockDelete: true }),
       },
     },
+    auth: () => ({
+      deleteUser: async (uid) => {
+        deletedAuthUsers.push(uid);
+      },
+    }),
   };
 }
 

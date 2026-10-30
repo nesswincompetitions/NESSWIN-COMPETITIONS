@@ -9,10 +9,8 @@ import {
   CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2
 } from 'lucide-react';
 import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId, ADMIN_TICKET_VIEW_LIMIT } from '@/shared/hooks/useAdminData';
-import { refundOrder } from '@/modules/admin/orders/services/ordersService';
 import { formatStatus } from '@/shared/utils/formatters';
 import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
-import { toast } from 'react-hot-toast';
 import IncreaseTicketsModal from '@/shared/components/admin/IncreaseTicketsModal';
 
 const OrderDetail = () => {
@@ -24,17 +22,6 @@ const OrderDetail = () => {
   const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
   const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
   const loading = orderLoading || ticketsLoading;
-
-  const handleRefund = async () => {
-    if (!window.confirm(t('orders.detail.confirmRefund'))) return;
-    try {
-      await refundOrder(id);
-      toast.success(t('orders.detail.refundSuccess'));
-    } catch (error) {
-      console.error('Error refunding order:', error);
-      toast.error(t('orders.detail.refundFailed'));
-    }
-  };
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -110,9 +97,14 @@ const OrderDetail = () => {
                   {t('orders.detail.increase.open')}
                 </Button>
               )}
-              <Button variant="outline" className="flex items-center gap-2 text-gray-300 hover:text-white border-white/10" onClick={handleRefund}>
+              <Button
+                variant="outline"
+                className="flex items-center gap-2 text-gray-500 border-white/10"
+                disabled
+                title={t('orders.detail.refundUnavailableNote')}
+              >
                 <RefreshCcw size={16} />
-                {t('orders.detail.refundOrder')}
+                {t('orders.detail.refundUnavailable')}
               </Button>
             </>
           )}
