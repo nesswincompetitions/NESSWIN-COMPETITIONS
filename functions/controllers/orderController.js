@@ -2,7 +2,10 @@ import { onCall, HttpsError, onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
-import { runOrderTransaction } from "../services/orderTransactionService.js";
+import {
+  DirectPaymentRequiredError,
+  runOrderTransaction,
+} from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { getOrderPricing } from "../services/orderPricingService.js";
 import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
@@ -132,7 +135,14 @@ export const initiateOrder = onCall(async (request) => {
   }
 });
 
-export const processOrder = onCall(async (request) => {
+export function createProcessOrderHandler({
+  db,
+  admin,
+  logger,
+  assertAuthenticated,
+  HttpsError,
+}) {
+  return async function handleProcessOrder(request) {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   const uid = assertAuthenticated(request);
 
@@ -275,10 +285,26 @@ export const processOrder = onCall(async (request) => {
 
     return result;
   } catch (err) {
+    if (err instanceof DirectPaymentRequiredError) {
+      logger.warn("[processOrder] Direct paid fulfillment rejected:", err.message);
+      throw new HttpsError("failed-precondition", err.message);
+    }
+
     logger.error("[processOrder] Error:", err.message);
     throw toHttpsError(err, "Order processing failed. Please try again.");
   }
+  };
+}
+
+const processOrderHandler = createProcessOrderHandler({
+  db,
+  admin,
+  logger,
+  assertAuthenticated,
+  HttpsError,
 });
+
+export const processOrder = onCall(processOrderHandler);
 
 export const createStripeCheckoutSession = onCall(async (request) => {
   const uid = assertAuthenticated(request);

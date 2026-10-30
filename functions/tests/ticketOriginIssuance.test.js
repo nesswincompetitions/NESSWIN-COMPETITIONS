@@ -4,7 +4,10 @@ import {
   MemoryDB,
   createMockAdmin,
 } from './helpers/memoryFirestore.js';
-import { runOrderTransaction } from '../services/orderTransactionService.js';
+import {
+  DirectPaymentRequiredError,
+  runOrderTransaction,
+} from '../services/orderTransactionService.js';
 import { evaluateCheckoutSettlement } from '../services/stripeSettlementService.js';
 import {
   PAYMENT_SETTLEMENT,
@@ -179,27 +182,72 @@ describe('ticket origin issuance', () => {
     });
   });
 
-  it('does not label positive-total direct fulfillment as paid', async () => {
+  it('rejects positive-total direct fulfillment without mutating any records', async () => {
     const db = new MemoryDB();
-    seed(db);
+    const { referrals } = seed(db, ['referral']);
+    const beforeOrder = db.snapshot('order', 'o1').data();
+    const beforeUser = db.snapshot('user', 'u1').data();
+    const beforeCompetition = db.snapshot('competition', 'c1').data();
+    const beforeReferral = db.snapshot('referrals', 'r1').data();
 
-    const result = await runOrderTransaction(db, createMockAdmin(), {
-      uid: 'u1',
-      competitionId: 'c1',
-      ticketQuantity: 5,
-      questionAnswer: {},
-      freeTicketsToUse: 0,
-      referralsToBurn: [],
-    });
-
-    const tickets = ticketsFor(db, result);
-    assert.deepEqual(
-      tickets.map((ticket) => ticket.data.allocation_type),
-      Array(5).fill(TICKET_ORIGIN.UNVERIFIED)
+    await assert.rejects(
+      runOrderTransaction(db, createMockAdmin(), {
+        uid: 'u1',
+        competitionId: 'c1',
+        ticketQuantity: 5,
+        questionAnswer: {},
+        freeTicketsToUse: 1,
+        referralsToBurn: [referrals[0]],
+        orderId: 'o1',
+      }),
+      (error) =>
+        error instanceof DirectPaymentRequiredError &&
+        /Stripe Checkout/.test(error.message)
     );
-    const order = db.snapshot('order', result.orderId).data();
-    assert.equal(order.stripe_status, 'mock');
-    assert.equal(order.total_amount, 50);
+
+    assert.equal(db.collectionStore('ticket').size, 0);
+    assert.equal(db.collectionStore('free_ticket_log').size, 0);
+    assert.equal(db.collectionStore('ticket_adjustments').size, 0);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), beforeOrder);
+    assert.deepEqual(db.snapshot('user', 'u1').data(), beforeUser);
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.deepEqual(db.snapshot('referrals', 'r1').data(), beforeReferral);
+  });
+
+  it('rejects zero-total direct fulfillment against a positive pending Stripe order', async () => {
+    const db = new MemoryDB();
+    const { referrals } = seed(db, ['referral']);
+    const userRef = db.collection('user').doc('u1');
+    const competitionRef = db.collection('competition').doc('c1');
+    db.setDocument('order', 'o1', {
+      status: 'pending',
+      user_ref: userRef,
+      competition_id: competitionRef,
+      total_amount: 50,
+      stripe_checkout_session_id: 'cs_1',
+    });
+    const beforeOrder = db.snapshot('order', 'o1').data();
+    const beforeReferral = db.snapshot('referrals', 'r1').data();
+
+    await assert.rejects(
+      runOrderTransaction(db, createMockAdmin(), {
+        uid: 'u1',
+        competitionId: 'c1',
+        ticketQuantity: 0,
+        questionAnswer: {},
+        freeTicketsToUse: 1,
+        referralsToBurn: [referrals[0]],
+        orderId: 'o1',
+      }),
+      (error) =>
+        error instanceof DirectPaymentRequiredError &&
+        /Stripe Checkout/.test(error.message)
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 0);
+    assert.equal(db.collectionStore('free_ticket_log').size, 0);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), beforeOrder);
+    assert.deepEqual(db.snapshot('referrals', 'r1').data(), beforeReferral);
   });
 
   it('does not issue tickets for an unsupported referral reward type', async () => {
@@ -345,6 +393,39 @@ describe('ticket origin issuance', () => {
       Array(5).fill(TICKET_ORIGIN.ZERO_PAYMENT)
     );
     const order = db.snapshot('order', result.orderId).data();
+    assert.equal(order.stripe_status, 'free');
+    assert.equal(order.total_amount, 0);
+  });
+
+  it('allows zero-total direct fulfillment on an existing zero-amount pending order', async () => {
+    const db = new MemoryDB();
+    seed(db, [], { ticket_price: 0 });
+    const userRef = db.collection('user').doc('u1');
+    const competitionRef = db.collection('competition').doc('c1');
+    db.setDocument('order', 'o1', {
+      status: 'pending',
+      user_ref: userRef,
+      competition_id: competitionRef,
+      total_amount: 0,
+    });
+
+    const result = await runOrderTransaction(db, createMockAdmin(), {
+      uid: 'u1',
+      competitionId: 'c1',
+      ticketQuantity: 5,
+      questionAnswer: {},
+      freeTicketsToUse: 0,
+      referralsToBurn: [],
+      orderId: 'o1',
+    });
+
+    const tickets = ticketsFor(db, result);
+    assert.deepEqual(
+      tickets.map((ticket) => ticket.data.allocation_type),
+      Array(5).fill(TICKET_ORIGIN.ZERO_PAYMENT)
+    );
+    const order = db.snapshot('order', 'o1').data();
+    assert.equal(order.status, 'paid');
     assert.equal(order.stripe_status, 'free');
     assert.equal(order.total_amount, 0);
   });

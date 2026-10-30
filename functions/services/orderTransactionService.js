@@ -34,6 +34,40 @@ export function formatTicketSequence(prefix, sequence) {
   return `${prefix}${String(sequence).padStart(3, "0")}`;
 }
 
+export const DIRECT_PAYMENT_REQUIRED_MESSAGE =
+  "Paid orders must be completed through Stripe Checkout.";
+
+export class DirectPaymentRequiredError extends Error {
+  constructor(message = DIRECT_PAYMENT_REQUIRED_MESSAGE) {
+    super(message);
+    this.name = "DirectPaymentRequiredError";
+    this.code = "direct_payment_required";
+  }
+}
+
+export function getDirectPaymentBlock({ totalAmount, existingOrderData = null }) {
+  if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+    return "Order amount is invalid, so direct fulfillment cannot be verified safely.";
+  }
+
+  if (totalAmount > 0) {
+    return DIRECT_PAYMENT_REQUIRED_MESSAGE;
+  }
+
+  if (existingOrderData) {
+    if (existingOrderData.stripe_checkout_session_id) {
+      return "This order is associated with Stripe Checkout and cannot be fulfilled directly.";
+    }
+
+    const storedAmount = existingOrderData.total_amount;
+    if (!Number.isFinite(storedAmount) || storedAmount !== 0) {
+      return "This order requires payment and cannot be fulfilled directly.";
+    }
+  }
+
+  return null;
+}
+
 /**
  * Executes the complete ticket purchase as an atomic Firestore transaction.
  * @param {FirebaseFirestore.Firestore} db
@@ -97,14 +131,15 @@ export async function runOrderTransaction(
     .map((r) => db.collection("referrals").doc(r.id));
 
   const result = await db.runTransaction(async (transaction) => {
+    let existingOrderData = null;
     if (orderId) {
       const orderSnap = await transaction.get(orderRef);
       if (orderSnap.exists) {
-        const orderData = orderSnap.data();
-        if (orderData.status !== "pending") {
+        existingOrderData = orderSnap.data();
+        if (existingOrderData.status !== "pending") {
           throw new Error("This order has already been processed or is not in a pending state.");
         }
-        if (orderData.user_ref?.path !== userRef.path) {
+        if (existingOrderData.user_ref?.path !== userRef.path) {
           throw new Error("This order does not belong to you.");
         }
       }
@@ -195,6 +230,16 @@ export async function runOrderTransaction(
     const discountAmount = subtotal * discount;
     const totalAmount = subtotal - discountAmount;
 
+    if (settlementType === PAYMENT_SETTLEMENT.DIRECT) {
+      const directPaymentBlock = getDirectPaymentBlock({
+        totalAmount,
+        existingOrderData,
+      });
+      if (directPaymentBlock) {
+        throw new DirectPaymentRequiredError(directPaymentBlock);
+      }
+    }
+
     const newStock = currentStock - totalTicketsToGenerate;
     const newStatus = newStock === 0 ? "sold_out" : "active";
 
@@ -211,11 +256,7 @@ export async function runOrderTransaction(
     const paidTicketOrigin =
       settlementType === PAYMENT_SETTLEMENT.STRIPE_PAID
         ? TICKET_ORIGIN.PAID
-        : settlementType === PAYMENT_SETTLEMENT.STRIPE_ZERO_PAYMENT
-          ? TICKET_ORIGIN.ZERO_PAYMENT
-          : totalAmount === 0
-            ? TICKET_ORIGIN.ZERO_PAYMENT
-            : TICKET_ORIGIN.UNVERIFIED;
+        : TICKET_ORIGIN.ZERO_PAYMENT;
 
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
     const ticketOrigins = [
