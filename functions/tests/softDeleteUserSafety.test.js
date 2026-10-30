@@ -52,7 +52,7 @@ function seed(db) {
     status: 'paid',
   });
 
-  const ticket = (id, competitionRef, status, isWinner = false) => {
+  const ticket = (id, competitionRef, status, isWinner = false, allocationType = undefined) => {
     db.setDocument('ticket', id, {
       user_id: userRef,
       competition_id: competitionRef,
@@ -61,10 +61,11 @@ function seed(db) {
       ticket_sequence: `T-${id}`,
       status,
       is_winner: isWinner,
+      ...(allocationType ? { allocation_type: allocationType } : {}),
     });
   };
 
-  ticket('tSafe', activeRef, 'active');
+  ticket('tSafe', activeRef, 'active', false, 'paid');
   ticket('tLegacyMissing', activeRef, undefined);
   ticket('tCancelled', activeRef, 'cancelled');
   ticket('tAlreadyInvalid', activeRef, 'invalid');
@@ -103,6 +104,25 @@ describe('softDeleteUser ticket safety', () => {
     assert.equal(db.snapshot('ticket', 'tWinnerComp').data().status, 'active');
     assert.equal(db.snapshot('ticket', 'tCancelled').data().status, 'cancelled');
     assert.equal(db.snapshot('ticket', 'tAlreadyInvalid').data().status, 'invalid');
+
+    const audits = Array.from(db.collectionStore('ticket_adjustments').entries());
+    assert.equal(audits.length, 2);
+    for (const [id, audit] of audits) {
+      assert.equal(audit.source, 'account_deletion');
+      assert.equal(audit.actor_role, 'user');
+      assert.equal(audit.performed_by.path, 'user/u1');
+      assert.equal(audit.payment_effect, 'none');
+      assert.equal(audit.ticket_origins.length, audit.ticket_ids.length);
+      assert.equal(audit.ticket_origins.length, 1);
+      assert.deepEqual(audit.origin_breakdown, { [audit.ticket_origins[0]]: 1 });
+      assert.equal(audit.request_id, id);
+    }
+    assert.deepEqual(
+      audits.map(([, audit]) => audit.ticket_origins[0]).sort(),
+      ['legacy_unknown', 'paid']
+    );
+    assert.equal(db.snapshot('ticket', 'tSafe').data().allocation_type, 'paid');
+    assert.equal(db.snapshot('ticket', 'tLegacyMissing').data().allocation_type, undefined);
 
     const user = db.snapshot('user', 'u1').data();
     assert.equal(user.is_deleted, true);
@@ -177,11 +197,13 @@ describe('softDeleteUser ticket safety', () => {
 
     const firstAudit = db.snapshot('ticket', 'tSafe').data().invalidated_at;
     const firstDeletedAt = db.snapshot('user', 'u1').data().deleted_at;
+    const firstAdjustmentCount = db.collectionStore('ticket_adjustments').size;
     assert.equal(db.snapshot('user', 'u1').data().is_active, true);
 
     const second = await handler({ auth: { uid: 'u1' } });
 
     assert.equal(second.success, true);
+    assert.equal(db.collectionStore('ticket_adjustments').size, firstAdjustmentCount);
     assert.equal(second.ticketsInvalidated, 0);
     assert.equal(deleteAttempts, 2);
     assert.deepEqual(admin.deletedAuthUsers, ['u1']);
@@ -212,6 +234,7 @@ describe('softDeleteUser ticket safety', () => {
     const first = await handler({ auth: { uid: 'u1' } });
     const firstAudit = db.snapshot('ticket', 'tSafe').data().invalidated_at;
     const firstDeletedAt = db.snapshot('user', 'u1').data().deleted_at;
+    const firstAdjustmentCount = db.collectionStore('ticket_adjustments').size;
 
     const second = await handler({ auth: { uid: 'u1' } });
 
@@ -221,6 +244,7 @@ describe('softDeleteUser ticket safety', () => {
     assert.equal(deleteAttempts, 2);
     assert.equal(db.snapshot('ticket', 'tSafe').data().invalidated_at, firstAudit);
     assert.equal(db.snapshot('user', 'u1').data().deleted_at, firstDeletedAt);
+    assert.equal(db.collectionStore('ticket_adjustments').size, firstAdjustmentCount);
     assert.equal(db.snapshot('ticket', 'tSafe').data().status, 'invalid');
   });
 });

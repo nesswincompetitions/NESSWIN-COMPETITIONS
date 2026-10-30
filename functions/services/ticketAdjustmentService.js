@@ -15,6 +15,7 @@ import {
 } from "./ticketAdjustmentAudit.js";
 import { formatTicketSequence, generateTicketPrefix } from "./orderTransactionService.js";
 import { normalizeTicketStatus } from "./ticketEligibility.js";
+import { TICKET_ORIGIN } from "./ticketOrigin.js";
 
 function normalizeQuantity(value) {
   const quantity = Number(value);
@@ -418,6 +419,8 @@ export function createIncreaseUserCompetitionTicketsHandler({
         paymentEffect: "none",
       };
 
+      const ticketOrigins = ticketIds.map(() => TICKET_ORIGIN.ADMIN_ADJUSTMENT);
+
       transaction.set(
         adjustmentRef,
         buildTicketAdjustmentRecord({
@@ -432,6 +435,7 @@ export function createIncreaseUserCompetitionTicketsHandler({
           ticketIds,
           ticketNumbers,
           ticketSequences,
+          ticketOrigins,
           quantityScope: "order_active_tickets",
           previousQuantity: activeCountBefore,
           newQuantity: activeCountBefore + addQuantity,
@@ -443,7 +447,9 @@ export function createIncreaseUserCompetitionTicketsHandler({
           inventoryAfter,
           orderSnapshot: buildOrderSnapshot(freshOrder),
           reason: reasonText,
-          adminRef,
+          actorRef: adminRef,
+          actorRole: "admin",
+          paymentEffect: "none",
           requestId: normalizedRequestId,
           result,
           serverNow: now,

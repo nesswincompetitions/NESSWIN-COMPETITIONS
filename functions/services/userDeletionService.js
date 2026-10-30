@@ -1,5 +1,10 @@
 import { normalizeTicketStatus } from "./ticketEligibility.js";
 import {
+  TICKET_ADJUSTMENTS_COLLECTION,
+  buildTicketAdjustmentRecord,
+} from "./ticketAdjustmentAudit.js";
+import { getTicketOrigin } from "./ticketOrigin.js";
+import {
   getCompetitionAdjustmentBlock,
   getReferenceId,
   isWinnerTicket,
@@ -71,6 +76,12 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
       if (isWinnerTicket(ticketData)) return "preserved";
       if (normalizeTicketStatus(ticketData.status) !== "active") return "preserved";
 
+      const auditRef = db
+        .collection(TICKET_ADJUSTMENTS_COLLECTION)
+        .doc(`account_deletion_${userRef.id}_${ticketDoc.id}`);
+      const auditSnap = await transaction.get(auditRef);
+      if (auditSnap.exists) return "preserved";
+
       const competitionId = getReferenceId(ticketData.competition_id);
       if (!competitionId) return "preserved";
 
@@ -85,6 +96,21 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
       if (block) return "preserved";
 
       const now = admin.firestore.FieldValue.serverTimestamp();
+      const orderRefs = ticketData.order_id ? [ticketData.order_id] : [];
+      const ticketSequence =
+        ticketData.ticket_sequence ?? ticketData.ticket_number ?? ticketDoc.id;
+      const result = {
+        success: true,
+        complete: true,
+        invalidatedCount: 1,
+        alreadyInvalidCount: 0,
+        cancelledCount: 0,
+        skippedCount: 0,
+        totalRelevantCount: 1,
+        ticketIds: [ticketDoc.id],
+        ticketSequences: [ticketSequence],
+      };
+
       transaction.update(ticketSnap.ref, {
         status: "invalid",
         invalidated_at: now,
@@ -94,6 +120,41 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
         status_before_invalidation: "active",
         updated_at: now,
       });
+
+      transaction.set(
+        auditRef,
+        buildTicketAdjustmentRecord({
+          operation: "ticket_invalidation",
+          source: "account_deletion",
+          userRef,
+          competitionRef,
+          orderRefs,
+          primaryOrderRef: orderRefs[0] || null,
+          quantity: 1,
+          direction: "decrease",
+          ticketIds: [ticketDoc.id],
+          ticketNumbers: [
+            typeof ticketData.ticket_number === "number" ? ticketData.ticket_number : null,
+          ],
+          ticketSequences: [ticketSequence],
+          ticketOrigins: [getTicketOrigin(ticketData)],
+          quantityScope: "account_deletion_ticket",
+          previousQuantity: 1,
+          newQuantity: 0,
+          activeCountScope: "account_deletion_ticket",
+          activeCountBefore: 1,
+          activeCountAfter: 0,
+          selectedCountBefore: 1,
+          selectedCountAfter: 0,
+          reason: ACCOUNT_DELETION_REASON,
+          actorRef: userRef,
+          actorRole: "user",
+          paymentEffect: "none",
+          requestId: auditRef.id,
+          result,
+          serverNow: now,
+        })
+      );
 
       return "invalidated";
     });

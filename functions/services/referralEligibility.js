@@ -1,6 +1,7 @@
+import { isSupportedReferralRewardType } from "./ticketOrigin.js";
+
 /**
  * Shared redemption guard for referral/admin-bonus credit documents.
- * Kept dependency-free so it can be exercised by focused regression tests.
  */
 export function assertReferralRedeemable(referralData, refId, userRefPath) {
   // Existing referral/admin-bonus writers omit reward_revoked on active
@@ -22,5 +23,8 @@ export function assertReferralRedeemable(referralData, refId, userRefPath) {
   }
   if (referralData.referrer_id?.path !== userRefPath) {
     throw new Error(`Referral ${refId} does not belong to you.`);
+  }
+  if (!isSupportedReferralRewardType(referralData.reward_type)) {
+    throw new Error(`Referral ${refId} has an unsupported reward_type and cannot be used.`);
   }
 }

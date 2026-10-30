@@ -526,6 +526,22 @@ describe('invalidateUserCompetitionTickets', () => {
     assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status, 'invalid');
     assert.equal(db.snapshot('ticket', 'legacyMissing').data().status_before_invalidation, 'active');
     assert.equal(db.snapshot('ticket', 'legacyEmpty').data().status_before_invalidation, 'active');
+
+    const audits = Array.from(db.collectionStore('ticket_adjustments').entries());
+    assert.equal(audits.length, 1);
+    const audit = audits[0][1];
+    assert.equal(audit.source, 'admin_all_active_tickets');
+    assert.equal(audit.actor_role, 'admin');
+    assert.equal(audit.request_id, null);
+    assert.deepEqual(audit.ticket_origins, ['legacy_unknown', 'legacy_unknown']);
+    assert.equal(audit.ticket_origins.length, audit.ticket_ids.length);
+    assert.deepEqual(audit.origin_breakdown, { legacy_unknown: 2 });
+
+    const replay = await makeHandler(db)({
+      data: { userId: 'u1', competitionId: 'c1', reason: 'legacy cleanup again' },
+    });
+    assert.equal(replay.invalidatedCount, 0);
+    assert.equal(db.collectionStore('ticket_adjustments').size, 1);
   });
 
   it('rejects over-limit requests without partial writes', async () => {

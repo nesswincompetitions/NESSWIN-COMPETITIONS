@@ -161,6 +161,11 @@ describe('admin ticket increase', () => {
     assert.equal(audit.order_snapshot.total_ticket, 4);
     assert.equal(audit.order_snapshot.paid_ticket, 4);
     assert.equal(audit.performed_by.path, 'user/admin1');
+    assert.equal(audit.actor_role, 'admin');
+    assert.equal(audit.payment_effect, 'none');
+    assert.deepEqual(audit.ticket_origins, ['admin_adjustment', 'admin_adjustment']);
+    assert.equal(audit.ticket_origins.length, audit.ticket_ids.length);
+    assert.deepEqual(audit.origin_breakdown, { admin_adjustment: 2 });
     assert.deepEqual(audit.ticket_ids.sort(), result.ticketIds.sort());
   });
 

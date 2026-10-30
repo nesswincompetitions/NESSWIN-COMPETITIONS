@@ -154,6 +154,30 @@ describe('selected ticket invalidation', () => {
     assert.equal(audit.selected_count_after, 0);
     assert.equal(audit.primary_order_ref.path, refs.orderRef.path);
     assert.equal(audit.performed_by.path, 'user/admin1');
+    assert.equal(audit.actor_role, 'admin');
+    assert.deepEqual(audit.ticket_origins, ['legacy_unknown', 'legacy_unknown']);
+    assert.equal(audit.ticket_origins.length, audit.ticket_ids.length);
+    assert.deepEqual(audit.origin_breakdown, { legacy_unknown: 2 });
+  });
+
+  it('preserves ticket origin when invalidating an issued ticket', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    db.setDocument('ticket', 't1', {
+      ...db.snapshot('ticket', 't1').data(),
+      allocation_type: 'paid',
+    });
+
+    const result = await makeHandler(db)(request({
+      ticketIds: ['t1'],
+      requestId: 'req-origin-immutable',
+    }));
+
+    assert.equal(result.invalidatedCount, 1);
+    assert.equal(db.snapshot('ticket', 't1').data().allocation_type, 'paid');
+    const audit = db.snapshot('ticket_adjustments', 'req-origin-immutable').data();
+    assert.deepEqual(audit.ticket_origins, ['paid']);
+    assert.deepEqual(audit.origin_breakdown, { paid: 1 });
   });
 
   it('rejects duplicate, inactive, and mixed ineligible selections without writes', async () => {

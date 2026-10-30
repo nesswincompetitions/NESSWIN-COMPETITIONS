@@ -3,6 +3,11 @@ import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { runOrderTransaction } from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
+import {
+  evaluateCheckoutSettlement,
+  SettlementValidationError,
+} from "../services/stripeSettlementService.js";
+import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
 import Stripe from "stripe";
 
 export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
@@ -31,16 +36,18 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const orderId = session.metadata?.orderId;
-    const paymentIntentId = session.payment_intent;
     const notificationPageName = session.metadata?.notificationPageName || "OrderHistory";
+    let decision = null;
+    let transactionCompleted = false;
 
     if (!orderId) {
       logger.error("[stripeWebhook] Missing orderId in session metadata.");
       return res.status(400).send("Webhook handled, but missing orderId.");
     }
 
+    const orderRef = db.collection("order").doc(orderId);
+
     try {
-      const orderRef = db.collection("order").doc(orderId);
       const orderSnap = await orderRef.get();
 
       if (!orderSnap.exists) {
@@ -50,15 +57,55 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
 
       const orderData = orderSnap.data();
 
-      // Check if order is already paid or processed
-      if (orderData.status === "paid") {
-        logger.info(`[stripeWebhook] Order ${orderId} is already marked as paid.`);
-        return res.status(200).send("Order already processed.");
+      try {
+        decision = evaluateCheckoutSettlement({
+          eventType: event.type,
+          session,
+          orderData,
+        });
+      } catch (validationError) {
+        if (validationError instanceof SettlementValidationError) {
+          logger.error(
+            `[stripeWebhook] Settlement validation failed for order ${orderId}: ${validationError.code} — ${validationError.message}`
+          );
+          return res.status(validationError.statusCode).send(validationError.message);
+        }
+        throw validationError;
       }
 
-      if (orderData.status !== "pending") {
-        logger.error(`[stripeWebhook] Order ${orderId} has invalid status: ${orderData.status}`);
-        return res.status(400).send("Invalid order status.");
+      if (decision.action === "ignore") {
+        return res.status(200).send("Webhook event ignored.");
+      }
+
+      if (decision.action === "pending") {
+        logger.info(
+          `[stripeWebhook] Order ${orderId} payment is still pending (${decision.reason || "unpaid"}).`
+        );
+        return res.status(200).send("Payment pending.");
+      }
+
+      if (decision.action === "already_processed") {
+        const updates = {};
+        if (
+          decision.expectedStripeStatus &&
+          orderData.stripe_status !== decision.expectedStripeStatus
+        ) {
+          updates.stripe_status = decision.expectedStripeStatus;
+        }
+        if (
+          decision.paymentIntentId &&
+          orderData.stripe_payment_intent_id !== decision.paymentIntentId
+        ) {
+          updates.stripe_payment_intent_id = decision.paymentIntentId;
+        }
+        if (Object.keys(updates).length > 0) {
+          await orderRef.update({
+            ...updates,
+            updated_at: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+        logger.info(`[stripeWebhook] Order ${orderId} is already marked as paid.`);
+        return res.status(200).send("Order already processed.");
       }
 
       const uid = orderData.user_ref?.id;
@@ -71,7 +118,6 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
 
       logger.info(`[stripeWebhook] Fulfilling order ${orderId} for uid=${uid}`);
 
-      // Call runOrderTransaction to complete the order and issue tickets
       const result = await runOrderTransaction(db, admin, {
         uid,
         competitionId,
@@ -80,12 +126,14 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
         freeTicketsToUse: orderData.free_tickets_to_use || 0,
         referralsToBurn: orderData.referrals_to_burn || [],
         orderId: orderId,
+        paymentSettlement: decision.settlementContext,
       });
+      transactionCompleted = true;
 
-      // Update Stripe payment intent details in Firestore
       await orderRef.update({
-        stripe_payment_intent_id: paymentIntentId || "",
-        stripe_status: "paid",
+        stripe_payment_intent_id: decision.paymentIntentId || "",
+        stripe_status:
+          decision.settlement === PAYMENT_SETTLEMENT.STRIPE_PAID ? "paid" : "free",
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -173,6 +221,33 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
       }
 
     } catch (err) {
+      if (!transactionCompleted) {
+        const freshOrder = await orderRef.get().catch(() => null);
+        const freshData = freshOrder?.exists ? freshOrder.data() : null;
+        if (freshData?.status === "paid") {
+          if (
+            decision?.action === "fulfill" &&
+            freshData.stripe_status !== "paid" &&
+            freshData.stripe_status !== "free"
+          ) {
+            try {
+              await orderRef.update({
+                stripe_payment_intent_id: decision.paymentIntentId || "",
+                stripe_status:
+                  decision.settlement === PAYMENT_SETTLEMENT.STRIPE_PAID ? "paid" : "free",
+                updated_at: admin.firestore.FieldValue.serverTimestamp(),
+              });
+            } catch (updateError) {
+              logger.warn(
+                `[stripeWebhook] Could not reconcile Stripe fields for already-paid order ${orderId}:`,
+                updateError.message
+              );
+            }
+          }
+          logger.info(`[stripeWebhook] Order ${orderId} was completed concurrently.`);
+          return res.status(200).send("Order already processed.");
+        }
+      }
       logger.error(`[stripeWebhook] Order fulfillment transaction failed for ${orderId}:`, err.message);
       return res.status(500).send(`Fulfillment Error: ${err.message}`);
     }

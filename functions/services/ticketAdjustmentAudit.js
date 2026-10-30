@@ -1,3 +1,5 @@
+import { countTicketOrigins } from "./ticketOrigin.js";
+
 export const TICKET_ADJUSTMENTS_COLLECTION = "ticket_adjustments";
 
 export function buildTicketAdjustmentRecord({
@@ -23,8 +25,12 @@ export function buildTicketAdjustmentRecord({
   inventoryBefore = null,
   inventoryAfter = null,
   orderSnapshot = null,
+  ticketOrigins = [],
+  originBreakdown = null,
+  actorRole = null,
+  paymentEffect = "none",
   reason,
-  adminRef,
+  actorRef,
   requestId,
   result,
   serverNow,
@@ -52,10 +58,13 @@ export function buildTicketAdjustmentRecord({
     inventory_before: inventoryBefore,
     inventory_after: inventoryAfter,
     order_snapshot: orderSnapshot,
+    ticket_origins: ticketOrigins,
+    origin_breakdown: originBreakdown || countTicketOrigins(ticketOrigins),
     reason,
-    performed_by: adminRef,
+    performed_by: actorRef,
+    actor_role: actorRole,
     request_id: requestId,
-    payment_effect: "none",
+    payment_effect: paymentEffect,
     result,
     created_at: serverNow,
   };

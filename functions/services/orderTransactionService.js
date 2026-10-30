@@ -1,5 +1,11 @@
 import { getOrderPricing } from "./orderPricingService.js";
 import { assertReferralRedeemable } from "./referralEligibility.js";
+import {
+  getReferralTicketOrigin,
+  PAYMENT_SETTLEMENT,
+  TICKET_ORIGIN,
+} from "./ticketOrigin.js";
+import { isVerifiedStripeSettlementContext } from "./stripeSettlementService.js";
 
 /**
  * Derives a short uppercase prefix from a competition title.
@@ -46,8 +52,18 @@ export async function runOrderTransaction(
     freeTicketsToUse = 0,
     referralsToBurn = [],
     orderId = null,
+    paymentSettlement = PAYMENT_SETTLEMENT.DIRECT,
   }
 ) {
+  const settlementType =
+    paymentSettlement === PAYMENT_SETTLEMENT.DIRECT
+      ? PAYMENT_SETTLEMENT.DIRECT
+      : isVerifiedStripeSettlementContext(paymentSettlement)
+        ? paymentSettlement.type
+        : null;
+  if (!settlementType) {
+    throw new Error("Invalid payment settlement context.");
+  }
   const qty = Number(ticketQuantity);
   if (!Number.isInteger(qty) || qty < 0) {
     throw new Error("Quantity must be a non-negative integer.");
@@ -182,7 +198,37 @@ export async function runOrderTransaction(
     const newStock = currentStock - totalTicketsToGenerate;
     const newStatus = newStock === 0 ? "sold_out" : "active";
 
+    if (settlementType !== PAYMENT_SETTLEMENT.DIRECT) {
+      if (
+        paymentSettlement.orderId !== orderRef.id ||
+        paymentSettlement.amountMinor !== Math.round(totalAmount * 100) ||
+        String(paymentSettlement.currency || "").toLowerCase() !== "gbp"
+      ) {
+        throw new Error("Settlement context does not match the order being fulfilled.");
+      }
+    }
+
+    const paidTicketOrigin =
+      settlementType === PAYMENT_SETTLEMENT.STRIPE_PAID
+        ? TICKET_ORIGIN.PAID
+        : settlementType === PAYMENT_SETTLEMENT.STRIPE_ZERO_PAYMENT
+          ? TICKET_ORIGIN.ZERO_PAYMENT
+          : totalAmount === 0
+            ? TICKET_ORIGIN.ZERO_PAYMENT
+            : TICKET_ORIGIN.UNVERIFIED;
+
     const serverNow = admin.firestore.FieldValue.serverTimestamp();
+    const ticketOrigins = [
+      ...Array(qty).fill(paidTicketOrigin),
+      ...Array(packBonusTickets).fill(TICKET_ORIGIN.PACK_BONUS),
+      ...referralSnaps.map((snap) =>
+        getReferralTicketOrigin(snap.data()?.reward_type)
+      ),
+      ...Array(referralBonusTickets).fill(TICKET_ORIGIN.REFERRAL_USE_BONUS),
+    ];
+    if (ticketOrigins.length !== totalTicketsToGenerate) {
+      throw new Error("Ticket origin allocation mismatch.");
+    }
 
     transaction.update(competitionRef, {
       stock_quantity: admin.firestore.FieldValue.increment(-totalTicketsToGenerate),
@@ -255,6 +301,7 @@ export async function runOrderTransaction(
         ticket_sequence: ticketSequence,
         status: "active",
         is_winner: false,
+        allocation_type: ticketOrigins[i],
         created_at: serverNow,
       });
 
@@ -310,7 +357,7 @@ export async function runOrderTransaction(
 
         if (rewardType === 'admin_bonus') {
           referralsByType.admin_bonus++;
-        } else if (rewardType === 'referral') {
+        } else if (rewardType === 'referral' || rewardType === 'free_ticket') {
           referralsByType.referral++;
         } else {
           referralsByType.other++;

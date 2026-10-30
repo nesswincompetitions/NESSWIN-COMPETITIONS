@@ -8,6 +8,7 @@ import {
   ticketBelongsToCompetition,
   ticketBelongsToUser,
 } from "./ticketAdjustmentPolicy.js";
+import { getTicketOrigin } from "./ticketOrigin.js";
 import { normalizeTicketStatus } from "./ticketEligibility.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
@@ -208,6 +209,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
         const ticketSnaps = await Promise.all(ticketRefs.map((ref) => transaction.get(ref)));
         const ticketSequences = [];
         const ticketNumbers = [];
+        const ticketOrigins = [];
         const orderRefs = [];
         const seenOrderIds = new Set();
 
@@ -250,6 +252,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
               ? ticketData.ticket_number
               : null
           );
+          ticketOrigins.push(getTicketOrigin(ticketData));
 
           const orderId = getReferenceId(ticketData.order_id);
           if (orderId && !seenOrderIds.has(orderId)) {
@@ -290,6 +293,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
             ticketIds: selectedTicketIds,
             ticketNumbers,
             ticketSequences,
+            ticketOrigins,
             quantityScope: "selected_active_tickets",
             previousQuantity: selectedTicketIds.length,
             newQuantity: 0,
@@ -302,7 +306,9 @@ export function createInvalidateUserCompetitionTicketsHandler({
             inventoryBefore: null,
             inventoryAfter: null,
             reason: reasonText,
-            adminRef,
+            actorRef: adminRef,
+            actorRole: "admin",
+            paymentEffect: "none",
             requestId: normalizedRequestId,
             result,
             serverNow: now,
@@ -399,7 +405,15 @@ export function createInvalidateUserCompetitionTicketsHandler({
 
         const status = normalizeTicketStatus(ticketData.status);
         if (status === "active") {
-          toInvalidate.push({ ref: expectedDoc.ref, sequence: ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id });
+          toInvalidate.push({
+            ref: expectedDoc.ref,
+            sequence: ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id,
+            ticketNumber: isFiniteNonNegativeInteger(ticketData.ticket_number)
+              ? ticketData.ticket_number
+              : null,
+            origin: getTicketOrigin(ticketData),
+            orderRef: ticketData.order_id || null,
+          });
         } else if (status === "invalid") {
           alreadyInvalid.push(ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id);
         } else if (status === "cancelled") {
@@ -435,7 +449,17 @@ export function createInvalidateUserCompetitionTicketsHandler({
         });
       });
 
-      return {
+      const orderRefs = [];
+      const seenOrderIds = new Set();
+      toInvalidate.forEach(({ orderRef }) => {
+        const orderId = getReferenceId(orderRef);
+        if (orderId && !seenOrderIds.has(orderId)) {
+          seenOrderIds.add(orderId);
+          orderRefs.push(orderRef);
+        }
+      });
+
+      const result = {
         success: true,
         complete: true,
         invalidatedCount: toInvalidate.length,
@@ -446,6 +470,42 @@ export function createInvalidateUserCompetitionTicketsHandler({
         ticketIds: toInvalidate.map(({ ref }) => ref.id),
         ticketSequences: toInvalidate.map(({ sequence }) => sequence),
       };
+
+      const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc();
+      transaction.set(
+        adjustmentRef,
+        buildTicketAdjustmentRecord({
+          operation: "ticket_invalidation",
+          source: "admin_all_active_tickets",
+          userRef,
+          competitionRef,
+          orderRefs,
+          primaryOrderRef: orderRefs[0] || null,
+          quantity: toInvalidate.length,
+          direction: "decrease",
+          ticketIds: result.ticketIds,
+          ticketNumbers: toInvalidate.map(({ ticketNumber }) => ticketNumber),
+          ticketSequences: result.ticketSequences,
+          ticketOrigins: toInvalidate.map(({ origin }) => origin),
+          quantityScope: "all_active_tickets",
+          previousQuantity: toInvalidate.length,
+          newQuantity: 0,
+          activeCountScope: "all_active_tickets",
+          activeCountBefore: toInvalidate.length,
+          activeCountAfter: 0,
+          selectedCountBefore: toInvalidate.length,
+          selectedCountAfter: 0,
+          reason: reasonText,
+          actorRef: adminRef,
+          actorRole: "admin",
+          paymentEffect: "none",
+          requestId: null,
+          result,
+          serverNow: now,
+        })
+      );
+
+      return result;
     });
 
     logger.info(

@@ -5,6 +5,7 @@ import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js
 import { runOrderTransaction } from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { getOrderPricing } from "../services/orderPricingService.js";
+import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
 import Stripe from "stripe";
 import { CloudTasksClient } from "@google-cloud/tasks";
 
@@ -177,6 +178,7 @@ export const processOrder = onCall(async (request) => {
       freeTicketsToUse: Number(freeTicketsToUse) || 0,
       referralsToBurn: Array.isArray(referralsToBurn) ? referralsToBurn : [],
       orderId, // Pass through if exists
+      paymentSettlement: PAYMENT_SETTLEMENT.DIRECT,
     });
 
     logger.info(`[processOrder] ✅ Order ${result.orderId} created — ${result.tickets.length} tickets`);
