@@ -21,7 +21,11 @@ function seed(db, referralTypes = [], competitionOverrides = {}) {
   const userRef = db.collection('user').doc('u1');
   const competitionRef = db.collection('competition').doc('c1');
 
-  db.setDocument('user', 'u1', { display_name: 'Test User' });
+  db.setDocument('user', 'u1', {
+    display_name: 'Test User',
+    free_tickets: referralTypes.length,
+    total_free_tickets: referralTypes.length,
+  });
   db.setDocument('competition', 'c1', {
     title: 'Origin Competition',
     status: 'active',

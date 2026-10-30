@@ -37,12 +37,169 @@ export function formatTicketSequence(prefix, sequence) {
 export const DIRECT_PAYMENT_REQUIRED_MESSAGE =
   "Paid orders must be completed through Stripe Checkout.";
 
+export const MAX_CHECKOUT_TICKET_QUANTITY = 100;
+export const MAX_CHECKOUT_REFERRAL_TICKETS = 100;
+
 export class DirectPaymentRequiredError extends Error {
   constructor(message = DIRECT_PAYMENT_REQUIRED_MESSAGE) {
     super(message);
     this.name = "DirectPaymentRequiredError";
     this.code = "direct_payment_required";
   }
+}
+
+export class CheckoutValidationError extends Error {
+  constructor(message, code = "invalid-argument") {
+    super(message);
+    this.name = "CheckoutValidationError";
+    this.code = code;
+  }
+}
+
+export class AccountNotEligibleError extends Error {
+  constructor(message = "This account is being deleted or is no longer eligible for purchases.") {
+    super(message);
+    this.name = "AccountNotEligibleError";
+    this.code = "account_not_eligible";
+  }
+}
+
+export function assertAccountEligibleForCheckout(userData) {
+  const status = String(userData?.status || "").trim().toLowerCase();
+  if (userData?.is_deleted === true || status === "deleting" || status === "deleted") {
+    throw new AccountNotEligibleError();
+  }
+}
+
+function normalizeReferralId(value) {
+  if (typeof value !== "string") return null;
+
+  const id = value.trim();
+  if (!id || id === "." || id === ".." || id.includes("/")) {
+    return null;
+  }
+
+  return id;
+}
+
+export function validateCheckoutInputs({
+  ticketQuantity,
+  freeTicketsToUse = 0,
+  referralsToBurn = [],
+} = {}) {
+  const quantity = Number(ticketQuantity);
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity < 0) {
+    throw new CheckoutValidationError("ticketQuantity must be a non-negative integer.");
+  }
+  if (quantity > MAX_CHECKOUT_TICKET_QUANTITY) {
+    throw new CheckoutValidationError(
+      `Maximum ${MAX_CHECKOUT_TICKET_QUANTITY} tickets per order.`
+    );
+  }
+
+  if (
+    typeof freeTicketsToUse !== "number" ||
+    !Number.isFinite(freeTicketsToUse) ||
+    !Number.isInteger(freeTicketsToUse) ||
+    freeTicketsToUse < 0
+  ) {
+    throw new CheckoutValidationError(
+      "freeTicketsToUse must be a finite non-negative integer."
+    );
+  }
+  if (freeTicketsToUse > MAX_CHECKOUT_REFERRAL_TICKETS) {
+    throw new CheckoutValidationError(
+      `Maximum ${MAX_CHECKOUT_REFERRAL_TICKETS} referral tickets can be used per order.`
+    );
+  }
+
+  const referralInput = referralsToBurn === undefined ? [] : referralsToBurn;
+  if (!Array.isArray(referralInput)) {
+    throw new CheckoutValidationError(
+      "referralsToBurn must be an array when provided."
+    );
+  }
+  if (referralInput.length > MAX_CHECKOUT_REFERRAL_TICKETS) {
+    throw new CheckoutValidationError(
+      `Maximum ${MAX_CHECKOUT_REFERRAL_TICKETS} referral credits can be supplied per order.`
+    );
+  }
+  if (referralInput.length !== freeTicketsToUse) {
+    throw new CheckoutValidationError(
+      "freeTicketsToUse must match the number of referral credits supplied."
+    );
+  }
+
+  const referralIds = [];
+  const seenIds = new Set();
+  for (const referral of referralInput) {
+    if (!referral || typeof referral !== "object" || Array.isArray(referral)) {
+      throw new CheckoutValidationError(
+        "Each referral credit must contain a valid non-empty id."
+      );
+    }
+
+    const id = normalizeReferralId(referral.id);
+    if (!id) {
+      throw new CheckoutValidationError(
+        "Each referral credit must contain a valid non-empty id."
+      );
+    }
+    if (seenIds.has(id)) {
+      throw new CheckoutValidationError(
+        "referralsToBurn must not contain duplicate referral ids."
+      );
+    }
+
+    seenIds.add(id);
+    referralIds.push(id);
+  }
+
+  if (quantity === 0 && freeTicketsToUse === 0) {
+    throw new CheckoutValidationError(
+      "At least one ticket must be requested (paid or free)."
+    );
+  }
+
+  return {
+    ticketQuantity: quantity,
+    freeTicketsToUse,
+    referralIds,
+  };
+}
+
+export function validatePersistedCheckoutInputs(orderData) {
+  if (!orderData || typeof orderData !== "object" || Array.isArray(orderData)) {
+    throw new CheckoutValidationError("Persisted order data is invalid.");
+  }
+
+  if (typeof orderData.ticket_quantity !== "number") {
+    throw new CheckoutValidationError(
+      "Persisted ticket_quantity must be a number for fulfillment."
+    );
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(orderData, "free_tickets_to_use") ||
+    orderData.free_tickets_to_use === undefined
+  ) {
+    throw new CheckoutValidationError(
+      "Persisted free_tickets_to_use is required for fulfillment."
+    );
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(orderData, "referrals_to_burn") ||
+    orderData.referrals_to_burn === undefined
+  ) {
+    throw new CheckoutValidationError(
+      "Persisted referrals_to_burn is required for fulfillment."
+    );
+  }
+
+  return validateCheckoutInputs({
+    ticketQuantity: orderData.ticket_quantity,
+    freeTicketsToUse: orderData.free_tickets_to_use,
+    referralsToBurn: orderData.referrals_to_burn,
+  });
 }
 
 export function getDirectPaymentBlock({ totalAmount, existingOrderData = null }) {
@@ -98,37 +255,33 @@ export async function runOrderTransaction(
   if (!settlementType) {
     throw new Error("Invalid payment settlement context.");
   }
-  const qty = Number(ticketQuantity);
-  if (!Number.isInteger(qty) || qty < 0) {
-    throw new Error("Quantity must be a non-negative integer.");
-  }
-  if (qty > 100) {
-    throw new Error("Maximum 100 tickets per order.");
-  }
   if (!competitionId || !uid) {
     throw new Error("competitionId and uid are required.");
   }
+
+  const validatedInputs = validateCheckoutInputs({
+    ticketQuantity,
+    freeTicketsToUse,
+    referralsToBurn,
+  });
+  const qty = validatedInputs.ticketQuantity;
+  const clampedReferralTickets = validatedInputs.freeTicketsToUse;
 
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
   const orderRef = orderId ? db.collection("order").doc(orderId) : db.collection("order").doc();
 
   const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(qty);
-  const clampedReferralTickets = Math.max(0, Math.floor(freeTicketsToUse));
   const referralBonusTickets = Math.floor(clampedReferralTickets / 10);
   const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets + referralBonusTickets;
-
-  if (totalTicketsToGenerate <= 0) {
-    throw new Error("At least one ticket must be requested (paid or free).");
-  }
 
   const ticketRefs = Array.from({ length: totalTicketsToGenerate }, () =>
     db.collection("ticket").doc()
   );
 
-  const referralRefs = (referralsToBurn || [])
-    .slice(0, clampedReferralTickets)
-    .map((r) => db.collection("referrals").doc(r.id));
+  const referralRefs = validatedInputs.referralIds.map((id) =>
+    db.collection("referrals").doc(id)
+  );
 
   const result = await db.runTransaction(async (transaction) => {
     let existingOrderData = null;
@@ -161,6 +314,28 @@ export async function runOrderTransaction(
 
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) throw new Error("User not found.");
+
+    assertAccountEligibleForCheckout(userSnap.data());
+
+    if (clampedReferralTickets > 0) {
+      const storedFreeTickets = userSnap.data()?.free_tickets;
+      if (
+        !Number.isFinite(storedFreeTickets) ||
+        !Number.isInteger(storedFreeTickets) ||
+        storedFreeTickets < 0
+      ) {
+        throw new CheckoutValidationError(
+          "The stored free-ticket balance is invalid, so referral credits cannot be used safely.",
+          "failed-precondition"
+        );
+      }
+      if (storedFreeTickets < clampedReferralTickets) {
+        throw new CheckoutValidationError(
+          `Insufficient free-ticket balance: requested ${clampedReferralTickets}, available ${storedFreeTickets}.`,
+          "failed-precondition"
+        );
+      }
+    }
 
     let validReferralCount = 0;
     const referralSnaps = await Promise.all(
@@ -296,6 +471,9 @@ export async function runOrderTransaction(
       status: "paid",
       is_winner: false,
       stripe_payment_intent_id: "",
+      ...(existingOrderData?.stripe_checkout_session_id
+        ? { stripe_checkout_session_id: existingOrderData.stripe_checkout_session_id }
+        : {}),
       stripe_status: totalAmount === 0 ? "free" : "mock",
       question_answer: (() => {
         // Build the Map from the client payload

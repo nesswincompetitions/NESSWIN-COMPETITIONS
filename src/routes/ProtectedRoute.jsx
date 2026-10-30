@@ -2,6 +2,11 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/state/AuthContext';
 
+const isAccountDeletionPending = (userData) => {
+  const status = String(userData?.status || '').trim().toLowerCase();
+  return userData?.is_deleted === true || status === 'deleting' || status === 'deleted';
+};
+
 export const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { currentUser, userData, initialLoading } = useAuth();
   const location = useLocation();
@@ -26,6 +31,15 @@ export const ProtectedRoute = ({ children, requireAdmin = false }) => {
         <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
+  }
+
+  // A partially or fully deleted account may only retry deletion.
+  if (
+    userData.role !== 'admin' &&
+    isAccountDeletionPending(userData) &&
+    location.pathname !== '/profile/delete'
+  ) {
+    return <Navigate to="/profile/delete" replace />;
   }
 
   // Logged in but not verified or onboarding incomplete -> force onboarding (skip for admins)
@@ -68,6 +82,9 @@ export const AuthRoute = ({ children }) => {
   if (currentUser && userData) {
     if (userData.role === 'admin') {
       return <Navigate to="/admin" replace />;
+    }
+    if (isAccountDeletionPending(userData)) {
+      return <Navigate to="/profile/delete" replace />;
     }
     if (!userData.is_verified || !userData.user_name || !userData.date_of_birth) {
       return <Navigate to="/onboarding" replace />;

@@ -17,6 +17,7 @@ async function loadUserTickets(db, uid, userRef) {
   const snapshots = await Promise.all([
     db.collection("ticket").where("user_id", "==", uid).get(),
     db.collection("ticket").where("user_id", "==", userRef).get(),
+    db.collection("ticket").where("user_id", "==", `/user/${uid}`).get(),
     db.collection("ticket").where("user_ref", "==", userRef).get(),
     db.collection("ticket").where("user", "==", userRef).get(),
   ]);
@@ -34,7 +35,9 @@ async function loadUserTickets(db, uid, userRef) {
 async function loadUserOrders(db, uid, userRef) {
   const snapshots = await Promise.all([
     db.collection("order").where("user_id", "==", uid).get(),
+    db.collection("order").where("user_ref", "==", uid).get(),
     db.collection("order").where("user_ref", "==", userRef).get(),
+    db.collection("order").where("user_ref", "==", `/user/${uid}`).get(),
   ]);
 
   const uniqueOrders = new Map();
@@ -177,6 +180,12 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
         throw new HttpsError("not-found", "User not found.");
       }
 
+      const existingUser = userSnap.data();
+      await userRef.update({
+        status: "deleting",
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
       const [userTickets, userOrders] = await Promise.all([
         loadUserTickets(db, uid, userRef),
         loadUserOrders(db, uid, userRef),
@@ -223,7 +232,14 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
         }
       }
 
-      const existingUser = userSnap.data();
+      try {
+        await admin.auth().deleteUser(uid);
+      } catch (authError) {
+        if (authError?.code !== "auth/user-not-found") {
+          throw authError;
+        }
+      }
+
       await userRef.update({
         is_deleted: true,
         is_active: false,
@@ -234,25 +250,6 @@ export function createSoftDeleteUserHandler({ db, admin, HttpsError }) {
         phone_number: admin.firestore.FieldValue.delete(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
-
-      try {
-        await admin.auth().deleteUser(uid);
-      } catch (authError) {
-        if (authError?.code !== "auth/user-not-found") {
-          try {
-            await userRef.update({
-              is_active: true,
-              updated_at: admin.firestore.FieldValue.serverTimestamp(),
-            });
-          } catch (rollbackError) {
-            console.error(
-              `Failed to re-enable user ${uid} after Auth deletion failure:`,
-              rollbackError
-            );
-          }
-          throw authError;
-        }
-      }
 
       return {
         success: true,

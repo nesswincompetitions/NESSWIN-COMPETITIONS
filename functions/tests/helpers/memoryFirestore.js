@@ -148,6 +148,12 @@ export class MemoryCollection {
     return new MemoryDocRef(this.db, this.name, resolvedId);
   }
 
+  async add(data) {
+    const ref = this.doc();
+    this.db.setDocument(this.name, ref.id, data);
+    return ref;
+  }
+
   where(field, operator, value) {
     return new MemoryQuery(this.db, this.name).where(field, operator, value);
   }

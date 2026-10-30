@@ -3,8 +3,12 @@ import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
 import {
+  AccountNotEligibleError,
+  CheckoutValidationError,
   DirectPaymentRequiredError,
+  assertAccountEligibleForCheckout,
   runOrderTransaction,
+  validateCheckoutInputs,
 } from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { getOrderPricing } from "../services/orderPricingService.js";
@@ -160,33 +164,24 @@ export function createProcessOrderHandler({
     throw new HttpsError("invalid-argument", "competitionId is required.");
   }
 
-  const qty = Number(ticketQuantity);
-  const freeUse = Number(freeTicketsToUse) || 0;
-  const referralsArr = Array.isArray(referralsToBurn) ? referralsToBurn : [];
-
-  if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty < 0) {
-    throw new HttpsError("invalid-argument", "ticketQuantity must be a non-negative integer.");
-  }
-
-  // Allow zero paid tickets only when the user is redeeming free/referral tickets
-  if (qty === 0 && freeUse === 0 && referralsArr.length === 0) {
-    throw new HttpsError("invalid-argument", "At least one ticket must be requested (paid or free).");
-  }
-  if (qty > 100) {
-    throw new HttpsError("invalid-argument", "Maximum 100 tickets per order.");
-  }
-
-  logger.info(`[processOrder] uid=${uid} competition=${competitionId} qty=${qty} referrals=${referralsToBurn?.length || 0}`);
-
   try {
+    const checkoutInput = validateCheckoutInputs({
+      ticketQuantity,
+      freeTicketsToUse,
+      referralsToBurn,
+    });
+    const qty = checkoutInput.ticketQuantity;
+
+    logger.info(`[processOrder] uid=${uid} competition=${competitionId} qty=${qty} referrals=${checkoutInput.referralIds.length}`);
+
     // ── Run atomic transaction ─────────────────────────────────────────────────
     const result = await runOrderTransaction(db, admin, {
       uid,
       competitionId,
       ticketQuantity: qty,
       questionAnswer,
-      freeTicketsToUse: Number(freeTicketsToUse) || 0,
-      referralsToBurn: Array.isArray(referralsToBurn) ? referralsToBurn : [],
+      freeTicketsToUse: checkoutInput.freeTicketsToUse,
+      referralsToBurn: checkoutInput.referralIds.map((id) => ({ id })),
       orderId, // Pass through if exists
       paymentSettlement: PAYMENT_SETTLEMENT.DIRECT,
     });
@@ -285,6 +280,14 @@ export function createProcessOrderHandler({
 
     return result;
   } catch (err) {
+    if (err instanceof AccountNotEligibleError) {
+      throw new HttpsError("failed-precondition", err.message);
+    }
+
+    if (err instanceof CheckoutValidationError) {
+      throw new HttpsError(err.code, err.message);
+    }
+
     if (err instanceof DirectPaymentRequiredError) {
       logger.warn("[processOrder] Direct paid fulfillment rejected:", err.message);
       throw new HttpsError("failed-precondition", err.message);
@@ -329,12 +332,23 @@ export const createStripeCheckoutSession = onCall(async (request) => {
     throw new HttpsError("invalid-argument", "origin is required unless both success_url and cancel_url are provided.");
   }
 
-  const qty = Number(ticketQuantity);
-  if (!Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
-    throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
+  let checkoutInput;
+  try {
+    checkoutInput = validateCheckoutInputs({
+      ticketQuantity,
+      freeTicketsToUse,
+      referralsToBurn,
+    });
+  } catch (err) {
+    if (err instanceof CheckoutValidationError) {
+      throw new HttpsError(err.code, err.message);
+    }
+    throw err;
   }
-  if (qty > 100) {
-    throw new HttpsError("invalid-argument", "Maximum 100 tickets per order.");
+
+  const qty = checkoutInput.ticketQuantity;
+  if (qty <= 0) {
+    throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
   }
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -352,6 +366,12 @@ export const createStripeCheckoutSession = onCall(async (request) => {
     if (compData.status !== "active") {
       throw new HttpsError("failed-precondition", "Competition is not active.");
     }
+
+    const userSnap = await db.collection("user").doc(uid).get();
+    if (!userSnap.exists) {
+      throw new HttpsError("failed-precondition", "User not found.");
+    }
+    assertAccountEligibleForCheckout(userSnap.data());
 
     const ticketPrice = Number(compData.ticket_price || 0);
     const { discount } = getOrderPricing(qty);
@@ -372,8 +392,8 @@ export const createStripeCheckoutSession = onCall(async (request) => {
       competition_id: competitionRef,
       status: "pending",
       ticket_quantity: qty,
-      free_tickets_to_use: Number(freeTicketsToUse) || 0,
-      referrals_to_burn: Array.isArray(referralsToBurn) ? referralsToBurn : [],
+      free_tickets_to_use: checkoutInput.freeTicketsToUse,
+      referrals_to_burn: checkoutInput.referralIds.map((id) => ({ id })),
       question_answer: questionAnswer || {},
       total_amount: totalAmount,
       created_at: admin.firestore.FieldValue.serverTimestamp(),
@@ -446,6 +466,10 @@ export const createStripeCheckoutSession = onCall(async (request) => {
 
     return { sessionUrl: session.url };
   } catch (err) {
+    if (err instanceof AccountNotEligibleError) {
+      throw new HttpsError("failed-precondition", err.message);
+    }
+
     logger.error("[createStripeCheckoutSession] Error:", err.message);
     throw toHttpsError(err, "Failed to create Stripe checkout session.");
   }

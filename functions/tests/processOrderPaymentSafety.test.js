@@ -102,6 +102,73 @@ describe('processOrder payment safety', () => {
     assert.equal(db.snapshot('order', 'o1').data().status, 'pending');
   });
 
+  it('rejects malformed checkout inputs before any mutation', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    const handler = makeHandler(db);
+    const beforeOrder = { ...db.snapshot('order', 'o1').data() };
+    const beforeUser = { ...db.snapshot('user', 'u1').data() };
+    const beforeReferral = { ...db.snapshot('referrals', 'r1').data() };
+
+    await assert.rejects(
+      handler({
+        auth: { uid: 'u1' },
+        data: {
+          competitionId: 'c1',
+          ticketQuantity: 5,
+          questionAnswer: {},
+          freeTicketsToUse: '1',
+          referralsToBurn: [{ id: 'r1' }],
+        },
+      }),
+      (error) =>
+        error instanceof MockHttpsError &&
+        error.code === 'invalid-argument' &&
+        /freeTicketsToUse/.test(error.message)
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 0);
+    assert.equal(db.collections.has('ff_user_push_notifications'), false);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), beforeOrder);
+    assert.deepEqual(db.snapshot('user', 'u1').data(), beforeUser);
+    assert.deepEqual(db.snapshot('referrals', 'r1').data(), beforeReferral);
+  });
+
+  it('rejects direct checkout for an account with deletion in progress', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    db.setDocument('user', 'u1', {
+      ...db.snapshot('user', 'u1').data(),
+      status: 'deleting',
+    });
+    const handler = makeHandler(db);
+    const beforeOrder = { ...db.snapshot('order', 'o1').data() };
+    const beforeUser = { ...db.snapshot('user', 'u1').data() };
+    const beforeReferral = { ...db.snapshot('referrals', 'r1').data() };
+
+    await assert.rejects(
+      handler({
+        auth: { uid: 'u1' },
+        data: {
+          competitionId: 'c1',
+          ticketQuantity: 1,
+          questionAnswer: {},
+          freeTicketsToUse: 0,
+          referralsToBurn: [],
+        },
+      }),
+      (error) =>
+        error instanceof MockHttpsError &&
+        error.code === 'failed-precondition' &&
+        /being deleted/.test(error.message)
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 0);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), beforeOrder);
+    assert.deepEqual(db.snapshot('user', 'u1').data(), beforeUser);
+    assert.deepEqual(db.snapshot('referrals', 'r1').data(), beforeReferral);
+  });
+
   it('cannot bypass the restriction by passing a positive pending Stripe order ID', async () => {
     const db = new MemoryDB();
     const { userRef, competitionRef } = seed(db);

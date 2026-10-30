@@ -1,7 +1,12 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
-import { runOrderTransaction } from "../services/orderTransactionService.js";
+import {
+  AccountNotEligibleError,
+  CheckoutValidationError,
+  runOrderTransaction,
+  validatePersistedCheckoutInputs,
+} from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import {
   evaluateCheckoutSettlement,
@@ -10,9 +15,22 @@ import {
 import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
 import Stripe from "stripe";
 
-export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+export function createStripeWebhookHandler({
+  db,
+  admin,
+  logger,
+  runOrderTransaction,
+  buildNotificationPayload,
+  evaluateCheckoutSettlement,
+  SettlementValidationError,
+  PAYMENT_SETTLEMENT,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+  getWebhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET,
+}) {
+  return async function handleStripeWebhook(req, res) {
+  const stripeSecretKey = getStripeSecretKey();
+  const webhookSecret = getWebhookSecret();
 
   if (!stripeSecretKey) {
     logger.error("[stripeWebhook] Stripe secret key is not configured.");
@@ -20,7 +38,7 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
   }
 
   const sig = req.headers["stripe-signature"];
-  const stripe = new Stripe(stripeSecretKey);
+  const stripe = stripeFactory(stripeSecretKey);
   let event;
 
   try {
@@ -116,15 +134,17 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
         return res.status(400).send("Invalid order document.");
       }
 
+      const checkoutInput = validatePersistedCheckoutInputs(orderData);
+
       logger.info(`[stripeWebhook] Fulfilling order ${orderId} for uid=${uid}`);
 
       const result = await runOrderTransaction(db, admin, {
         uid,
         competitionId,
-        ticketQuantity: orderData.ticket_quantity,
+        ticketQuantity: checkoutInput.ticketQuantity,
         questionAnswer: orderData.question_answer || {},
-        freeTicketsToUse: orderData.free_tickets_to_use || 0,
-        referralsToBurn: orderData.referrals_to_burn || [],
+        freeTicketsToUse: checkoutInput.freeTicketsToUse,
+        referralsToBurn: checkoutInput.referralIds.map((id) => ({ id })),
         orderId: orderId,
         paymentSettlement: decision.settlementContext,
       });
@@ -221,6 +241,23 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
       }
 
     } catch (err) {
+      if (err instanceof AccountNotEligibleError) {
+        logger.error(
+          `[stripeWebhook] Account not eligible for order ${orderId}:`,
+          err.message
+        );
+        return res.status(400).send(`Account not eligible: ${err.message}`);
+      }
+
+      if (err instanceof CheckoutValidationError) {
+        logger.error(
+          `[stripeWebhook] Checkout validation failed for order ${orderId}:`,
+          err.message
+        );
+        const statusCode = err.code === "invalid-argument" ? 400 : 500;
+        return res.status(statusCode).send(`Checkout validation failed: ${err.message}`);
+      }
+
       if (!transactionCompleted) {
         const freshOrder = await orderRef.get().catch(() => null);
         const freshData = freshOrder?.exists ? freshOrder.data() : null;
@@ -254,4 +291,19 @@ export const stripeWebhook = onRequest({ cors: true }, async (req, res) => {
   }
 
   return res.status(200).send("Webhook event handled.");
-});
+  };
+}
+
+export const stripeWebhook = onRequest(
+  { cors: true },
+  createStripeWebhookHandler({
+    db,
+    admin,
+    logger,
+    runOrderTransaction,
+    buildNotificationPayload,
+    evaluateCheckoutSettlement,
+    SettlementValidationError,
+    PAYMENT_SETTLEMENT,
+  })
+);

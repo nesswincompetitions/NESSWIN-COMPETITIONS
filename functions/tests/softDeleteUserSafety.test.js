@@ -29,6 +29,7 @@ function seed(db) {
   db.setDocument('user', 'u1', {
     display_name: 'Test User',
     email: 'user@example.com',
+    is_active: true,
     free_tickets: 1,
   });
   db.setDocument('competition', 'cActive', {
@@ -151,7 +152,7 @@ describe('softDeleteUser ticket safety', () => {
     assert.equal(db.snapshot('ticket', 'tLegacyMissing').data().status, undefined);
   });
 
-  it('does not report success when the final auth deletion fails', async () => {
+  it('keeps the account in a deleting state when the final auth deletion fails', async () => {
     const db = new MemoryDB();
     seed(db);
     const admin = createMockAdmin();
@@ -167,9 +168,14 @@ describe('softDeleteUser ticket safety', () => {
       (error) => error.code === 'internal'
     );
 
+    const user = db.snapshot('user', 'u1').data();
     assert.equal(db.snapshot('ticket', 'tSafe').data().status, 'invalid');
-    assert.equal(db.snapshot('user', 'u1').data().is_deleted, true);
-    assert.equal(db.snapshot('user', 'u1').data().is_active, true);
+    assert.equal(user.status, 'deleting');
+    assert.equal(user.is_deleted, undefined);
+    assert.equal(user.is_active, true);
+    assert.equal(user.display_name, 'Test User');
+    assert.equal(user.email, 'user@example.com');
+    assert.equal(db.snapshot('order', 'o1').data().customer_name, 'Anonymous');
   });
 
   it('resumes safely after auth deletion fails without duplicating ticket audit', async () => {
@@ -196,8 +202,8 @@ describe('softDeleteUser ticket safety', () => {
     );
 
     const firstAudit = db.snapshot('ticket', 'tSafe').data().invalidated_at;
-    const firstDeletedAt = db.snapshot('user', 'u1').data().deleted_at;
     const firstAdjustmentCount = db.collectionStore('ticket_adjustments').size;
+    assert.equal(db.snapshot('user', 'u1').data().status, 'deleting');
     assert.equal(db.snapshot('user', 'u1').data().is_active, true);
 
     const second = await handler({ auth: { uid: 'u1' } });
@@ -208,9 +214,45 @@ describe('softDeleteUser ticket safety', () => {
     assert.equal(deleteAttempts, 2);
     assert.deepEqual(admin.deletedAuthUsers, ['u1']);
     assert.equal(db.snapshot('ticket', 'tSafe').data().invalidated_at, firstAudit);
-    assert.equal(db.snapshot('user', 'u1').data().deleted_at, firstDeletedAt);
     assert.equal(db.snapshot('user', 'u1').data().is_active, false);
     assert.equal(db.snapshot('user', 'u1').data().is_deleted, true);
+    assert.equal(db.snapshot('user', 'u1').data().status, 'deleted');
+  });
+
+  it('handles supported legacy ticket and order user reference formats', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    db.setDocument('ticket', 'tLegacyPath', {
+      user_id: '/user/u1',
+      competition_id: db.collection('competition').doc('cActive'),
+      order_id: db.collection('order').doc('o1'),
+      ticket_number: 2,
+      ticket_sequence: 'T-LegacyPath',
+      status: 'active',
+      is_winner: false,
+    });
+    db.setDocument('order', 'oLegacy', {
+      user_ref: '/user/u1',
+      customer_name: 'Legacy User',
+      customer_email: 'legacy@example.com',
+      status: 'paid',
+    });
+    const { handler } = makeHandler(db);
+
+    const result = await handler({ auth: { uid: 'u1' } });
+
+    assert.equal(result.success, true);
+    assert.equal(result.ticketsInvalidated, 3);
+    assert.equal(db.snapshot('ticket', 'tLegacyPath').data().status, 'invalid');
+    assert.equal(
+      db.snapshot('ticket_adjustments', 'account_deletion_u1_tLegacyPath').data().source,
+      'account_deletion'
+    );
+    assert.equal(db.snapshot('order', 'oLegacy').data().customer_name, 'Anonymous');
+    assert.equal(
+      db.snapshot('order', 'oLegacy').data().customer_email,
+      'deleted_u1@nesswin.com'
+    );
   });
 
   it('is idempotent when executed again after a completed deletion', async () => {
