@@ -438,7 +438,10 @@
         "won": "Ganador",
         "lost": "Finalizado",
         "default": "Pendiente"
-      }
+      },
+      "current": "Actual",
+      "original": "Original",
+      "purchasedTotal": "Comprados"
     },
     "ordersPage": {
       "purchaseHistory": "Historial de compras",
@@ -470,7 +473,9 @@
         "failed": "Fallido",
         "pending": "Pendiente",
         "default": "Procesando"
-      }
+      },
+      "originalQuantity": "Original: {{count}}",
+      "currentQuantity": "Actual: {{count}}"
     },
     "support": {
       "supportCenter": "Centro de soporte",

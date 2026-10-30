@@ -44,39 +44,92 @@ export class MemoryDocRef {
   }
 }
 
+function compareQueryValues(left, right) {
+  if (left === right) return 0;
+  if (left === undefined || left === null) return -1;
+  if (right === undefined || right === null) return 1;
+  if (typeof left === 'number' && typeof right === 'number') return left - right;
+  return String(left).localeCompare(String(right));
+}
+
+function querySnapshots(query, onRead) {
+  const docs = [];
+  const store = query.db.collectionStore(query.collectionName);
+
+  store.forEach((data, id) => {
+    const matches = query.constraints.every(({ field, operator, value }) => {
+      if (operator !== '==') {
+        throw new Error(`Unsupported query operator in test harness: ${operator}`);
+      }
+      return valuesEqual(data?.[field], value);
+    });
+
+    if (matches) {
+      const ref = new MemoryDocRef(query.db, query.collectionName, id);
+      if (onRead) onRead(ref);
+      docs.push({ ref, data });
+    }
+  });
+
+  if (query.orderByConstraints.length > 0) {
+    docs.sort((left, right) => {
+      for (const { field, direction } of query.orderByConstraints) {
+        const result = compareQueryValues(left.data?.[field], right.data?.[field]);
+        if (result !== 0) return direction === 'desc' ? -result : result;
+      }
+      return 0;
+    });
+  }
+
+  const limited = query.limitCount === null
+    ? docs
+    : docs.slice(0, query.limitCount);
+
+  return limited.map(({ ref, data }) => makeSnapshot(ref, data));
+}
+
 export class MemoryQuery {
-  constructor(db, collectionName, constraints = []) {
+  constructor(db, collectionName, constraints = [], orderByConstraints = [], limitCount = null) {
     this.db = db;
     this.collectionName = collectionName;
     this.constraints = constraints;
+    this.orderByConstraints = orderByConstraints;
+    this.limitCount = limitCount;
   }
 
   where(field, operator, value) {
-    return new MemoryQuery(this.db, this.collectionName, [
-      ...this.constraints,
-      { field, operator, value },
-    ]);
+    return new MemoryQuery(
+      this.db,
+      this.collectionName,
+      [...this.constraints, { field, operator, value }],
+      this.orderByConstraints,
+      this.limitCount,
+    );
+  }
+
+  orderBy(field, direction = 'asc') {
+    return new MemoryQuery(
+      this.db,
+      this.collectionName,
+      this.constraints,
+      [...this.orderByConstraints, { field, direction }],
+      this.limitCount,
+    );
+  }
+
+  limit(count) {
+    return new MemoryQuery(
+      this.db,
+      this.collectionName,
+      this.constraints,
+      this.orderByConstraints,
+      count,
+    );
   }
 
   async get() {
-    const docs = [];
-    const store = this.db.collectionStore(this.collectionName);
-
-    store.forEach((data, id) => {
-      const matches = this.constraints.every(({ field, operator, value }) => {
-        if (operator !== '==') {
-          throw new Error(`Unsupported query operator in test harness: ${operator}`);
-        }
-        return valuesEqual(data?.[field], value);
-      });
-
-      if (matches) {
-        const ref = new MemoryDocRef(this.db, this.collectionName, id);
-        docs.push(makeSnapshot(ref, data));
-      }
-    });
-
-    return { docs };
+    const docs = querySnapshots(this);
+    return { docs, empty: docs.length === 0 };
   }
 }
 
@@ -87,7 +140,8 @@ export class MemoryCollection {
   }
 
   doc(id) {
-    return new MemoryDocRef(this.db, this.name, id);
+    const resolvedId = id || `${this.name}_auto_${++this.db.autoIdCounter}`;
+    return new MemoryDocRef(this.db, this.name, resolvedId);
   }
 
   where(field, operator, value) {
@@ -102,14 +156,21 @@ export class MemoryTransaction {
     this.writes = [];
   }
 
-  async get(ref) {
+  async get(refOrQuery) {
     await Promise.resolve();
-    const [collectionName, id] = splitPath(ref.path);
+    if (refOrQuery instanceof MemoryQuery) {
+      const docs = querySnapshots(refOrQuery, (ref) => {
+        this.reads.set(ref.path, this.db.version(ref.path));
+      });
+      return { docs, empty: docs.length === 0 };
+    }
+
+    const [collectionName, id] = splitPath(refOrQuery.path);
     const data = this.db.collectionStore(collectionName).get(id) ?? null;
-    this.reads.set(ref.path, this.db.version(ref.path));
-    const snapshot = makeSnapshot(ref, data);
+    this.reads.set(refOrQuery.path, this.db.version(refOrQuery.path));
+    const snapshot = makeSnapshot(refOrQuery, data);
     if (this.db.afterTransactionRead) {
-      await this.db.afterTransactionRead(ref, this);
+      await this.db.afterTransactionRead(refOrQuery, this);
     }
     return snapshot;
   }
@@ -123,11 +184,35 @@ export class MemoryTransaction {
   }
 }
 
+function applyFieldValues(current, data) {
+  const next = { ...current };
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value && typeof value === 'object' && '__mockIncrement' in value) {
+      next[key] = Number(current[key] ?? 0) + value.__mockIncrement;
+    } else if (value && typeof value === 'object' && '__mockArrayUnion' in value) {
+      const existing = Array.isArray(current[key]) ? current[key] : [];
+      const additions = value.__mockArrayUnion;
+      next[key] = [
+        ...existing,
+        ...additions.filter(
+          (addition) => !existing.some((item) => valuesEqual(item, addition)),
+        ),
+      ];
+    } else {
+      next[key] = value;
+    }
+  }
+
+  return next;
+}
+
 export class MemoryDB {
   constructor(initial = {}) {
     this.collections = new Map();
     this.versions = new Map();
     this.txCalls = 0;
+    this.autoIdCounter = 0;
     this.beforeTransaction = null;
     this.afterTransactionRead = null;
 
@@ -178,7 +263,7 @@ export class MemoryDB {
         if (existing === undefined) {
           throw new Error(`Cannot update missing document ${path}`);
         }
-        store.set(id, { ...existing, ...data });
+        store.set(id, applyFieldValues(existing, data));
       } else {
         store.set(id, { ...data });
       }
@@ -219,6 +304,7 @@ export function createMockAdmin() {
       FieldValue: {
         serverTimestamp: () => ({ __mockServerTimestamp: true }),
         increment: (value) => ({ __mockIncrement: value }),
+        arrayUnion: (...values) => ({ __mockArrayUnion: values }),
       },
     },
   };

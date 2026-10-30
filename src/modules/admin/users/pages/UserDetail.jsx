@@ -42,10 +42,12 @@ import {
   useUserReferralsRealtime,
   useUserBonusLogsRealtime,
   useUserWinsRealtime,
+  ADMIN_TICKET_VIEW_LIMIT,
 } from '@/shared/hooks/useAdminData';
 import { updateUserStatus } from '@/modules/admin/users/services/usersService';
 import { toast } from 'react-hot-toast';
 import { formatStatus } from '@/shared/utils/formatters';
+import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import Modal from '@/shared/components/ui/Modal';
 import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
 import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
@@ -139,6 +141,7 @@ const UserDetail = () => {
   const [bonusReason, setBonusReason] = useState('');
   const [isSubmittingBonus, setIsSubmittingBonus] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState(null);
+  const ticketViewTruncated = (tickets?.length || 0) >= ADMIN_TICKET_VIEW_LIMIT;
 
   useEffect(() => {
     if (!tickets || tickets.length === 0) return;
@@ -207,7 +210,7 @@ const UserDetail = () => {
     return Object.values(map).map(competition => ({
       ...competition,
       invalidatedCount: competition.tickets.filter(
-        ticket => String(ticket.status || '').toLowerCase() === 'invalid',
+        ticket => normalizeTicketStatus(ticket) === 'invalid',
       ).length,
     }));
   }, [tickets, compDetails]);
@@ -389,6 +392,11 @@ const UserDetail = () => {
   const renderCompetitions = () => (
     <Card className="fade-in">
       <CardContent className="p-0">
+        {ticketViewTruncated && (
+          <p className="px-4 pt-4 text-xs text-yellow-400">
+            {t('users.detail.compsTab.ticketListTruncated', { max: ADMIN_TICKET_VIEW_LIMIT })}
+          </p>
+        )}
         <Table>
           <TableHeader>
             <TableRow>
@@ -411,9 +419,18 @@ const UserDetail = () => {
                   <TableCell className="font-medium text-white">{comp.title}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant="neutral" className="bg-white/5 border-white/10 w-fit">
-                        {comp.tickets.length} {t('common.tickets')}
+                      <Badge variant="success" className="bg-emerald-500/10 text-emerald-400 w-fit">
+                        {t('users.detail.compsTab.activeCount', {
+                          count: ticketViewTruncated
+                            ? `${comp.tickets.filter(isActiveTicket).length}+`
+                            : comp.tickets.filter(isActiveTicket).length,
+                        })}
                       </Badge>
+                      <span className="text-[10px] text-gray-500">
+                        {t('users.detail.compsTab.totalCount', {
+                          count: ticketViewTruncated ? `${comp.tickets.length}+` : comp.tickets.length,
+                        })}
+                      </span>
                       {comp.invalidatedCount > 0 && (
                         <span className="text-[10px] text-red-400">
                           {t('users.detail.compsTab.invalidatedCount', {

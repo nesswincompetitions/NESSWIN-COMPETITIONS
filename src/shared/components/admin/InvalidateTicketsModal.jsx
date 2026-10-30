@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle, Ban, Loader2 } from 'lucide-react';
@@ -18,6 +18,7 @@ const InvalidateTicketsModal = ({
   cancelledCount = 0,
   hasWinnerTicket = false,
   finalityBlocked = false,
+  ticketDetails,
   onSuccess,
 }) => {
   const { t } = useTranslation('admin');
@@ -25,18 +26,74 @@ const InvalidateTicketsModal = ({
   const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [selectedTicketIds, setSelectedTicketIds] = useState([]);
+  const [requestId, setRequestId] = useState('');
+  const wasOpenRef = useRef(false);
+  const lastTargetKeyRef = useRef(null);
+
+  const ticketDetailList = useMemo(
+    () => (Array.isArray(ticketDetails) ? ticketDetails : []),
+    [ticketDetails]
+  );
+  const targetKey = `${userId ?? ''}:${competitionId ?? ''}`;
+  const selectableTickets = ticketDetailList.filter(
+    (ticket) => String(ticket.status || '').toLowerCase() === 'active' && !ticket.isWinner
+  );
+  const hasExplicitSelection = selectableTickets.length > 0;
+  const selectedCount = hasExplicitSelection ? selectedTicketIds.length : activeTicketCount;
+  const remainingCount = hasExplicitSelection
+    ? Math.max(0, selectableTickets.length - selectedCount)
+    : 0;
 
   useEffect(() => {
-    if (isOpen) {
-      setReason('');
-      setConfirmed(false);
-      setIsSubmitting(false);
-      setErrorMessage('');
+    if (!isOpen) {
+      wasOpenRef.current = false;
+      lastTargetKeyRef.current = null;
+      return;
     }
-  }, [isOpen, userId, competitionId]);
+
+    const opening = !wasOpenRef.current;
+    const targetChanged = lastTargetKeyRef.current !== targetKey;
+    if (!opening && !targetChanged) {
+      return;
+    }
+
+    wasOpenRef.current = true;
+    lastTargetKeyRef.current = targetKey;
+    setReason('');
+    setConfirmed(false);
+    setIsSubmitting(false);
+    setErrorMessage('');
+    setSelectedTicketIds(
+      ticketDetailList
+        .filter((ticket) => String(ticket.status || '').toLowerCase() === 'active' && !ticket.isWinner)
+        .map((ticket) => ticket.id)
+    );
+    setRequestId(
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `invalidate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    );
+  // ticketDetails may refresh while the modal stays open. Only opening the
+  // modal or changing the target should reset the administrator's input.
+  }, [isOpen, targetKey, ticketDetailList]);
 
   const blocked = finalityBlocked || hasWinnerTicket || activeTicketCount === 0;
-  const canSubmit = !isSubmitting && !blocked && confirmed && reason.trim().length > 0;
+  const canSubmit =
+    !isSubmitting &&
+    !blocked &&
+    confirmed &&
+    reason.trim().length > 0 &&
+    selectedCount > 0;
+
+  const toggleTicket = (ticketId) => {
+    if (isSubmitting) return;
+    setSelectedTicketIds((current) =>
+      current.includes(ticketId)
+        ? current.filter((id) => id !== ticketId)
+        : [...current, ticketId]
+    );
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -45,7 +102,12 @@ const InvalidateTicketsModal = ({
     setErrorMessage('');
 
     try {
-      const result = await invalidateUserCompetitionTickets(userId, competitionId, reason.trim());
+      const result = await invalidateUserCompetitionTickets(
+        userId,
+        competitionId,
+        reason.trim(),
+        hasExplicitSelection ? { ticketIds: selectedTicketIds, requestId } : {}
+      );
       if (result?.invalidatedCount > 0) {
         toast.success(
           t('competitions.detail.participants.invalidate.success', {
@@ -84,9 +146,16 @@ const InvalidateTicketsModal = ({
             <p>{t('competitions.detail.participants.invalidate.warning')}</p>
             <p>
               {t('competitions.detail.participants.invalidate.affected', {
-                count: activeTicketCount,
+                count: selectedCount,
               })}
             </p>
+            {hasExplicitSelection && (
+              <p>
+                {t('competitions.detail.participants.invalidate.remainingSelected', {
+                  count: remainingCount,
+                })}
+              </p>
+            )}
             {alreadyInvalidCount > 0 && (
               <p>
                 {t('competitions.detail.participants.invalidate.alreadyInvalid', {
@@ -119,6 +188,44 @@ const InvalidateTicketsModal = ({
         {!finalityBlocked && !hasWinnerTicket && activeTicketCount === 0 && (
           <div className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-400">
             {t('competitions.detail.participants.invalidate.noActive')}
+          </div>
+        )}
+
+        {hasExplicitSelection && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-gray-300">
+                {t('competitions.detail.participants.invalidate.selectTickets')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedTicketIds(selectableTickets.map((ticket) => ticket.id))}
+                disabled={isSubmitting || selectedCount === selectableTickets.length}
+                className="text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40"
+              >
+                {t('competitions.detail.participants.invalidate.selectAll')}
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+              {selectableTickets.map((ticket) => (
+                <label
+                  key={ticket.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedTicketIds.includes(ticket.id)}
+                      onChange={() => toggleTicket(ticket.id)}
+                      disabled={isSubmitting}
+                      className="h-4 w-4 rounded border-white/20 bg-white/5 accent-red-500"
+                    />
+                    <span className="font-mono">{ticket.sequence}</span>
+                  </span>
+                  <span className="text-xs text-gray-500">{ticket.ticketNumber || ''}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

@@ -5,6 +5,10 @@ import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
 import { queryClient } from '@/config/queryClient';
 
+// Admin ticket views must not inherit the shared hook's 100-document default.
+// An order can exceed 100 tickets through bundle bonuses and admin adjustments.
+export const ADMIN_TICKET_VIEW_LIMIT = 1000;
+
 const ACTIVE_COMPETITION_STATUSES = [
   'active',
   'ready_to_draw',
@@ -726,6 +730,10 @@ export const useOrderRealtime = (orderId) => {
       user_name: resolvedData.user?.display_name || resolvedData.user?.name || 'Unknown User',
       user_email: resolvedData.user?.email || 'N/A',
       competition_title: resolvedData.competition?.title || 'Unknown Competition',
+      competition_status: resolvedData.competition?.status || '',
+      competition_draw_date: resolvedData.competition?.draw_date || null,
+      competition_winner_ref: resolvedData.competition?.winner_ref || null,
+      competition_winner_ticket_ref: resolvedData.competition?.winner_ticket_ref || null,
     } : null,
     loading: orderLoading || resolvedData.loading,
     error: orderError,
@@ -735,7 +743,10 @@ export const useOrderRealtime = (orderId) => {
 export const useOrderTicketsRealtime = (orderId) => {
   const orderRef = useMemo(() => (orderId ? doc(db, 'order', orderId) : null), [orderId]);
   const queryConstraints = useMemo(
-    () => [where('order_id', 'in', [orderId, orderRef].filter(Boolean))],
+    () => [
+      where('order_id', 'in', [orderId, orderRef].filter(Boolean)),
+      limit(ADMIN_TICKET_VIEW_LIMIT),
+    ],
     [orderId, orderRef]
   );
   return useRealtimeCollection('ticket', queryConstraints);
@@ -769,7 +780,10 @@ export const useUserOrdersRealtime = (userId) => {
 export const useUserTicketsRealtime = (userId) => {
   const userRef = useMemo(() => (userId ? doc(db, 'user', userId) : null), [userId]);
   const queryConstraints = useMemo(
-    () => [where('user_id', 'in', [userId, userRef, `/user/${userId}`].filter(Boolean))],
+    () => [
+      where('user_id', 'in', [userId, userRef, `/user/${userId}`].filter(Boolean)),
+      limit(ADMIN_TICKET_VIEW_LIMIT),
+    ],
     [userId, userRef]
   );
   return useRealtimeCollection('ticket', queryConstraints);

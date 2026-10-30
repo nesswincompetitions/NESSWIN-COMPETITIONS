@@ -82,6 +82,8 @@ function OrderCard({ order }) {
   }, [expanded, id]);
 
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG['default'];
+  const currentTicketCount = tickets.length;
+  const originalTicketCount = Number(total_ticket || 0);
   const StatusIcon = cfg.icon;
   const image = competition?.image?.[0];
   const statusLabel = t(`profile.ordersPage.status.${status}`, cfg.label);
@@ -176,11 +178,16 @@ function OrderCard({ order }) {
           </div>
 
           <div className="rounded-xl bg-[var(--color-muted)]/10 border border-[var(--color-border)]/40 p-4">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <p className="text-[9px] uppercase tracking-wider font-bold text-[var(--color-muted-foreground)]">{t('profile.ordersPage.orderTickets')}</p>
-              <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-md">
-                {t('profile.ordersPage.totalTicketsCount', { count: (total_ticket || 0) + (free_ticket || 0) + (free_used || 0) })}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold text-[var(--color-muted-foreground)] bg-[var(--color-muted)]/20 px-2 py-0.5 rounded-md">
+                  {t('profile.ordersPage.originalQuantity', { count: originalTicketCount })}
+                </span>
+                <span className="text-[10px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2 py-0.5 rounded-md">
+                  {t('profile.ordersPage.currentQuantity', { count: currentTicketCount })}
+                </span>
+              </div>
             </div>
 
             {loadingTickets ? (

@@ -84,7 +84,7 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
   const calcPaidTickets  = orders.reduce((sum, o) => sum + (o.paid_ticket !== undefined ? Number(o.paid_ticket) : Math.max(0, (Number(o.total_ticket) || 0) - (Number(o.free_used) || 0))), 0);
   const calcFreeUsed     = orders.reduce((sum, o) => sum + (Number(o.free_used) || 0), 0);
   const calcFreeEarned   = orders.reduce((sum, o) => sum + (Number(o.free_ticket) || 0), 0);
-  const totalTicketsDisplay = calcTotalTickets > 0 ? calcTotalTickets : tickets.length;
+  const totalTicketsDisplay = ticketsLoaded ? tickets.length : calcTotalTickets;
   const winningTicket = tickets.find(tk => tk.is_winner);
   const shownTickets  = displayTickets.slice(0, 5);
 
@@ -187,9 +187,15 @@ function CompetitionGroupCard({ compData, uid, onViewAll, onAddReview, activeTab
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 bg-[var(--color-muted)]/20 px-2.5 py-1 rounded-md border border-[var(--color-border)]/40">
-            <span className="text-[var(--color-muted-foreground)]">{t('profile.ticketsPage.total', 'Total')}:</span>
+            <span className="text-[var(--color-muted-foreground)]">{t('profile.ticketsPage.current', 'Current')}:</span>
             <span className="font-bold text-[var(--color-foreground)]">{totalTicketsDisplay}</span>
           </div>
+          {ticketsLoaded && calcTotalTickets !== totalTicketsDisplay && (
+            <div className="flex items-center gap-1.5 bg-[var(--color-muted)]/10 px-2.5 py-1 rounded-md border border-[var(--color-border)]/30">
+              <span className="text-[var(--color-muted-foreground)]">{t('profile.ticketsPage.original', 'Original')}:</span>
+              <span className="font-bold text-[var(--color-muted-foreground)]">{calcTotalTickets}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
             <span className="text-emerald-400/80">{t('profile.ticketsPage.paid', 'Paid')}:</span>
             <span className="font-bold text-emerald-400">{calcPaidTickets}</span>
@@ -405,7 +411,7 @@ export default function MyTicketsPage() {
 
         <div className="grid grid-cols-3 gap-3 mb-8">
           {[
-            { icon: Ticket,      value: totalTickets, label: t('profile.ticketsPage.totalTickets', { count: totalTickets }).replace(String(totalTickets), '').trim() },
+            { icon: Ticket,      value: totalTickets, label: t('profile.ticketsPage.purchasedTotal') },
             { icon: Gift,        value: freeBonus,    label: t('profile.freeBonus') },
             { icon: CheckCircle, value: wonCount,     label: t('profile.ticketsPage.won') },
           ].map(({ icon: Icon, value, label }) => (

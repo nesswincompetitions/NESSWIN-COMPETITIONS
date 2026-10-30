@@ -41,6 +41,7 @@ function seedBase(db) {
   db.setDocument('competition', 'c1', {
     title: 'Competition One',
     status: 'active',
+    draw_date: new Date(Date.now() + 24 * 60 * 60 * 1000),
     sold_tickets: 4,
     stock_quantity: 96,
     last_ticket_sequence: 4,
@@ -49,6 +50,7 @@ function seedBase(db) {
   db.setDocument('competition', 'c2', {
     title: 'Competition Two',
     status: 'active',
+    draw_date: new Date(Date.now() + 24 * 60 * 60 * 1000),
     sold_tickets: 1,
     stock_quantity: 99,
     last_ticket_sequence: 1,

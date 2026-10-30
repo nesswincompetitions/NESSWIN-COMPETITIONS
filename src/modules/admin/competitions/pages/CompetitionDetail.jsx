@@ -32,11 +32,16 @@ import { formatStatus } from '@/shared/utils/formatters';
 import { exportToCSV } from '@/shared/utils/csvExport';
 
 const PARTICIPANT_INVALIDATION_BLOCKED_STATUSES = new Set([
+  'draft',
+  'paused',
+  'ready_to_draw',
   'drawing',
   'winner_announced',
   'completed',
   'end',
   'closed',
+  'cancelled',
+  'deleted',
 ]);
 
 const CompetitionDetail = () => {
@@ -1282,6 +1287,7 @@ const CompetitionDetail = () => {
         alreadyInvalidCount={invalidateTarget?.invalidatedTicketCount ?? 0}
         cancelledCount={invalidateTarget?.cancelledTicketCount ?? 0}
         hasWinnerTicket={invalidateTarget?.hasWinnerTicket === true}
+        ticketDetails={invalidateTarget?.ticketDetails}
         finalityBlocked={
           PARTICIPANT_INVALIDATION_BLOCKED_STATUSES.has(String(competition?.status || '').toLowerCase()) ||
           Boolean(competition?.winner_ref) ||

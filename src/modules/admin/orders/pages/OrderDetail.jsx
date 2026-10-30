@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import { 
-  ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, 
+  ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, PlusCircle,
   CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2
 } from 'lucide-react';
-import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId } from '@/shared/hooks/useAdminData';
+import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId, ADMIN_TICKET_VIEW_LIMIT } from '@/shared/hooks/useAdminData';
 import { refundOrder } from '@/modules/admin/orders/services/ordersService';
 import { formatStatus } from '@/shared/utils/formatters';
+import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import { toast } from 'react-hot-toast';
+import IncreaseTicketsModal from '@/shared/components/admin/IncreaseTicketsModal';
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -20,6 +22,7 @@ const OrderDetail = () => {
   
   const { data: order, loading: orderLoading } = useOrderRealtime(id);
   const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
+  const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
   const loading = orderLoading || ticketsLoading;
 
   const handleRefund = async () => {
@@ -61,6 +64,16 @@ const OrderDetail = () => {
 
   const orderId = `#${order.id.substring(0,8).toUpperCase()}`;
   const questionAnswer = order.question_answer || {};
+  const activeTicketCount = tickets.filter(isActiveTicket).length;
+  const ticketViewTruncated = tickets.length >= ADMIN_TICKET_VIEW_LIMIT;
+  const activeTicketCountDisplay = ticketViewTruncated ? `${activeTicketCount}+` : activeTicketCount;
+  const competitionStatus = String(order.competition_status || '').toLowerCase();
+  const canIncreaseTickets =
+    (order.status || '').toLowerCase() === 'paid' &&
+    competitionStatus === 'active' &&
+    !order.competition_winner_ref &&
+    !order.competition_winner_ticket_ref &&
+    order.is_winner !== true;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -86,10 +99,22 @@ const OrderDetail = () => {
         
         <div className="flex items-center gap-3">
           {(order.status || '').toLowerCase() === 'paid' && (
-            <Button variant="outline" className="flex items-center gap-2 text-gray-300 hover:text-white border-white/10" onClick={handleRefund}>
-              <RefreshCcw size={16} />
-              {t('orders.detail.refundOrder')}
-            </Button>
+            <>
+              {canIncreaseTickets && (
+                <Button
+                  variant="primary"
+                  className="flex items-center gap-2"
+                  onClick={() => setIsIncreaseOpen(true)}
+                >
+                  <PlusCircle size={16} />
+                  {t('orders.detail.increase.open')}
+                </Button>
+              )}
+              <Button variant="outline" className="flex items-center gap-2 text-gray-300 hover:text-white border-white/10" onClick={handleRefund}>
+                <RefreshCcw size={16} />
+                {t('orders.detail.refundOrder')}
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -122,11 +147,22 @@ const OrderDetail = () => {
               {/* Tickets */}
               <div className="mb-8">
                 <p className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                  <Hash size={16} /> {t('orders.detail.ticketNumbers')} ({order.total_ticket || 0})
+                  <Hash size={16} /> {t('orders.detail.ticketNumbers')} ({activeTicketCountDisplay}/{order.total_ticket || 0})
                 </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  {t('orders.detail.activeAllocation', {
+                    active: activeTicketCountDisplay,
+                    total: order.total_ticket || 0,
+                  })}
+                </p>
+                {ticketViewTruncated && (
+                  <p className="text-xs text-yellow-400 mb-3">
+                    {t('orders.detail.ticketListTruncated', { max: ADMIN_TICKET_VIEW_LIMIT })}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {tickets.length > 0 ? tickets.map(tk => {
-                    const ticketStatus = String(tk.status || 'active').toLowerCase();
+                    const ticketStatus = normalizeTicketStatus(tk) || 'active';
                     return (
                       <span
                         key={tk.id}
@@ -174,7 +210,12 @@ const OrderDetail = () => {
                 </div>
                 <div className="flex justify-between text-sm text-gray-400">
                   <span>{t('orders.detail.quantity')}</span>
-                  <span>x {order.total_ticket || 0}</span>
+                  <span>
+                    {t('orders.detail.quantitySummary', {
+                      total: order.total_ticket || 0,
+                      active: activeTicketCountDisplay,
+                    })}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm text-white pt-2 border-t border-white/10">
                   <span>{t('orders.detail.subtotal')}</span>
@@ -255,6 +296,15 @@ const OrderDetail = () => {
           </Card>
         </div>
       </div>
+
+      <IncreaseTicketsModal
+        isOpen={isIncreaseOpen}
+        onClose={() => setIsIncreaseOpen(false)}
+        order={order}
+        userName={order.user_name}
+        competitionTitle={order.competition_title}
+        tickets={tickets}
+      />
     </div>
   );
 };

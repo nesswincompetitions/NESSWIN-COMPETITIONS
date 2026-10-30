@@ -5,6 +5,8 @@ import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
 import { createInvalidateUserCompetitionTicketsHandler } from "../services/ticketInvalidationService.js";
+import { createIncreaseUserCompetitionTicketsHandler } from "../services/ticketAdjustmentService.js";
+import { partitionRefundTickets } from "../services/ticketAdjustmentPolicy.js";
 
 /**
  * Callable: grantAdminBonus
@@ -145,8 +147,17 @@ export const invalidateUserCompetitionTickets = onCall(
 );
 
 /**
+ * Callable: increaseUserCompetitionTickets
+ * Payload: { userId, competitionId, orderId, quantity, reason, requestId }
+ */
+export const increaseUserCompetitionTickets = onCall(
+  createIncreaseUserCompetitionTicketsHandler({ db, admin, logger, assertAdmin, HttpsError })
+);
+
+/**
  * Callable: refundOrder
- * Marks an order as Refunded and CANCELS all associated tickets.
+ * Marks an order as Refunded and cancels cancellable tickets while preserving
+ * prior invalidation and winner outcomes.
  */
 export const refundOrder = onCall(async (request) => {
   const adminUid = await assertAdmin(request);
@@ -177,6 +188,8 @@ export const refundOrder = onCall(async (request) => {
       .where("order_id", "==", orderRef)
       .get();
 
+    const { cancellable: cancellableTickets, preserved } = partitionRefundTickets(ticketsSnap.docs);
+
     const batch = db.batch();
     const now = admin.firestore.FieldValue.serverTimestamp();
 
@@ -185,7 +198,7 @@ export const refundOrder = onCall(async (request) => {
       updated_at: now,
     });
 
-    ticketsSnap.docs.forEach((ticketDoc) => {
+    cancellableTickets.forEach((ticketDoc) => {
       batch.update(ticketDoc.ref, {
         status: "cancelled",
         updated_at: now,
@@ -209,12 +222,13 @@ export const refundOrder = onCall(async (request) => {
 
     await batch.commit();
 
-    logger.info(`[refundOrder] Admin ${adminUid} refunded order ${orderId}. ${ticketsSnap.size} tickets cancelled.`);
+    logger.info(`[refundOrder] Admin ${adminUid} refunded order ${orderId}. ${cancellableTickets.length} tickets cancelled; ${preserved.length} protected tickets preserved.`);
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: "Order refunded and tickets cancelled successfully.",
-      ticketsCancelled: ticketsSnap.size
+      ticketsCancelled: cancellableTickets.length,
+      ticketsPreserved: preserved.length,
     };
   } catch (err) {
     logger.error("[refundOrder] Error:", err.message);

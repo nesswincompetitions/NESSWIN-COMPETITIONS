@@ -651,6 +651,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "ticket",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "competition_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ticket_number",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

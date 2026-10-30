@@ -1,44 +1,21 @@
-export const INVALIDATION_MAX_TICKETS = 400;
+import {
+  ADJUSTMENT_MAX_TICKETS,
+  getCompetitionAdjustmentBlock,
+  getReferenceId,
+  isFiniteNonNegativeInteger,
+  isWinnerTicket,
+  normalizeRequestId,
+  normalizeStatus,
+  ticketBelongsToCompetition,
+  ticketBelongsToUser,
+} from "./ticketAdjustmentPolicy.js";
+import {
+  TICKET_ADJUSTMENTS_COLLECTION,
+  adjustmentReplayMatches,
+  buildTicketAdjustmentRecord,
+} from "./ticketAdjustmentAudit.js";
 
-const PROTECTED_COMPETITION_STATUSES = new Set([
-  "drawing",
-  "winner_announced",
-  "completed",
-  "end",
-  "closed",
-]);
-
-function normalizeStatus(value) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
-function getReferenceId(value) {
-  if (!value) return null;
-  if (typeof value === "string") {
-    const parts = value.split("/").filter(Boolean);
-    return parts.length > 0 ? parts[parts.length - 1] : null;
-  }
-  return value.id || null;
-}
-
-function isWinnerTicket(data) {
-  return data?.is_winner === true || normalizeStatus(data?.status) === "winner";
-}
-
-function competitionHasFinality(data) {
-  return PROTECTED_COMPETITION_STATUSES.has(normalizeStatus(data?.status)) ||
-    Boolean(data?.winner_ref) ||
-    Boolean(data?.winner_ticket_ref);
-}
-
-function ticketBelongsToUser(data, userId) {
-  return [data?.user_id, data?.user_ref, data?.user]
-    .some((value) => getReferenceId(value) === userId);
-}
-
-function ticketBelongsToCompetition(data, competitionId) {
-  return getReferenceId(data?.competition_id) === competitionId;
-}
+export const INVALIDATION_MAX_TICKETS = ADJUSTMENT_MAX_TICKETS;
 
 async function fetchUserTicketDocs(db, userId, userRef) {
   const queries = [
@@ -63,6 +40,39 @@ async function fetchUserTicketDocs(db, userId, userRef) {
   return Array.from(uniqueDocs.values());
 }
 
+function normalizeSelectedTicketIds(ticketIds) {
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+    return { error: "ticketIds must be a non-empty array when provided." };
+  }
+  if (ticketIds.length > INVALIDATION_MAX_TICKETS) {
+    return { error: `Maximum ${INVALIDATION_MAX_TICKETS} tickets can be invalidated per request.` };
+  }
+  if (ticketIds.some((id) => typeof id !== "string" || !id.trim())) {
+    return { error: "ticketIds must contain non-empty string values." };
+  }
+
+  const normalized = ticketIds.map((id) => id.trim());
+  if (new Set(normalized).size !== normalized.length) {
+    return { error: "ticketIds must not contain duplicates." };
+  }
+
+  return { ticketIds: normalized };
+}
+
+function buildInvalidationResult(ticketIds, ticketSequences, totalRelevantCount) {
+  return {
+    success: true,
+    complete: true,
+    invalidatedCount: ticketIds.length,
+    alreadyInvalidCount: 0,
+    cancelledCount: 0,
+    skippedCount: 0,
+    totalRelevantCount,
+    ticketIds,
+    ticketSequences,
+  };
+}
+
 export function createInvalidateUserCompetitionTicketsHandler({
   db,
   admin,
@@ -72,7 +82,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
 }) {
   return async function handleInvalidateUserCompetitionTickets(request) {
     const adminUid = await assertAdmin(request);
-    const { userId, competitionId, reason } = request.data || {};
+    const { userId, competitionId, reason, ticketIds, requestId } = request.data || {};
 
     if (!userId || typeof userId !== "string") {
       throw new HttpsError("invalid-argument", "userId is required.");
@@ -85,9 +95,65 @@ export function createInvalidateUserCompetitionTicketsHandler({
       throw new HttpsError("invalid-argument", "A reason is required to invalidate tickets.");
     }
 
+    const hasExplicitSelection = ticketIds !== undefined;
+    const selectedIdsResult = hasExplicitSelection
+      ? normalizeSelectedTicketIds(ticketIds)
+      : { ticketIds: null };
+    if (selectedIdsResult.error) {
+      throw new HttpsError("invalid-argument", selectedIdsResult.error);
+    }
+    const selectedTicketIds = selectedIdsResult.ticketIds;
+
+    let normalizedRequestId = null;
+    if (hasExplicitSelection) {
+      normalizedRequestId = normalizeRequestId(requestId);
+      if (!normalizedRequestId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "A valid requestId is required for selected-ticket invalidation."
+        );
+      }
+    } else if (requestId !== undefined) {
+      throw new HttpsError(
+        "invalid-argument",
+        "requestId is only supported when ticketIds are provided."
+      );
+    }
+
     const userRef = db.collection("user").doc(userId);
     const competitionRef = db.collection("competition").doc(competitionId);
     const adminRef = db.collection("user").doc(adminUid);
+    const replayExpectation = hasExplicitSelection
+      ? {
+          operation: "ticket_invalidation",
+          source: "admin_selected_tickets",
+          direction: "decrease",
+          quantity: selectedTicketIds.length,
+          ticketIds: selectedTicketIds,
+          reason: reasonText,
+          userRef,
+          competitionRef,
+          primaryOrderRef: null,
+        }
+      : null;
+
+    // A completed request remains replayable even if the competition has since
+    // entered a blocked draw or finality state. Authorization already ran above.
+    if (hasExplicitSelection) {
+      const existingAdjustment = await db.collection(TICKET_ADJUSTMENTS_COLLECTION)
+        .doc(normalizedRequestId)
+        .get();
+      if (existingAdjustment.exists) {
+        const existing = existingAdjustment.data();
+        if (!adjustmentReplayMatches(existing, replayExpectation)) {
+          throw new HttpsError(
+            "failed-precondition",
+            "This request ID was already used for a different ticket adjustment."
+          );
+        }
+        return existing.result;
+      }
+    }
 
     const [userSnap, competitionSnap] = await Promise.all([
       userRef.get(),
@@ -100,11 +166,157 @@ export function createInvalidateUserCompetitionTicketsHandler({
     if (!competitionSnap.exists) {
       throw new HttpsError("not-found", "Competition not found.");
     }
-    if (competitionHasFinality(competitionSnap.data())) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Tickets cannot be invalidated after the draw has started or a winner has been declared."
+
+    // Draw date and finality state remain required for every invalidation path,
+    // including legacy all-active calls. Inventory counters are not used here.
+    const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
+      allowSoldOut: true,
+      requireDrawDate: true,
+    });
+    if (preflightBlock) {
+      throw new HttpsError("failed-precondition", preflightBlock);
+    }
+
+    if (hasExplicitSelection) {
+      const result = await db.runTransaction(async (transaction) => {
+        const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(normalizedRequestId);
+        const existingAdjustment = await transaction.get(adjustmentRef);
+        if (existingAdjustment.exists) {
+          const existing = existingAdjustment.data();
+          if (!adjustmentReplayMatches(existing, replayExpectation)) {
+            throw new HttpsError(
+              "failed-precondition",
+              "This request ID was already used for a different ticket adjustment."
+            );
+          }
+          return existing.result;
+        }
+
+        const freshCompetitionSnap = await transaction.get(competitionRef);
+        if (!freshCompetitionSnap.exists) {
+          throw new HttpsError("not-found", "Competition not found.");
+        }
+        const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
+          allowSoldOut: true,
+          requireDrawDate: true,
+        });
+        if (freshBlock) {
+          throw new HttpsError("failed-precondition", freshBlock);
+        }
+
+        const ticketRefs = selectedTicketIds.map((id) => db.collection("ticket").doc(id));
+        const ticketSnaps = await Promise.all(ticketRefs.map((ref) => transaction.get(ref)));
+        const ticketSequences = [];
+        const ticketNumbers = [];
+        const orderRefs = [];
+        const seenOrderIds = new Set();
+
+        ticketSnaps.forEach((ticketSnap, index) => {
+          if (!ticketSnap.exists) {
+            throw new HttpsError(
+              "failed-precondition",
+              "A selected ticket no longer exists. No tickets were changed."
+            );
+          }
+
+          const ticketData = ticketSnap.data();
+          if (
+            !ticketBelongsToUser(ticketData, userId) ||
+            !ticketBelongsToCompetition(ticketData, competitionId)
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Every selected ticket must belong to the specified user and competition. No tickets were changed."
+            );
+          }
+          if (isWinnerTicket(ticketData)) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Winning tickets cannot be invalidated. No tickets were changed."
+            );
+          }
+          if (normalizeStatus(ticketData.status) !== "active") {
+            throw new HttpsError(
+              "failed-precondition",
+              "Every selected ticket must be active. No tickets were changed."
+            );
+          }
+
+          ticketSequences.push(
+            ticketData.ticket_sequence ?? ticketData.ticket_number ?? selectedTicketIds[index]
+          );
+          ticketNumbers.push(
+            isFiniteNonNegativeInteger(ticketData.ticket_number)
+              ? ticketData.ticket_number
+              : null
+          );
+
+          const orderId = getReferenceId(ticketData.order_id);
+          if (orderId && !seenOrderIds.has(orderId)) {
+            seenOrderIds.add(orderId);
+            orderRefs.push(ticketData.order_id);
+          }
+        });
+
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        ticketRefs.forEach((ref) => {
+          transaction.update(ref, {
+            status: "invalid",
+            invalidated_at: now,
+            invalidated_by: adminRef,
+            invalidation_reason: reasonText,
+            status_before_invalidation: "active",
+            updated_at: now,
+          });
+        });
+
+        const result = buildInvalidationResult(
+          selectedTicketIds,
+          ticketSequences,
+          selectedTicketIds.length
+        );
+
+        transaction.set(
+          adjustmentRef,
+          buildTicketAdjustmentRecord({
+            operation: "ticket_invalidation",
+            source: "admin_selected_tickets",
+            userRef,
+            competitionRef,
+            orderRefs,
+            primaryOrderRef: orderRefs[0] || null,
+            quantity: selectedTicketIds.length,
+            direction: "decrease",
+            ticketIds: selectedTicketIds,
+            ticketNumbers,
+            ticketSequences,
+            quantityScope: "selected_active_tickets",
+            previousQuantity: selectedTicketIds.length,
+            newQuantity: 0,
+            // The selected set is the only active-ticket scope verified here.
+            activeCountScope: "selected_tickets",
+            activeCountBefore: null,
+            activeCountAfter: null,
+            selectedCountBefore: selectedTicketIds.length,
+            selectedCountAfter: 0,
+            inventoryBefore: null,
+            inventoryAfter: null,
+            reason: reasonText,
+            adminRef,
+            requestId: normalizedRequestId,
+            result,
+            serverNow: now,
+          })
+        );
+
+        return result;
+      });
+
+      logger.info(
+        `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} selectedInvalidated=${result.invalidatedCount}`
       );
+
+      return result;
     }
 
     const userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
@@ -139,11 +351,12 @@ export function createInvalidateUserCompetitionTicketsHandler({
       if (!freshCompetitionSnap.exists) {
         throw new HttpsError("not-found", "Competition not found.");
       }
-      if (competitionHasFinality(freshCompetitionSnap.data())) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Tickets cannot be invalidated after the draw has started or a winner has been declared."
-        );
+      const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
+        allowSoldOut: true,
+        requireDrawDate: true,
+      });
+      if (freshBlock) {
+        throw new HttpsError("failed-precondition", freshBlock);
       }
 
       const ticketSnaps = await Promise.all(
