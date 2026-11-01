@@ -66,6 +66,36 @@ function saveRequest(overrides = {}) {
   };
 }
 
+function questionPayload(overrides = {}) {
+  return {
+    question: 'What is the correct answer?',
+    images: ['https://example.com/question.png'],
+    option: [
+      { option_id: 'a', option: 'Option A' },
+      { option_id: 'b', option: 'Option B' },
+    ],
+    answer: { option_id: 'a' },
+    ...overrides,
+  };
+}
+
+function seedQuestion(db, id, overrides = {}) {
+  const competitionRef = db.collection('competition').doc('c1');
+  db.setDocument('questions', id, {
+    competition_id: competitionRef,
+    question_id: id,
+    question: 'Original question',
+    images: [],
+    option: [
+      { option_id: 'a', option: 'Option A' },
+      { option_id: 'b', option: 'Option B' },
+    ],
+    answer: { option_id: 'a' },
+    created_at: { __mockServerTimestamp: true },
+    ...overrides,
+  });
+}
+
 describe('competition mutation safety', () => {
   it('creates a new competition through the guarded handler', async () => {
     const db = new MemoryDB();
@@ -278,9 +308,235 @@ describe('competition mutation safety', () => {
   });
 
 
+  it('creates competition questions through the guarded save transaction', async () => {
+    const db = new MemoryDB();
+    const handler = makeSaveHandler(db);
+
+    const result = await handler(
+      saveRequest({
+        competitionId: null,
+        fields: { title: 'Question Competition', total_tickets: 50, ticket_price: 5 },
+        questions: [questionPayload()],
+      })
+    );
+
+    assert.equal(result.isNew, true);
+    assert.equal(result.questionsSaved, 1);
+    const competitionId = result.competitionId;
+    const competition = db.snapshot('competition', competitionId).data();
+    assert.equal(competition.title, 'Question Competition');
+
+    const questions = Array.from(db.collectionStore('questions').entries());
+    assert.equal(questions.length, 1);
+    const [questionId, question] = questions[0];
+    assert.equal(question.competition_id.path, `competition/${competitionId}`);
+    assert.equal(question.question_id, questionId);
+    assert.equal(question.question, 'What is the correct answer?');
+    assert.deepEqual(question.answer, { option_id: 'a', option: 'Option A' });
+    assert.equal(question.created_at.__mockServerTimestamp, true);
+  });
+
+  it('updates existing questions by id without changing their identifiers', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db);
+    seedQuestion(db, 'q1');
+    const originalCreatedAt = db.snapshot('questions', 'q1').data().created_at;
+
+    const result = await makeSaveHandler(db)(
+      saveRequest({
+        questions: [
+          questionPayload({
+            id: 'q1',
+            question: 'Updated question',
+            answer: { option_id: 'b' },
+          }),
+        ],
+      })
+    );
+
+    assert.equal(result.questionsSaved, 1);
+    const question = db.snapshot('questions', 'q1').data();
+    assert.equal(question.question_id, 'q1');
+    assert.equal(question.question, 'Updated question');
+    assert.deepEqual(question.answer, { option_id: 'b', option: 'Option B' });
+    assert.deepEqual(question.created_at, originalCreatedAt);
+    assert.equal(db.collectionStore('questions').size, 1);
+  });
+
+  it('atomically replaces questions while preserving retained identifiers', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db);
+    seedQuestion(db, 'q1');
+    seedQuestion(db, 'q2', { question: 'Removed question' });
+
+    const result = await makeSaveHandler(db)(
+      saveRequest({
+        replaceQuestions: true,
+        questions: [
+          questionPayload({ id: 'q1', question: 'Retained question' }),
+          questionPayload({ question: 'New question' }),
+        ],
+      })
+    );
+
+    assert.equal(result.questionsSaved, 2);
+    assert.equal(result.questionsDeleted, 1);
+    assert.equal(db.snapshot('questions', 'q1').data().question, 'Retained question');
+    assert.equal(db.snapshot('questions', 'q2').exists, false);
+    const questionIds = Array.from(db.collectionStore('questions').keys());
+    assert.equal(questionIds.length, 2);
+    assert.equal(questionIds.includes('q1'), true);
+  });
+
+  it('rejects question mutations during protected draw states without changes', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, { status: 'drawing' });
+    seedQuestion(db, 'q1');
+    const beforeCompetition = { ...db.snapshot('competition', 'c1').data() };
+    const beforeQuestion = { ...db.snapshot('questions', 'q1').data() };
+
+    await assert.rejects(
+      makeSaveHandler(db)(
+        saveRequest({
+          questions: [questionPayload({ id: 'q1', question: 'Changed' })],
+        })
+      ),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.deepEqual(db.snapshot('questions', 'q1').data(), beforeQuestion);
+  });
+
+  it('rejects unauthorized and invalid question mutations without partial writes', async () => {
+    const unauthorizedDb = new MemoryDB();
+    seedCompetition(unauthorizedDb);
+    seedQuestion(unauthorizedDb, 'q1');
+
+    await assert.rejects(
+      makeSaveHandler(unauthorizedDb, async () => {
+        throw new MockHttpsError('permission-denied', 'Only admins can perform this action.');
+      })(saveRequest({ questions: [questionPayload({ id: 'q1' })] })),
+      (error) => error.code === 'permission-denied'
+    );
+    assert.equal(unauthorizedDb.snapshot('competition', 'c1').data().title, 'Original');
+    assert.equal(unauthorizedDb.snapshot('questions', 'q1').data().question, 'Original question');
+
+    const invalidDb = new MemoryDB();
+    seedCompetition(invalidDb);
+    seedQuestion(invalidDb, 'q1');
+    const beforeCompetition = { ...invalidDb.snapshot('competition', 'c1').data() };
+    const beforeQuestion = { ...invalidDb.snapshot('questions', 'q1').data() };
+
+    await assert.rejects(
+      makeSaveHandler(invalidDb)(
+        saveRequest({
+          fields: { title: 'Must not apply' },
+          questions: [questionPayload({ id: 'q1', option: [{ option_id: 'a', option: 'A' }] })],
+        })
+      ),
+      (error) => error.code === 'invalid-argument'
+    );
+
+    assert.deepEqual(invalidDb.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.deepEqual(invalidDb.snapshot('questions', 'q1').data(), beforeQuestion);
+  });
+
+  it('rejects a question that belongs to another competition without applying competition changes', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db);
+    db.setDocument('questions', 'foreign', {
+      competition_id: db.collection('competition').doc('other'),
+      question_id: 'foreign',
+      question: 'Foreign question',
+      images: [],
+      option: [
+        { option_id: 'a', option: 'A' },
+        { option_id: 'b', option: 'B' },
+      ],
+      answer: { option_id: 'a' },
+    });
+    const beforeCompetition = { ...db.snapshot('competition', 'c1').data() };
+    const beforeQuestion = { ...db.snapshot('questions', 'foreign').data() };
+
+    await assert.rejects(
+      makeSaveHandler(db)(
+        saveRequest({
+          questions: [questionPayload({ id: 'foreign', question: 'Changed' })],
+        })
+      ),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.deepEqual(db.snapshot('questions', 'foreign').data(), beforeQuestion);
+  });
+
+  it('rejects question mutation requests above the atomic limit', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db);
+    const beforeCompetition = { ...db.snapshot('competition', 'c1').data() };
+    const oversized = Array.from({ length: 401 }, (_, index) =>
+      questionPayload({ question: `Question ${index}` })
+    );
+
+    await assert.rejects(
+      makeSaveHandler(db)(saveRequest({ questions: oversized })),
+      (error) => error.code === 'invalid-argument'
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.equal(db.collectionStore('questions').size, 0);
+  });
+
+  it('rejects deletion of a competition with sold tickets without mutating records', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, {
+      status: 'active',
+      sold_tickets: 4,
+      stock_quantity: 96,
+      last_ticket_sequence: 4,
+    });
+    const competitionRef = db.collection('competition').doc('c1');
+    db.setDocument('ticket', 't1', {
+      competition_id: competitionRef,
+      status: 'active',
+      ticket_number: 1,
+      ticket_sequence: 'T001',
+    });
+    db.setDocument('order', 'o1', {
+      competition_id: competitionRef,
+      status: 'paid',
+      total_amount: 40,
+    });
+    seedQuestion(db, 'q1');
+    const beforeCompetition = { ...db.snapshot('competition', 'c1').data() };
+    const beforeTicket = { ...db.snapshot('ticket', 't1').data() };
+    const beforeOrder = { ...db.snapshot('order', 'o1').data() };
+    const beforeQuestion = { ...db.snapshot('questions', 'q1').data() };
+
+    await assert.rejects(
+      makeDeleteHandler(db)({
+        auth: { uid: 'admin1' },
+        data: { competitionId: 'c1', deleteQuestions: true },
+      }),
+      (error) => error.code === 'failed-precondition' && /sold tickets/.test(error.message)
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+    assert.deepEqual(db.snapshot('ticket', 't1').data(), beforeTicket);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), beforeOrder);
+    assert.deepEqual(db.snapshot('questions', 'q1').data(), beforeQuestion);
+  });
+
   it('deletes only mutable competitions and treats repeated deletion safely', async () => {
     const db = new MemoryDB();
-    seedCompetition(db, { status: 'draft' });
+    seedCompetition(db, {
+      status: 'draft',
+      sold_tickets: 0,
+      stock_quantity: 100,
+      last_ticket_sequence: 0,
+    });
     const handler = makeDeleteHandler(db);
 
     const first = await handler({ auth: { uid: 'admin1' }, data: { competitionId: 'c1' } });
@@ -289,7 +545,12 @@ describe('competition mutation safety', () => {
     assert.equal(first.success, true);
     assert.equal(second.success, true);
     assert.equal(second.idempotentReplay, true);
-    assert.equal(db.snapshot('competition', 'c1').data().status, 'deleted');
+    const competition = db.snapshot('competition', 'c1').data();
+    assert.equal(competition.status, 'deleted');
+    assert.equal(competition.total_tickets, 100);
+    assert.equal(competition.stock_quantity, 100);
+    assert.equal(competition.sold_tickets, 0);
+    assert.equal(competition.last_ticket_sequence, 0);
   });
 
   it('rejects deletion during draw finality and for unauthorized callers', async () => {
@@ -324,7 +585,12 @@ describe('competition mutation safety', () => {
 
   it('retains questions on standard soft deletion and removes them only on explicit cleanup', async () => {
     const db = new MemoryDB();
-    seedCompetition(db, { status: 'draft' });
+    seedCompetition(db, {
+      status: 'draft',
+      sold_tickets: 0,
+      stock_quantity: 100,
+      last_ticket_sequence: 0,
+    });
     db.setDocument('questions', 'q1', {
       competition_id: db.collection('competition').doc('c1'),
       question: 'Question 1',
@@ -374,7 +640,7 @@ describe('competition mutation safety', () => {
     assert.equal(db.collectionStore('questions').size, 1);
   });
 
-  it('frontend competition services no longer write competition status directly', () => {
+  it('frontend competition services route competition and question mutations through the backend', () => {
     const adminService = fs.readFileSync(
       fileURLToPath(
         new URL('../../src/modules/admin/competitions/services/adminCompetitionService.js', import.meta.url)
@@ -391,7 +657,11 @@ describe('competition mutation safety', () => {
     assert.equal(adminService.includes('saveAdminCompetition'), true);
     assert.equal(adminService.includes('deleteAdminCompetition'), true);
     assert.equal(adminService.includes('updateDoc(compRef'), false);
+    assert.equal(adminService.includes('syncCompetitionQuestions'), false);
+    assert.equal(adminService.includes('addDoc(collection(db'), false);
     assert.equal(createService.includes('batch.set(competitionRef'), false);
     assert.equal(createService.includes('saveAdminCompetition'), true);
+    assert.equal(createService.includes('writeBatch'), false);
+    assert.equal(createService.includes('collection(db, "questions")'), false);
   });
 });

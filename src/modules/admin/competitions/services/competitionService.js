@@ -1,14 +1,4 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  serverTimestamp,
-  Timestamp,
-  where,
-  writeBatch,
-} from "firebase/firestore";
-import { db } from "@/config/firebase";
+import { Timestamp } from "firebase/firestore";
 import { callFunction } from "@/shared/services/functionClient";
 import { uploadImages } from "@/shared/services/storageService";
 import { toast } from "react-hot-toast";
@@ -58,6 +48,22 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
     const competitionImages = await uploadImages(formData.images || [], "competitions");
     const drawDateTimestamp = toTimestampFromDateAndTime(formData.drawEndDate, formData.drawEndTime);
 
+    let questions;
+    if (Array.isArray(formData.questions)) {
+      const validQuestions = formData.questions.filter(
+        (question) => String(question?.questionText || "").trim().length > 0,
+      );
+
+      questions = [];
+      for (const question of validQuestions) {
+        const questionImageUrls = await uploadImages(question.questionImages || [], "questions");
+        const questionPayload = buildQuestionPayload(question, questionImageUrls);
+        questions.push(
+          question.id ? { ...questionPayload, id: question.id } : questionPayload
+        );
+      }
+    }
+
     const saved = await callFunction(
       "saveAdminCompetition",
       {
@@ -78,58 +84,19 @@ export const createCompetition = async ({ id, formData, isDraft = false }) => {
           is_featured: Boolean(formData.isFeatured),
           image: competitionImages,
         },
+        ...(questions !== undefined
+          ? { questions, replaceQuestions: true }
+          : {}),
         draw_date_millis: drawDateTimestamp ? drawDateTimestamp.toMillis() : null,
       },
       "Failed to save competition."
     );
 
-    const competitionId = saved.competitionId;
-    const competitionRef = doc(db, "competition", competitionId);
-
-    if (Array.isArray(formData.questions)) {
-      const existingQuestionsQuery = query(
-        collection(db, "questions"),
-        where("competition_id", "==", competitionRef),
-      );
-      const existingQuestionsSnap = await getDocs(existingQuestionsQuery);
-
-      if (!existingQuestionsSnap.empty) {
-        const deleteBatch = writeBatch(db);
-        existingQuestionsSnap.forEach((questionDoc) => {
-          deleteBatch.delete(questionDoc.ref);
-        });
-        await deleteBatch.commit();
-      }
-
-      const validQuestions = formData.questions.filter(
-        (question) => String(question?.questionText || "").trim().length > 0,
-      );
-
-      if (validQuestions.length > 0) {
-        const questionBatch = writeBatch(db);
-
-        for (const question of validQuestions) {
-          const questionImageUrls = await uploadImages(question.questionImages || [], "questions");
-          const questionPayload = buildQuestionPayload(question, questionImageUrls);
-          const questionRef = doc(collection(db, "questions"));
-
-          questionBatch.set(questionRef, {
-            ...questionPayload,
-            competition_id: competitionRef,
-            question_id: questionRef.id,
-            created_at: serverTimestamp(),
-          });
-        }
-
-        await questionBatch.commit();
-      }
-    }
-
     toast.success(isDraft ? "Draft saved successfully!" : "Competition created successfully!", {
       id: loadingToast,
     });
 
-    return { success: true, competitionId: competitionRef.id };
+    return { success: true, competitionId: saved.competitionId };
   } catch (error) {
     console.error("Error while creating competition:", error);
     toast.error(error?.message || "Failed to create competition.", { id: loadingToast });

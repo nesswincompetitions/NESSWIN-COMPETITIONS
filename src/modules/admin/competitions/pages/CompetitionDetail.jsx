@@ -18,7 +18,6 @@ import { Timestamp, doc, getDoc, onSnapshot, query, collection, where } from 'fi
 import { db } from '@/config/firebase';
 import { 
   updateCompetition, 
-  syncCompetitionQuestions, 
   deleteCompetition,
   fetchCompetitionParticipants 
 } from '@/modules/admin/competitions/services/adminCompetitionService';
@@ -322,8 +321,9 @@ const CompetitionDetail = () => {
         is_featured: formData.isFeatured || false,
       };
 
+      let questionsToSave;
       if (formData.questions && formData.questions.length > 0) {
-        const qsToSync = await Promise.all(formData.questions.map(async (qData, idx) => {
+        questionsToSave = await Promise.all(formData.questions.map(async (qData) => {
           const timestamp = Date.now();
           const uploadedQuestionImages = await uploadImages(qData.questionImages || [], 'questions');
 
@@ -336,10 +336,9 @@ const CompetitionDetail = () => {
           });
           
           const correctAnswerIndex = qData.answers.findIndex(a => a.isCorrect);
-          const existingQuestion = questions.find((_, qIdx) => qIdx === idx);
 
           return {
-            id: existingQuestion?.id,
+            id: qData.id,
             question: qData.questionText,
             images: uploadedQuestionImages,
             option: answers,
@@ -348,11 +347,9 @@ const CompetitionDetail = () => {
             }
           };
         }));
-
-        await syncCompetitionQuestions(id, qsToSync);
       }
 
-      const saved = await updateCompetition(id, updateData);
+      const saved = await updateCompetition(id, updateData, { questions: questionsToSave });
 
       setCompetition(prev => ({
         ...prev,
@@ -381,7 +378,7 @@ const CompetitionDetail = () => {
     setIsDeleting(true);
     const loadingToast = toast.loading('Deleting competition...');
     try {
-      await deleteCompetition(id);
+      await deleteCompetition(id, { deleteQuestions: true });
       toast.success('Competition deleted successfully', { id: loadingToast });
       navigate('/admin/competitions');
     } catch (err) {
@@ -738,6 +735,7 @@ const CompetitionDetail = () => {
       instagramLiveLink: competition.instagram_live_url || '',
       includedThings: competition.included_things || [],
       questions: questions.map(q => ({
+        id: q.id,
         questionText: q.question,
         questionImages: q.images || [],
         questionImagePreviews: q.images || [],

@@ -52,6 +52,7 @@ const CreateCompetition = () => {
             includedThings: compData.included_things || [],
             prizeVideoUrl: compData.prize_video_url || '',
             questions: (compData.questions || []).map(q => ({
+              id: q.id,
               questionText: q.question,
               questionImages: q.images || [],
               questionImagePreviews: q.images || [],

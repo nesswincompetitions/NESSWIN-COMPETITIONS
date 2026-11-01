@@ -19,7 +19,7 @@ const CompetitionDrafts = () => {
     if (!deleteModal.draft) return;
     setDeleting(true);
     try {
-      await deleteCompetition(deleteModal.draft.id);
+      await deleteCompetition(deleteModal.draft.id, { deleteQuestions: true });
       
       toast.success('Draft deleted.');
       setDeleteModal({ open: false, draft: null });

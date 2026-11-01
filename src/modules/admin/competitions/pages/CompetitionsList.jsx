@@ -90,7 +90,7 @@ const CompetitionsList = () => {
 
     const loadingToast = toast.loading('Deleting competition...');
     try {
-      await deleteCompetition(compId);
+      await deleteCompetition(compId, { deleteQuestions: true });
       toast.success('Competition deleted successfully', { id: loadingToast });
     } catch (err) {
       console.error('Error deleting:', err);
