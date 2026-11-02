@@ -1,3 +1,4 @@
+import Stripe from "stripe";
 import { getOrderPricing } from "./orderPricingService.js";
 import { assertReferralRedeemable } from "./referralEligibility.js";
 import {
@@ -11,7 +12,16 @@ import {
   PAYMENT_SETTLEMENT,
   TICKET_ORIGIN,
 } from "./ticketOrigin.js";
-import { isVerifiedStripeSettlementContext } from "./stripeSettlementService.js";
+import {
+  evaluateCheckoutSettlement,
+  isVerifiedStripeSettlementContext,
+  SettlementValidationError,
+} from "./stripeSettlementService.js";
+import {
+  AUDIT_ACTIONS,
+  createAdminAuditActor,
+  createAdminAuditService,
+} from "./adminAuditService.js";
 
 /**
  * Derives a short uppercase prefix from a competition title.
@@ -45,6 +55,9 @@ export const DIRECT_PAYMENT_REQUIRED_MESSAGE =
 
 export const MAX_CHECKOUT_TICKET_QUANTITY = 100;
 export const MAX_CHECKOUT_REFERRAL_TICKETS = 100;
+export const ORDER_RECONCILIATION_MAX_ORDERS = 100;
+export const ORDER_RESTRICTION_EXPIRY_REASON =
+  "The participant was blocked before checkout completed and the Stripe session expired without payment.";
 
 // Stripe Checkout sessions must expire between 30 minutes and 24 hours after
 // creation. Keep a small buffer so the API call itself cannot push a session
@@ -388,6 +401,495 @@ export async function recordPaidUnfulfilledOrder(
 
     return { outcome: "marked_failed" };
   });
+}
+
+export async function markOrderExpiredForRestriction({
+  db,
+  admin,
+  orderId,
+  checkoutSessionId,
+  failureReason = ORDER_RESTRICTION_EXPIRY_REASON,
+}) {
+  const orderRef = db.collection("order").doc(orderId);
+  return db.runTransaction(async (transaction) => {
+    const orderSnap = await transaction.get(orderRef);
+    if (!orderSnap.exists) return { outcome: "order_missing" };
+
+    const orderData = orderSnap.data();
+    if (orderData.status === "paid" || orderData.payment_status === "paid") {
+      return { outcome: "already_paid" };
+    }
+    const storedCheckoutSessionId =
+      typeof orderData.stripe_checkout_session_id === "string"
+        ? orderData.stripe_checkout_session_id
+        : "";
+    if (
+      !storedCheckoutSessionId ||
+      !checkoutSessionId ||
+      storedCheckoutSessionId !== checkoutSessionId
+    ) {
+      return { outcome: "session_mismatch" };
+    }
+    if (orderData.status !== "pending") {
+      return { outcome: "not_pending" };
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    transaction.update(orderRef, {
+      status: "failed",
+      payment_status: "unpaid",
+      stripe_status: "expired",
+      fulfillment_error: String(failureReason).trim().slice(0, 1000),
+      updated_at: now,
+    });
+
+    return { outcome: "marked_expired" };
+  });
+}
+
+/**
+ * Reconciles ordinary pending checkout orders for a participant/competition
+ * when that participant is restricted. Stripe is the authority: open sessions
+ * are expired, paid sessions are recorded as paid-but-unfulfilled, and
+ * unresolved states are left untouched for manual reconciliation.
+ */
+export async function reconcilePendingOrdersForParticipantRestriction({
+  db,
+  admin,
+  logger,
+  userId,
+  competitionId,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+  maxOrders = ORDER_RECONCILIATION_MAX_ORDERS,
+}) {
+  if (!userId || !competitionId) {
+    return { inspected: 0, pending: 0, outcomes: [] };
+  }
+
+  const userRef = db.collection("user").doc(userId);
+  const competitionRef = db.collection("competition").doc(competitionId);
+  const snapshot = await db
+    .collection("order")
+    .where("competition_id", "==", competitionRef)
+    .where("user_ref", "==", userRef)
+    .orderBy("created_at", "desc")
+    .limit(maxOrders)
+    .get();
+
+  if (snapshot.docs.length >= maxOrders) {
+    logger?.warn?.(
+      `[orderRestrictionReconciliation] Reconciliation scan reached its ${maxOrders}-order bound for user ${userId} in competition ${competitionId}; older orders may require manual review.`,
+    );
+  }
+
+  const pendingOrders = snapshot.docs.filter(
+    (docSnap) => String(docSnap.data()?.status || "").toLowerCase() === "pending",
+  );
+  if (pendingOrders.length === 0) {
+    return { inspected: snapshot.docs.length, pending: 0, outcomes: [] };
+  }
+
+  const stripeSecretKey = getStripeSecretKey();
+  if (!stripeSecretKey) {
+    logger?.error?.(
+      "[orderRestrictionReconciliation] Stripe is not configured; outstanding orders were preserved.",
+    );
+    return {
+      inspected: snapshot.docs.length,
+      pending: pendingOrders.length,
+      stripeNotConfigured: true,
+      outcomes: pendingOrders.map((docSnap) => ({
+        orderId: docSnap.id,
+        outcome: "stripe_not_configured",
+      })),
+    };
+  }
+
+  const stripe = stripeFactory(stripeSecretKey);
+  const outcomes = [];
+
+  for (const docSnap of pendingOrders) {
+    const orderData = docSnap.data();
+    const orderId = docSnap.id;
+    const sessionId =
+      typeof orderData.stripe_checkout_session_id === "string"
+        ? orderData.stripe_checkout_session_id
+        : "";
+
+    if (!sessionId) {
+      outcomes.push({ orderId, outcome: "no_session" });
+      continue;
+    }
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId);
+    } catch (error) {
+      logger?.warn?.(
+        `[orderRestrictionReconciliation] Could not retrieve Stripe session ${sessionId} for order ${orderId}: ${error?.message || error}`,
+      );
+      outcomes.push({ orderId, sessionId, outcome: "retrieval_failed" });
+      continue;
+    }
+
+    if (!session || session.id !== sessionId) {
+      logger?.warn?.(
+        `[orderRestrictionReconciliation] Stripe session identity mismatch for order ${orderId}.`,
+      );
+      outcomes.push({ orderId, sessionId, outcome: "session_mismatch" });
+      continue;
+    }
+
+    const sessionOrderId = session?.metadata?.orderId;
+    if (!sessionOrderId || sessionOrderId !== orderId) {
+      logger?.warn?.(
+        `[orderRestrictionReconciliation] Stripe session metadata order mismatch for order ${orderId}.`,
+      );
+      outcomes.push({ orderId, sessionId, outcome: "session_metadata_mismatch" });
+      continue;
+    }
+
+    let decision;
+    try {
+      decision = evaluateCheckoutSettlement({
+        eventType: "checkout.session.completed",
+        session,
+        orderData,
+      });
+    } catch (error) {
+      if (error instanceof SettlementValidationError) {
+        logger?.warn?.(
+          `[orderRestrictionReconciliation] Settlement validation failed for order ${orderId}: ${error.code} — ${error.message}`,
+        );
+        outcomes.push({ orderId, sessionId, outcome: `settlement_${error.code}` });
+        continue;
+      }
+      throw error;
+    }
+
+    if (decision.action === "already_processed") {
+      outcomes.push({ orderId, sessionId, outcome: "already_processed" });
+      continue;
+    }
+
+    if (decision.action === "fulfill") {
+      try {
+        const recorded = await recordPaidUnfulfilledOrder(db, admin, {
+          orderId,
+          checkoutSessionId: sessionId,
+          paymentIntentId: decision.paymentIntentId,
+          settlement: decision.settlement,
+          failureReason:
+            "Participant was restricted before verified payment could be fulfilled.",
+        });
+        outcomes.push({ orderId, sessionId, outcome: `paid_unfulfilled:${recorded.outcome}` });
+      } catch (error) {
+        logger?.error?.(
+          `[orderRestrictionReconciliation] Could not record paid-unfulfilled order ${orderId}: ${error?.message || error}`,
+        );
+        outcomes.push({ orderId, sessionId, outcome: "paid_unfulfilled_record_failed" });
+      }
+      continue;
+    }
+
+    if (decision.action === "pending") {
+      if (session.status === "expired") {
+        try {
+          const marked = await markOrderExpiredForRestriction({
+            db,
+            admin,
+            orderId,
+            checkoutSessionId: sessionId,
+          });
+          outcomes.push({ orderId, sessionId, outcome: `expired:${marked.outcome}` });
+        } catch (error) {
+          logger?.error?.(
+            `[orderRestrictionReconciliation] Could not mark order ${orderId} expired: ${error?.message || error}`,
+          );
+          outcomes.push({ orderId, sessionId, outcome: "expired_record_failed" });
+        }
+        continue;
+      }
+
+      if (session.status === "open") {
+        try {
+          const expiredSession = await stripe.checkout.sessions.expire(sessionId);
+          if (!expiredSession || expiredSession.status !== "expired") {
+            logger?.warn?.(
+              `[orderRestrictionReconciliation] Stripe did not confirm expiry for session ${sessionId} on order ${orderId}.`,
+            );
+            outcomes.push({ orderId, sessionId, outcome: "expire_unconfirmed" });
+            continue;
+          }
+        } catch (error) {
+          logger?.warn?.(
+            `[orderRestrictionReconciliation] Could not expire session ${sessionId} for order ${orderId}: ${error?.message || error}`,
+          );
+          outcomes.push({ orderId, sessionId, outcome: "expire_failed" });
+          continue;
+        }
+
+        try {
+          const marked = await markOrderExpiredForRestriction({
+            db,
+            admin,
+            orderId,
+            checkoutSessionId: sessionId,
+          });
+          outcomes.push({ orderId, sessionId, outcome: `expired:${marked.outcome}` });
+        } catch (error) {
+          logger?.error?.(
+            `[orderRestrictionReconciliation] Could not mark order ${orderId} expired after Stripe expiry: ${error?.message || error}`,
+          );
+          outcomes.push({ orderId, sessionId, outcome: "expired_record_failed" });
+        }
+        continue;
+      }
+
+      outcomes.push({ orderId, sessionId, outcome: "unresolved" });
+      continue;
+    }
+
+    outcomes.push({ orderId, sessionId, outcome: decision.action });
+  }
+
+  return {
+    inspected: snapshot.docs.length,
+    pending: pendingOrders.length,
+    outcomes,
+  };
+}
+
+/**
+ * Admin-only recovery for an ordinary paid-but-unfulfilled order. The Stripe
+ * Checkout Session is re-verified before the existing order transaction is
+ * reused. No new Stripe session, charge, refund, or ticket path is added.
+ */
+export function createRecoverOrderFulfillmentHandler({
+  db,
+  admin,
+  logger,
+  assertAdmin,
+  HttpsError,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+}) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
+  return async function handleRecoverOrderFulfillment(request) {
+    const adminUid = await assertAdmin(request);
+    const { orderId } = request.data || {};
+
+    if (!orderId || typeof orderId !== "string") {
+      throw new HttpsError("invalid-argument", "orderId is required.");
+    }
+
+    const orderRef = db.collection("order").doc(orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) {
+      throw new HttpsError("not-found", "Order not found.");
+    }
+
+    const orderData = orderSnap.data();
+    if (orderData.status === "paid") {
+      return { outcome: "already_fulfilled", recovered: false, orderId };
+    }
+    if (
+      orderData.status !== "pending" ||
+      orderData.payment_status !== "paid" ||
+      orderData.fulfillment_status !== "failed"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Only paid-but-unfulfilled pending orders can be recovered.",
+      );
+    }
+
+    const sessionId =
+      typeof orderData.stripe_checkout_session_id === "string"
+        ? orderData.stripe_checkout_session_id
+        : "";
+    if (!sessionId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This order has no verified Stripe Checkout session.",
+      );
+    }
+
+    const uid = getReferenceId(orderData.user_ref);
+    const competitionId = getReferenceId(orderData.competition_id);
+    if (!uid || !competitionId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The order is missing valid participant or competition references.",
+      );
+    }
+
+    const stripeSecretKey = getStripeSecretKey();
+    if (!stripeSecretKey) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Stripe is not configured on the server.",
+      );
+    }
+
+    let session;
+    try {
+      session = await stripeFactory(stripeSecretKey).checkout.sessions.retrieve(
+        sessionId,
+      );
+    } catch (error) {
+      logger?.error?.(
+        `[recoverOrderFulfillment] Could not verify Stripe session for order ${orderId}: ${error?.message || error}`,
+      );
+      throw new HttpsError(
+        "failed-precondition",
+        "The payment session could not be verified. Try again shortly.",
+      );
+    }
+
+    if (!session || session.id !== sessionId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The payment session could not be verified.",
+      );
+    }
+
+    const sessionOrderId = session?.metadata?.orderId;
+    if (!sessionOrderId || sessionOrderId !== orderId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The Stripe session does not belong to this order.",
+      );
+    }
+
+    let decision;
+    try {
+      decision = evaluateCheckoutSettlement({
+        eventType: "checkout.session.completed",
+        session,
+        orderData,
+      });
+    } catch (error) {
+      if (error instanceof SettlementValidationError) {
+        logger?.error?.(
+          `[recoverOrderFulfillment] Settlement validation failed for order ${orderId}: ${error.code} — ${error.message}`,
+        );
+        throw new HttpsError(
+          "failed-precondition",
+          "Payment is not verifiably successful for this order.",
+        );
+      }
+      throw error;
+    }
+
+    if (decision.action === "already_processed") {
+      const freshSnap = await orderRef.get();
+      if (freshSnap.exists && freshSnap.data()?.status === "paid") {
+        return { outcome: "already_fulfilled", recovered: false, orderId };
+      }
+      throw new HttpsError(
+        "failed-precondition",
+        "The order is not in a recoverable paid state.",
+      );
+    }
+
+    if (decision.action !== "fulfill") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Payment is not verifiably successful for this order.",
+      );
+    }
+
+    let checkoutInput;
+    try {
+      checkoutInput = validatePersistedCheckoutInputs(orderData);
+    } catch (error) {
+      throw new HttpsError("failed-precondition", error.message);
+    }
+
+    try {
+      const result = await runOrderTransaction(db, admin, {
+        uid,
+        competitionId,
+        ticketQuantity: checkoutInput.ticketQuantity,
+        questionAnswer: orderData.question_answer || {},
+        freeTicketsToUse: checkoutInput.freeTicketsToUse,
+        referralsToBurn: checkoutInput.referralIds.map((id) => ({ id })),
+        orderId,
+        paymentSettlement: decision.settlementContext,
+      });
+
+      try {
+        await auditService.recordEvent(
+          {
+            action: AUDIT_ACTIONS.ORDER_UPDATED,
+            entity_type: "order",
+            entity_id: orderId,
+            summary: `Admin recovered paid-unfulfilled order ${orderId}.`,
+            reason: "Verified Stripe settlement and re-ran ticket fulfillment.",
+            before: {
+              status: orderData.status,
+              payment_status: orderData.payment_status,
+              fulfillment_status: orderData.fulfillment_status,
+            },
+            after: {
+              status: "paid",
+              payment_status: "paid",
+              fulfillment_status: "fulfilled",
+              issued_ticket_count: result.tickets.length,
+            },
+            related: {
+              order_id: orderId,
+              user_id: uid,
+              competition_id: competitionId,
+            },
+            source: "orderController.recoverOrderFulfillment",
+            correlation_id: orderId,
+          },
+          { actor: createAdminAuditActor(adminUid) },
+        );
+      } catch (auditError) {
+        logger?.error?.(
+          `[recoverOrderFulfillment] Failed to record recovery audit for order ${orderId}:`,
+          auditError?.message || auditError,
+        );
+      }
+
+      return {
+        outcome: "fulfilled",
+        recovered: true,
+        orderId,
+        ticketCount: result.tickets.length,
+      };
+    } catch (error) {
+      const freshSnap = await orderRef.get().catch(() => null);
+      if (freshSnap?.exists && freshSnap.data()?.status === "paid") {
+        return { outcome: "already_fulfilled", recovered: false, orderId };
+      }
+
+      try {
+        await recordPaidUnfulfilledOrder(db, admin, {
+          orderId,
+          checkoutSessionId: sessionId,
+          paymentIntentId: decision.paymentIntentId,
+          settlement: decision.settlement,
+          failureReason: error?.message || "Ticket fulfillment failed.",
+        });
+      } catch (recordError) {
+        logger?.error?.(
+          `[recoverOrderFulfillment] Failed to preserve paid-unfulfilled state for order ${orderId}:`,
+          recordError?.message || recordError,
+        );
+      }
+
+      throw new HttpsError(
+        "failed-precondition",
+        "Payment is verified, but tickets could not be issued. The order remains paid but unfulfilled for administrator review.",
+      );
+    }
+  };
 }
 
 function normalizeReferralId(value) {

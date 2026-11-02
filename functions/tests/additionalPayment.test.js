@@ -401,6 +401,142 @@ describe('create additional payment request', () => {
     assert.equal(db.collectionStore(ADDITIONAL_PAYMENT_REQUESTS_COLLECTION).size, 1);
   });
 
+  it('does not return an existing checkout URL after the competition leaves active state', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db, { competition: { status: 'drawing' } });
+    seedRequest(db, refs);
+    const stripe = makeStripe({
+      retrieve: (id) => ({
+        id,
+        url: `https://stripe.test/${id}`,
+        status: 'open',
+        payment_status: 'unpaid',
+        amount_total: 2000,
+        currency: 'gbp',
+        mode: 'payment',
+        metadata: { additionalPaymentRequestId: 'req-additional-001' },
+      }),
+    });
+    const handler = makeCreateHandler(db, stripe);
+
+    await assert.rejects(
+      handler(createRequest()),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(stripe.calls.create.length, 0);
+    assert.equal(db.snapshot(ADDITIONAL_PAYMENT_REQUESTS_COLLECTION, 'req-additional-001').data().payment_status, ADDITIONAL_PAYMENT_STATUS.PENDING);
+  });
+
+  it('reconciles a same-request paid Stripe session instead of creating another session', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    seedRequest(db, refs);
+    const paidObject = makeWebhookEvent().data.object;
+    const stripe = makeStripe({
+      retrieve: (id) => ({ ...paidObject, id }),
+    });
+    const handler = makeCreateHandler(db, stripe);
+
+    const result = await handler(createRequest());
+
+    assert.equal(result.sessionUrl, null);
+    assert.equal(result.reconciledPaidSession, true);
+    assert.equal(stripe.calls.create.length, 0);
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-additional-001'
+    ).data();
+    assert.equal(request.payment_status, ADDITIONAL_PAYMENT_STATUS.PAID);
+    assert.equal(request.fulfillment_status, ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED);
+    assert.equal(db.collectionStore('order').size, 1);
+    assert.equal(db.collectionStore('ticket').size, 2);
+  });
+
+  it('reconciles a same-request paid + pending request after a crash between settlement and fulfillment', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    seedRequest(db, refs, {
+      payment_status: ADDITIONAL_PAYMENT_STATUS.PAID,
+      fulfillment_status: ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+    });
+    const paidObject = makeWebhookEvent().data.object;
+    const stripe = makeStripe({
+      retrieve: (id) => ({ ...paidObject, id }),
+    });
+    const handler = makeCreateHandler(db, stripe);
+
+    const result = await handler(createRequest());
+
+    assert.equal(result.sessionUrl, null);
+    assert.equal(result.reconciledPaidSession, true);
+    assert.equal(stripe.calls.create.length, 0);
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-additional-001'
+    ).data();
+    assert.equal(request.fulfillment_status, ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED);
+    assert.equal(db.collectionStore('order').size, 1);
+    assert.equal(db.collectionStore('ticket').size, 2);
+  });
+
+  it('preserves a same-request paid request when Stripe retrieval fails', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    seedRequest(db, refs, {
+      payment_status: ADDITIONAL_PAYMENT_STATUS.PAID,
+      fulfillment_status: ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+    });
+    const stripe = makeStripe({
+      retrieve: () => {
+        throw new Error('stripe unavailable');
+      },
+    });
+    const handler = makeCreateHandler(db, stripe);
+
+    await assert.rejects(
+      handler(createRequest()),
+      (error) => error.code === 'internal' || error.code === 'failed-precondition'
+    );
+
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-additional-001'
+    ).data();
+    assert.equal(request.payment_status, ADDITIONAL_PAYMENT_STATUS.PAID);
+    assert.equal(request.fulfillment_status, ADDITIONAL_PAYMENT_FULFILLMENT.PENDING);
+    assert.equal(db.collectionStore('ticket').size, 0);
+    assert.equal(stripe.calls.create.length, 0);
+  });
+
+  it('rejects a same-request paid session with mismatched metadata without issuing tickets', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    seedRequest(db, refs, {
+      payment_status: ADDITIONAL_PAYMENT_STATUS.PENDING,
+      fulfillment_status: ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+    });
+    const paidObject = makeWebhookEvent({
+      requestId: 'req-other-001',
+    }).data.object;
+    const stripe = makeStripe({
+      retrieve: (id) => ({ ...paidObject, id }),
+    });
+    const handler = makeCreateHandler(db, stripe);
+
+    await assert.rejects(
+      handler(createRequest()),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-additional-001'
+    ).data();
+    assert.equal(request.payment_status, ADDITIONAL_PAYMENT_STATUS.PENDING);
+    assert.equal(db.collectionStore('ticket').size, 0);
+  });
+
   it('keeps the request pending and retryable when Stripe session creation fails', async () => {
     const db = new MemoryDB();
     seed(db);

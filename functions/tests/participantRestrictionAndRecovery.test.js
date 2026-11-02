@@ -19,6 +19,7 @@ import {
   createGetAdditionalPaymentCheckoutUrlHandler,
   createRecoverAdditionalPaymentFulfillmentHandler,
   enforceAdditionalPaymentRestriction,
+  processAdditionalPaymentWebhookEvent,
 } from '../services/additionalPaymentService.js';
 import {
   runOrderTransaction,
@@ -724,6 +725,217 @@ describe('participant removal modes', () => {
   });
 });
 
+describe('participant removal request identity', () => {
+  it('rejects a request ID already used for a different participant before restricting', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    const handler = makeRemovalHandler(db);
+
+    await handler(
+      removalRequest({
+        mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+        requestId: 'req-shared-user',
+      })
+    );
+
+    const beforeEvents = auditEvents(db).filter(
+      (event) => event.action === AUDIT_ACTIONS.PARTICIPANT_RESTRICTED
+    ).length;
+
+    await assert.rejects(
+      handler({
+        auth: { uid: ADMIN_UID },
+        data: {
+          userId: 'u2',
+          competitionId: 'c1',
+          reason: 'Administrative participant removal',
+          requestId: 'req-shared-user',
+          mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+        },
+      }),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    const competition = db.snapshot('competition', 'c1').data();
+    assert.equal(competition.restricted_participants.length, 1);
+    assert.equal(competition.restricted_participants[0].path, `user/${USER_UID}`);
+    assert.equal(
+      auditEvents(db).filter(
+        (event) => event.action === AUDIT_ACTIONS.PARTICIPANT_RESTRICTED
+      ).length,
+      beforeEvents
+    );
+  });
+
+  it('rejects a request ID already used for a different competition before restricting', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    const handler = makeRemovalHandler(db);
+
+    await handler(
+      removalRequest({
+        mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+        requestId: 'req-shared-competition',
+      })
+    );
+
+    await assert.rejects(
+      handler({
+        auth: { uid: ADMIN_UID },
+        data: {
+          userId: USER_UID,
+          competitionId: 'c2',
+          reason: 'Administrative participant removal',
+          requestId: 'req-shared-competition',
+          mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+        },
+      }),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(
+      db.snapshot('competition', 'c2').data().restricted_participants ?? undefined,
+      undefined
+    );
+  });
+
+  it('rejects a request ID already used with a different removal mode before restricting', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    const handler = makeRemovalHandler(db);
+
+    await handler(
+      removalRequest({
+        mode: PARTICIPANT_REMOVAL_MODES.INVALIDATE_ONLY,
+        requestId: 'req-shared-mode',
+      })
+    );
+
+    await assert.rejects(
+      handler(
+        removalRequest({
+          mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+          requestId: 'req-shared-mode',
+        })
+      ),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(
+      db.snapshot('competition', 'c1').data().restricted_participants ?? undefined,
+      undefined
+    );
+  });
+
+  it('rejects an unsuffixed adjustment collision before restricting', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    db.setDocument('ticket_adjustments', 'req-unsuffixed-collision', {
+      operation: 'ticket_increase',
+      source: 'admin_order_increase',
+      request_id: 'req-unsuffixed-collision',
+      user_ref: refs.userRef,
+      competition_ref: refs.competitionRef,
+      reason: 'Different operation',
+      quantity: 1,
+      result: { success: true },
+    });
+
+    await assert.rejects(
+      makeRemovalHandler(db)(
+        removalRequest({
+          mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+          requestId: 'req-unsuffixed-collision',
+        })
+      ),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(
+      db.snapshot('competition', 'c1').data().restricted_participants ?? undefined,
+      undefined
+    );
+    assert.equal(
+      auditEvents(db).some(
+        (event) => event.action === AUDIT_ACTIONS.PARTICIPANT_RESTRICTED
+      ),
+      false
+    );
+  });
+
+  it('resumes a partial removal with the same request ID and target', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    db.setDocument('ticket', 't1', {
+      ...db.snapshot('ticket', 't1').data(),
+      status: 'invalid',
+    });
+    db.setDocument('competition', 'c1', {
+      ...db.snapshot('competition', 'c1').data(),
+      restricted_participants: [refs.userRef],
+    });
+    db.setDocument('ticket_adjustments', 'req-partial-001:chunk:0', {
+      operation: 'ticket_invalidation',
+      source: 'admin_all_active_tickets',
+      request_id: 'req-partial-001',
+      user_ref: refs.userRef,
+      competition_ref: refs.competitionRef,
+      reason: 'Administrative participant removal',
+      quantity: 1,
+      ticket_ids: ['t1'],
+      result: {
+        mode: 'participant_removal',
+        restrictedFutureParticipation: true,
+      },
+    });
+
+    const result = await makeRemovalHandler(db)(
+      removalRequest({
+        mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+        requestId: 'req-partial-001',
+      })
+    );
+
+    assert.equal(result.complete, true);
+    assert.equal(result.processedCount, 2);
+    assert.equal(db.snapshot('ticket', 't2').data().status, 'invalid');
+  });
+
+  it('serializes concurrent same-request removals without duplicate restrictions', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    const handler = makeRemovalHandler(db);
+    const request = removalRequest({
+      mode: PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK,
+      requestId: 'req-concurrent-001',
+    });
+
+    const results = await Promise.allSettled([handler(request), handler(request)]);
+
+    assert.ok(results.some((result) => result.status === 'fulfilled'));
+    results
+      .filter((result) => result.status === 'rejected')
+      .forEach((result) => {
+        assert.equal(result.reason.code, 'failed-precondition');
+      });
+
+    const competition = db.snapshot('competition', 'c1').data();
+    assert.equal(
+      competition.restricted_participants.filter(
+        (participant) => participant.path === `user/${USER_UID}`
+      ).length,
+      1
+    );
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 't2').data().status, 'invalid');
+
+    const retry = await handler(request);
+    assert.equal(retry.complete, true);
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'invalid');
+    assert.equal(db.snapshot('ticket', 't2').data().status, 'invalid');
+  });
+});
+
 describe('additional payment recovery', () => {
   it('recovers a verified paid-but-unfulfilled request without charging again', async () => {
     const db = new MemoryDB();
@@ -789,7 +1001,7 @@ describe('additional payment recovery', () => {
     assert.ok(refusal);
   });
 
-  it('rejects a paid + pending request', async () => {
+  it('recovers a paid + pending request after re-verifying Stripe', async () => {
     const db = new MemoryDB();
     const refs = seed(db);
     seedPaymentRequest(db, refs, {
@@ -798,18 +1010,26 @@ describe('additional payment recovery', () => {
     });
     const stripe = makeStripeForSession(paidSession());
 
-    await assert.rejects(
-      makeRecoveryHandler(db, stripe)(recoveryRequest()),
-      (error) => error.code === 'failed-precondition'
-    );
+    const result = await makeRecoveryHandler(db, stripe)(recoveryRequest());
 
-    assert.equal(db.collectionStore('ticket').size, 2);
-    const refusal = auditEvents(db).find(
-      (event) =>
-        event.action === AUDIT_ACTIONS.PAYMENT_REQUEST_RECOVERY_ATTEMPTED &&
-        event.after.outcome === 'refused_invalid_state'
+    assert.equal(result.outcome, 'fulfilled');
+    assert.equal(result.recovered, true);
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-pay-001'
+    ).data();
+    assert.equal(
+      request.fulfillment_status,
+      ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED
     );
-    assert.ok(refusal);
+    assert.equal(db.collectionStore('order').size, 1);
+    assert.equal(db.collectionStore('ticket').size, 4);
+    assert.equal(stripe.calls.retrieve.length, 1);
+    assert.equal(stripe.calls.create.length, 0);
+    const recoveryEvent = auditEvents(db).find(
+      (event) => event.action === AUDIT_ACTIONS.PAYMENT_REQUEST_RECOVERY_ATTEMPTED
+    );
+    assert.equal(recoveryEvent.after.outcome, 'fulfilled');
   });
 
   it('rejects a pending + failed request', async () => {
@@ -958,6 +1178,40 @@ describe('additional payment recovery', () => {
       'req-pay-001'
     ).data();
     assert.equal(request.fulfillment_status, ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED);
+  });
+
+  it('serializes a concurrent webhook and recovery without duplicate orders or tickets', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    seedPaymentRequest(db, refs, {
+      payment_status: ADDITIONAL_PAYMENT_STATUS.PAID,
+      fulfillment_status: ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+    });
+    const stripe = makeStripeForSession(paidSession());
+    const handler = makeRecoveryHandler(db, stripe);
+
+    const results = await Promise.allSettled([
+      handler(recoveryRequest()),
+      processAdditionalPaymentWebhookEvent({
+        db,
+        admin: createMockAdmin(),
+        logger: createMockLogger(),
+        event: {
+          type: 'checkout.session.completed',
+          data: { object: paidSession() },
+        },
+        HttpsError: MockHttpsError,
+      }),
+    ]);
+
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 2);
+    const request = db.snapshot(
+      ADDITIONAL_PAYMENT_REQUESTS_COLLECTION,
+      'req-pay-001'
+    ).data();
+    assert.equal(request.fulfillment_status, ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED);
+    assert.equal(db.collectionStore('order').size, 1);
+    assert.equal(db.collectionStore('ticket').size, 4);
   });
 
   it('keeps the request paid-but-unfulfilled when stock is insufficient', async () => {

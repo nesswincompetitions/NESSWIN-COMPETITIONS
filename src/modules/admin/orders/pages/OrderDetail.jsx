@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-hot-toast';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import { 
   ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, PlusCircle, MinusCircle,
   CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2,
@@ -14,6 +16,7 @@ import { formatStatus } from '@/shared/utils/formatters';
 import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import IncreaseTicketsModal from '@/shared/components/admin/IncreaseTicketsModal';
 import DecreaseTicketsModal from '@/shared/components/admin/DecreaseTicketsModal';
+import { recoverOrderFulfillment } from '@/modules/admin/orders/services/ordersService';
 
 const OrderDetail = () => {
   const { id } = useParams();
@@ -24,7 +27,37 @@ const OrderDetail = () => {
   const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
   const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
   const [isDecreaseOpen, setIsDecreaseOpen] = useState(false);
+  const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState('');
   const loading = orderLoading || ticketsLoading;
+
+  const canRecoverFulfillment =
+    order?.status === 'pending' &&
+    order?.payment_status === 'paid' &&
+    order?.fulfillment_status === 'failed' &&
+    Boolean(order?.stripe_checkout_session_id);
+
+  const handleRecoverFulfillment = async () => {
+    if (!order?.id || isRecovering) return;
+    setIsRecovering(true);
+    setRecoveryError('');
+    try {
+      const result = await recoverOrderFulfillment(order.id);
+      if (result?.outcome === 'already_fulfilled') {
+        toast.success(t('orders.detail.recoveryAlready'));
+      } else {
+        toast.success(t('orders.detail.recoverySuccess'));
+      }
+      setIsRecoveryOpen(false);
+    } catch (error) {
+      const message = error?.message || t('orders.detail.recoveryError');
+      setRecoveryError(message);
+      toast.error(message);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
 
   const formatDate = (ts) => {
     if (!ts) return '—';
@@ -141,6 +174,20 @@ const OrderDetail = () => {
               </p>
             )}
           </div>
+          {canRecoverFulfillment && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto shrink-0"
+              onClick={() => {
+                setRecoveryError('');
+                setIsRecoveryOpen(true);
+              }}
+            >
+              <RefreshCcw size={14} />
+              {t('orders.detail.recoverFulfillment')}
+            </Button>
+          )}
         </div>
       )}
 
@@ -338,6 +385,21 @@ const OrderDetail = () => {
         userName={order.user_name}
         competitionTitle={order.competition_title}
         tickets={tickets}
+      />
+
+      <ConfirmationModal
+        isOpen={isRecoveryOpen}
+        onClose={() => !isRecovering && setIsRecoveryOpen(false)}
+        onConfirm={handleRecoverFulfillment}
+        title={t('orders.detail.recoveryTitle')}
+        description={
+          recoveryError ||
+          t('orders.detail.recoveryDescription', { orderId: order.id })
+        }
+        confirmLabel={t('orders.detail.recoveryConfirm')}
+        cancelLabel={t('common.cancel')}
+        variant="primary"
+        loading={isRecovering}
       />
     </div>
   );

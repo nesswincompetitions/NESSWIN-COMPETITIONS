@@ -13,6 +13,7 @@ import {
 import { getTicketOrigin } from "./ticketOrigin.js";
 import { normalizeTicketStatus } from "./ticketEligibility.js";
 import { enforceAdditionalPaymentRestriction } from "./additionalPaymentService.js";
+import { reconcilePendingOrdersForParticipantRestriction } from "./orderTransactionService.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
   adjustmentReplayMatches,
@@ -62,36 +63,61 @@ function storedRestrictsParticipation(record) {
   return record?.result?.restrictedFutureParticipation === true;
 }
 
-async function assertRequestIdCompatibleWithMode({
+function assertRemovalRecordMatches(record, expected, HttpsError) {
+  if (record?.result?.mode === "participant_removal" && record.result.noop === true) {
+    if (!isParticipantRemovalNoop(record, expected)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This request ID was already used for a different ticket adjustment."
+      );
+    }
+    return;
+  }
+
+  if (
+    record?.operation === "ticket_invalidation" &&
+    record?.source === "admin_all_active_tickets"
+  ) {
+    assertChunkIdentity(record, expected, HttpsError);
+    return;
+  }
+
+  throw new HttpsError(
+    "failed-precondition",
+    "This request ID was already used for a different ticket adjustment."
+  );
+}
+
+async function assertParticipantRemovalRequestIdentity({
   db,
+  readDocument,
   requestId,
+  userId,
+  competitionId,
+  reasonText,
   restrictedFutureParticipation,
   HttpsError,
 }) {
   if (!requestId) return;
 
-  const unsuffixedSnap = await db
-    .collection(TICKET_ADJUSTMENTS_COLLECTION)
-    .doc(requestId)
-    .get();
-  const chunkSnap = unsuffixedSnap.exists
-    ? null
-    : await db
-        .collection(TICKET_ADJUSTMENTS_COLLECTION)
-        .doc(buildParticipantRemovalChunkId(requestId, 0))
-        .get();
-  const record = unsuffixedSnap.exists
-    ? unsuffixedSnap.data()
-    : chunkSnap?.exists
-      ? chunkSnap.data()
-      : null;
-  if (!record) return;
+  const expected = {
+    requestId,
+    userId,
+    competitionId,
+    reasonText,
+    restrictedFutureParticipation,
+  };
+  const adjustmentRefs = [
+    db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(requestId),
+    db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(buildParticipantRemovalChunkId(requestId, 0)),
+  ];
 
-  if (storedRestrictsParticipation(record) !== restrictedFutureParticipation) {
-    throw new HttpsError(
-      "failed-precondition",
-      "This request ID was already used for a different participant removal mode."
-    );
+  for (const adjustmentRef of adjustmentRefs) {
+    const snap = await readDocument(adjustmentRef);
+    if (!snap.exists) continue;
+    assertRemovalRecordMatches(snap.data(), expected, HttpsError);
   }
 }
 
@@ -109,6 +135,17 @@ async function applyParticipantRestriction({
   HttpsError,
 }) {
   return db.runTransaction(async (transaction) => {
+    await assertParticipantRemovalRequestIdentity({
+      db,
+      readDocument: (ref) => transaction.get(ref),
+      requestId,
+      userId,
+      competitionId,
+      reasonText,
+      restrictedFutureParticipation: true,
+      HttpsError,
+    });
+
     const competitionSnap = await transaction.get(competitionRef);
     if (!competitionSnap.exists) {
       throw new HttpsError("not-found", "Competition not found.");
@@ -605,12 +642,18 @@ export function createInvalidateUserCompetitionTicketsHandler({
     const competitionRef = db.collection("competition").doc(competitionId);
     const adminRef = db.collection("user").doc(adminUid);
 
-    await assertRequestIdCompatibleWithMode({
-      db,
-      requestId: normalizedRequestId,
-      restrictedFutureParticipation,
-      HttpsError,
-    });
+    if (!hasExplicitSelection) {
+      await assertParticipantRemovalRequestIdentity({
+        db,
+        readDocument: (ref) => ref.get(),
+        requestId: normalizedRequestId,
+        userId,
+        competitionId,
+        reasonText,
+        restrictedFutureParticipation,
+        HttpsError,
+      });
+    }
 
     if (hasExplicitSelection) {
       const replayExpectation = {
@@ -806,6 +849,23 @@ export function createInvalidateUserCompetitionTicketsHandler({
       } catch (error) {
         logger.error(
           `[invalidateUserCompetitionTickets] Outstanding payment restriction failed admin=${adminUid} user=${userId} competition=${competitionId}:`,
+          error
+        );
+      }
+
+      try {
+        await reconcilePendingOrdersForParticipantRestriction({
+          db,
+          admin,
+          logger,
+          userId,
+          competitionId,
+          ...(stripeFactory ? { stripeFactory } : {}),
+          ...(getStripeSecretKey ? { getStripeSecretKey } : {}),
+        });
+      } catch (error) {
+        logger.error(
+          `[invalidateUserCompetitionTickets] Ordinary pending order reconciliation failed admin=${adminUid} user=${userId} competition=${competitionId}:`,
           error
         );
       }

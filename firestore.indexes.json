@@ -539,6 +539,20 @@
       ]
     },
     {
+      "collectionGroup": "ticket_adjustments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "user_ref",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "competition_ref",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "ticket",
       "queryScope": "COLLECTION",
       "fields": [

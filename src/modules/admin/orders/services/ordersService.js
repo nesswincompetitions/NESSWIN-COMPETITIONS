@@ -75,3 +75,13 @@ export async function refundOrder(orderId) {
   const result = await refundOrderFn({ orderId });
   return result.data;
 }
+
+/**
+ * Retries ticket fulfillment for a verified paid-but-unfulfilled order.
+ * The backend re-verifies Stripe settlement; this call never charges again.
+ */
+export async function recoverOrderFulfillment(orderId) {
+  const recoverOrderFulfillmentFn = httpsCallable(functions, 'recoverOrderFulfillment');
+  const result = await recoverOrderFulfillmentFn({ orderId });
+  return result.data;
+}

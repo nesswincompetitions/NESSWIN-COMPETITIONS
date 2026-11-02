@@ -1,11 +1,12 @@
 import { onCall, HttpsError, onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
-import { assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
+import { assertAdmin, assertAuthenticated, toHttpsError } from "../services/functionGuards.js";
 import {
   AccountNotEligibleError,
   CheckoutValidationError,
   DirectPaymentRequiredError,
+  createRecoverOrderFulfillmentHandler as buildRecoverOrderFulfillmentHandler,
   getCheckoutExpiryForCompetition,
   runOrderTransaction,
   validateCheckoutInputs,
@@ -308,6 +309,30 @@ const processOrderHandler = createProcessOrderHandler({
 });
 
 export const processOrder = onCall(processOrderHandler);
+
+const recoverOrderFulfillmentHandler = buildRecoverOrderFulfillmentHandler({
+  db,
+  admin,
+  logger,
+  assertAdmin,
+  HttpsError,
+});
+
+/**
+ * Callable: recoverOrderFulfillment
+ * Admin-only recovery of a verified paid-but-unfulfilled ordinary order.
+ * Payload: { orderId: string }
+ */
+export const recoverOrderFulfillment = onCall(async (request) => {
+  try {
+    return await recoverOrderFulfillmentHandler(request);
+  } catch (error) {
+    if (!(error instanceof HttpsError)) {
+      logger.error("[recoverOrderFulfillment] Error:", error);
+    }
+    throw toHttpsError(error, "Failed to recover order fulfillment.");
+  }
+});
 
 export function createStripeCheckoutSessionHandler({
   db,

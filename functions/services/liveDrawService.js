@@ -1,4 +1,5 @@
 import { getLiveDrawStartBlock } from "./ticketAdjustmentPolicy.js";
+import { getParticipantRemovalDrawBlock } from "./ticketAdjustmentAudit.js";
 
 export function createStartCompetitionLiveDrawHandler({
   db,
@@ -23,9 +24,20 @@ export function createStartCompetitionLiveDrawHandler({
         throw new HttpsError("not-found", "Competition not found.");
       }
 
-      const block = getLiveDrawStartBlock(competitionSnap.data());
+      const competitionData = competitionSnap.data();
+      const block = getLiveDrawStartBlock(competitionData);
       if (block) {
         throw new HttpsError("failed-precondition", block);
+      }
+
+      const removalBlock = await getParticipantRemovalDrawBlock({
+        db,
+        competitionId,
+        competitionData,
+        readQuery: (query) => transaction.get(query),
+      });
+      if (removalBlock) {
+        throw new HttpsError("failed-precondition", removalBlock);
       }
 
       const now = admin.firestore.FieldValue.serverTimestamp();

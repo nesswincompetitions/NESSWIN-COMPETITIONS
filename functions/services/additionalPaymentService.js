@@ -463,8 +463,12 @@ function serializePaymentRequest(requestId, data) {
       data?.fulfillment_status || ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
     recovery_available:
       paymentStatus === ADDITIONAL_PAYMENT_STATUS.PAID &&
-      (data?.fulfillment_status || ADDITIONAL_PAYMENT_FULFILLMENT.PENDING) ===
-        ADDITIONAL_PAYMENT_FULFILLMENT.FAILED &&
+      [
+        ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+        ADDITIONAL_PAYMENT_FULFILLMENT.FAILED,
+      ].includes(
+        data?.fulfillment_status || ADDITIONAL_PAYMENT_FULFILLMENT.PENDING
+      ) &&
       typeof data?.stripe_checkout_session_id === "string" &&
       Boolean(data.stripe_checkout_session_id),
     has_checkout_session:
@@ -531,6 +535,76 @@ async function getRequestRestrictionBlock(db, requestData) {
   }
 
   return getParticipantRestrictionBlock(competitionSnap.data(), userId);
+}
+
+async function assertCurrentAdditionalPaymentEligibility({
+  db,
+  requestData,
+  nowMillis,
+  HttpsError: HttpsErrorClass,
+}) {
+  const competitionId = getReferenceId(requestData?.competition_id);
+  const userId = getReferenceId(requestData?.user_ref);
+  if (!competitionId || !userId) {
+    throw new HttpsErrorClass(
+      "failed-precondition",
+      "This payment request is not linked to a valid participant or competition."
+    );
+  }
+
+  const [competitionSnap, userSnap] = await Promise.all([
+    db.collection("competition").doc(competitionId).get(),
+    db.collection("user").doc(userId).get(),
+  ]);
+  if (!competitionSnap.exists) {
+    throw new HttpsErrorClass(
+      "failed-precondition",
+      "The competition for this payment request was not found."
+    );
+  }
+  if (!userSnap.exists) {
+    throw new HttpsErrorClass(
+      "failed-precondition",
+      "The participant for this payment request was not found."
+    );
+  }
+
+  try {
+    assertAccountEligibleForCheckout(userSnap.data());
+  } catch (error) {
+    if (error instanceof AccountNotEligibleError) {
+      throw new HttpsErrorClass("failed-precondition", error.message);
+    }
+    throw error;
+  }
+
+  const competitionData = competitionSnap.data();
+  const restrictionBlock = getParticipantRestrictionBlock(
+    competitionData,
+    userId
+  );
+  if (restrictionBlock) {
+    throw new HttpsErrorClass("failed-precondition", restrictionBlock);
+  }
+
+  const expiry = getCheckoutExpiryForCompetition(competitionData, {
+    nowMillis,
+    requireDrawDate: true,
+  });
+  if (expiry.error) {
+    throw new HttpsErrorClass("failed-precondition", expiry.error);
+  }
+
+  const quantity = Number(requestData?.requested_ticket_quantity);
+  const stock = Number(competitionData.stock_quantity || 0);
+  if (!Number.isFinite(stock) || stock < quantity) {
+    throw new HttpsErrorClass(
+      "failed-precondition",
+      Number.isFinite(stock) && stock < quantity
+        ? `Only ${stock} ticket${stock === 1 ? "" : "s"} remaining in stock.`
+        : "Competition stock is invalid."
+    );
+  }
 }
 
 async function handleRestrictedCheckoutSession({
@@ -1170,10 +1244,10 @@ export function createAdditionalPaymentRequestHandler({
       );
     }
 
-    if (
-      requestData.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED ||
-      requestData.payment_status === ADDITIONAL_PAYMENT_STATUS.PAID
-    ) {
+    const effectiveFulfillmentStatus =
+      requestData.fulfillment_status ||
+      ADDITIONAL_PAYMENT_FULFILLMENT.PENDING;
+    if (effectiveFulfillmentStatus === ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED) {
       return {
         request: serializePaymentRequest(normalizedRequestId, requestData, now()),
         sessionUrl: null,
@@ -1188,12 +1262,30 @@ export function createAdditionalPaymentRequestHandler({
       );
     }
 
-    const replayRestrictionBlock = await getRequestRestrictionBlock(
-      db,
-      requestData
-    );
-    if (replayRestrictionBlock) {
-      throw new HttpsErrorClass("failed-precondition", replayRestrictionBlock);
+    if (requestData.payment_status === ADDITIONAL_PAYMENT_STATUS.FAILED) {
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "This payment request is in a failed state. Resolve it manually before retrying."
+      );
+    }
+
+    const requestWasPaid =
+      requestData.payment_status === ADDITIONAL_PAYMENT_STATUS.PAID;
+    if (requestWasPaid && !requestData.stripe_checkout_session_id) {
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "This paid payment request has no verified Stripe session. Resolve it manually."
+      );
+    }
+
+    if (!requestWasPaid) {
+      const replayRestrictionBlock = await getRequestRestrictionBlock(
+        db,
+        requestData
+      );
+      if (replayRestrictionBlock) {
+        throw new HttpsErrorClass("failed-precondition", replayRestrictionBlock);
+      }
     }
 
     try {
@@ -1222,6 +1314,58 @@ export function createAdditionalPaymentRequestHandler({
         );
       }
 
+      if (sessionResult.paid) {
+        const sessionRequestId =
+          sessionResult.session?.metadata?.additionalPaymentRequestId;
+        if (sessionRequestId && sessionRequestId !== normalizedRequestId) {
+          logger.error(
+            `[additionalPayment] Stripe session metadata mismatch for request=${normalizedRequestId}.`
+          );
+          throw new HttpsErrorClass(
+            "failed-precondition",
+            "The Stripe session does not belong to this payment request."
+          );
+        }
+
+        const outcome = await processAdditionalPaymentWebhookEvent({
+          db,
+          admin,
+          logger,
+          event: {
+            type: "checkout.session.completed",
+            data: { object: sessionResult.session },
+          },
+          HttpsError: HttpsErrorClass,
+        });
+
+        if (!outcome || (outcome.statusCode && outcome.statusCode >= 400)) {
+          logger.error(
+            `[additionalPayment] Verified paid session could not be reconciled for request=${normalizedRequestId}: ${outcome?.body || "unknown error"}`
+          );
+          throw new HttpsErrorClass(
+            "failed-precondition",
+            "The verified payment could not be fulfilled. The request will remain paid but unfulfilled for administrator review."
+          );
+        }
+
+        const freshSnap = await requestRef.get();
+        const fresh = freshSnap.exists ? freshSnap.data() : requestData;
+
+        return {
+          request: serializePaymentRequest(normalizedRequestId, fresh, now()),
+          sessionUrl: null,
+          idempotentReplay: !transactionResult.created,
+          reconciledPaidSession: true,
+        };
+      }
+
+      if (requestWasPaid) {
+        throw new HttpsErrorClass(
+          "failed-precondition",
+          "The paid payment request could not be verified with Stripe. Resolve it manually."
+        );
+      }
+
       // Re-check after creating/retrieving the Stripe session. A restriction may
       // have committed while the session was being created or persisted.
       const postSessionRestrictionBlock = await getRequestRestrictionBlock(
@@ -1244,6 +1388,13 @@ export function createAdditionalPaymentRequestHandler({
           postSessionRestrictionBlock
         );
       }
+
+      await assertCurrentAdditionalPaymentEligibility({
+        db,
+        requestData,
+        nowMillis: now(),
+        HttpsError: HttpsErrorClass,
+      });
 
       const freshSnap = await requestRef.get();
       const fresh = freshSnap.exists ? freshSnap.data() : requestData;
@@ -2569,9 +2720,17 @@ export function createRecoverAdditionalPaymentFulfillmentHandler({
       };
     }
 
+    const effectiveFulfillmentStatus =
+      requestData.fulfillment_status ||
+      ADDITIONAL_PAYMENT_FULFILLMENT.PENDING;
+    const recoverableFulfillmentStatuses = [
+      ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+      ADDITIONAL_PAYMENT_FULFILLMENT.FAILED,
+    ];
+
     if (
       requestData.payment_status !== ADDITIONAL_PAYMENT_STATUS.PAID ||
-      requestData.fulfillment_status !== ADDITIONAL_PAYMENT_FULFILLMENT.FAILED
+      !recoverableFulfillmentStatuses.includes(effectiveFulfillmentStatus)
     ) {
       await recordRecoveryAudit({
         adminUid,
@@ -2579,11 +2738,11 @@ export function createRecoverAdditionalPaymentFulfillmentHandler({
         requestData,
         outcome: "refused_invalid_state",
         failureReason:
-          "Only paid-but-unfulfilled additional payment requests can be recovered.",
+          "Only paid additional payment requests with pending or failed fulfillment can be recovered.",
       });
       throw new HttpsErrorClass(
         "failed-precondition",
-        "Only paid-but-unfulfilled additional payment requests can be recovered.",
+        "Only paid additional payment requests with pending or failed fulfillment can be recovered.",
       );
     }
 
