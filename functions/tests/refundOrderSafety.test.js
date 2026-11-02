@@ -1282,7 +1282,12 @@ describe('Stripe refund webhook reconciliation', () => {
       ],
     });
 
-    const result = await makeHandler(db, stripe)(refundRequest());
+    const result = await makeHandler(db, stripe)(
+      refundRequest({
+        requestId: 'refund-webhook-001',
+        reason: 'webhook test',
+      })
+    );
 
     assert.equal(result.status, 'succeeded');
     assert.equal(result.idempotentReplay, true);
