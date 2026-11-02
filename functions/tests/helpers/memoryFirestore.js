@@ -89,20 +89,35 @@ function querySnapshots(query, onRead) {
     });
   }
 
+  let results = docs;
+  if (query.cursorSnapshot) {
+    const cursorPath = query.cursorSnapshot.ref?.path;
+    const cursorIndex = results.findIndex(({ ref }) => ref.path === cursorPath);
+    results = cursorIndex === -1 ? [] : results.slice(cursorIndex + 1);
+  }
+
   const limited = query.limitCount === null
-    ? docs
-    : docs.slice(0, query.limitCount);
+    ? results
+    : results.slice(0, query.limitCount);
 
   return limited.map(({ ref, data }) => makeSnapshot(ref, data));
 }
 
 export class MemoryQuery {
-  constructor(db, collectionName, constraints = [], orderByConstraints = [], limitCount = null) {
+  constructor(
+    db,
+    collectionName,
+    constraints = [],
+    orderByConstraints = [],
+    limitCount = null,
+    cursorSnapshot = null,
+  ) {
     this.db = db;
     this.collectionName = collectionName;
     this.constraints = constraints;
     this.orderByConstraints = orderByConstraints;
     this.limitCount = limitCount;
+    this.cursorSnapshot = cursorSnapshot;
   }
 
   where(field, operator, value) {
@@ -112,6 +127,7 @@ export class MemoryQuery {
       [...this.constraints, { field, operator, value }],
       this.orderByConstraints,
       this.limitCount,
+      this.cursorSnapshot,
     );
   }
 
@@ -122,6 +138,7 @@ export class MemoryQuery {
       this.constraints,
       [...this.orderByConstraints, { field, direction }],
       this.limitCount,
+      this.cursorSnapshot,
     );
   }
 
@@ -132,6 +149,18 @@ export class MemoryQuery {
       this.constraints,
       this.orderByConstraints,
       count,
+      this.cursorSnapshot,
+    );
+  }
+
+  startAfter(snapshot) {
+    return new MemoryQuery(
+      this.db,
+      this.collectionName,
+      this.constraints,
+      this.orderByConstraints,
+      this.limitCount,
+      snapshot,
     );
   }
 
@@ -160,6 +189,10 @@ export class MemoryCollection {
 
   where(field, operator, value) {
     return new MemoryQuery(this.db, this.name).where(field, operator, value);
+  }
+
+  orderBy(field, direction = 'asc') {
+    return new MemoryQuery(this.db, this.name).orderBy(field, direction);
   }
 }
 

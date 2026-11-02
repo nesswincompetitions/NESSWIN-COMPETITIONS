@@ -17,6 +17,7 @@ export { getSkillQuestion, submitSkillAnswer } from "./controllers/skillGateCont
 
 // Admin & Dashboard
 export { grantAdminBonus, revokeAdminBonus, invalidateUserCompetitionTickets, increaseUserCompetitionTickets, decreaseUserCompetitionTickets, refundOrder } from "./controllers/adminController.js";
+export { listAdminAuditEvents } from "./controllers/adminAuditController.js";
 export { deleteAdminCompetition, saveAdminCompetition } from "./controllers/competitionAdminController.js";
 export {
 	onCompetitionChangeDashboard,
