@@ -490,6 +490,7 @@
       "paymentMethod": "Payment Method",
       "date": "Date",
       "status": "Status",
+      "fulfillmentFailed": "Fulfillment failed",
       "actions": "Actions"
     },
     "stats": {
@@ -515,6 +516,8 @@
       "refundFailed": "Failed to refund order",
       "refundUnavailable": "Refund unavailable",
       "refundUnavailableNote": "Payment-provider refunds are not available in this release. No refund request was sent and no order, ticket, or payment data was changed.",
+      "paidUnfulfilled": "Payment received, but ticket fulfillment failed. No tickets were issued for this payment.",
+      "paidUnfulfilledError": "Failure: {{error}}",
       "orderDetails": "Order Details",
       "competition": "Competition",
       "ticketNumbers": "Ticket Numbers",

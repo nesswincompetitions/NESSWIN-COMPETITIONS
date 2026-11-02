@@ -142,7 +142,15 @@ async function invokeWebhook(handler) {
 }
 
 function assertNoFulfillment(db, { orderBefore, userBefore, competitionBefore }) {
-  assert.deepEqual(db.snapshot('order', 'o1').data(), orderBefore);
+  const orderAfter = db.snapshot('order', 'o1').data();
+  assert.equal(orderAfter.status, orderBefore.status);
+  assert.equal(orderAfter.stripe_checkout_session_id, orderBefore.stripe_checkout_session_id);
+  assert.equal(orderAfter.payment_status, 'paid');
+  assert.equal(orderAfter.fulfillment_status, 'failed');
+  assert.equal(orderAfter.stripe_status, 'paid');
+  assert.equal(orderAfter.stripe_payment_intent_id, 'pi_1');
+  assert.equal(typeof orderAfter.fulfillment_error, 'string');
+  assert.equal(orderAfter.fulfillment_attempts, 1);
   assert.deepEqual(db.snapshot('user', 'u1').data(), userBefore);
   assert.deepEqual(db.snapshot('competition', 'c1').data(), competitionBefore);
   assert.equal(db.snapshot('referrals', 'r1').data().reward_issued, false);
@@ -221,7 +229,13 @@ describe('account deletion and checkout fulfillment safety', () => {
     assert.equal(deletionMarked, true);
     assert.equal(res.statusCode, 400);
     assert.match(res.body, /Account not eligible/);
-    assert.deepEqual(db.snapshot('order', 'o1').data(), orderBefore);
+    const orderAfter = db.snapshot('order', 'o1').data();
+    assert.equal(orderAfter.status, orderBefore.status);
+    assert.equal(orderAfter.stripe_checkout_session_id, orderBefore.stripe_checkout_session_id);
+    assert.equal(orderAfter.payment_status, 'paid');
+    assert.equal(orderAfter.fulfillment_status, 'failed');
+    assert.equal(orderAfter.stripe_status, 'paid');
+    assert.equal(orderAfter.stripe_payment_intent_id, 'pi_1');
     assert.deepEqual(db.snapshot('competition', 'c1').data(), competitionBefore);
     assert.equal(db.snapshot('referrals', 'r1').data().reward_issued, false);
     assert.equal(db.collectionStore('ticket').size, 0);

@@ -22,6 +22,14 @@ describe('ticket adjustment policy', () => {
       /winner has been declared/
     );
     assert.match(
+      getCompetitionAdjustmentBlock({ ...active, draw_started_at: new Date() }),
+      /draw has started/
+    );
+    assert.equal(
+      getCompetitionAdjustmentBlock({ ...active, draw_started_at: '' }),
+      null
+    );
+    assert.match(
       getCompetitionAdjustmentBlock({ ...active, status: 'sold_out' }),
       /accepting entries/
     );

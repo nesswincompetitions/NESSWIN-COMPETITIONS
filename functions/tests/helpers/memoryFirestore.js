@@ -46,6 +46,10 @@ export class MemoryDocRef {
   async update(data) {
     this.db.applyWrites([{ type: 'update', path: this.path, data }]);
   }
+
+  async set(data) {
+    this.db.applyWrites([{ type: 'set', path: this.path, data }]);
+  }
 }
 
 function compareQueryValues(left, right) {

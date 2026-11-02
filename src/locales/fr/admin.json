@@ -489,6 +489,7 @@
       "paymentMethod": "Mode de paiement",
       "date": "Date",
       "status": "Statut",
+      "fulfillmentFailed": "Échec de l’attribution",
       "actions": "Actions"
     },
     "empty": {
@@ -500,6 +501,8 @@
       "refundOrder": "Rembourser la commande",
       "refundUnavailable": "Remboursement indisponible",
       "refundUnavailableNote": "Les remboursements du fournisseur de paiement ne sont pas disponibles dans cette version. Aucune demande de remboursement n'a été envoyée et aucune commande, aucun ticket ni aucun paiement n'a été modifié.",
+      "paidUnfulfilled": "Le paiement a été reçu, mais l’attribution des tickets a échoué. Aucun ticket n’a été émis pour ce paiement.",
+      "paidUnfulfilledError": "Erreur : {{error}}",
       "orderDetails": "Détails de la commande",
       "competition": "Concours",
       "ticketNumbers": "Numéros de tickets",

@@ -1,5 +1,6 @@
 import { getOrderPricing } from "./orderPricingService.js";
 import { assertReferralRedeemable } from "./referralEligibility.js";
+import { getDrawDateState, hasDrawStarted } from "./ticketAdjustmentPolicy.js";
 import {
   getReferralTicketOrigin,
   PAYMENT_SETTLEMENT,
@@ -40,6 +41,13 @@ export const DIRECT_PAYMENT_REQUIRED_MESSAGE =
 export const MAX_CHECKOUT_TICKET_QUANTITY = 100;
 export const MAX_CHECKOUT_REFERRAL_TICKETS = 100;
 
+// Stripe Checkout sessions must expire between 30 minutes and 24 hours after
+// creation. Keep a small buffer so the API call itself cannot push a session
+// below Stripe's minimum lifetime.
+export const STRIPE_CHECKOUT_MIN_EXPIRY_SECONDS = 30 * 60;
+export const STRIPE_CHECKOUT_MAX_EXPIRY_SECONDS = 24 * 60 * 60;
+export const STRIPE_CHECKOUT_EXPIRY_BUFFER_SECONDS = 60;
+
 export class DirectPaymentRequiredError extends Error {
   constructor(message = DIRECT_PAYMENT_REQUIRED_MESSAGE) {
     super(message);
@@ -69,6 +77,299 @@ export function assertAccountEligibleForCheckout(userData) {
   if (userData?.is_deleted === true || status === "deleting" || status === "deleted") {
     throw new AccountNotEligibleError();
   }
+}
+
+export function getCheckoutCompetitionBlock(
+  competitionData,
+  { nowMillis = Date.now(), requireDrawDate = false } = {},
+) {
+  if (!competitionData) {
+    return "Competition not found.";
+  }
+
+  const status = String(competitionData.status || "").trim().toLowerCase();
+  if (status !== "active") {
+    return "This competition is no longer accepting entries.";
+  }
+
+  if (competitionData.winner_ref || competitionData.winner_ticket_ref) {
+    return "This competition has already declared a winner.";
+  }
+
+  if (hasDrawStarted(competitionData)) {
+    return "This competition has already started drawing.";
+  }
+
+  const drawDate = getDrawDateState(competitionData.draw_date);
+  if (!drawDate.present) {
+    return requireDrawDate
+      ? "The competition draw date is missing, so checkout cannot be started safely."
+      : null;
+  }
+  if (!drawDate.valid) {
+    return "The competition draw date is invalid, so checkout cannot be started safely.";
+  }
+
+  if (drawDate.millis <= nowMillis) {
+    return "This competition has already closed for entries.";
+  }
+
+  return null;
+}
+
+export function calculateStripeCheckoutExpiry({ drawDateMillis, nowMillis = Date.now() }) {
+  if (!Number.isFinite(drawDateMillis)) {
+    return { error: "The competition draw date is missing or invalid, so checkout cannot be started safely." };
+  }
+
+  const nowSeconds = Math.floor(nowMillis / 1000);
+  const drawDeadlineSeconds = Math.floor(drawDateMillis / 1000) - 1;
+  const earliestAllowedExpiry = nowSeconds
+    + STRIPE_CHECKOUT_MIN_EXPIRY_SECONDS
+    + STRIPE_CHECKOUT_EXPIRY_BUFFER_SECONDS;
+  const latestAllowedExpiry = nowSeconds + STRIPE_CHECKOUT_MAX_EXPIRY_SECONDS;
+
+  if (drawDeadlineSeconds < earliestAllowedExpiry) {
+    return {
+      error: "There is not enough time before the competition draw to start a secure checkout session.",
+    };
+  }
+
+  return {
+    expiresAt: Math.min(drawDeadlineSeconds, latestAllowedExpiry),
+  };
+}
+
+export function getCheckoutExpiryForCompetition(
+  competitionData,
+  { nowMillis = Date.now(), requireDrawDate = true } = {},
+) {
+  const block = getCheckoutCompetitionBlock(competitionData, {
+    nowMillis,
+    requireDrawDate,
+  });
+  if (block) {
+    return { error: block };
+  }
+
+  const drawDate = getDrawDateState(competitionData.draw_date);
+  const expiry = calculateStripeCheckoutExpiry({
+    drawDateMillis: drawDate.millis,
+    nowMillis,
+  });
+
+  return {
+    ...expiry,
+    drawDateMillis: drawDate.millis,
+  };
+}
+
+export async function validateCheckoutPreflight(
+  db,
+  {
+    uid,
+    competitionId,
+    ticketQuantity,
+    freeTicketsToUse = 0,
+    referralsToBurn = [],
+    nowMillis = Date.now(),
+  } = {},
+) {
+  if (!competitionId || !uid) {
+    throw new CheckoutValidationError("competitionId and uid are required.", "invalid-argument");
+  }
+
+  const checkoutInput = validateCheckoutInputs({
+    ticketQuantity,
+    freeTicketsToUse,
+    referralsToBurn,
+  });
+
+  const competitionRef = db.collection("competition").doc(competitionId);
+  const userRef = db.collection("user").doc(uid);
+  const [competitionSnap, userSnap] = await Promise.all([
+    competitionRef.get(),
+    userRef.get(),
+  ]);
+
+  if (!competitionSnap.exists) {
+    throw new CheckoutValidationError("Competition not found.", "not-found");
+  }
+
+  const competitionData = competitionSnap.data();
+  const expiry = getCheckoutExpiryForCompetition(competitionData, {
+    nowMillis,
+    requireDrawDate: true,
+  });
+  if (expiry.error) {
+    throw new CheckoutValidationError(expiry.error, "failed-precondition");
+  }
+
+  if (!userSnap.exists) {
+    throw new CheckoutValidationError("User not found.", "failed-precondition");
+  }
+
+  assertAccountEligibleForCheckout(userSnap.data());
+
+  const freeTickets = checkoutInput.freeTicketsToUse;
+  if (freeTickets > 0) {
+    const storedFreeTickets = userSnap.data()?.free_tickets;
+    if (
+      !Number.isFinite(storedFreeTickets) ||
+      !Number.isInteger(storedFreeTickets) ||
+      storedFreeTickets < 0
+    ) {
+      throw new CheckoutValidationError(
+        "The stored free-ticket balance is invalid, so referral credits cannot be used safely.",
+        "failed-precondition",
+      );
+    }
+    if (storedFreeTickets < freeTickets) {
+      throw new CheckoutValidationError(
+        `Insufficient free-ticket balance: requested ${freeTickets}, available ${storedFreeTickets}.`,
+        "failed-precondition",
+      );
+    }
+  }
+
+  const referralRefs = checkoutInput.referralIds.map((id) =>
+    db.collection("referrals").doc(id)
+  );
+  const referralSnaps = await Promise.all(referralRefs.map((ref) => ref.get()));
+  referralSnaps.forEach((snap, index) => {
+    const refId = referralRefs[index].id;
+    if (!snap.exists) {
+      throw new CheckoutValidationError(`Referral ${refId} not found.`, "failed-precondition");
+    }
+    try {
+      assertReferralRedeemable(snap.data(), refId, userRef.path);
+    } catch (error) {
+      throw new CheckoutValidationError(error.message, "failed-precondition");
+    }
+  });
+
+  const attemptSnap = await db
+    .collection("skill_attempts")
+    .doc(`${uid}_${competitionId}`)
+    .get();
+  if (!attemptSnap.exists || attemptSnap.data()?.passed !== true) {
+    throw new CheckoutValidationError(
+      "You must pass the skill-gate quiz before entering this competition.",
+      "failed-precondition",
+    );
+  }
+
+  const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(
+    checkoutInput.ticketQuantity,
+  );
+  const referralBonusTickets = Math.floor(freeTickets / 10);
+  const totalTicketsToGenerate = checkoutInput.ticketQuantity
+    + packBonusTickets
+    + freeTickets
+    + referralBonusTickets;
+
+  const currentStock = Number(competitionData.stock_quantity || 0);
+  if (!Number.isFinite(currentStock) || currentStock < 0) {
+    throw new CheckoutValidationError(
+      "Competition stock is invalid, so checkout cannot be started safely.",
+      "failed-precondition",
+    );
+  }
+  if (currentStock < totalTicketsToGenerate) {
+    throw new CheckoutValidationError(
+      `Only ${currentStock} ticket${currentStock === 1 ? "" : "s"} remaining in stock.`,
+      "failed-precondition",
+    );
+  }
+
+  const ticketPrice = Number(competitionData.ticket_price || 0);
+  const subtotal = checkoutInput.ticketQuantity * ticketPrice;
+  const discountAmount = subtotal * discount;
+  const totalAmount = subtotal - discountAmount;
+
+  return {
+    checkoutInput,
+    competitionData,
+    userData: userSnap.data(),
+    subtotal,
+    discountAmount,
+    discount,
+    totalAmount,
+    packType,
+    packBonusTickets,
+    referralBonusTickets,
+    totalTicketsToGenerate,
+    drawDateMillis: expiry.drawDateMillis,
+    expiresAt: expiry.expiresAt,
+  };
+}
+
+export async function recordPaidUnfulfilledOrder(
+  db,
+  admin,
+  {
+    orderId,
+    checkoutSessionId,
+    paymentIntentId,
+    settlement,
+    failureReason,
+  },
+) {
+  if (!orderId || typeof orderId !== "string") {
+    throw new Error("orderId is required to record an unfulfilled payment.");
+  }
+
+  const orderRef = db.collection("order").doc(orderId);
+  return db.runTransaction(async (transaction) => {
+    const orderSnap = await transaction.get(orderRef);
+    if (!orderSnap.exists) {
+      return { outcome: "order_missing" };
+    }
+
+    const orderData = orderSnap.data();
+    if (orderData.status === "paid") {
+      return { outcome: "already_fulfilled" };
+    }
+
+    if (
+      orderData.stripe_checkout_session_id &&
+      checkoutSessionId &&
+      orderData.stripe_checkout_session_id !== checkoutSessionId
+    ) {
+      return { outcome: "session_mismatch" };
+    }
+
+    const isStripePaid = settlement === PAYMENT_SETTLEMENT.STRIPE_PAID;
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const failureText = String(failureReason || "Ticket fulfillment failed.")
+      .trim()
+      .slice(0, 1000);
+
+    const updateData = {
+      payment_status: isStripePaid ? "paid" : "not_required",
+      fulfillment_status: "failed",
+      fulfillment_error: failureText,
+      fulfillment_failed_at: now,
+      fulfillment_attempts: admin.firestore.FieldValue.increment(1),
+      updated_at: now,
+    };
+
+    if (isStripePaid) {
+      updateData.stripe_status = "paid";
+      if (paymentIntentId) {
+        updateData.stripe_payment_intent_id = paymentIntentId;
+      }
+      if (!orderData.paid_at) {
+        updateData.paid_at = now;
+      }
+    } else if (orderData.stripe_status !== "paid") {
+      updateData.stripe_status = "free";
+    }
+
+    transaction.update(orderRef, updateData);
+
+    return { outcome: "marked_failed" };
+  });
 }
 
 function normalizeReferralId(value) {
@@ -302,14 +603,12 @@ export async function runOrderTransaction(
     if (!compSnap.exists) throw new Error("Competition not found.");
 
     const compData = compSnap.data();
-    if (compData.status !== "active") {
-      throw new Error("This competition is no longer accepting entries.");
-    }
-
-    // Server-side draw date check (protects against stale client status)
-    const now = new Date();
-    if (compData.draw_date && compData.draw_date.toDate() <= now) {
-      throw new Error("This competition has already closed for entries.");
+    const competitionBlock = getCheckoutCompetitionBlock(compData, {
+      nowMillis: Date.now(),
+      requireDrawDate: false,
+    });
+    if (competitionBlock) {
+      throw new Error(competitionBlock);
     }
 
     const userSnap = await transaction.get(userRef);
@@ -388,6 +687,9 @@ export async function runOrderTransaction(
     }
 
     const currentStock = Number(compData.stock_quantity || 0);
+    if (!Number.isFinite(currentStock) || currentStock < 0) {
+      throw new Error("Competition stock is invalid, so tickets cannot be allocated safely.");
+    }
     if (currentStock < totalTicketsToGenerate) {
       throw new Error(
         `Only ${currentStock} ticket${currentStock === 1 ? "" : "s"} remaining in stock.`
@@ -470,11 +772,22 @@ export async function runOrderTransaction(
       currency: "GBP",
       status: "paid",
       is_winner: false,
-      stripe_payment_intent_id: "",
+      stripe_payment_intent_id:
+        typeof paymentSettlement === "object" && paymentSettlement?.paymentIntentId
+          ? paymentSettlement.paymentIntentId
+          : "",
       ...(existingOrderData?.stripe_checkout_session_id
         ? { stripe_checkout_session_id: existingOrderData.stripe_checkout_session_id }
         : {}),
-      stripe_status: totalAmount === 0 ? "free" : "mock",
+      stripe_status:
+        settlementType === PAYMENT_SETTLEMENT.STRIPE_PAID
+          ? "paid"
+          : totalAmount === 0
+            ? "free"
+            : "mock",
+      payment_status:
+        settlementType === PAYMENT_SETTLEMENT.STRIPE_PAID ? "paid" : "not_required",
+      fulfillment_status: "fulfilled",
       question_answer: (() => {
         // Build the Map from the client payload
         const qa = questionAnswer || {};

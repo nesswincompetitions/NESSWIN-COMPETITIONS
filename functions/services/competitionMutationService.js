@@ -1,5 +1,6 @@
 import {
   getCompetitionMutationBlock,
+  getDrawDateState,
   getReferenceId,
   normalizeStatus,
 } from "./ticketAdjustmentPolicy.js";
@@ -228,6 +229,34 @@ function normalizeQuestionMutation(data, HttpsError) {
   return { replaceQuestions, questions };
 }
 
+function assertDrawDateNotReopened(currentData, fieldUpdates, nowMillis, HttpsError) {
+  if (!Object.prototype.hasOwnProperty.call(fieldUpdates, "draw_date")) {
+    return;
+  }
+
+  const currentDrawDate = getDrawDateState(currentData?.draw_date);
+  if (
+    !currentDrawDate.present ||
+    !currentDrawDate.valid ||
+    currentDrawDate.millis > nowMillis
+  ) {
+    return;
+  }
+
+  const nextDrawDate = getDrawDateState(fieldUpdates.draw_date);
+  const unchanged =
+    nextDrawDate.present &&
+    nextDrawDate.valid &&
+    nextDrawDate.millis === currentDrawDate.millis;
+
+  if (!unchanged) {
+    throw new HttpsError(
+      "failed-precondition",
+      "The draw date has already passed and cannot be changed through ordinary editing. No changes were made."
+    );
+  }
+}
+
 function resolveStatus(existingStatus, { isDraft, totalTickets, soldTickets }, HttpsError) {
   const status = normalizeStatus(existingStatus);
 
@@ -305,6 +334,7 @@ export function createSaveCompetitionHandler({ db, admin, logger, assertAdmin, H
         if (block) {
           throw new HttpsError("failed-precondition", block);
         }
+        assertDrawDateNotReopened(currentData, fieldUpdates, Date.now(), HttpsError);
       }
 
       const currentStatus = currentData?.status;

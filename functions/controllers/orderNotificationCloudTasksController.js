@@ -1,6 +1,6 @@
 import { onTaskDispatched } from "firebase-functions/v2/tasks";
 import { logger } from "firebase-functions";
-import { admin, db } from "../config/firebaseAdmin.js";
+import { db } from "../config/firebaseAdmin.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
 
 const REGION = "us-central1";
@@ -37,9 +37,14 @@ export const paymentPendingWorker = onTaskDispatched(
 
       const orderData = orderSnap.data();
 
-      // Sniper logic: Only send if still pending
-      if (orderData.status !== "pending") {
-        logger.info(`[paymentPendingWorker] Order ${orderId} status is "${orderData.status}". User likely completed checkout. Skipping notification.`);
+      // Sniper logic: Only send if still pending and no payment has been
+      // confirmed. A paid-but-unfulfilled order is not an abandoned cart.
+      if (
+        orderData.status !== "pending" ||
+        orderData.payment_status === "paid" ||
+        orderData.fulfillment_status === "failed"
+      ) {
+        logger.info(`[paymentPendingWorker] Order ${orderId} is no longer an abandoned cart. Skipping notification.`);
         return;
       }
 

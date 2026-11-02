@@ -6,7 +6,8 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import { 
   ArrowLeft, RefreshCcw, ExternalLink, CheckCircle2, PlusCircle, MinusCircle,
-  CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2
+  CreditCard, User as UserIcon, Calendar, Hash, Image as ImageIcon, Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { useOrderRealtime, useOrderTicketsRealtime, getReferenceId, ADMIN_TICKET_VIEW_LIMIT } from '@/shared/hooks/useAdminData';
 import { formatStatus } from '@/shared/utils/formatters';
@@ -128,6 +129,20 @@ const OrderDetail = () => {
           )}
         </div>
       </div>
+
+      {order.payment_status === 'paid' && order.fulfillment_status === 'failed' && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-300">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0" />
+          <div>
+            <p className="font-semibold">{t('orders.detail.paidUnfulfilled')}</p>
+            {order.fulfillment_error && (
+              <p className="mt-1 text-xs text-red-300/80">
+                {t('orders.detail.paidUnfulfilledError', { error: order.fulfillment_error })}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 pt-2">

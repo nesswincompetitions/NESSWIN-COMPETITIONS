@@ -91,7 +91,10 @@ const OrdersList = () => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const renderStatusBadge = (status) => {
+  const renderStatusBadge = (status, fulfillmentStatus) => {
+    if (fulfillmentStatus === 'failed') {
+      return <Badge variant="danger">{t('orders.table.fulfillmentFailed')}</Badge>;
+    }
     const s = (status || '').toLowerCase();
     switch (s) {
       case 'paid': return <Badge variant="success">{t('common.paid')}</Badge>;
@@ -270,7 +273,7 @@ const OrdersList = () => {
                       <TableCell className="text-center text-gray-300">{order.total_ticket || 0}</TableCell>
                       <TableCell className="font-bold text-emerald-400">£{(order.total_amount || 0).toFixed(2)}</TableCell>
                       <TableCell className="text-gray-400 whitespace-nowrap">{formatDate(order.created_at)}</TableCell>
-                      <TableCell>{renderStatusBadge(order.status)}</TableCell>
+                      <TableCell>{renderStatusBadge(order.status, order.fulfillment_status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button

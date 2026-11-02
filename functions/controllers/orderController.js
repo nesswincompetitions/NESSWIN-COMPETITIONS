@@ -6,12 +6,12 @@ import {
   AccountNotEligibleError,
   CheckoutValidationError,
   DirectPaymentRequiredError,
-  assertAccountEligibleForCheckout,
+  getCheckoutExpiryForCompetition,
   runOrderTransaction,
   validateCheckoutInputs,
+  validateCheckoutPreflight,
 } from "../services/orderTransactionService.js";
 import { buildNotificationPayload } from "../services/orderNotificationService.js";
-import { getOrderPricing } from "../services/orderPricingService.js";
 import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
 import Stripe from "stripe";
 import { CloudTasksClient } from "@google-cloud/tasks";
@@ -309,171 +309,195 @@ const processOrderHandler = createProcessOrderHandler({
 
 export const processOrder = onCall(processOrderHandler);
 
-export const createStripeCheckoutSession = onCall(async (request) => {
-  const uid = assertAuthenticated(request);
-  const {
-    competitionId,
-    ticketQuantity,
-    questionAnswer,
-    freeTicketsToUse = 0,
-    referralsToBurn = [],
-    origin,
-    success_url,
-    cancel_url,
-    success_path,
-    cancel_path,
-    notification_page_name,
-  } = request.data;
-
-  if (!competitionId || typeof competitionId !== "string") {
-    throw new HttpsError("invalid-argument", "competitionId is required.");
-  }
-  if ((!origin || typeof origin !== "string") && (!success_url || !cancel_url)) {
-    throw new HttpsError("invalid-argument", "origin is required unless both success_url and cancel_url are provided.");
-  }
-
-  let checkoutInput;
-  try {
-    checkoutInput = validateCheckoutInputs({
+export function createStripeCheckoutSessionHandler({
+  db,
+  admin,
+  logger,
+  assertAuthenticated,
+  HttpsError,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+  schedulePendingTask = schedulePaymentPendingTask,
+  now = () => Date.now(),
+}) {
+  return async function handleCreateStripeCheckoutSession(request) {
+    const uid = assertAuthenticated(request);
+    const {
+      competitionId,
       ticketQuantity,
-      freeTicketsToUse,
-      referralsToBurn,
-    });
-  } catch (err) {
-    if (err instanceof CheckoutValidationError) {
-      throw new HttpsError(err.code, err.message);
+      questionAnswer,
+      freeTicketsToUse = 0,
+      referralsToBurn = [],
+      origin,
+      success_url,
+      cancel_url,
+      success_path,
+      cancel_path,
+      notification_page_name,
+    } = request.data || {};
+
+    if (!competitionId || typeof competitionId !== "string") {
+      throw new HttpsError("invalid-argument", "competitionId is required.");
     }
-    throw err;
-  }
-
-  const qty = checkoutInput.ticketQuantity;
-  if (qty <= 0) {
-    throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
-  }
-
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  if (!stripeSecretKey) {
-    throw new HttpsError("failed-precondition", "Stripe secret key is not configured on the server.");
-  }
-
-  try {
-    const competitionRef = db.collection("competition").doc(competitionId);
-    const compSnap = await competitionRef.get();
-    if (!compSnap.exists) {
-      throw new HttpsError("not-found", "Competition not found.");
-    }
-    const compData = compSnap.data();
-    if (compData.status !== "active") {
-      throw new HttpsError("failed-precondition", "Competition is not active.");
+    if ((!origin || typeof origin !== "string") && (!success_url || !cancel_url)) {
+      throw new HttpsError("invalid-argument", "origin is required unless both success_url and cancel_url are provided.");
     }
 
-    const userSnap = await db.collection("user").doc(uid).get();
-    if (!userSnap.exists) {
-      throw new HttpsError("failed-precondition", "User not found.");
-    }
-    assertAccountEligibleForCheckout(userSnap.data());
-
-    const ticketPrice = Number(compData.ticket_price || 0);
-    const { discount } = getOrderPricing(qty);
-    const subtotal = qty * ticketPrice;
-    const discountAmount = subtotal * discount;
-    const totalAmount = subtotal - discountAmount;
-
-    if (totalAmount <= 0) {
-      throw new HttpsError("invalid-argument", "This session requires payment. Use processOrder for free purchases.");
+    const stripeSecretKey = getStripeSecretKey();
+    if (!stripeSecretKey) {
+      throw new HttpsError("failed-precondition", "Stripe secret key is not configured on the server.");
     }
 
-    const orderRef = db.collection("order").doc();
-    const userRef = db.collection("user").doc(uid);
+    try {
+      const preflight = await validateCheckoutPreflight(db, {
+        uid,
+        competitionId,
+        ticketQuantity,
+        freeTicketsToUse,
+        referralsToBurn,
+        nowMillis: now(),
+      });
+      const {
+        checkoutInput,
+        competitionData: compData,
+        totalAmount,
+      } = preflight;
 
-    // Save pending order with all checkout details
-    await orderRef.set({
-      user_ref: userRef,
-      competition_id: competitionRef,
-      status: "pending",
-      ticket_quantity: qty,
-      free_tickets_to_use: checkoutInput.freeTicketsToUse,
-      referrals_to_burn: checkoutInput.referralIds.map((id) => ({ id })),
-      question_answer: questionAnswer || {},
-      total_amount: totalAmount,
-      created_at: admin.firestore.FieldValue.serverTimestamp(),
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+      if (checkoutInput.ticketQuantity <= 0) {
+        throw new HttpsError("invalid-argument", "ticketQuantity must be a positive integer.");
+      }
+      if (totalAmount <= 0) {
+        throw new HttpsError("invalid-argument", "This session requires payment. Use processOrder for free purchases.");
+      }
 
-    // Schedule Sniper Cloud Task for abandoned cart notifications
-    await schedulePaymentPendingTask(orderRef.id, uid);
+      const competitionRef = db.collection("competition").doc(competitionId);
+      const orderRef = db.collection("order").doc();
+      const userRef = db.collection("user").doc(uid);
 
-    let successUrlFinal = success_url;
-    if (!successUrlFinal) {
-      const path = success_path || "/profile/tickets";
-      successUrlFinal = `${origin}${path}`;
-    }
-    const sep1 = successUrlFinal.includes("?") ? "&" : "?";
-    successUrlFinal = `${successUrlFinal}${sep1}success=true&order_id=${orderRef.id}`;
+      // Save pending order with all checkout details
+      await orderRef.set({
+        user_ref: userRef,
+        competition_id: competitionRef,
+        status: "pending",
+        ticket_quantity: checkoutInput.ticketQuantity,
+        free_tickets_to_use: checkoutInput.freeTicketsToUse,
+        referrals_to_burn: checkoutInput.referralIds.map((id) => ({ id })),
+        question_answer: questionAnswer || {},
+        total_amount: totalAmount,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    let cancelUrlFinal = cancel_url;
-    if (!cancelUrlFinal) {
-      const path = cancel_path || `/competitions/${competitionId}`;
-      cancelUrlFinal = `${origin}${path}`;
-    }
-    const sep2 = cancelUrlFinal.includes("?") ? "&" : "?";
-    cancelUrlFinal = `${cancelUrlFinal}${sep2}cancel=true`;
+      // Schedule Sniper Cloud Task for abandoned cart notifications
+      await schedulePendingTask(orderRef.id, uid);
 
-    // Stripe checkout success_url and cancel_url must start with http:// or https://
-    // If they are custom schemes, wrap them in our paymentRedirect Cloud Function endpoint
-    const isCustomScheme = (url) => url && !url.startsWith("http://") && !url.startsWith("https://");
+      let successUrlFinal = success_url;
+      if (!successUrlFinal) {
+        const path = success_path || "/profile/tickets";
+        successUrlFinal = `${origin}${path}`;
+      }
+      const sep1 = successUrlFinal.includes("?") ? "&" : "?";
+      successUrlFinal = `${successUrlFinal}${sep1}success=true&order_id=${orderRef.id}`;
 
-    if (isCustomScheme(successUrlFinal)) {
-      const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
-      successUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(successUrlFinal)}`;
-    }
+      let cancelUrlFinal = cancel_url;
+      if (!cancelUrlFinal) {
+        const path = cancel_path || `/competitions/${competitionId}`;
+        cancelUrlFinal = `${origin}${path}`;
+      }
+      const sep2 = cancelUrlFinal.includes("?") ? "&" : "?";
+      cancelUrlFinal = `${cancelUrlFinal}${sep2}cancel=true`;
 
-    if (isCustomScheme(cancelUrlFinal)) {
-      const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
-      cancelUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(cancelUrlFinal)}`;
-    }
+      // Stripe checkout success_url and cancel_url must start with http:// or https://
+      // If they are custom schemes, wrap them in our paymentRedirect Cloud Function endpoint
+      const isCustomScheme = (url) => url && !url.startsWith("http://") && !url.startsWith("https://");
 
-    const stripe = new Stripe(stripeSecretKey);
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            product_data: {
-              name: `${compData.title || "Competition Entry"} - Nesswin`,
-              images: compData.image && compData.image.length > 0 ? [compData.image[0]] : [],
+      if (isCustomScheme(successUrlFinal)) {
+        const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
+        successUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(successUrlFinal)}`;
+      }
+
+      if (isCustomScheme(cancelUrlFinal)) {
+        const redirectBase = `https://${REGION}-${getProjectId()}.cloudfunctions.net/paymentRedirect`;
+        cancelUrlFinal = `${redirectBase}?redirect_url=${encodeURIComponent(cancelUrlFinal)}`;
+      }
+
+      // Re-read the competition and recalculate expiry immediately before
+      // creating the Stripe session. Preflight may be stale by the time the
+      // pending order and notification task have been written.
+      const freshCompetitionSnap = await competitionRef.get();
+      if (!freshCompetitionSnap.exists) {
+        throw new HttpsError("not-found", "Competition not found.");
+      }
+      const freshNow = now();
+      const freshExpiry = getCheckoutExpiryForCompetition(
+        freshCompetitionSnap.data(),
+        { nowMillis: freshNow, requireDrawDate: true }
+      );
+      if (freshExpiry.error) {
+        throw new HttpsError("failed-precondition", freshExpiry.error);
+      }
+
+      const stripe = stripeFactory(stripeSecretKey);
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "gbp",
+              product_data: {
+                name: `${compData.title || "Competition Entry"} - Nesswin`,
+                images: compData.image && compData.image.length > 0 ? [compData.image[0]] : [],
+              },
+              unit_amount: Math.round(totalAmount * 100), // in cents
             },
-            unit_amount: Math.round(totalAmount * 100), // in cents
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: "payment",
+        expires_at: freshExpiry.expiresAt,
+        success_url: successUrlFinal,
+        cancel_url: cancelUrlFinal,
+        metadata: {
+          orderId: orderRef.id,
+          notificationPageName: notification_page_name || "OrderHistory",
         },
-      ],
-      mode: "payment",
-      success_url: successUrlFinal,
-      cancel_url: cancelUrlFinal,
-      metadata: {
-        orderId: orderRef.id,
-        notificationPageName: notification_page_name || "OrderHistory",
-      },
-    });
+      });
 
-    // Update the pending order with stripe details
-    await orderRef.update({
-      stripe_checkout_session_id: session.id,
-      updated_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+      // Update the pending order with stripe details
+      await orderRef.update({
+        stripe_checkout_session_id: session.id,
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
 
-    return { sessionUrl: session.url };
-  } catch (err) {
-    if (err instanceof AccountNotEligibleError) {
-      throw new HttpsError("failed-precondition", err.message);
+      return { sessionUrl: session.url };
+    } catch (err) {
+      if (err instanceof AccountNotEligibleError) {
+        throw new HttpsError("failed-precondition", err.message);
+      }
+
+      if (err instanceof CheckoutValidationError) {
+        throw new HttpsError(err.code, err.message);
+      }
+
+      if (err instanceof HttpsError) {
+        throw err;
+      }
+
+      logger.error("[createStripeCheckoutSession] Error:", err.message);
+      throw toHttpsError(err, "Failed to create Stripe checkout session.");
     }
+  };
+}
 
-    logger.error("[createStripeCheckoutSession] Error:", err.message);
-    throw toHttpsError(err, "Failed to create Stripe checkout session.");
-  }
-});
+export const createStripeCheckoutSession = onCall(
+  createStripeCheckoutSessionHandler({
+    db,
+    admin,
+    logger,
+    assertAuthenticated,
+    HttpsError,
+  })
+);
 
 export const paymentRedirect = onRequest({ cors: true }, (req, res) => {
   const { redirect_url } = req.query;

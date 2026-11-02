@@ -4,6 +4,7 @@ import { admin, db } from "../config/firebaseAdmin.js";
 import {
   AccountNotEligibleError,
   CheckoutValidationError,
+  recordPaidUnfulfilledOrder,
   runOrderTransaction,
   validatePersistedCheckoutInputs,
 } from "../services/orderTransactionService.js";
@@ -24,6 +25,7 @@ export function createStripeWebhookHandler({
   evaluateCheckoutSettlement,
   SettlementValidationError,
   PAYMENT_SETTLEMENT,
+  recordPaidUnfulfilledOrder: recordPaidUnfulfilled = recordPaidUnfulfilledOrder,
   stripeFactory = (key) => new Stripe(key),
   getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
   getWebhookSecret = () => process.env.STRIPE_WEBHOOK_SECRET,
@@ -154,6 +156,10 @@ export function createStripeWebhookHandler({
         stripe_payment_intent_id: decision.paymentIntentId || "",
         stripe_status:
           decision.settlement === PAYMENT_SETTLEMENT.STRIPE_PAID ? "paid" : "free",
+        payment_status:
+          decision.settlement === PAYMENT_SETTLEMENT.STRIPE_PAID ? "paid" : "not_required",
+        fulfillment_status: "fulfilled",
+        fulfillment_error: admin.firestore.FieldValue.delete(),
         updated_at: admin.firestore.FieldValue.serverTimestamp(),
       });
 
@@ -241,6 +247,26 @@ export function createStripeWebhookHandler({
       }
 
     } catch (err) {
+      if (!transactionCompleted && decision?.action === "fulfill") {
+        try {
+          const recorded = await recordPaidUnfulfilled(db, admin, {
+            orderId,
+            checkoutSessionId: session?.id,
+            paymentIntentId: decision.paymentIntentId,
+            settlement: decision.settlement,
+            failureReason: err?.message || "Ticket fulfillment failed.",
+          });
+          logger.warn(
+            `[stripeWebhook] Recorded paid-unfulfilled order ${orderId}: ${recorded.outcome}`
+          );
+        } catch (recordError) {
+          logger.error(
+            `[stripeWebhook] Failed to record paid-unfulfilled order ${orderId}:`,
+            recordError.message
+          );
+        }
+      }
+
       if (err instanceof AccountNotEligibleError) {
         logger.error(
           `[stripeWebhook] Account not eligible for order ${orderId}:`,
@@ -305,5 +331,6 @@ export const stripeWebhook = onRequest(
     evaluateCheckoutSettlement,
     SettlementValidationError,
     PAYMENT_SETTLEMENT,
+    recordPaidUnfulfilledOrder,
   })
 );

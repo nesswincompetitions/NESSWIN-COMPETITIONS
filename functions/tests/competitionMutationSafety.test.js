@@ -15,6 +15,7 @@ import {
 
 const FUTURE_DRAW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 const NEXT_DRAW = new Date(Date.now() + 48 * 60 * 60 * 1000);
+const PAST_DRAW = new Date(Date.now() - 60 * 1000);
 
 function makeSaveHandler(db, assertAdmin = async () => 'admin1') {
   return createSaveCompetitionHandler({
@@ -187,6 +188,64 @@ describe('competition mutation safety', () => {
       assert.equal(db.snapshot('competition', 'c1').data().title, 'Original');
       assert.equal(db.snapshot('competition', 'c1').data().status, status);
     }
+  });
+
+  it('allows ordinary edits after the draw date has passed when the draw date is unchanged', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, { draw_date: PAST_DRAW });
+
+    const result = await makeSaveHandler(db)(saveRequest({
+      fields: { title: 'Post-draw title correction' },
+    }));
+
+    assert.equal(result.success, true);
+    assert.equal(db.snapshot('competition', 'c1').data().title, 'Post-draw title correction');
+    assert.equal(db.snapshot('competition', 'c1').data().draw_date.getTime(), PAST_DRAW.getTime());
+  });
+
+  it('rejects moving an expired draw date into the future through ordinary editing', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, { draw_date: PAST_DRAW });
+    const before = { ...db.snapshot('competition', 'c1').data() };
+
+    await assert.rejects(
+      makeSaveHandler(db)(saveRequest({
+        fields: { title: 'Must not apply' },
+        draw_date_millis: NEXT_DRAW.getTime(),
+      })),
+      (error) => error.code === 'failed-precondition' && /already passed/.test(error.message)
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), before);
+  });
+
+  it('rejects clearing an expired draw date through ordinary editing', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, { draw_date: PAST_DRAW });
+    const before = { ...db.snapshot('competition', 'c1').data() };
+
+    await assert.rejects(
+      makeSaveHandler(db)(saveRequest({
+        fields: { title: 'Must not apply' },
+        draw_date_millis: null,
+      })),
+      (error) => error.code === 'failed-precondition' && /already passed/.test(error.message)
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), before);
+  });
+
+  it('blocks ordinary editing when draw_started_at is present even if status is active', async () => {
+    const db = new MemoryDB();
+    seedCompetition(db, { status: 'active', draw_started_at: new Date() });
+    const before = { ...db.snapshot('competition', 'c1').data() };
+
+    await assert.rejects(
+      makeSaveHandler(db)(saveRequest()),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), before);
   });
 
   it('rejects edits when winner references exist even if status looks mutable', async () => {

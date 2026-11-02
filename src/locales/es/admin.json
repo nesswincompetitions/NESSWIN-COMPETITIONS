@@ -489,6 +489,7 @@
       "paymentMethod": "Método de pago",
       "date": "Fecha",
       "status": "Estado",
+      "fulfillmentFailed": "Error de asignación",
       "actions": "Acciones"
     },
     "empty": {
@@ -500,6 +501,8 @@
       "refundOrder": "Reembolsar pedido",
       "refundUnavailable": "Reembolso no disponible",
       "refundUnavailableNote": "Los reembolsos del proveedor de pagos no están disponibles en esta versión. No se envió ninguna solicitud de reembolso ni se modificaron pedidos, boletos o pagos.",
+      "paidUnfulfilled": "Se recibió el pago, pero falló la asignación de boletos. No se emitieron boletos para este pago.",
+      "paidUnfulfilledError": "Error: {{error}}",
       "orderDetails": "Detalles del pedido",
       "competition": "Sorteo",
       "ticketNumbers": "Números de entrada",

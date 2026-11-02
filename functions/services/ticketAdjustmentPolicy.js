@@ -46,6 +46,10 @@ export function competitionHasWinnerReference(data) {
   return Boolean(data?.winner_ref) || Boolean(data?.winner_ticket_ref);
 }
 
+export function hasDrawStarted(data) {
+  return Boolean(data?.draw_started_at);
+}
+
 export function getDrawDateState(value) {
   if (value === undefined || value === null || value === "") {
     return { present: false, valid: false, millis: null };
@@ -54,6 +58,9 @@ export function getDrawDateState(value) {
   let millis = null;
   if (typeof value?.toMillis === "function") {
     millis = value.toMillis();
+  } else if (typeof value?.toDate === "function") {
+    const date = value.toDate();
+    millis = date instanceof Date ? date.getTime() : null;
   } else if (value instanceof Date) {
     millis = value.getTime();
   } else if (typeof value === "number") {
@@ -81,6 +88,10 @@ export function getCompetitionAdjustmentBlock(
 
   if (competitionHasWinnerReference(competitionData)) {
     return "Tickets cannot be adjusted after a winner has been declared.";
+  }
+
+  if (hasDrawStarted(competitionData)) {
+    return "Tickets cannot be adjusted after the draw has started.";
   }
 
   const status = normalizeStatus(competitionData.status);
@@ -127,6 +138,10 @@ export function getCompetitionMutationBlock(competitionData) {
 
   if (competitionHasWinnerReference(competitionData)) {
     return "Competition details cannot be changed after a winner has been declared.";
+  }
+
+  if (hasDrawStarted(competitionData)) {
+    return "Competition details cannot be changed after the draw has started.";
   }
 
   const status = normalizeStatus(competitionData.status);

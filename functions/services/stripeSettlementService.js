@@ -12,12 +12,13 @@ export class SettlementValidationError extends Error {
   }
 }
 
-function createVerifiedSettlementContext(type, { orderId, amountMinor, currency }) {
+function createVerifiedSettlementContext(type, { orderId, amountMinor, currency, paymentIntentId = "" }) {
   return Object.freeze({
     type,
     orderId,
     amountMinor,
     currency,
+    paymentIntentId,
     [VERIFIED_SETTLEMENT_CONTEXT]: true,
   });
 }
@@ -177,6 +178,7 @@ export function evaluateCheckoutSettlement({ eventType, session, orderData }) {
         orderId,
         amountMinor: expectedAmount,
         currency: sessionCurrency,
+        paymentIntentId: session.payment_intent,
       }),
       paymentIntentId: session.payment_intent,
     };

@@ -140,7 +140,15 @@ async function invoke(handler, req = makeRequest()) {
 }
 
 function assertNoFulfillment(db, { orderBefore, userBefore, referralBefore }) {
-  assert.deepEqual(db.snapshot('order', 'o1').data(), orderBefore);
+  const orderAfter = db.snapshot('order', 'o1').data();
+  assert.equal(orderAfter.status, orderBefore.status);
+  assert.equal(orderAfter.stripe_checkout_session_id, orderBefore.stripe_checkout_session_id);
+  assert.equal(orderAfter.payment_status, 'paid');
+  assert.equal(orderAfter.fulfillment_status, 'failed');
+  assert.equal(orderAfter.stripe_status, 'paid');
+  assert.equal(orderAfter.stripe_payment_intent_id, 'pi_1');
+  assert.equal(typeof orderAfter.fulfillment_error, 'string');
+  assert.equal(orderAfter.fulfillment_attempts, 1);
   assert.deepEqual(db.snapshot('user', 'u1').data(), userBefore);
   assert.deepEqual(db.snapshot('referrals', 'r1').data(), referralBefore);
   assert.equal(db.collectionStore('ticket').size, 0);

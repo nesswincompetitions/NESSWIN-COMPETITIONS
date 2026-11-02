@@ -241,6 +241,24 @@ describe('selected ticket invalidation', () => {
     );
   });
 
+  it('blocks invalidation when draw_started_at is present even if status is active', async () => {
+    const db = new MemoryDB();
+    seed(db, { status: 'active', draw_started_at: new Date() });
+    const before = {
+      t1: db.snapshot('ticket', 't1').data(),
+      t2: db.snapshot('ticket', 't2').data(),
+    };
+
+    await assert.rejects(
+      makeHandler(db)(request({ requestId: 'req-draw-started' })),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.deepEqual(db.snapshot('ticket', 't1').data(), before.t1);
+    assert.deepEqual(db.snapshot('ticket', 't2').data(), before.t2);
+    assert.equal(db.snapshot('ticket_adjustments', 'req-draw-started').exists, false);
+  });
+
   it('does not require inventory counters because invalidation does not use them', async () => {
     for (const competition of [
       { stock_quantity: '96' },
@@ -388,6 +406,26 @@ describe('selected ticket invalidation', () => {
     );
     assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
     assert.equal(db.snapshot('ticket_adjustments', 'req-selected-001').exists, false);
+  });
+
+  it('detects draw_started_at appearing after the preflight read', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    db.beforeTransaction = async () => {
+      db.setDocument('competition', 'c1', {
+        ...db.snapshot('competition', 'c1').data(),
+        status: 'active',
+        draw_started_at: new Date(),
+      });
+    };
+
+    await assert.rejects(
+      makeHandler(db)(request({ requestId: 'req-draw-started-race' })),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
+    assert.equal(db.snapshot('ticket_adjustments', 'req-draw-started-race').exists, false);
   });
 
   it('detects a draw transition that commits after the preflight read', async () => {
