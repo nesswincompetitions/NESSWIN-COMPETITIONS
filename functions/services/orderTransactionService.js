@@ -1,6 +1,10 @@
 import { getOrderPricing } from "./orderPricingService.js";
 import { assertReferralRedeemable } from "./referralEligibility.js";
-import { getDrawDateState, hasDrawStarted } from "./ticketAdjustmentPolicy.js";
+import {
+  getDrawDateState,
+  getReferenceId,
+  hasDrawStarted,
+} from "./ticketAdjustmentPolicy.js";
 import {
   getReferralTicketOrigin,
   PAYMENT_SETTLEMENT,
@@ -69,6 +73,14 @@ export class AccountNotEligibleError extends Error {
     super(message);
     this.name = "AccountNotEligibleError";
     this.code = "account_not_eligible";
+  }
+}
+
+export class AdditionalPaymentAlreadyFulfilledError extends Error {
+  constructor(message = "This additional payment request has already been fulfilled.") {
+    super(message);
+    this.name = "AdditionalPaymentAlreadyFulfilledError";
+    this.code = "additional_payment_already_fulfilled";
   }
 }
 
@@ -545,8 +557,29 @@ export async function runOrderTransaction(
     referralsToBurn = [],
     orderId = null,
     paymentSettlement = PAYMENT_SETTLEMENT.DIRECT,
+    additionalPayment = null,
   }
 ) {
+  const isAdditionalPayment = Boolean(additionalPayment);
+  if (isAdditionalPayment) {
+    if (
+      !additionalPayment.requestRef ||
+      typeof additionalPayment.requestId !== "string" ||
+      !additionalPayment.requestId
+    ) {
+      throw new Error("An additional payment request reference is required.");
+    }
+    if (
+      !Number.isFinite(additionalPayment.unitPrice) ||
+      additionalPayment.unitPrice <= 0 ||
+      !Number.isFinite(additionalPayment.totalAmount) ||
+      additionalPayment.totalAmount <= 0 ||
+      String(additionalPayment.currency || "").toUpperCase() !== "GBP"
+    ) {
+      throw new Error("Additional payment pricing is invalid.");
+    }
+  }
+
   const settlementType =
     paymentSettlement === PAYMENT_SETTLEMENT.DIRECT
       ? PAYMENT_SETTLEMENT.DIRECT
@@ -566,15 +599,31 @@ export async function runOrderTransaction(
     referralsToBurn,
   });
   const qty = validatedInputs.ticketQuantity;
-  const clampedReferralTickets = validatedInputs.freeTicketsToUse;
+  const clampedReferralTickets = isAdditionalPayment ? 0 : validatedInputs.freeTicketsToUse;
+
+  if (
+    isAdditionalPayment &&
+    (validatedInputs.freeTicketsToUse !== 0 || validatedInputs.referralIds.length !== 0)
+  ) {
+    throw new CheckoutValidationError(
+      "Additional payments cannot include free or referral tickets."
+    );
+  }
 
   const userRef = db.collection("user").doc(uid);
   const competitionRef = db.collection("competition").doc(competitionId);
   const orderRef = orderId ? db.collection("order").doc(orderId) : db.collection("order").doc();
 
-  const { discount, freeTickets: packBonusTickets, packType } = getOrderPricing(qty);
-  const referralBonusTickets = Math.floor(clampedReferralTickets / 10);
-  const totalTicketsToGenerate = qty + packBonusTickets + clampedReferralTickets + referralBonusTickets;
+  const pricing = isAdditionalPayment
+    ? { discount: 0, freeTickets: 0, packType: "Additional Payment" }
+    : getOrderPricing(qty);
+  const { discount, freeTickets: packBonusTickets, packType } = pricing;
+  const referralBonusTickets = isAdditionalPayment
+    ? 0
+    : Math.floor(clampedReferralTickets / 10);
+  const totalTicketsToGenerate = isAdditionalPayment
+    ? qty
+    : qty + packBonusTickets + clampedReferralTickets + referralBonusTickets;
 
   const ticketRefs = Array.from({ length: totalTicketsToGenerate }, () =>
     db.collection("ticket").doc()
@@ -585,6 +634,50 @@ export async function runOrderTransaction(
   );
 
   const result = await db.runTransaction(async (transaction) => {
+    let additionalRequestData = null;
+    if (isAdditionalPayment) {
+      const requestSnap = await transaction.get(additionalPayment.requestRef);
+      if (!requestSnap.exists) {
+        throw new Error("Additional payment request not found.");
+      }
+
+      additionalRequestData = requestSnap.data();
+      if (additionalRequestData.fulfillment_status === "fulfilled") {
+        throw new AdditionalPaymentAlreadyFulfilledError();
+      }
+      if (additionalRequestData.payment_status !== "paid") {
+        throw new Error("Additional payment has not been verified as paid.");
+      }
+      if (
+        additionalRequestData.fulfillment_status !== undefined &&
+        additionalRequestData.fulfillment_status !== "pending" &&
+        additionalRequestData.fulfillment_status !== "failed"
+      ) {
+        throw new Error("Additional payment request is not awaiting fulfillment.");
+      }
+      if (getReferenceId(additionalRequestData.user_ref) !== uid) {
+        throw new Error("Additional payment request does not belong to this user.");
+      }
+      if (getReferenceId(additionalRequestData.competition_id) !== competitionId) {
+        throw new Error("Additional payment request does not belong to this competition.");
+      }
+      if (Number(additionalRequestData.requested_ticket_quantity) !== qty) {
+        throw new Error("Additional payment quantity does not match the request.");
+      }
+      if (
+        Math.round(Number(additionalRequestData.total_amount) * 100) !==
+        Math.round(Number(additionalPayment.totalAmount) * 100)
+      ) {
+        throw new Error("Additional payment amount does not match the request.");
+      }
+      if (
+        String(additionalRequestData.currency || "").toUpperCase() !==
+        String(additionalPayment.currency || "").toUpperCase()
+      ) {
+        throw new Error("Additional payment currency does not match the request.");
+      }
+    }
+
     let existingOrderData = null;
     if (orderId) {
       const orderSnap = await transaction.get(orderRef);
@@ -637,21 +730,24 @@ export async function runOrderTransaction(
     }
 
     let validReferralCount = 0;
-    const referralSnaps = await Promise.all(
-      referralRefs.map((ref) => transaction.get(ref))
-    );
+    let referralSnaps = [];
+    if (!isAdditionalPayment) {
+      referralSnaps = await Promise.all(
+        referralRefs.map((ref) => transaction.get(ref))
+      );
 
-    for (let i = 0; i < referralSnaps.length; i++) {
-      const snap = referralSnaps[i];
-      const refId = referralRefs[i].id;
+      for (let i = 0; i < referralSnaps.length; i++) {
+        const snap = referralSnaps[i];
+        const refId = referralRefs[i].id;
 
-      if (!snap.exists) throw new Error(`Referral ${refId} not found.`);
-      assertReferralRedeemable(snap.data(), refId, userRef.path);
-      validReferralCount++;
-    }
+        if (!snap.exists) throw new Error(`Referral ${refId} not found.`);
+        assertReferralRedeemable(snap.data(), refId, userRef.path);
+        validReferralCount++;
+      }
 
-    if (clampedReferralTickets > 0 && validReferralCount < clampedReferralTickets) {
-      throw new Error("Not enough valid referral tickets found.");
+      if (clampedReferralTickets > 0 && validReferralCount < clampedReferralTickets) {
+        throw new Error("Not enough valid referral tickets found.");
+      }
     }
 
     // Enforce that the user has passed the quiz for this competition.
@@ -702,10 +798,22 @@ export async function runOrderTransaction(
 
     const prefix = generateTicketPrefix(compData.title || "");
 
-    const ticketPrice = Number(compData.ticket_price || 0);
+    const ticketPrice = isAdditionalPayment
+      ? Number(additionalPayment.unitPrice)
+      : Number(compData.ticket_price || 0);
     const subtotal = qty * ticketPrice;
-    const discountAmount = subtotal * discount;
-    const totalAmount = subtotal - discountAmount;
+    const discountAmount = isAdditionalPayment ? 0 : subtotal * discount;
+    const totalAmount = isAdditionalPayment
+      ? Number(additionalPayment.totalAmount)
+      : subtotal - discountAmount;
+
+    if (
+      isAdditionalPayment &&
+      (!Number.isFinite(totalAmount) ||
+        Math.round(totalAmount * 100) !== Math.round(subtotal * 100))
+    ) {
+      throw new Error("Additional payment pricing does not match the requested quantity.");
+    }
 
     if (settlementType === PAYMENT_SETTLEMENT.DIRECT) {
       const directPaymentBlock = getDirectPaymentBlock({
@@ -728,6 +836,13 @@ export async function runOrderTransaction(
       ) {
         throw new Error("Settlement context does not match the order being fulfilled.");
       }
+    }
+
+    if (
+      isAdditionalPayment &&
+      settlementType !== PAYMENT_SETTLEMENT.STRIPE_PAID
+    ) {
+      throw new Error("Additional payments must use verified Stripe settlement.");
     }
 
     const paidTicketOrigin =
@@ -772,6 +887,14 @@ export async function runOrderTransaction(
       currency: "GBP",
       status: "paid",
       is_winner: false,
+      ...(isAdditionalPayment
+        ? {
+            order_type: "additional_payment",
+            additional_payment_request_id: additionalPayment.requestId,
+            stripe_checkout_session_id:
+              additionalRequestData?.stripe_checkout_session_id || "",
+          }
+        : {}),
       stripe_payment_intent_id:
         typeof paymentSettlement === "object" && paymentSettlement?.paymentIntentId
           ? paymentSettlement.paymentIntentId
@@ -964,6 +1087,16 @@ export async function runOrderTransaction(
       updated_at: serverNow,
     });
 
+    if (isAdditionalPayment && typeof additionalPayment.onFulfilled === "function") {
+      additionalPayment.onFulfilled(transaction, {
+        orderRef,
+        orderId: orderRef.id,
+        ticketResults,
+        quantity: qty,
+        totalAmount,
+        currency: "GBP",
+      });
+    }
 
     return {
       orderId: orderRef.id,

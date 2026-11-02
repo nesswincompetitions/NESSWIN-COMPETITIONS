@@ -847,5 +847,65 @@
       "invalidDateRange": "La fecha de finalización no puede ser anterior a la fecha de inicio",
       "noCompetitionsFound": "No se encontraron sorteos que coincidan con sus criterios."
     }
+  },
+  "additionalPayments": {
+    "requestButton": "Solicitar pago",
+    "copyLink": "Copiar enlace",
+    "copySuccess": "Enlace de pago copiado.",
+    "copyError": "No se pudo copiar el enlace de pago.",
+    "copyUnavailable": "No hay un enlace de pago activo disponible.",
+    "retryLink": "Reintentar enlace",
+    "retrySuccess": "Enlace de pago creado.",
+    "retryError": "No se pudo crear el enlace de pago.",
+    "viewOrder": "Ver pedido",
+    "view": "Ver",
+    "unknownParticipant": "Participante desconocido",
+    "unknownCompetition": "Competición desconocida",
+    "fields": {
+      "participant": "Participante",
+      "quantity": "Entradas",
+      "amount": "Importe",
+      "paymentStatus": "Pago",
+      "fulfillmentStatus": "Cumplimiento",
+      "expires": "Caduca",
+      "actions": "Acciones",
+      "requestId": "ID de solicitud"
+    },
+    "create": {
+      "title": "Solicitar pago adicional",
+      "warning": "Esto crea un pago separado en Stripe Checkout. No modifica ningún pedido existente ni emite entradas hasta que Stripe confirme el pago.",
+      "ticketPrice": "Precio de la entrada: £{{price}}",
+      "serverAmountNote": "El servidor calcula el importe final al crear la solicitud.",
+      "quantityLabel": "Entradas adicionales de pago",
+      "quantityHint": "Máximo {{max}} entradas por solicitud.",
+      "reasonLabel": "Motivo (obligatorio)",
+      "reasonPlaceholder": "Explica por qué se solicita este pago adicional",
+      "confirmCheckbox": "Entiendo que las entradas solo se emiten tras verificar el pago y que esto no modifica un pedido existente.",
+      "confirm": "Crear solicitud de pago",
+      "submitting": "Creando solicitud...",
+      "success": "Solicitud de pago adicional creada.",
+      "error": "No se pudo crear la solicitud de pago adicional.",
+      "linkReady": "Comparte este enlace seguro de Stripe Checkout con el participante.",
+      "noActiveLink": "No hay un enlace de pago activo. Usa la lista de solicitudes para reintentar el enlace o revisar su estado."
+    },
+    "list": {
+      "title": "Solicitudes de pago adicional",
+      "subtitle": "Pagos iniciados por administradores, separados de los pedidos de los participantes.",
+      "refresh": "Actualizar",
+      "empty": "No hay solicitudes de pago adicional para esta competición.",
+      "loadError": "No se pudieron cargar las solicitudes de pago adicional."
+    },
+    "status": {
+      "pending": "Pago pendiente",
+      "processing": "Procesando",
+      "paid": "Pagado",
+      "expired": "Caducado",
+      "failed": "Fallido"
+    },
+    "fulfillment": {
+      "pending": "Esperando entradas",
+      "fulfilled": "Cumplido",
+      "failed": "Pagado, no cumplido"
+    }
   }
 }

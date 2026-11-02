@@ -14,6 +14,7 @@ import {
   SettlementValidationError,
 } from "../services/stripeSettlementService.js";
 import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
+import { processAdditionalPaymentWebhookEvent } from "../services/additionalPaymentService.js";
 import Stripe from "stripe";
 
 export function createStripeWebhookHandler({
@@ -52,6 +53,20 @@ export function createStripeWebhookHandler({
   }
 
   logger.info(`[stripeWebhook] Received event type: ${event.type}`);
+
+  const additionalPaymentRequestId =
+    event?.data?.object?.metadata?.additionalPaymentRequestId;
+  if (additionalPaymentRequestId) {
+    const outcome = await processAdditionalPaymentWebhookEvent({
+      db,
+      admin,
+      logger,
+      event,
+    });
+    if (outcome) {
+      return res.status(outcome.statusCode).send(outcome.body);
+    }
+  }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;

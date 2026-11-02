@@ -24,6 +24,10 @@ export const AUDIT_ACTIONS = Object.freeze({
   TICKET_QUANTITY_DECREASED: "ticket.quantity_decreased",
   ORDER_UPDATED: "order.updated",
   PAYMENT_REQUEST_CREATED: "payment.request_created",
+  PAYMENT_REQUEST_FULFILLED: "payment.request_fulfilled",
+  PAYMENT_REQUEST_FAILED: "payment.request_failed",
+  PAYMENT_REQUEST_EXPIRED: "payment.request_expired",
+  PAYMENT_RECEIVED: "payment.received",
   REFUND_ISSUED: "refund.issued",
   USER_SUSPENDED: "user.suspended",
   USER_REACTIVATED: "user.reactivated",
@@ -74,6 +78,13 @@ const SAFE_SNAPSHOT_FIELDS = new Set([
   "discount_amount",
   "total_amount",
   "currency",
+  "payment_status",
+  "fulfillment_status",
+  "requested_ticket_quantity",
+  "unit_price",
+  "issued_ticket_count",
+  "expires_at_millis",
+  "order_type",
   "is_winner",
   "ticket_number",
   "ticket_sequence",
@@ -110,6 +121,7 @@ const RELATED_ID_FIELDS = [
   "order_id",
   "adjustment_id",
   "referral_id",
+  "payment_request_id",
 ];
 
 function isPlainObject(value) {

@@ -8,10 +8,12 @@ import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
   ArrowLeft, Trophy, ExternalLink,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
+import AdditionalPaymentModal from '@/shared/components/admin/AdditionalPaymentModal';
+import AdditionalPaymentRequestsPanel from '@/shared/components/admin/AdditionalPaymentRequestsPanel';
 
 import { toast } from 'react-hot-toast';
 import { Timestamp, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
@@ -70,6 +72,8 @@ const CompetitionDetail = () => {
   const [participantTicketsModalOpen, setParticipantTicketsModalOpen] = useState(false);
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
   const [invalidateTarget, setInvalidateTarget] = useState(null);
+  const [additionalPaymentTarget, setAdditionalPaymentTarget] = useState(null);
+  const [additionalPaymentRefreshKey, setAdditionalPaymentRefreshKey] = useState(0);
   const [participantsRefreshKey, setParticipantsRefreshKey] = useState(0);
 
   const lastProcessedTabRef = React.useRef(null);
@@ -579,7 +583,14 @@ const CompetitionDetail = () => {
   );
 
   const renderParticipants = () => {
+    const canRequestAdditionalPayment =
+      String(competition?.status || '').toLowerCase() === 'active' &&
+      !competition?.winner_ref &&
+      !competition?.winner_ticket_ref &&
+      !competition?.draw_started_at;
+
     return (
+      <div className="space-y-6">
       <Card className="fade-in">
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
           <div>
@@ -684,16 +695,29 @@ const CompetitionDetail = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        className="h-9"
-                        disabled={activeTicketCount === 0}
-                        onClick={() => setInvalidateTarget(p)}
-                      >
-                        <Ban size={14} />
-                        {t('competitions.detail.participants.invalidate.open')}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {canRequestAdditionalPayment && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => setAdditionalPaymentTarget(p)}
+                          >
+                            <CreditCard size={14} />
+                            {t('additionalPayments.requestButton')}
+                          </Button>
+                        )}
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="h-9"
+                          disabled={activeTicketCount === 0}
+                          onClick={() => setInvalidateTarget(p)}
+                        >
+                          <Ban size={14} />
+                          {t('competitions.detail.participants.invalidate.open')}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -702,6 +726,12 @@ const CompetitionDetail = () => {
           </Table>
         </CardContent>
       </Card>
+      <AdditionalPaymentRequestsPanel
+        competitionId={competition?.id}
+        participants={participantsData}
+        refreshKey={additionalPaymentRefreshKey}
+      />
+      </div>
     );
   };
 
@@ -1254,6 +1284,15 @@ const CompetitionDetail = () => {
           </div>
         </div>
       </Modal>
+      <AdditionalPaymentModal
+        isOpen={!!additionalPaymentTarget}
+        onClose={() => setAdditionalPaymentTarget(null)}
+        competition={competition}
+        participant={additionalPaymentTarget}
+        onSuccess={() => {
+          setAdditionalPaymentRefreshKey((key) => key + 1);
+        }}
+      />
       <InvalidateTicketsModal
         isOpen={!!invalidateTarget}
         onClose={() => setInvalidateTarget(null)}

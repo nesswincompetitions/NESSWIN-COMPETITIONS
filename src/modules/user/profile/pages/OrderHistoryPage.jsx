@@ -26,6 +26,11 @@ import {
   Loader2,
 } from 'lucide-react';
 import LoadingSpinner from '@/shared/components/ui/LoadingSpinner';
+import { toast } from 'react-hot-toast';
+import {
+  fetchAdditionalPaymentCheckoutUrl,
+  fetchMyAdditionalPaymentRequests,
+} from '@/modules/user/profile/services/additionalPaymentService';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -267,6 +272,9 @@ export default function OrderHistoryPage() {
   const [totalCount, setTotalCount]         = useState(0);
   const [loading, setLoading]               = useState(true);
   const [pageLoading, setPageLoading]       = useState(false);
+  const [additionalPayments, setAdditionalPayments] = useState([]);
+  const [loadingAdditionalPayments, setLoadingAdditionalPayments] = useState(true);
+  const [payingRequestId, setPayingRequestId] = useState(null);
   const unsubscribeRef                      = useRef(null);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
@@ -313,6 +321,48 @@ export default function OrderHistoryPage() {
       }
     };
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (!currentUser?.uid) {
+      setAdditionalPayments([]);
+      setLoadingAdditionalPayments(false);
+      return undefined;
+    }
+
+    let active = true;
+    setLoadingAdditionalPayments(true);
+    fetchMyAdditionalPaymentRequests()
+      .then((result) => {
+        if (active) setAdditionalPayments(result.requests || []);
+      })
+      .catch((error) => {
+        console.error('[OrderHistory] Additional payment requests error:', error);
+        if (active) setAdditionalPayments([]);
+      })
+      .finally(() => {
+        if (active) setLoadingAdditionalPayments(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.uid]);
+
+  const handleAdditionalPayment = async (requestId) => {
+    setPayingRequestId(requestId);
+    try {
+      const result = await fetchAdditionalPaymentCheckoutUrl(requestId);
+      if (result?.url) {
+        window.location.href = result.url;
+        return;
+      }
+      toast.error(t('profile.ordersPage.additionalPayment.unavailable'));
+    } catch (error) {
+      toast.error(error?.message || t('profile.ordersPage.additionalPayment.error'));
+    } finally {
+      setPayingRequestId(null);
+    }
+  };
 
   const goToPage = useCallback(async (targetPage) => {
     if (targetPage === currentPage) return;
@@ -373,6 +423,58 @@ export default function OrderHistoryPage() {
             </p>
           )}
         </div>
+
+        {!loadingAdditionalPayments && additionalPayments.length > 0 && (
+          <div className="mb-8 space-y-3">
+            <div>
+              <p className="text-[10px] font-bold tracking-[0.22em] uppercase text-[var(--color-primary)] mb-1">
+                {t('profile.ordersPage.additionalPayment.eyebrow')}
+              </p>
+              <h2 className="text-xl font-bold text-[var(--color-foreground)]">
+                {t('profile.ordersPage.additionalPayment.title')}
+              </h2>
+            </div>
+            {additionalPayments.map((payment) => (
+              <div
+                key={payment.request_id}
+                className="rounded-2xl border border-[var(--color-primary)]/25 bg-[var(--color-card)] p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[var(--color-foreground)] truncate">
+                    {payment.competition_title || t('profile.ordersPage.additionalPayment.competition')}
+                  </p>
+                  <p className="text-xs text-[var(--color-muted-foreground)] mt-1">
+                    {t('profile.ordersPage.additionalPayment.details', {
+                      count: payment.requested_ticket_quantity,
+                      amount: formatCurrency(payment.total_amount, payment.currency, i18n.language),
+                    })}
+                  </p>
+                  <p className="text-[10px] uppercase tracking-wide text-[var(--color-muted-foreground)] mt-1">
+                    {t(`profile.ordersPage.additionalPayment.status.${payment.payment_status}`, payment.payment_status)}
+                    {payment.fulfillment_status === 'failed'
+                      ? ` · ${t('profile.ordersPage.additionalPayment.fulfillmentFailed')}`
+                      : ''}
+                  </p>
+                </div>
+                {payment.can_pay ? (
+                  <button
+                    onClick={() => handleAdditionalPayment(payment.request_id)}
+                    disabled={payingRequestId === payment.request_id}
+                    className="px-4 py-2 rounded-xl bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-sm font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                  >
+                    {payingRequestId === payment.request_id
+                      ? t('profile.ordersPage.additionalPayment.opening')
+                      : t('profile.ordersPage.additionalPayment.payNow')}
+                  </button>
+                ) : (
+                  <span className="text-xs text-[var(--color-muted-foreground)]">
+                    {t(`profile.ordersPage.additionalPayment.status.${payment.payment_status}`, payment.payment_status)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-6">

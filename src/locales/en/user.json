@@ -476,7 +476,25 @@
         "default": "Processing"
       },
       "originalQuantity": "Original: {{count}}",
-      "currentQuantity": "Current: {{count}}"
+      "currentQuantity": "Current: {{count}}",
+      "additionalPayment": {
+        "eyebrow": "Additional payment",
+        "title": "Payment requests",
+        "details": "{{count}} ticket(s) · {{amount}}",
+        "payNow": "Pay now",
+        "opening": "Opening...",
+        "unavailable": "This payment link is no longer available.",
+        "error": "Failed to open the payment link.",
+        "competition": "Competition",
+        "fulfillmentFailed": "Payment received, tickets pending review",
+        "status": {
+          "pending": "Payment pending",
+          "processing": "Payment processing",
+          "paid": "Paid",
+          "expired": "Expired",
+          "failed": "Failed"
+        }
+      }
     },
     "support": {
       "supportCenter": "Support Center",

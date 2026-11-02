@@ -847,5 +847,65 @@
       "invalidDateRange": "La date de fin ne peut pas être antérieure à la date de début",
       "noCompetitionsFound": "Aucun concours ne correspond à vos critères."
     }
+  },
+  "additionalPayments": {
+    "requestButton": "Demander un paiement",
+    "copyLink": "Copier le lien",
+    "copySuccess": "Lien de paiement copié.",
+    "copyError": "Impossible de copier le lien de paiement.",
+    "copyUnavailable": "Aucun lien de paiement actif disponible.",
+    "retryLink": "Réessayer le lien",
+    "retrySuccess": "Lien de paiement créé.",
+    "retryError": "Impossible de créer le lien de paiement.",
+    "viewOrder": "Voir la commande",
+    "view": "Voir",
+    "unknownParticipant": "Participant inconnu",
+    "unknownCompetition": "Compétition inconnue",
+    "fields": {
+      "participant": "Participant",
+      "quantity": "Billets",
+      "amount": "Montant",
+      "paymentStatus": "Paiement",
+      "fulfillmentStatus": "Exécution",
+      "expires": "Expire",
+      "actions": "Actions",
+      "requestId": "ID de demande"
+    },
+    "create": {
+      "title": "Demander un paiement supplémentaire",
+      "warning": "Cela crée un paiement Stripe Checkout séparé. Aucune commande existante n’est modifiée et aucun billet n’est émis avant confirmation du paiement par Stripe.",
+      "ticketPrice": "Prix du billet : £{{price}}",
+      "serverAmountNote": "Le montant final est calculé par le serveur lors de la création de la demande.",
+      "quantityLabel": "Billets payants supplémentaires",
+      "quantityHint": "Maximum {{max}} billets par demande.",
+      "reasonLabel": "Motif (obligatoire)",
+      "reasonPlaceholder": "Expliquez pourquoi ce paiement supplémentaire est demandé",
+      "confirmCheckbox": "Je comprends que les billets ne sont émis qu’après vérification du paiement et que cela ne modifie pas une commande existante.",
+      "confirm": "Créer la demande de paiement",
+      "submitting": "Création de la demande...",
+      "success": "Demande de paiement supplémentaire créée.",
+      "error": "Impossible de créer la demande de paiement supplémentaire.",
+      "linkReady": "Partagez ce lien Stripe Checkout sécurisé avec le participant.",
+      "noActiveLink": "Aucun lien de paiement actif. Utilisez la liste des demandes pour réessayer le lien ou vérifier son état."
+    },
+    "list": {
+      "title": "Demandes de paiement supplémentaires",
+      "subtitle": "Paiements initiés par un administrateur, distincts des commandes des participants.",
+      "refresh": "Actualiser",
+      "empty": "Aucune demande de paiement supplémentaire pour cette compétition.",
+      "loadError": "Impossible de charger les demandes de paiement supplémentaires."
+    },
+    "status": {
+      "pending": "Paiement en attente",
+      "processing": "Traitement",
+      "paid": "Payé",
+      "expired": "Expiré",
+      "failed": "Échoué"
+    },
+    "fulfillment": {
+      "pending": "En attente des billets",
+      "fulfilled": "Exécuté",
+      "failed": "Payé, non exécuté"
+    }
   }
 }

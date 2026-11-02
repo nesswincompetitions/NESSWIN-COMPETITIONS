@@ -475,7 +475,25 @@
         "default": "Traitement"
       },
       "originalQuantity": "D’origine : {{count}}",
-      "currentQuantity": "Actuels : {{count}}"
+      "currentQuantity": "Actuels : {{count}}",
+      "additionalPayment": {
+        "eyebrow": "Paiement supplémentaire",
+        "title": "Demandes de paiement",
+        "details": "{{count}} billet(s) · {{amount}}",
+        "payNow": "Payer maintenant",
+        "opening": "Ouverture...",
+        "unavailable": "Ce lien de paiement n’est plus disponible.",
+        "error": "Impossible d’ouvrir le lien de paiement.",
+        "competition": "Compétition",
+        "fulfillmentFailed": "Paiement reçu, billets en attente de vérification",
+        "status": {
+          "pending": "Paiement en attente",
+          "processing": "Paiement en cours",
+          "paid": "Payé",
+          "expired": "Expiré",
+          "failed": "Échoué"
+        }
+      }
     },
     "support": {
       "supportCenter": "Centre d'assistance",

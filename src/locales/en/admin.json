@@ -862,5 +862,65 @@
       "invalidDateRange": "End date cannot be earlier than start date",
       "noCompetitionsFound": "No competitions found matching your criteria."
     }
+  },
+  "additionalPayments": {
+    "requestButton": "Request payment",
+    "copyLink": "Copy link",
+    "copySuccess": "Payment link copied.",
+    "copyError": "Could not copy the payment link.",
+    "copyUnavailable": "No active payment link is available.",
+    "retryLink": "Retry link",
+    "retrySuccess": "Payment link created.",
+    "retryError": "Failed to create the payment link.",
+    "viewOrder": "View order",
+    "view": "View",
+    "unknownParticipant": "Unknown participant",
+    "unknownCompetition": "Unknown competition",
+    "fields": {
+      "participant": "Participant",
+      "quantity": "Tickets",
+      "amount": "Amount",
+      "paymentStatus": "Payment",
+      "fulfillmentStatus": "Fulfillment",
+      "expires": "Expires",
+      "actions": "Actions",
+      "requestId": "Request ID"
+    },
+    "create": {
+      "title": "Request Additional Payment",
+      "warning": "This creates a separate Stripe Checkout payment. It does not modify any existing order or issue tickets until Stripe confirms payment.",
+      "ticketPrice": "Competition ticket price: £{{price}}",
+      "serverAmountNote": "The final payable amount is calculated by the server when the request is created.",
+      "quantityLabel": "Additional paid tickets",
+      "quantityHint": "Maximum {{max}} tickets per request.",
+      "reasonLabel": "Reason (required)",
+      "reasonPlaceholder": "Explain why this additional payment is being requested",
+      "confirmCheckbox": "I understand tickets are issued only after verified payment and this does not modify an existing order.",
+      "confirm": "Create payment request",
+      "submitting": "Creating request...",
+      "success": "Additional payment request created.",
+      "error": "Failed to create additional payment request.",
+      "linkReady": "Share this secure Stripe Checkout link with the participant.",
+      "noActiveLink": "No active checkout link is available. Use the request list to retry the link or inspect its state."
+    },
+    "list": {
+      "title": "Additional Payment Requests",
+      "subtitle": "Admin-initiated payments that are separate from participant orders.",
+      "refresh": "Refresh",
+      "empty": "No additional payment requests for this competition.",
+      "loadError": "Failed to load additional payment requests."
+    },
+    "status": {
+      "pending": "Pending payment",
+      "processing": "Processing",
+      "paid": "Paid",
+      "expired": "Expired",
+      "failed": "Failed"
+    },
+    "fulfillment": {
+      "pending": "Awaiting tickets",
+      "fulfilled": "Fulfilled",
+      "failed": "Paid, not fulfilled"
+    }
   }
 }

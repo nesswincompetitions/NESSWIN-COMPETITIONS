@@ -12,7 +12,10 @@ export class SettlementValidationError extends Error {
   }
 }
 
-function createVerifiedSettlementContext(type, { orderId, amountMinor, currency, paymentIntentId = "" }) {
+export function createVerifiedStripeSettlementContext(
+  type,
+  { orderId, amountMinor, currency, paymentIntentId = "" }
+) {
   return Object.freeze({
     type,
     orderId,
@@ -22,6 +25,8 @@ function createVerifiedSettlementContext(type, { orderId, amountMinor, currency,
     [VERIFIED_SETTLEMENT_CONTEXT]: true,
   });
 }
+
+const createVerifiedSettlementContext = createVerifiedStripeSettlementContext;
 
 export function isVerifiedStripeSettlementContext(value) {
   return Boolean(

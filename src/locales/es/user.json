@@ -475,7 +475,25 @@
         "default": "Procesando"
       },
       "originalQuantity": "Original: {{count}}",
-      "currentQuantity": "Actual: {{count}}"
+      "currentQuantity": "Actual: {{count}}",
+      "additionalPayment": {
+        "eyebrow": "Pago adicional",
+        "title": "Solicitudes de pago",
+        "details": "{{count}} entrada(s) · {{amount}}",
+        "payNow": "Pagar ahora",
+        "opening": "Abriendo...",
+        "unavailable": "Este enlace de pago ya no está disponible.",
+        "error": "No se pudo abrir el enlace de pago.",
+        "competition": "Competición",
+        "fulfillmentFailed": "Pago recibido, entradas pendientes de revisión",
+        "status": {
+          "pending": "Pago pendiente",
+          "processing": "Pago en proceso",
+          "paid": "Pagado",
+          "expired": "Caducado",
+          "failed": "Fallido"
+        }
+      }
     },
     "support": {
       "supportCenter": "Centro de soporte",
