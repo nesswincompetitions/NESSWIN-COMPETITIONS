@@ -20,3 +20,10 @@ export const getAdditionalPaymentCheckoutUrl = (requestId) =>
     { requestId },
     'Failed to retrieve the payment link.'
   );
+
+export const recoverAdditionalPaymentFulfillment = (requestId) =>
+  callFunction(
+    'recoverAdditionalPaymentFulfillment',
+    { requestId },
+    'Failed to recover additional payment fulfillment.'
+  );

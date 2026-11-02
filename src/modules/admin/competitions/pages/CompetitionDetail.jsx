@@ -645,6 +645,9 @@ const CompetitionDetail = () => {
                 const activeTicketCount = p.activeTicketCount ?? ticketDetails.filter((ticket) => ticket.status === 'active').length;
                 const invalidatedTicketCount = p.invalidatedTicketCount ?? 0;
                 const cancelledTicketCount = p.cancelledTicketCount ?? 0;
+                const isRestricted = (competition?.restricted_participants || []).some(
+                  (participantRef) => (participantRef?.id || participantRef) === p.id
+                );
 
                 return (
                   <TableRow key={p.id}>
@@ -696,7 +699,7 @@ const CompetitionDetail = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {canRequestAdditionalPayment && (
+                        {canRequestAdditionalPayment && !isRestricted && (
                           <Button
                             variant="outline"
                             size="sm"

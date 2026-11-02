@@ -468,3 +468,52 @@ describe('admin ticket decrease', () => {
     assert.equal(db.collectionStore('ticket_adjustments').size, 0);
   });
 });
+
+describe('admin ticket decrease with competition restriction', () => {
+  function restrict(db, refs) {
+    db.setDocument('competition', 'c1', {
+      ...db.snapshot('competition', 'c1').data(),
+      restricted_participants: [refs.userRef],
+    });
+  }
+
+  it('still allows a paid-ticket decrease for a restricted participant', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    restrict(db, refs);
+
+    const result = await makeHandler(db)(
+      request({
+        origin: 'paid',
+        quantity: 1,
+        requestId: 'req-restricted-decrease-paid',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.decreasedCount, 1);
+    assert.equal(result.paymentEffect, 'none');
+    assert.equal(db.snapshot('ticket', 't4').data().status, 'invalid');
+  });
+
+  it('still allows a bonus-ticket decrease for a restricted participant', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    restrict(db, refs);
+
+    const result = await makeHandler(db)(
+      request({
+        origin: 'bonus',
+        quantity: 2,
+        requestId: 'req-restricted-decrease-bonus',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.decreasedCount, 2);
+    assert.deepEqual(
+      [...result.ticketIds].map((id) => db.snapshot('ticket', id).data().allocation_type).sort(),
+      ['admin_bonus', 'referral_use_bonus']
+    );
+  });
+});

@@ -5,6 +5,7 @@ import { ExternalLink, Loader2, RefreshCcw } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import {
   Table,
   TableBody,
@@ -17,6 +18,7 @@ import {
   createAdditionalPaymentRequest,
   getAdditionalPaymentCheckoutUrl,
   listAdditionalPaymentRequests,
+  recoverAdditionalPaymentFulfillment,
 } from '@/modules/admin/payments/services/additionalPaymentService';
 
 const statusVariant = (status) => {
@@ -44,6 +46,8 @@ const AdditionalPaymentRequestsPanel = ({
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [localRefreshKey, setLocalRefreshKey] = useState(0);
+  const [recoveryTarget, setRecoveryTarget] = useState(null);
+  const [recoveryError, setRecoveryError] = useState('');
 
   const participantNames = useMemo(
     () => new Map(participants.map((participant) => [participant.id, participant.name])),
@@ -109,8 +113,39 @@ const AdditionalPaymentRequestsPanel = ({
     }
   };
 
+  const handleRecover = async () => {
+    if (!recoveryTarget) return;
+    setBusyId(recoveryTarget.request_id);
+    setRecoveryError('');
+    try {
+      const result = await recoverAdditionalPaymentFulfillment(
+        recoveryTarget.request_id
+      );
+      if (result?.outcome === 'already_fulfilled') {
+        toast.success(t('additionalPayments.recovery.already'));
+      } else {
+        toast.success(t('additionalPayments.recovery.success'));
+      }
+      setRecoveryTarget(null);
+      setLocalRefreshKey((key) => key + 1);
+    } catch (error) {
+      const message =
+        error?.message || t('additionalPayments.recovery.error');
+      setRecoveryError(message);
+      toast.error(message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const canCopyLink = (request) =>
     request.can_pay && request.has_checkout_session && request.payment_status === 'pending';
+
+  const canRecover = (request) =>
+    request.recovery_available === true ||
+    (request.payment_status === 'paid' &&
+      request.fulfillment_status === 'failed' &&
+      request.has_checkout_session === true);
 
   return (
     <Card className="fade-in">
@@ -139,6 +174,7 @@ const AdditionalPaymentRequestsPanel = ({
               <TableHead>{t('additionalPayments.fields.amount')}</TableHead>
               <TableHead>{t('additionalPayments.fields.paymentStatus')}</TableHead>
               <TableHead>{t('additionalPayments.fields.fulfillmentStatus')}</TableHead>
+              <TableHead>{t('additionalPayments.recovery.column')}</TableHead>
               <TableHead>{t('additionalPayments.fields.expires')}</TableHead>
               <TableHead className="text-right">{t('additionalPayments.fields.actions')}</TableHead>
             </TableRow>
@@ -146,13 +182,13 @@ const AdditionalPaymentRequestsPanel = ({
           <TableBody>
             {loading && requests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
+                <TableCell colSpan={8} className="text-center py-10">
                   <Loader2 size={24} className="animate-spin text-primary mx-auto" />
                 </TableCell>
               </TableRow>
             ) : requests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10 text-sm text-gray-500">
+                <TableCell colSpan={8} className="text-center py-10 text-sm text-gray-500">
                   {t('additionalPayments.list.empty')}
                 </TableCell>
               </TableRow>
@@ -190,6 +226,15 @@ const AdditionalPaymentRequestsPanel = ({
                       )}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {canRecover(request) ? (
+                      <Badge variant="warning">
+                        {t('additionalPayments.recovery.available')}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-600 text-xs">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-gray-400 text-xs">
                     {request.expires_at_millis
                       ? new Date(request.expires_at_millis).toLocaleString('en-GB', {
@@ -222,6 +267,19 @@ const AdditionalPaymentRequestsPanel = ({
                           {t('additionalPayments.retryLink')}
                         </Button>
                       )}
+                      {canRecover(request) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={busyId === request.request_id}
+                          onClick={() => {
+                            setRecoveryError('');
+                            setRecoveryTarget(request);
+                          }}
+                        >
+                          {t('additionalPayments.recovery.action')}
+                        </Button>
+                      )}
                       {request.order_id && (
                         <a
                           href={`/admin/orders/${request.order_id}`}
@@ -248,6 +306,27 @@ const AdditionalPaymentRequestsPanel = ({
           </TableBody>
         </Table>
       </CardContent>
+      <ConfirmationModal
+        isOpen={!!recoveryTarget}
+        onClose={() => !busyId && setRecoveryTarget(null)}
+        onConfirm={handleRecover}
+        title={t('additionalPayments.recovery.title')}
+        description={
+          recoveryError ||
+          (recoveryTarget
+            ? t('additionalPayments.recovery.description', {
+                requestId: recoveryTarget.request_id,
+                tickets: recoveryTarget.requested_ticket_quantity,
+                amount: Number(recoveryTarget.total_amount || 0).toFixed(2),
+                currency: recoveryTarget.currency,
+              })
+            : '')
+        }
+        confirmLabel={t('additionalPayments.recovery.confirm')}
+        cancelLabel={t('common.cancel')}
+        variant="primary"
+        loading={busyId === recoveryTarget?.request_id}
+      />
     </Card>
   );
 };

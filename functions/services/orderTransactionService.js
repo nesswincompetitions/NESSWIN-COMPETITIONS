@@ -2,6 +2,7 @@ import { getOrderPricing } from "./orderPricingService.js";
 import { assertReferralRedeemable } from "./referralEligibility.js";
 import {
   getDrawDateState,
+  getParticipantRestrictionBlock,
   getReferenceId,
   hasDrawStarted,
 } from "./ticketAdjustmentPolicy.js";
@@ -215,6 +216,11 @@ export async function validateCheckoutPreflight(
   });
   if (expiry.error) {
     throw new CheckoutValidationError(expiry.error, "failed-precondition");
+  }
+
+  const restrictionBlock = getParticipantRestrictionBlock(competitionData, uid);
+  if (restrictionBlock) {
+    throw new CheckoutValidationError(restrictionBlock, "failed-precondition");
   }
 
   if (!userSnap.exists) {
@@ -696,6 +702,14 @@ export async function runOrderTransaction(
     if (!compSnap.exists) throw new Error("Competition not found.");
 
     const compData = compSnap.data();
+    const participantRestrictionBlock = getParticipantRestrictionBlock(
+      compData,
+      uid,
+    );
+    if (participantRestrictionBlock) {
+      throw new Error(participantRestrictionBlock);
+    }
+
     const competitionBlock = getCheckoutCompetitionBlock(compData, {
       nowMillis: Date.now(),
       requireDrawDate: false,

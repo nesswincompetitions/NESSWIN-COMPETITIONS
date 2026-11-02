@@ -8,6 +8,7 @@ import {
   runOrderTransaction,
 } from "./orderTransactionService.js";
 import {
+  getParticipantRestrictionBlock,
   getReferenceId,
   normalizeAdjustmentReason,
   normalizeRequestId,
@@ -460,6 +461,12 @@ function serializePaymentRequest(requestId, data) {
     payment_status: paymentStatus,
     fulfillment_status:
       data?.fulfillment_status || ADDITIONAL_PAYMENT_FULFILLMENT.PENDING,
+    recovery_available:
+      paymentStatus === ADDITIONAL_PAYMENT_STATUS.PAID &&
+      (data?.fulfillment_status || ADDITIONAL_PAYMENT_FULFILLMENT.PENDING) ===
+        ADDITIONAL_PAYMENT_FULFILLMENT.FAILED &&
+      typeof data?.stripe_checkout_session_id === "string" &&
+      Boolean(data.stripe_checkout_session_id),
     has_checkout_session:
       typeof data?.stripe_checkout_session_id === "string" &&
       Boolean(data.stripe_checkout_session_id),
@@ -506,6 +513,105 @@ function matchesRequestReplay(existing, expected) {
     normalizeAdjustmentReason(existing?.reason) ===
       normalizeAdjustmentReason(expected.reason)
   );
+}
+
+async function getRequestRestrictionBlock(db, requestData) {
+  const competitionId = getReferenceId(requestData?.competition_id);
+  const userId = getReferenceId(requestData?.user_ref);
+  if (!competitionId || !userId) {
+    return "This payment request is not linked to a valid participant or competition.";
+  }
+
+  const competitionSnap = await db
+    .collection("competition")
+    .doc(competitionId)
+    .get();
+  if (!competitionSnap.exists) {
+    return "The competition for this payment request was not found.";
+  }
+
+  return getParticipantRestrictionBlock(competitionSnap.data(), userId);
+}
+
+async function handleRestrictedCheckoutSession({
+  db,
+  admin,
+  logger,
+  requestId,
+  requestRef,
+  session,
+  stripe,
+  HttpsError: HttpsErrorClass,
+}) {
+  const sessionId = typeof session?.id === "string" ? session.id : "";
+  if (!sessionId) {
+    return { handled: false, outcome: "session_missing" };
+  }
+
+  if (session.status === "open") {
+    let expired = false;
+    try {
+      await stripe.checkout.sessions.expire(sessionId);
+      expired = true;
+    } catch (error) {
+      logger?.warn?.(
+        `[additionalPayment] Could not expire restricted Checkout session ${sessionId} for request=${requestId}: ${error?.message || error}`
+      );
+    }
+
+    if (expired) {
+      await markAdditionalPaymentExpired({
+        db,
+        admin,
+        logger,
+        requestId,
+        sessionId,
+        HttpsError: HttpsErrorClass,
+      });
+    }
+
+    return { handled: true, outcome: expired ? "expired" : "expire_failed" };
+  }
+
+  if (session.status === "expired") {
+    await markAdditionalPaymentExpired({
+      db,
+      admin,
+      logger,
+      requestId,
+      sessionId,
+      HttpsError: HttpsErrorClass,
+    });
+    return { handled: true, outcome: "expired" };
+  }
+
+  if (session.status === "complete" && session.payment_status === "paid") {
+    const requestSnap = await requestRef.get();
+    const requestData = requestSnap.exists ? requestSnap.data() : null;
+    if (
+      requestData?.payment_status === ADDITIONAL_PAYMENT_STATUS.PAID &&
+      requestData?.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FAILED
+    ) {
+      return { handled: true, outcome: "already_paid_unfulfilled" };
+    }
+
+    const outcome = await processAdditionalPaymentWebhookEvent({
+      db,
+      admin,
+      logger,
+      event: {
+        type: "checkout.session.completed",
+        data: { object: session },
+      },
+      HttpsError: HttpsErrorClass,
+    });
+    return {
+      handled: true,
+      outcome: outcome?.body || "paid_fulfillment_blocked",
+    };
+  }
+
+  return { handled: true, outcome: "left_unresolved" };
 }
 
 async function createSessionOrResume({
@@ -942,6 +1048,14 @@ export function createAdditionalPaymentRequestHandler({
       const competitionData = competitionSnap.data();
       assertParticipantAssociation(competitionData, userId, HttpsErrorClass);
 
+      const restrictionBlock = getParticipantRestrictionBlock(
+        competitionData,
+        userId
+      );
+      if (restrictionBlock) {
+        throw new HttpsErrorClass("failed-precondition", restrictionBlock);
+      }
+
       const expiry = getCheckoutExpiryForCompetition(competitionData, {
         nowMillis,
         requireDrawDate: true,
@@ -1074,6 +1188,14 @@ export function createAdditionalPaymentRequestHandler({
       );
     }
 
+    const replayRestrictionBlock = await getRequestRestrictionBlock(
+      db,
+      requestData
+    );
+    if (replayRestrictionBlock) {
+      throw new HttpsErrorClass("failed-precondition", replayRestrictionBlock);
+    }
+
     try {
       const sessionResult = await createSessionOrResume({
         stripe,
@@ -1097,6 +1219,29 @@ export function createAdditionalPaymentRequestHandler({
         throw new HttpsErrorClass(
           "failed-precondition",
           "The checkout session has expired. Create a new payment request with a new request ID."
+        );
+      }
+
+      // Re-check after creating/retrieving the Stripe session. A restriction may
+      // have committed while the session was being created or persisted.
+      const postSessionRestrictionBlock = await getRequestRestrictionBlock(
+        db,
+        requestData
+      );
+      if (postSessionRestrictionBlock) {
+        await handleRestrictedCheckoutSession({
+          db,
+          admin,
+          logger,
+          requestId: normalizedRequestId,
+          requestRef,
+          session: sessionResult.session,
+          stripe,
+          HttpsError: HttpsErrorClass,
+        });
+        throw new HttpsErrorClass(
+          "failed-precondition",
+          postSessionRestrictionBlock
         );
       }
 
@@ -1267,6 +1412,30 @@ export function createGetAdditionalPaymentCheckoutUrlHandler({
       };
     }
 
+    const competitionId = getReferenceId(requestData.competition_id);
+    if (!competitionId) {
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "This payment request is not linked to a valid competition."
+      );
+    }
+    const preRetrievalRestrictionBlock = await getRequestRestrictionBlock(
+      db,
+      requestData
+    );
+    if (preRetrievalRestrictionBlock) {
+      const serialized = serializeForViewer(
+        normalizedRequestId,
+        requestData,
+        now()
+      );
+      return {
+        can_pay: false,
+        reason: "restricted",
+        request: { ...serialized, can_pay: false },
+      };
+    }
+
     const sessionId =
       typeof requestData.stripe_checkout_session_id === "string"
         ? requestData.stripe_checkout_session_id
@@ -1317,6 +1486,37 @@ export function createGetAdditionalPaymentCheckoutUrlHandler({
         "failed-precondition",
         "The payment session could not be verified."
       );
+    }
+
+    // Re-check after retrieving the session. A restriction may have committed
+    // while Stripe was being contacted.
+    const postRetrievalRestrictionBlock = await getRequestRestrictionBlock(
+      db,
+      requestData
+    );
+    if (postRetrievalRestrictionBlock) {
+      await handleRestrictedCheckoutSession({
+        db,
+        admin,
+        logger,
+        requestId: normalizedRequestId,
+        requestRef,
+        session,
+        stripe,
+        HttpsError: HttpsErrorClass,
+      });
+      const freshSnap = await requestRef.get();
+      const freshData = freshSnap.exists ? freshSnap.data() : requestData;
+      const serialized = serializeForViewer(
+        normalizedRequestId,
+        freshData,
+        now()
+      );
+      return {
+        can_pay: false,
+        reason: "restricted",
+        request: { ...serialized, can_pay: false },
+      };
     }
 
     const state = classifyStripeCheckoutSession(session);
@@ -2120,4 +2320,540 @@ export async function processAdditionalPaymentWebhookEvent({
       body: `Additional payment fulfillment error: ${error?.message || "unknown error"}`,
     };
   }
+}
+
+/**
+ * Applies a competition-level participant restriction to any outstanding
+ * additional-payment request. External Stripe calls happen outside Firestore
+ * transactions. The restriction fence itself must already be committed.
+ */
+export async function enforceAdditionalPaymentRestriction({
+  db,
+  admin,
+  logger,
+  userId,
+  competitionId,
+  HttpsError: HttpsErrorClass = HttpsError,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+}) {
+  if (!userId || !competitionId) {
+    return { handled: false, outcome: "invalid_request" };
+  }
+
+  const lockRef = db
+    .collection(ADDITIONAL_PAYMENT_LOCKS_COLLECTION)
+    .doc(buildLockId(userId, competitionId));
+  const lockSnap = await lockRef.get();
+  if (!lockSnap.exists) {
+    return { handled: false, outcome: "no_active_request" };
+  }
+
+  const requestId = lockSnap.data()?.request_id;
+  if (!requestId) {
+    return { handled: false, outcome: "lock_missing_request_id" };
+  }
+
+  const requestRef = db
+    .collection(ADDITIONAL_PAYMENT_REQUESTS_COLLECTION)
+    .doc(requestId);
+  const requestSnap = await requestRef.get();
+  if (!requestSnap.exists) {
+    return { handled: false, outcome: "request_missing" };
+  }
+
+  const requestData = requestSnap.data();
+  if (requestData.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED) {
+    return { handled: false, outcome: "already_fulfilled" };
+  }
+  if (
+    requestData.payment_status === ADDITIONAL_PAYMENT_STATUS.PAID &&
+    requestData.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FAILED
+  ) {
+    return { handled: true, outcome: "already_paid_unfulfilled" };
+  }
+
+  const sessionId =
+    typeof requestData.stripe_checkout_session_id === "string"
+      ? requestData.stripe_checkout_session_id
+      : "";
+  if (!sessionId) {
+    return { handled: false, outcome: "no_stored_session" };
+  }
+
+  const stripeSecretKey = getStripeSecretKey();
+  if (!stripeSecretKey) {
+    logger?.warn?.(
+      `[additionalPayment] Cannot expire outstanding request ${requestId} because Stripe is not configured.`,
+    );
+    return { handled: false, outcome: "stripe_not_configured" };
+  }
+
+  let session;
+  try {
+    session = await stripeFactory(stripeSecretKey).checkout.sessions.retrieve(
+      sessionId,
+    );
+  } catch (error) {
+    logger?.warn?.(
+      `[additionalPayment] Could not verify outstanding request ${requestId} during restriction: ${error?.message || error}`,
+    );
+    return { handled: false, outcome: "retrieval_failed" };
+  }
+
+  if (!session || session.id !== sessionId) {
+    logger?.warn?.(
+      `[additionalPayment] Stripe session identity mismatch for restricted request ${requestId}.`,
+    );
+    return { handled: false, outcome: "session_mismatch" };
+  }
+
+  const state = classifyStripeCheckoutSession(session);
+
+  if (state === "paid") {
+    const outcome = await processAdditionalPaymentWebhookEvent({
+      db,
+      admin,
+      logger,
+      event: {
+        type: "checkout.session.completed",
+        data: { object: session },
+      },
+      HttpsError: HttpsErrorClass,
+    });
+    return { handled: true, outcome: outcome?.body || "paid_fulfillment_blocked" };
+  }
+
+  if (state === "expired") {
+    await markAdditionalPaymentExpired({
+      db,
+      admin,
+      logger,
+      requestId,
+      sessionId,
+      HttpsError: HttpsErrorClass,
+    });
+    return { handled: true, outcome: "expired" };
+  }
+
+  if (state === "open") {
+    try {
+      await stripeFactory(stripeSecretKey).checkout.sessions.expire(sessionId);
+    } catch (error) {
+      logger?.warn?.(
+        `[additionalPayment] Could not expire Stripe session for restricted request ${requestId}: ${error?.message || error}`,
+      );
+      return { handled: false, outcome: "expire_failed" };
+    }
+    await markAdditionalPaymentExpired({
+      db,
+      admin,
+      logger,
+      requestId,
+      sessionId,
+      HttpsError: HttpsErrorClass,
+    });
+    return { handled: true, outcome: "expired" };
+  }
+
+  return { handled: false, outcome: state || "unresolved_session_state" };
+}
+
+/**
+ * Admin-only recovery of a verified paid-but-unfulfilled additional payment.
+ * Reuses the existing Stripe settlement verification and fulfillment path.
+ */
+export function createRecoverAdditionalPaymentFulfillmentHandler({
+  db,
+  admin,
+  logger,
+  assertAdmin,
+  HttpsError: HttpsErrorClass,
+  stripeFactory = (key) => new Stripe(key),
+  getStripeSecretKey = () => process.env.STRIPE_SECRET_KEY,
+  now = () => Date.now(),
+}) {
+  const auditService = createAdminAuditService({
+    db,
+    admin,
+    logger,
+    HttpsError: HttpsErrorClass,
+  });
+
+  async function recordRecoveryAudit({
+    adminUid,
+    requestId,
+    requestData,
+    outcome,
+    failureReason = null,
+  }) {
+    try {
+      await auditService.recordEvent(
+        {
+          action: AUDIT_ACTIONS.PAYMENT_REQUEST_RECOVERY_ATTEMPTED,
+          entity_type: "payment",
+          entity_id: requestId,
+          summary: `Admin recovery attempt for additional payment request ${requestId}: ${outcome}.`,
+          reason: failureReason,
+          before: {
+            payment_status: requestData?.payment_status,
+            fulfillment_status: requestData?.fulfillment_status,
+            requested_ticket_quantity: requestData?.requested_ticket_quantity,
+            total_amount: requestData?.total_amount,
+            currency: requestData?.currency,
+          },
+          after: {
+            payment_status: requestData?.payment_status,
+            fulfillment_status: requestData?.fulfillment_status,
+            requested_ticket_quantity: requestData?.requested_ticket_quantity,
+            total_amount: requestData?.total_amount,
+            currency: requestData?.currency,
+            outcome,
+          },
+          related: {
+            payment_request_id: requestId,
+            user_id: getReferenceId(requestData?.user_ref),
+            competition_id: getReferenceId(requestData?.competition_id),
+            order_id: getReferenceId(requestData?.order_id),
+          },
+          source: "additionalPaymentService.recover",
+          correlation_id: requestId,
+        },
+        { actor: createAdminAuditActor(adminUid) },
+      );
+    } catch (error) {
+      logger?.error?.(
+        `[additionalPayment] Failed to record recovery audit for request ${requestId}:`,
+        error?.message || error,
+      );
+    }
+  }
+
+  return async function handleRecoverAdditionalPaymentFulfillment(request) {
+    const adminUid = await assertAdmin(request);
+    const { requestId } = request.data || {};
+    const normalizedRequestId = normalizeRequestId(requestId);
+    if (!normalizedRequestId) {
+      throw new HttpsErrorClass(
+        "invalid-argument",
+        "A valid requestId is required.",
+      );
+    }
+
+    const requestRef = db
+      .collection(ADDITIONAL_PAYMENT_REQUESTS_COLLECTION)
+      .doc(normalizedRequestId);
+    const requestSnap = await requestRef.get();
+    if (!requestSnap.exists) {
+      throw new HttpsErrorClass("not-found", "Payment request not found.");
+    }
+
+    const requestData = requestSnap.data();
+    if (
+      requestData.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED
+    ) {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "already_fulfilled",
+      });
+      return {
+        outcome: "already_fulfilled",
+        recovered: false,
+        request: serializePaymentRequest(
+          normalizedRequestId,
+          requestData,
+          now(),
+        ),
+      };
+    }
+
+    if (
+      requestData.payment_status !== ADDITIONAL_PAYMENT_STATUS.PAID ||
+      requestData.fulfillment_status !== ADDITIONAL_PAYMENT_FULFILLMENT.FAILED
+    ) {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_invalid_state",
+        failureReason:
+          "Only paid-but-unfulfilled additional payment requests can be recovered.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "Only paid-but-unfulfilled additional payment requests can be recovered.",
+      );
+    }
+
+    const sessionId =
+      typeof requestData.stripe_checkout_session_id === "string"
+        ? requestData.stripe_checkout_session_id
+        : "";
+    if (!sessionId) {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_no_session",
+        failureReason: "No stored Stripe Checkout session.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "This payment request has no verified Stripe Checkout session.",
+      );
+    }
+
+    const stripeSecretKey = getStripeSecretKey();
+    if (!stripeSecretKey) {
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "Stripe is not configured on the server.",
+      );
+    }
+
+    let session;
+    try {
+      session = await stripeFactory(
+        stripeSecretKey,
+      ).checkout.sessions.retrieve(sessionId);
+    } catch (error) {
+      logger?.error?.(
+        `[additionalPayment] Recovery could not verify Stripe session for request ${normalizedRequestId}:`,
+        error?.message || error,
+      );
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_session_unverified",
+        failureReason: "Stripe session retrieval failed.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "The payment session could not be verified. Try again shortly.",
+      );
+    }
+
+    if (!session || session.id !== sessionId) {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_session_mismatch",
+        failureReason: "Stripe session identity mismatch.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "The payment session could not be verified.",
+      );
+    }
+
+    const sessionRequestId = session?.metadata?.additionalPaymentRequestId;
+    if (sessionRequestId && sessionRequestId !== normalizedRequestId) {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_session_mismatch",
+        failureReason: "Stripe session metadata request ID mismatch.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "The payment session could not be verified.",
+      );
+    }
+
+    let decision;
+    try {
+      decision = evaluateAdditionalPaymentSettlement({
+        eventType: "checkout.session.completed",
+        session,
+        requestData,
+      });
+    } catch (error) {
+      if (error instanceof SettlementValidationError) {
+        logger?.error?.(
+          `[additionalPayment] Recovery settlement validation failed for request ${normalizedRequestId}: ${error.code} — ${error.message}`,
+        );
+        await recordRecoveryAudit({
+          adminUid,
+          requestId: normalizedRequestId,
+          requestData,
+          outcome: "refused_unverified_payment",
+          failureReason: error.message,
+        });
+        throw new HttpsErrorClass(
+          "failed-precondition",
+          "Payment is not verifiably successful for this request.",
+        );
+      }
+      throw error;
+    }
+
+    if (decision.action === "already_processed") {
+      const freshSnap = await requestRef.get();
+      const freshData = freshSnap.exists ? freshSnap.data() : requestData;
+      if (
+        freshData.fulfillment_status === ADDITIONAL_PAYMENT_FULFILLMENT.FULFILLED
+      ) {
+        await recordRecoveryAudit({
+          adminUid,
+          requestId: normalizedRequestId,
+          requestData: freshData,
+          outcome: "already_fulfilled",
+        });
+        return {
+          outcome: "already_fulfilled",
+          recovered: false,
+          request: serializePaymentRequest(
+            normalizedRequestId,
+            freshData,
+            now(),
+          ),
+        };
+      }
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData: freshData,
+        outcome: "refused_not_recoverable",
+        failureReason: "Request is not in a recoverable paid state.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "The Stripe session is not in a recoverable paid state.",
+      );
+    }
+
+    if (decision.action !== "fulfill") {
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData,
+        outcome: "refused_unpaid",
+        failureReason: "Stripe reports the payment as not paid.",
+      });
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "Payment is not verifiably successful for this request.",
+      );
+    }
+
+    if (requestData.payment_status !== ADDITIONAL_PAYMENT_STATUS.PAID) {
+      try {
+        await markAdditionalPaymentSettled({
+          db,
+          admin,
+          logger,
+          requestId: normalizedRequestId,
+          session,
+          HttpsError: HttpsErrorClass,
+        });
+      } catch (error) {
+        if (error instanceof SettlementValidationError) {
+          logger?.error?.(
+            `[additionalPayment] Recovery settlement failed for request ${normalizedRequestId}: ${error.code} — ${error.message}`,
+          );
+          throw new HttpsErrorClass(
+            "failed-precondition",
+            "Payment settlement could not be verified for this request.",
+          );
+        }
+        throw error;
+      }
+    }
+
+    try {
+      const result = await fulfillAdditionalPaymentRequest({
+        db,
+        admin,
+        logger,
+        requestId: normalizedRequestId,
+        HttpsError: HttpsErrorClass,
+      });
+
+      const freshSnap = await requestRef.get();
+      const freshData = freshSnap.exists ? freshSnap.data() : requestData;
+      const outcome =
+        result?.outcome === "already_fulfilled" ? "already_fulfilled" : "fulfilled";
+
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData: freshData,
+        outcome,
+      });
+
+      return {
+        outcome,
+        recovered: outcome === "fulfilled",
+        orderId: result?.orderId || null,
+        ticketCount: result?.ticketCount || 0,
+        request: serializePaymentRequest(
+          normalizedRequestId,
+          freshData,
+          now(),
+        ),
+      };
+    } catch (error) {
+      if (error instanceof AdditionalPaymentAlreadyFulfilledError) {
+        const freshSnap = await requestRef.get();
+        const freshData = freshSnap.exists ? freshSnap.data() : requestData;
+        await recordRecoveryAudit({
+          adminUid,
+          requestId: normalizedRequestId,
+          requestData: freshData,
+          outcome: "already_fulfilled",
+        });
+        return {
+          outcome: "already_fulfilled",
+          recovered: false,
+          request: serializePaymentRequest(
+            normalizedRequestId,
+            freshData,
+            now(),
+          ),
+        };
+      }
+
+      const failureText = String(
+        error?.message || "Ticket fulfillment failed.",
+      ).slice(0, 1000);
+
+      try {
+        await recordAdditionalPaymentUnfulfilled({
+          db,
+          admin,
+          logger,
+          requestId: normalizedRequestId,
+          sessionId: session.id,
+          paymentIntentId: decision.paymentIntentId,
+          failureReason: failureText,
+          HttpsError: HttpsErrorClass,
+        });
+      } catch (recordError) {
+        logger?.error?.(
+          `[additionalPayment] Failed to preserve paid-unfulfilled state for request ${normalizedRequestId}:`,
+          recordError?.message || recordError,
+        );
+      }
+
+      const freshSnap = await requestRef.get();
+      const freshData = freshSnap.exists ? freshSnap.data() : requestData;
+      await recordRecoveryAudit({
+        adminUid,
+        requestId: normalizedRequestId,
+        requestData: freshData,
+        outcome: "failed",
+        failureReason: failureText,
+      });
+
+      throw new HttpsErrorClass(
+        "failed-precondition",
+        "Payment is verified, but tickets could not be issued. The request remains paid but unfulfilled for administrator review.",
+      );
+    }
+  };
 }

@@ -228,7 +228,19 @@
           "submitting": "Removing participant...",
           "success": "Removed participant by invalidating {{count}} ticket(s).",
           "nothing": "No tickets needed to be invalidated.",
-          "error": "Failed to remove participant."
+          "error": "Failed to remove participant.",
+          "modeLabel": "Participant removal mode",
+          "modeInvalidate": "Invalidate tickets only",
+          "modeInvalidateHint": "The participant's active tickets are invalidated, but they can buy again later.",
+          "modeBlock": "Remove and block from this competition",
+          "modeBlockHint": "Invalidates active tickets and prevents this participant from buying or receiving more tickets in this competition. Their account and other competitions are unaffected.",
+          "warningBlock": "This invalidates all eligible active tickets and blocks this participant from future purchases and ticket fulfillment in this competition. It does not refund payments, charge the participant, release capacity, renumber tickets, or remove participant history. Outstanding payment links are expired where possible.",
+          "blockNoActive": "There are no active tickets to invalidate, but the participant will still be blocked from this competition.",
+          "confirmCheckboxBlock": "I understand this blocks the participant from this competition, does not issue a refund, charges nothing, and does not disable their account.",
+          "confirmBlock": "Remove and block participant",
+          "submittingBlock": "Removing and blocking participant...",
+          "successBlock": "Removed and blocked the participant from this competition after invalidating {{count}} ticket(s).",
+          "nothingBlock": "Participant blocked from this competition. No tickets needed to be invalidated."
         }
       },
       "draw": {
@@ -921,6 +933,18 @@
       "pending": "Awaiting tickets",
       "fulfilled": "Fulfilled",
       "failed": "Paid, not fulfilled"
+    },
+    "recovery": {
+      "column": "Recovery",
+      "available": "Available",
+      "action": "Recover tickets",
+      "title": "Recover Additional Payment Fulfillment",
+      "description": "Retry ticket fulfillment for request {{requestId}} ({{tickets}} ticket(s), {{amount}} {{currency}}). Payment is already verified as paid and the participant will not be charged again.",
+      "confirm": "Retry fulfillment",
+      "submitting": "Recovering...",
+      "success": "Tickets issued for the additional payment.",
+      "already": "This payment request was already fulfilled.",
+      "error": "Fulfillment could not be recovered. The request remains paid and unfulfilled."
     }
   }
 }

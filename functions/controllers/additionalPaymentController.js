@@ -7,6 +7,7 @@ import {
   createGetAdditionalPaymentCheckoutUrlHandler as buildGetAdditionalPaymentCheckoutUrlHandler,
   createGetMyAdditionalPaymentRequestsHandler as buildGetMyAdditionalPaymentRequestsHandler,
   createListAdditionalPaymentRequestsHandler as buildListAdditionalPaymentRequestsHandler,
+  createRecoverAdditionalPaymentFulfillmentHandler as buildRecoverAdditionalPaymentFulfillmentHandler,
 } from "../services/additionalPaymentService.js";
 
 const handleCreateAdditionalPaymentRequest = buildCreateAdditionalPaymentRequestHandler({
@@ -35,6 +36,15 @@ const handleGetAdditionalPaymentCheckoutUrl = buildGetAdditionalPaymentCheckoutU
   assertAuthenticated,
   HttpsError,
 });
+
+const handleRecoverAdditionalPaymentFulfillment =
+  buildRecoverAdditionalPaymentFulfillmentHandler({
+    db,
+    admin,
+    logger,
+    assertAdmin,
+    HttpsError,
+  });
 
 export const createAdditionalPaymentRequest = onCall(async (request) => {
   try {
@@ -77,5 +87,16 @@ export const getAdditionalPaymentCheckoutUrl = onCall(async (request) => {
       logger.error("[getAdditionalPaymentCheckoutUrl] Error:", error);
     }
     throw toHttpsError(error, "Failed to retrieve the payment link.");
+  }
+});
+
+export const recoverAdditionalPaymentFulfillment = onCall(async (request) => {
+  try {
+    return await handleRecoverAdditionalPaymentFulfillment(request);
+  } catch (error) {
+    if (!(error instanceof HttpsError)) {
+      logger.error("[recoverAdditionalPaymentFulfillment] Error:", error);
+    }
+    throw toHttpsError(error, "Failed to recover additional payment fulfillment.");
   }
 });

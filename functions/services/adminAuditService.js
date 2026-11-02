@@ -22,11 +22,13 @@ export const AUDIT_ACTIONS = Object.freeze({
   TICKET_ADJUSTED: "ticket.adjusted",
   TICKET_QUANTITY_INCREASED: "ticket.quantity_increased",
   TICKET_QUANTITY_DECREASED: "ticket.quantity_decreased",
+  PARTICIPANT_RESTRICTED: "participant.restricted",
   ORDER_UPDATED: "order.updated",
   PAYMENT_REQUEST_CREATED: "payment.request_created",
   PAYMENT_REQUEST_FULFILLED: "payment.request_fulfilled",
   PAYMENT_REQUEST_FAILED: "payment.request_failed",
   PAYMENT_REQUEST_EXPIRED: "payment.request_expired",
+  PAYMENT_REQUEST_RECOVERY_ATTEMPTED: "payment.request_recovery_attempted",
   PAYMENT_RECEIVED: "payment.received",
   REFUND_ISSUED: "refund.issued",
   USER_SUSPENDED: "user.suspended",
@@ -110,6 +112,8 @@ const SAFE_SNAPSHOT_FIELDS = new Set([
   "payment_effect",
   "invalidation_reason",
   "status_before_invalidation",
+  "restricted",
+  "outcome",
 ]);
 
 const SENSITIVE_KEY_PATTERN =

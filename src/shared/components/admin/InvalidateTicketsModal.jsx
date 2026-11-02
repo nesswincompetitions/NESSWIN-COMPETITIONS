@@ -7,6 +7,8 @@ import Button from '@/shared/components/ui/Button';
 import { invalidateUserCompetitionTickets } from '@/modules/admin/competitions/services/ticketInvalidationService';
 
 const MAX_CONTINUATIONS = 50;
+const REMOVAL_MODE_INVALIDATE = 'invalidate_only';
+const REMOVAL_MODE_BLOCK = 'remove_and_block';
 
 const InvalidateTicketsModal = ({
   isOpen,
@@ -24,6 +26,7 @@ const InvalidateTicketsModal = ({
 }) => {
   const { t } = useTranslation('admin');
   const [reason, setReason] = useState('');
+  const [mode, setMode] = useState(REMOVAL_MODE_INVALIDATE);
   const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -58,6 +61,7 @@ const InvalidateTicketsModal = ({
     wasOpenRef.current = true;
     lastTargetKeyRef.current = targetKey;
     setReason('');
+    setMode(REMOVAL_MODE_INVALIDATE);
     setConfirmed(false);
     setIsSubmitting(false);
     setErrorMessage('');
@@ -74,14 +78,17 @@ const InvalidateTicketsModal = ({
     );
   }, [isOpen, targetKey]);
 
-  const blocked = finalityBlocked || hasWinnerTicket || activeTicketCount === 0;
+  const isBlockMode = mode === REMOVAL_MODE_BLOCK;
+  const noActiveTickets = activeTicketCount === 0;
+  const blocked =
+    finalityBlocked || hasWinnerTicket || (!isBlockMode && noActiveTickets);
   const canSubmit =
     !isSubmitting &&
     !blocked &&
     !partialState?.blocked &&
     confirmed &&
     reason.trim().length > 0 &&
-    activeTicketCount > 0;
+    (isBlockMode || activeTicketCount > 0);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -100,7 +107,7 @@ const InvalidateTicketsModal = ({
           userId,
           competitionId,
           reason.trim(),
-          { requestId }
+          { requestId, mode }
         );
         lastResult = result;
 
@@ -180,7 +187,19 @@ const InvalidateTicketsModal = ({
       const totalInvalidated = Number(
         lastResult?.processedCount ?? lastResult?.invalidatedCount ?? processed
       );
-      if (totalInvalidated > 0) {
+      if (isBlockMode) {
+        if (totalInvalidated > 0) {
+          toast.success(
+            t('competitions.detail.participants.invalidate.successBlock', {
+              count: totalInvalidated,
+            })
+          );
+        } else {
+          toast.success(
+            t('competitions.detail.participants.invalidate.nothingBlock')
+          );
+        }
+      } else if (totalInvalidated > 0) {
         toast.success(
           t('competitions.detail.participants.invalidate.success', {
             count: totalInvalidated,
@@ -245,15 +264,83 @@ const InvalidateTicketsModal = ({
           {competitionTitle}
         </div>
 
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-gray-300">
+            {t('competitions.detail.participants.invalidate.modeLabel')}
+          </p>
+          <label
+            className={`flex items-start gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-colors ${
+              mode === REMOVAL_MODE_INVALIDATE
+                ? 'border-primary/40 bg-primary/5'
+                : 'border-white/10 bg-white/5 hover:border-white/20'
+            }`}
+          >
+            <input
+              type="radio"
+              name="participant-removal-mode"
+              value={REMOVAL_MODE_INVALIDATE}
+              checked={mode === REMOVAL_MODE_INVALIDATE}
+              onChange={() => setMode(REMOVAL_MODE_INVALIDATE)}
+              disabled={isSubmitting || Boolean(partialState)}
+              className="mt-0.5 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="block text-sm font-medium text-white">
+                {t('competitions.detail.participants.invalidate.modeInvalidate')}
+              </span>
+              <span className="block text-xs text-gray-400 mt-0.5">
+                {t('competitions.detail.participants.invalidate.modeInvalidateHint')}
+              </span>
+            </span>
+          </label>
+          <label
+            className={`flex items-start gap-3 px-3 py-2.5 border rounded-lg cursor-pointer transition-colors ${
+              mode === REMOVAL_MODE_BLOCK
+                ? 'border-red-400/40 bg-red-400/5'
+                : 'border-white/10 bg-white/5 hover:border-white/20'
+            }`}
+          >
+            <input
+              type="radio"
+              name="participant-removal-mode"
+              value={REMOVAL_MODE_BLOCK}
+              checked={mode === REMOVAL_MODE_BLOCK}
+              onChange={() => setMode(REMOVAL_MODE_BLOCK)}
+              disabled={isSubmitting || Boolean(partialState)}
+              className="mt-0.5 h-4 w-4 accent-red-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-white">
+                {t('competitions.detail.participants.invalidate.modeBlock')}
+              </span>
+              <span className="block text-xs text-gray-400 mt-0.5">
+                {t('competitions.detail.participants.invalidate.modeBlockHint')}
+              </span>
+            </span>
+          </label>
+        </div>
+
         <div className="flex items-start gap-3 px-3 py-2.5 bg-orange-400/10 border border-orange-400/30 rounded-lg text-sm text-orange-300">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p>{t('competitions.detail.participants.invalidate.warning')}</p>
             <p>
-              {t('competitions.detail.participants.invalidate.affected', {
-                count: activeTicketCount,
-              })}
+              {t(
+                isBlockMode
+                  ? 'competitions.detail.participants.invalidate.warningBlock'
+                  : 'competitions.detail.participants.invalidate.warning'
+              )}
             </p>
+            {noActiveTickets && isBlockMode ? (
+              <p>
+                {t('competitions.detail.participants.invalidate.blockNoActive')}
+              </p>
+            ) : (
+              <p>
+                {t('competitions.detail.participants.invalidate.affected', {
+                  count: activeTicketCount,
+                })}
+              </p>
+            )}
             {alreadyInvalidCount > 0 && (
               <p>
                 {t('competitions.detail.participants.invalidate.alreadyInvalid', {
@@ -290,7 +377,7 @@ const InvalidateTicketsModal = ({
           </div>
         )}
 
-        {!finalityBlocked && !hasWinnerTicket && activeTicketCount === 0 && (
+        {!finalityBlocked && !hasWinnerTicket && activeTicketCount === 0 && !isBlockMode && (
           <div className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-400">
             {t('competitions.detail.participants.invalidate.noActive')}
           </div>
@@ -368,7 +455,13 @@ const InvalidateTicketsModal = ({
             disabled={isSubmitting || blocked || partialState?.blocked}
             className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-red-500"
           />
-          <span>{t('competitions.detail.participants.invalidate.confirmCheckbox')}</span>
+          <span>
+            {t(
+              isBlockMode
+                ? 'competitions.detail.participants.invalidate.confirmCheckboxBlock'
+                : 'competitions.detail.participants.invalidate.confirmCheckbox'
+            )}
+          </span>
         </label>
       </div>
 
@@ -386,12 +479,20 @@ const InvalidateTicketsModal = ({
           {isSubmitting ? (
             <>
               <Loader2 size={16} className="animate-spin" />
-              {t('competitions.detail.participants.invalidate.submitting')}
+              {t(
+                isBlockMode
+                  ? 'competitions.detail.participants.invalidate.submittingBlock'
+                  : 'competitions.detail.participants.invalidate.submitting'
+              )}
             </>
           ) : (
             <>
               <Ban size={14} />
-              {t('competitions.detail.participants.invalidate.confirm')}
+              {t(
+                isBlockMode
+                  ? 'competitions.detail.participants.invalidate.confirmBlock'
+                  : 'competitions.detail.participants.invalidate.confirm'
+              )}
             </>
           )}
         </Button>

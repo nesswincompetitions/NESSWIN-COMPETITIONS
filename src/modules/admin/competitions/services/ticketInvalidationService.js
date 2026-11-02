@@ -4,7 +4,7 @@ export const invalidateUserCompetitionTickets = (
   userId,
   competitionId,
   reason,
-  { ticketIds, requestId } = {}
+  { ticketIds, requestId, mode } = {}
 ) =>
   callFunction(
     'invalidateUserCompetitionTickets',
@@ -14,6 +14,7 @@ export const invalidateUserCompetitionTickets = (
       reason,
       ...(ticketIds ? { ticketIds } : {}),
       ...(requestId ? { requestId } : {}),
+      ...(mode ? { mode } : {}),
     },
     'Failed to invalidate tickets.'
   );

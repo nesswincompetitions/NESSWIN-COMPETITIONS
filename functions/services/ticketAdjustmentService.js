@@ -2,6 +2,7 @@ import {
   ADJUSTMENT_MAX_TICKETS,
   getCompetitionAdjustmentBlock,
   getCompetitionInventoryBlock,
+  getParticipantRestrictionBlock,
   getReferenceId,
   isFiniteNonNegativeInteger,
   isWinnerTicket,
@@ -365,6 +366,13 @@ export function createIncreaseUserCompetitionTicketsHandler({
     if (preflightBlock) {
       throw new HttpsError("failed-precondition", preflightBlock);
     }
+    const preflightRestrictionBlock = getParticipantRestrictionBlock(
+      competitionSnap.data(),
+      userId
+    );
+    if (preflightRestrictionBlock) {
+      throw new HttpsError("failed-precondition", preflightRestrictionBlock);
+    }
     assertOrderEligibility(orderSnap.data(), userId, competitionId, HttpsError);
 
     const result = await db.runTransaction(async (transaction) => {
@@ -405,6 +413,14 @@ export function createIncreaseUserCompetitionTicketsHandler({
 
       const freshCompetition = freshCompetitionSnap.data();
       const freshOrder = freshOrderSnap.data();
+
+      const freshRestrictionBlock = getParticipantRestrictionBlock(
+        freshCompetition,
+        userId
+      );
+      if (freshRestrictionBlock) {
+        throw new HttpsError("failed-precondition", freshRestrictionBlock);
+      }
 
       const freshBlock = getCompetitionAdjustmentBlock(freshCompetition, {
         allowSoldOut: false,

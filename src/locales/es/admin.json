@@ -228,7 +228,19 @@
           "submitting": "Eliminando participante...",
           "success": "Participante eliminado al invalidar {{count}} entrada(s).",
           "nothing": "No fue necesario invalidar entradas.",
-          "error": "No se pudo eliminar al participante."
+          "error": "No se pudo eliminar al participante.",
+          "modeLabel": "Modo de eliminación del participante",
+          "modeInvalidate": "Invalidar solo entradas",
+          "modeInvalidateHint": "Se invalidan las entradas activas del participante, pero puede volver a comprar más adelante.",
+          "modeBlock": "Eliminar y bloquear en esta competición",
+          "modeBlockHint": "Invalida las entradas activas e impide que este participante compre o reciba más entradas en esta competición. Su cuenta y otras competiciones no se ven afectadas.",
+          "warningBlock": "Esto invalida todas las entradas activas elegibles y bloquea al participante para futuras compras y cumplimiento de entradas en esta competición. No reembolsa pagos, no cobra al participante, no libera capacidad, no renumera entradas ni elimina el historial. Los enlaces de pago pendientes se caducan cuando es posible.",
+          "blockNoActive": "No hay entradas activas que invalidar, pero el participante seguirá bloqueado en esta competición.",
+          "confirmCheckboxBlock": "Entiendo que esto bloquea al participante en esta competición, no emite reembolsos, no cobra nada y no desactiva su cuenta.",
+          "confirmBlock": "Eliminar y bloquear participante",
+          "submittingBlock": "Eliminando y bloqueando participante...",
+          "successBlock": "Participante eliminado y bloqueado de esta competición tras invalidar {{count}} entrada(s).",
+          "nothingBlock": "Participante bloqueado en esta competición. No fue necesario invalidar entradas."
         }
       },
       "draw": {
@@ -906,6 +918,18 @@
       "pending": "Esperando entradas",
       "fulfilled": "Cumplido",
       "failed": "Pagado, no cumplido"
+    },
+    "recovery": {
+      "column": "Recuperación",
+      "available": "Disponible",
+      "action": "Recuperar entradas",
+      "title": "Recuperar cumplimiento del pago adicional",
+      "description": "Reintentar la emisión de entradas para la solicitud {{requestId}} ({{tickets}} entrada(s), {{amount}} {{currency}}). El pago ya está verificado y no se cobrará de nuevo al participante.",
+      "confirm": "Reintentar cumplimiento",
+      "submitting": "Recuperando...",
+      "success": "Entradas emitidas para el pago adicional.",
+      "already": "Esta solicitud de pago ya estaba cumplida.",
+      "error": "No se pudo recuperar el cumplimiento. La solicitud permanece pagada y no cumplida."
     }
   }
 }

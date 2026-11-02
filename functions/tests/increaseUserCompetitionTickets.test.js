@@ -712,3 +712,109 @@ describe('admin ticket increase', () => {
     }
   });
 });
+
+describe('admin ticket increase with competition restriction', () => {
+  function restrict(db, refs) {
+    db.setDocument('competition', 'c1', {
+      ...db.snapshot('competition', 'c1').data(),
+      restricted_participants: [refs.userRef],
+    });
+  }
+
+  it('rejects a paid-ticket increase for a restricted participant', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    restrict(db, refs);
+    const beforeCompetition = { ...db.snapshot('competition', 'c1').data() };
+
+    await assert.rejects(
+      makeHandler(db)(request({ origin: 'paid', requestId: 'req-restricted-paid' })),
+      (error) =>
+        error.code === 'failed-precondition' &&
+        /blocked from this competition/.test(error.message)
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 4);
+    assert.equal(db.snapshot('ticket_adjustments', 'req-restricted-paid').exists, false);
+    assert.deepEqual(db.snapshot('competition', 'c1').data(), beforeCompetition);
+  });
+
+  it('rejects a bonus-ticket increase for a restricted participant', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    restrict(db, refs);
+
+    await assert.rejects(
+      makeHandler(db)(request({ origin: 'bonus', requestId: 'req-restricted-bonus' })),
+      (error) =>
+        error.code === 'failed-precondition' &&
+        /blocked from this competition/.test(error.message)
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 4);
+    assert.equal(db.snapshot('ticket_adjustments', 'req-restricted-bonus').exists, false);
+  });
+
+  it('does not block increases in another competition', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    restrict(db, refs);
+
+    const competitionRef = db.collection('competition').doc('c2');
+    db.setDocument('competition', 'c2', {
+      title: 'Other Competition',
+      status: 'active',
+      draw_date: FUTURE_DRAW,
+      stock_quantity: 100,
+      sold_tickets: 0,
+      total_tickets: 100,
+      last_ticket_sequence: 0,
+      participants: [refs.userRef],
+    });
+    db.setDocument('order', 'o2', {
+      user_ref: refs.userRef,
+      competition_id: competitionRef,
+      status: 'paid',
+      total_ticket: 0,
+      paid_ticket: 0,
+      free_ticket: 0,
+      free_used: 0,
+      total_amount: 0,
+      currency: 'GBP',
+    });
+
+    const result = await makeHandler(db)(
+      request({
+        competitionId: 'c2',
+        orderId: 'o2',
+        origin: 'paid',
+        requestId: 'req-other-competition',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.addedCount, 2);
+    assert.equal(db.snapshot('competition', 'c2').data().last_ticket_sequence, 2);
+    assert.equal(db.snapshot('competition', 'c1').data().last_ticket_sequence, 4);
+  });
+
+  it('cannot commit an increase after the restriction wins', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    db.beforeTransaction = async () => {
+      db.setDocument('competition', 'c1', {
+        ...db.snapshot('competition', 'c1').data(),
+        restricted_participants: [refs.userRef],
+      });
+    };
+
+    await assert.rejects(
+      makeHandler(db)(request({ origin: 'paid', requestId: 'req-race-increase' })),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    assert.equal(db.collectionStore('ticket').size, 4);
+    assert.equal(db.snapshot('ticket_adjustments', 'req-race-increase').exists, false);
+    assert.equal(db.snapshot('competition', 'c1').data().last_ticket_sequence, 4);
+  });
+});

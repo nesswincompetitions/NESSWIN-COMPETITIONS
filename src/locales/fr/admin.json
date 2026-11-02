@@ -228,7 +228,19 @@
           "submitting": "Retrait du participant...",
           "success": "Participant retiré en invalidant {{count}} ticket(s).",
           "nothing": "Aucun ticket n'avait besoin d'être invalidé.",
-          "error": "Impossible de retirer le participant."
+          "error": "Impossible de retirer le participant.",
+          "modeLabel": "Mode de retrait du participant",
+          "modeInvalidate": "Invalider uniquement les tickets",
+          "modeInvalidateHint": "Les tickets actifs du participant sont invalidés, mais il peut en acheter à nouveau plus tard.",
+          "modeBlock": "Retirer et bloquer de ce concours",
+          "modeBlockHint": "Invalide les tickets actifs et empêche ce participant d'acheter ou de recevoir d'autres tickets dans ce concours. Son compte et les autres concours ne sont pas affectés.",
+          "warningBlock": "Cela invalide tous les tickets actifs éligibles et bloque le participant pour les achats futurs et l'émission de tickets dans ce concours. Aucun remboursement, aucun débit, aucune libération de capacité, aucune renumérotation et aucune suppression de l'historique n'a lieu. Les liens de paiement en attente sont expirés lorsque possible.",
+          "blockNoActive": "Aucun ticket actif à invalider, mais le participant sera tout de même bloqué dans ce concours.",
+          "confirmCheckboxBlock": "Je comprends que cela bloque le participant dans ce concours, n'émet aucun remboursement, ne débite rien et ne désactive pas son compte.",
+          "confirmBlock": "Retirer et bloquer le participant",
+          "submittingBlock": "Retrait et blocage du participant...",
+          "successBlock": "Participant retiré et bloqué de ce concours après invalidation de {{count}} ticket(s).",
+          "nothingBlock": "Participant bloqué dans ce concours. Aucun ticket n'avait besoin d'être invalidé."
         }
       },
       "draw": {
@@ -906,6 +918,18 @@
       "pending": "En attente des billets",
       "fulfilled": "Exécuté",
       "failed": "Payé, non exécuté"
+    },
+    "recovery": {
+      "column": "Récupération",
+      "available": "Disponible",
+      "action": "Récupérer les tickets",
+      "title": "Récupérer l'émission du paiement supplémentaire",
+      "description": "Réessayer l'émission des tickets pour la demande {{requestId}} ({{tickets}} ticket(s), {{amount}} {{currency}}). Le paiement est déjà vérifié et le participant ne sera pas débité à nouveau.",
+      "confirm": "Réessayer l'émission",
+      "submitting": "Récupération...",
+      "success": "Tickets émis pour le paiement supplémentaire.",
+      "already": "Cette demande de paiement a déjà été traitée.",
+      "error": "L'émission n'a pas pu être récupérée. La demande reste payée et non traitée."
     }
   }
 }

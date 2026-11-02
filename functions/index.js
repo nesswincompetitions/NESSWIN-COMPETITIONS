@@ -23,6 +23,7 @@ export {
 	getAdditionalPaymentCheckoutUrl,
 	getMyAdditionalPaymentRequests,
 	listAdditionalPaymentRequests,
+	recoverAdditionalPaymentFulfillment,
 } from "./controllers/additionalPaymentController.js";
 export { deleteAdminCompetition, saveAdminCompetition } from "./controllers/competitionAdminController.js";
 export {

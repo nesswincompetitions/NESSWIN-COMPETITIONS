@@ -3,13 +3,16 @@ import {
   getCompetitionAdjustmentBlock,
   getReferenceId,
   isFiniteNonNegativeInteger,
+  isParticipantRestricted,
   isWinnerTicket,
   normalizeRequestId,
+  PARTICIPANT_RESTRICTION_FIELD,
   ticketBelongsToCompetition,
   ticketBelongsToUser,
 } from "./ticketAdjustmentPolicy.js";
 import { getTicketOrigin } from "./ticketOrigin.js";
 import { normalizeTicketStatus } from "./ticketEligibility.js";
+import { enforceAdditionalPaymentRestriction } from "./additionalPaymentService.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
   adjustmentReplayMatches,
@@ -20,6 +23,7 @@ import {
   buildTicketAdjustmentRecord,
 } from "./ticketAdjustmentAudit.js";
 import {
+  AUDIT_ACTIONS,
   buildTicketAdjustmentAuditEvent,
   createAdminAuditActor,
   createAdminAuditService,
@@ -28,6 +32,135 @@ import {
 export const INVALIDATION_MAX_TICKETS = ADJUSTMENT_MAX_TICKETS;
 export const PARTICIPANT_REMOVAL_CHUNK_SIZE = ADJUSTMENT_MAX_TICKETS;
 export const PARTICIPANT_REMOVAL_MAX_CHUNKS_PER_CALL = 10;
+
+export const PARTICIPANT_REMOVAL_MODES = Object.freeze({
+  INVALIDATE_ONLY: "invalidate_only",
+  REMOVE_AND_BLOCK: "remove_and_block",
+});
+
+function normalizeParticipantRemovalMode(value, HttpsError) {
+  if (value === undefined || value === null || value === "") {
+    return PARTICIPANT_REMOVAL_MODES.INVALIDATE_ONLY;
+  }
+  if (
+    value === PARTICIPANT_REMOVAL_MODES.INVALIDATE_ONLY ||
+    value === PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK
+  ) {
+    return value;
+  }
+  throw new HttpsError(
+    "invalid-argument",
+    "mode must be invalidate_only or remove_and_block."
+  );
+}
+
+function requestRestrictsParticipation(removalMode) {
+  return removalMode === PARTICIPANT_REMOVAL_MODES.REMOVE_AND_BLOCK;
+}
+
+function storedRestrictsParticipation(record) {
+  return record?.result?.restrictedFutureParticipation === true;
+}
+
+async function assertRequestIdCompatibleWithMode({
+  db,
+  requestId,
+  restrictedFutureParticipation,
+  HttpsError,
+}) {
+  if (!requestId) return;
+
+  const unsuffixedSnap = await db
+    .collection(TICKET_ADJUSTMENTS_COLLECTION)
+    .doc(requestId)
+    .get();
+  const chunkSnap = unsuffixedSnap.exists
+    ? null
+    : await db
+        .collection(TICKET_ADJUSTMENTS_COLLECTION)
+        .doc(buildParticipantRemovalChunkId(requestId, 0))
+        .get();
+  const record = unsuffixedSnap.exists
+    ? unsuffixedSnap.data()
+    : chunkSnap?.exists
+      ? chunkSnap.data()
+      : null;
+  if (!record) return;
+
+  if (storedRestrictsParticipation(record) !== restrictedFutureParticipation) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different participant removal mode."
+    );
+  }
+}
+
+async function applyParticipantRestriction({
+  db,
+  admin,
+  auditService,
+  competitionRef,
+  userRef,
+  userId,
+  competitionId,
+  adminUid,
+  reasonText,
+  requestId,
+  HttpsError,
+}) {
+  return db.runTransaction(async (transaction) => {
+    const competitionSnap = await transaction.get(competitionRef);
+    if (!competitionSnap.exists) {
+      throw new HttpsError("not-found", "Competition not found.");
+    }
+
+    const competitionData = competitionSnap.data();
+
+    // A retried/completed removal remains replayable after the draw has been
+    // protected. The restriction fence is already durable in that case.
+    if (isParticipantRestricted(competitionData, userId)) {
+      return { applied: false, alreadyRestricted: true };
+    }
+
+    const block = getCompetitionAdjustmentBlock(competitionData, {
+      allowSoldOut: true,
+      requireDrawDate: true,
+    });
+    if (block) {
+      throw new HttpsError("failed-precondition", block);
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    transaction.update(competitionRef, {
+      [PARTICIPANT_RESTRICTION_FIELD]: admin.firestore.FieldValue.arrayUnion(
+        userRef
+      ),
+      updated_at: now,
+    });
+
+    auditService.recordEventInTransaction(
+      transaction,
+      {
+        action: AUDIT_ACTIONS.PARTICIPANT_RESTRICTED,
+        entity_type: "competition",
+        entity_id: competitionId,
+        summary: `Blocked ${userId} from future participation in ${competitionId}.`,
+        reason: reasonText,
+        before: { restricted: false },
+        after: { restricted: true },
+        related: {
+          user_id: userId,
+          competition_id: competitionId,
+        },
+        source: "ticketInvalidationService.removeAndBlock",
+        correlation_id: requestId,
+      },
+      { actor: createAdminAuditActor(adminUid) }
+    );
+
+    return { applied: true, alreadyRestricted: false };
+  });
+}
 
 // Scalability note: this runs five unbounded equality queries and deduplicates
 // in memory because historical tickets use several user-reference formats.
@@ -145,7 +278,9 @@ function isParticipantRemovalNoop(existing, expected) {
     Number(existing.quantity) === 0 &&
     existingUser === expected.userId &&
     existingCompetition === expected.competitionId &&
-    existingReason === expected.reasonText
+    existingReason === expected.reasonText &&
+    storedRestrictsParticipation(existing) ===
+      (expected.restrictedFutureParticipation === true)
   );
 }
 
@@ -160,7 +295,9 @@ function assertChunkIdentity(existing, expected, HttpsError) {
     existing.request_id !== expected.requestId ||
     existingUser !== expected.userId ||
     existingCompetition !== expected.competitionId ||
-    existingReason !== expected.reasonText
+    existingReason !== expected.reasonText ||
+    storedRestrictsParticipation(existing) !==
+      (expected.restrictedFutureParticipation === true)
   ) {
     throw new HttpsError(
       "failed-precondition",
@@ -398,12 +535,15 @@ export function createInvalidateUserCompetitionTicketsHandler({
   logger,
   assertAdmin,
   HttpsError,
+  stripeFactory,
+  getStripeSecretKey,
 }) {
   const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
 
   return async function handleInvalidateUserCompetitionTickets(request) {
     const adminUid = await assertAdmin(request);
-    const { userId, competitionId, reason, ticketIds, requestId } = request.data || {};
+    const { userId, competitionId, reason, ticketIds, requestId, mode } =
+      request.data || {};
 
     if (!userId || typeof userId !== "string") {
       throw new HttpsError("invalid-argument", "userId is required.");
@@ -416,7 +556,17 @@ export function createInvalidateUserCompetitionTicketsHandler({
       throw new HttpsError("invalid-argument", "A reason is required to invalidate tickets.");
     }
 
+    const removalMode = normalizeParticipantRemovalMode(mode, HttpsError);
+    const restrictedFutureParticipation =
+      requestRestrictsParticipation(removalMode);
+
     const hasExplicitSelection = ticketIds !== undefined;
+    if (hasExplicitSelection && restrictedFutureParticipation) {
+      throw new HttpsError(
+        "invalid-argument",
+        "mode remove_and_block cannot be combined with an explicit ticket selection."
+      );
+    }
     const selectedIdsResult = hasExplicitSelection
       ? normalizeSelectedTicketIds(ticketIds)
       : { ticketIds: null };
@@ -444,9 +594,23 @@ export function createInvalidateUserCompetitionTicketsHandler({
       }
     }
 
+    if (restrictedFutureParticipation && !normalizedRequestId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "A valid requestId is required when removing and blocking a participant."
+      );
+    }
+
     const userRef = db.collection("user").doc(userId);
     const competitionRef = db.collection("competition").doc(competitionId);
     const adminRef = db.collection("user").doc(adminUid);
+
+    await assertRequestIdCompatibleWithMode({
+      db,
+      requestId: normalizedRequestId,
+      restrictedFutureParticipation,
+      HttpsError,
+    });
 
     if (hasExplicitSelection) {
       const replayExpectation = {
@@ -579,18 +743,99 @@ export function createInvalidateUserCompetitionTicketsHandler({
       throw new HttpsError("not-found", "Competition not found.");
     }
 
-    const userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
-    const classified = classifyParticipantTickets(
-      userTicketDocs,
-      userId,
-      competitionId
-    );
+    let userTicketDocs;
+    let classified;
+
+    if (restrictedFutureParticipation) {
+      const alreadyRestricted = isParticipantRestricted(
+        competitionSnap.data(),
+        userId
+      );
+
+      if (!alreadyRestricted) {
+        const preflightDocs = await fetchUserTicketDocs(db, userId, userRef);
+        const preflightClassified = classifyParticipantTickets(
+          preflightDocs,
+          userId,
+          competitionId
+        );
+
+        const preflightBlock = getCompetitionAdjustmentBlock(
+          competitionSnap.data(),
+          {
+            allowSoldOut: true,
+            requireDrawDate: true,
+          }
+        );
+        if (preflightBlock) {
+          throw new HttpsError("failed-precondition", preflightBlock);
+        }
+        if (preflightClassified.winners.length > 0) {
+          throw new HttpsError(
+            "failed-precondition",
+            "A winning ticket was found for this user. Winner tickets cannot be invalidated and the participant cannot be restricted."
+          );
+        }
+      }
+
+      await applyParticipantRestriction({
+        db,
+        admin,
+        auditService,
+        competitionRef,
+        userRef,
+        userId,
+        competitionId,
+        adminUid,
+        reasonText,
+        requestId: normalizedRequestId,
+        HttpsError,
+      });
+
+      try {
+        await enforceAdditionalPaymentRestriction({
+          db,
+          admin,
+          logger,
+          userId,
+          competitionId,
+          HttpsError,
+          ...(stripeFactory ? { stripeFactory } : {}),
+          ...(getStripeSecretKey ? { getStripeSecretKey } : {}),
+        });
+      } catch (error) {
+        logger.error(
+          `[invalidateUserCompetitionTickets] Outstanding payment restriction failed admin=${adminUid} user=${userId} competition=${competitionId}:`,
+          error
+        );
+      }
+
+      // Re-fetch after the restriction fence commits. No fulfillment can create
+      // tickets after the fence, so this set is stable for invalidation.
+      userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
+      classified = classifyParticipantTickets(
+        userTicketDocs,
+        userId,
+        competitionId
+      );
+    } else {
+      userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
+      classified = classifyParticipantTickets(
+        userTicketDocs,
+        userId,
+        competitionId
+      );
+    }
 
     const resultCounts = {
       alreadyInvalidCount: classified.alreadyInvalid.length,
       cancelledCount: classified.cancelled.length,
       skippedCount: classified.skipped.length,
       totalRelevantCount: classified.relevant.length,
+    };
+    const restrictionResultFields = {
+      removalMode,
+      restrictedFutureParticipation,
     };
 
     const buildParticipantRemovalPartialResponse = ({
@@ -619,6 +864,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
       ticketSequences,
       chunksProcessed,
       ...resultCounts,
+      ...restrictionResultFields,
       paymentEffect: "none",
     });
 
@@ -656,6 +902,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
           totalRelevantCount: resultCounts.totalRelevantCount,
           ticketIds: [],
           ticketSequences: [],
+          ...restrictionResultFields,
         };
       }
 
@@ -689,6 +936,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
           },
           resultExtras: {
             ...resultCounts,
+            ...restrictionResultFields,
             summary: `Invalidated ${classified.active.length} active ticket(s) for ${userId} in ${competitionId}.`,
           },
           HttpsError,
@@ -714,9 +962,10 @@ export function createInvalidateUserCompetitionTicketsHandler({
           userId,
           competitionId,
           reasonText,
+          restrictedFutureParticipation,
         })
       ) {
-        return existing.result;
+        return { ...existing.result, ...restrictionResultFields };
       }
       throw new HttpsError(
         "failed-precondition",
@@ -727,7 +976,13 @@ export function createInvalidateUserCompetitionTicketsHandler({
     const activeTicketIds = new Set(classified.active.map((docSnap) => docSnap.id));
     const progress = await findParticipantRemovalProgress(
       db,
-      { requestId: normalizedRequestId, userId, competitionId, reasonText },
+      {
+        requestId: normalizedRequestId,
+        userId,
+        competitionId,
+        reasonText,
+        restrictedFutureParticipation,
+      },
       activeTicketIds,
       HttpsError
     );
@@ -756,6 +1011,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
           ticketSequences: [],
           chunksProcessed: 0,
           ...resultCounts,
+          ...restrictionResultFields,
           paymentEffect: "none",
         };
       }
@@ -776,6 +1032,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
         ticketSequences: [],
         chunksProcessed: 0,
         ...resultCounts,
+        ...restrictionResultFields,
         paymentEffect: "none",
       };
 
@@ -791,9 +1048,10 @@ export function createInvalidateUserCompetitionTicketsHandler({
               userId,
               competitionId,
               reasonText,
+              restrictedFutureParticipation,
             })
           ) {
-            return existing.result;
+            return { ...existing.result, ...restrictionResultFields };
           }
           throw new HttpsError(
             "failed-precondition",
@@ -974,7 +1232,13 @@ export function createInvalidateUserCompetitionTicketsHandler({
             const existing = existingAdjustment.data();
             assertChunkIdentity(
               existing,
-              { requestId: normalizedRequestId, userId, competitionId, reasonText },
+              {
+                requestId: normalizedRequestId,
+                userId,
+                competitionId,
+                reasonText,
+                restrictedFutureParticipation,
+              },
               HttpsError
             );
             return existing.result;
@@ -1009,6 +1273,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
             },
             resultExtras: {
               ...resultCounts,
+              ...restrictionResultFields,
               mode: "participant_removal",
               operationId: normalizedRequestId,
               chunkIndex: nextChunkIndex,
@@ -1104,6 +1369,7 @@ export function createInvalidateUserCompetitionTicketsHandler({
       ticketSequences: invalidatedTicketSequences,
       chunksProcessed,
       ...resultCounts,
+      ...restrictionResultFields,
       paymentEffect: "none",
     };
   };

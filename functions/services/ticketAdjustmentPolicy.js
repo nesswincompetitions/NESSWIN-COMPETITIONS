@@ -2,6 +2,24 @@ import { normalizeTicketStatus } from "./ticketEligibility.js";
 
 export const ADJUSTMENT_MAX_TICKETS = 400;
 export const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+export const PARTICIPANT_RESTRICTION_FIELD = "restricted_participants";
+export const PARTICIPANT_RESTRICTED_MESSAGE =
+  "This participant is blocked from this competition and cannot buy or receive more tickets.";
+
+export function isParticipantRestricted(competitionData, userId) {
+  if (!userId || !Array.isArray(competitionData?.[PARTICIPANT_RESTRICTION_FIELD])) {
+    return false;
+  }
+  return competitionData[PARTICIPANT_RESTRICTION_FIELD].some(
+    (participant) => getReferenceId(participant) === userId
+  );
+}
+
+export function getParticipantRestrictionBlock(competitionData, userId) {
+  return isParticipantRestricted(competitionData, userId)
+    ? PARTICIPANT_RESTRICTED_MESSAGE
+    : null;
+}
 
 export const ADJUSTMENT_BLOCKED_STATUSES = new Set([
   "draft",

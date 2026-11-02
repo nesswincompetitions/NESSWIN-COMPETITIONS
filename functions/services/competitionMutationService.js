@@ -17,6 +17,7 @@ const PRIVILEGED_FIELDS = new Set([
   "sold_tickets",
   "last_ticket_sequence",
   "participants",
+  "restricted_participants",
   "stock_quantity",
   "created_at",
   "updated_at",
