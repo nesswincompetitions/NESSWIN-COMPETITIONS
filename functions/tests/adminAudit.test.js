@@ -359,7 +359,7 @@ describe('central admin audit service', () => {
     assert.equal(event.correlation_id, 'req-decrease-001');
   });
 
-  it('leaves ticket_adjustments authoritative without auto-duplicating central events', async () => {
+  it('leaves ticket_adjustments authoritative and references it from the central event', async () => {
     const db = new MemoryDB();
     const userRef = db.collection('user').doc('u1');
     const competitionRef = db.collection('competition').doc('c1');
@@ -425,7 +425,13 @@ describe('central admin audit service', () => {
     assert.equal(adjustment.operation, 'ticket_increase');
     assert.equal(adjustment.actor_role, 'admin');
     assert.equal(adjustment.request_id, 'req-audit-compat-1');
-    assert.equal(db.collectionStore(ADMIN_AUDIT_COLLECTION).size, 0);
+    assert.equal(db.collectionStore(ADMIN_AUDIT_COLLECTION).size, 1);
+    const events = Array.from(
+      db.collectionStore(ADMIN_AUDIT_COLLECTION).entries()
+    ).map(([id, data]) => ({ id, ...data }));
+    assert.equal(events[0].entity_id, 'req-audit-compat-1');
+    assert.equal(events[0].related.adjustment_id, 'req-audit-compat-1');
+    assert.equal('ticket_ids' in events[0].related, false);
   });
 });
 

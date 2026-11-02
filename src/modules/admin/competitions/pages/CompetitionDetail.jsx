@@ -1265,7 +1265,6 @@ const CompetitionDetail = () => {
         alreadyInvalidCount={invalidateTarget?.invalidatedTicketCount ?? 0}
         cancelledCount={invalidateTarget?.cancelledTicketCount ?? 0}
         hasWinnerTicket={invalidateTarget?.hasWinnerTicket === true}
-        ticketDetails={invalidateTarget?.ticketDetails}
         finalityBlocked={
           PARTICIPANT_INVALIDATION_BLOCKED_STATUSES.has(String(competition?.status || '').toLowerCase()) ||
           Boolean(competition?.winner_ref) ||

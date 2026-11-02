@@ -14,6 +14,8 @@ import {
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
   adjustmentReplayMatches,
+  assertRequestIdNotUsedByParticipantRemoval,
+  assertRequestIdNotUsedByParticipantRemovalInTransaction,
   buildTicketAdjustmentRecord,
 } from "./ticketAdjustmentAudit.js";
 import { formatTicketSequence, generateTicketPrefix } from "./orderTransactionService.js";
@@ -24,10 +26,53 @@ import {
   getTicketOrigin,
   TICKET_ORIGIN,
 } from "./ticketOrigin.js";
+import {
+  buildTicketAdjustmentAuditEvent,
+  createAdminAuditActor,
+  createAdminAuditService,
+} from "./adminAuditService.js";
+
+const INCREASE_ORIGINS = Object.freeze({
+  paid: {
+    requestedOrigin: TICKET_ORIGIN.PAID,
+    allocationOrigin: TICKET_ORIGIN.PAID,
+  },
+  bonus: {
+    requestedOrigin: TICKET_ORIGIN.ADMIN_BONUS,
+    allocationOrigin: TICKET_ORIGIN.ADMIN_BONUS,
+  },
+  admin_bonus: {
+    requestedOrigin: TICKET_ORIGIN.ADMIN_BONUS,
+    allocationOrigin: TICKET_ORIGIN.ADMIN_BONUS,
+  },
+  admin_adjustment: {
+    requestedOrigin: TICKET_ORIGIN.ADMIN_ADJUSTMENT,
+    allocationOrigin: TICKET_ORIGIN.ADMIN_ADJUSTMENT,
+  },
+});
 
 function normalizeQuantity(value) {
   const quantity = Number(value);
   return Number.isInteger(quantity) && quantity > 0 ? quantity : null;
+}
+
+function resolveIncreaseOrigin(origin, HttpsError) {
+  if (origin === undefined || origin === null || origin === "") {
+    return {
+      requestedOrigin: null,
+      allocationOrigin: TICKET_ORIGIN.ADMIN_ADJUSTMENT,
+    };
+  }
+
+  const normalized = typeof origin === "string" ? origin.trim() : "";
+  const resolved = INCREASE_ORIGINS[normalized];
+  if (!resolved) {
+    throw new HttpsError(
+      "invalid-argument",
+      "origin must be paid, bonus, or admin_adjustment for a ticket increase."
+    );
+  }
+  return resolved;
 }
 
 function buildOrderSnapshot(orderData) {
@@ -219,9 +264,12 @@ export function createIncreaseUserCompetitionTicketsHandler({
   assertAdmin,
   HttpsError,
 }) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
   return async function handleIncreaseUserCompetitionTickets(request) {
     const adminUid = await assertAdmin(request);
-    const { userId, competitionId, orderId, quantity, reason, requestId } = request.data || {};
+    const { userId, competitionId, orderId, quantity, reason, requestId, origin } =
+      request.data || {};
 
     if (!userId || typeof userId !== "string") {
       throw new HttpsError("invalid-argument", "userId is required.");
@@ -254,6 +302,8 @@ export function createIncreaseUserCompetitionTicketsHandler({
       throw new HttpsError("invalid-argument", "A valid requestId is required.");
     }
 
+    const increaseOrigin = resolveIncreaseOrigin(origin, HttpsError);
+
     const userRef = db.collection("user").doc(userId);
     const competitionRef = db.collection("competition").doc(competitionId);
     const orderRef = db.collection("order").doc(orderId);
@@ -263,6 +313,7 @@ export function createIncreaseUserCompetitionTicketsHandler({
       source: "admin_order_increase",
       direction: "increase",
       quantity: addQuantity,
+      requestedOrigin: increaseOrigin.requestedOrigin,
       reason: reasonText,
       userRef,
       competitionRef,
@@ -284,6 +335,12 @@ export function createIncreaseUserCompetitionTicketsHandler({
       }
       return { ...existing.result, idempotentReplay: true };
     }
+
+    await assertRequestIdNotUsedByParticipantRemoval(
+      db,
+      normalizedRequestId,
+      HttpsError
+    );
 
     const [userSnap, competitionSnap, orderSnap] = await Promise.all([
       userRef.get(),
@@ -313,6 +370,12 @@ export function createIncreaseUserCompetitionTicketsHandler({
     const result = await db.runTransaction(async (transaction) => {
       const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(normalizedRequestId);
       const existingAdjustment = await transaction.get(adjustmentRef);
+      await assertRequestIdNotUsedByParticipantRemovalInTransaction(
+        transaction,
+        db,
+        normalizedRequestId,
+        HttpsError
+      );
       if (existingAdjustment.exists) {
         const existing = existingAdjustment.data();
         if (!adjustmentReplayMatches(existing, replayExpectation)) {
@@ -392,7 +455,7 @@ export function createIncreaseUserCompetitionTicketsHandler({
           ticket_sequence: ticketSequence,
           status: "active",
           is_winner: false,
-          allocation_type: "admin_adjustment",
+          allocation_type: increaseOrigin.allocationOrigin,
           adjustment_ref: adjustmentRef,
           granted_by: adminRef,
           created_at: now,
@@ -440,9 +503,11 @@ export function createIncreaseUserCompetitionTicketsHandler({
         inventoryBefore,
         inventoryAfter,
         paymentEffect: "none",
+        requestedOrigin: increaseOrigin.requestedOrigin,
+        allocationOrigin: increaseOrigin.allocationOrigin,
       };
 
-      const ticketOrigins = ticketIds.map(() => TICKET_ORIGIN.ADMIN_ADJUSTMENT);
+      const ticketOrigins = ticketIds.map(() => increaseOrigin.allocationOrigin);
 
       transaction.set(
         adjustmentRef,
@@ -459,6 +524,7 @@ export function createIncreaseUserCompetitionTicketsHandler({
           ticketNumbers,
           ticketSequences,
           ticketOrigins,
+          requestedOrigin: increaseOrigin.requestedOrigin,
           quantityScope: "order_active_tickets",
           previousQuantity: activeCountBefore,
           newQuantity: activeCountBefore + addQuantity,
@@ -479,6 +545,27 @@ export function createIncreaseUserCompetitionTicketsHandler({
         })
       );
 
+      auditService.recordEventInTransaction(
+        transaction,
+        buildTicketAdjustmentAuditEvent({
+          adjustmentId: adjustmentRef.id,
+          requestId: normalizedRequestId,
+          operation: "ticket_increase",
+          userId,
+          competitionId,
+          orderId,
+          quantity: addQuantity,
+          direction: "increase",
+          requestedOrigin: increaseOrigin.requestedOrigin,
+          reason: reasonText,
+          summary: `Increased ${addQuantity} ticket(s)${
+            increaseOrigin.requestedOrigin ? ` (${increaseOrigin.requestedOrigin})` : ""
+          } for order ${orderId}.`,
+          source: "admin_order_increase",
+        }),
+        { actor: createAdminAuditActor(adminUid) }
+      );
+
       return result;
     });
 
@@ -496,6 +583,8 @@ export function createDecreaseUserCompetitionTicketsHandler({
   assertAdmin,
   HttpsError,
 }) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
   return async function handleDecreaseUserCompetitionTickets(request) {
     const adminUid = await assertAdmin(request);
     const { userId, competitionId, orderId, origin, quantity, reason, requestId } =
@@ -572,6 +661,12 @@ export function createDecreaseUserCompetitionTicketsHandler({
       return { ...existing.result, idempotentReplay: true };
     }
 
+    await assertRequestIdNotUsedByParticipantRemoval(
+      db,
+      normalizedRequestId,
+      HttpsError
+    );
+
     const [userSnap, competitionSnap, orderSnap] = await Promise.all([
       userRef.get(),
       competitionRef.get(),
@@ -602,6 +697,12 @@ export function createDecreaseUserCompetitionTicketsHandler({
         .collection(TICKET_ADJUSTMENTS_COLLECTION)
         .doc(normalizedRequestId);
       const existingAdjustment = await transaction.get(adjustmentRef);
+      await assertRequestIdNotUsedByParticipantRemovalInTransaction(
+        transaction,
+        db,
+        normalizedRequestId,
+        HttpsError
+      );
       if (existingAdjustment.exists) {
         const existing = existingAdjustment.data();
         if (!adjustmentReplayMatches(existing, replayExpectation)) {
@@ -780,6 +881,25 @@ export function createDecreaseUserCompetitionTicketsHandler({
           result,
           serverNow: now,
         })
+      );
+
+      auditService.recordEventInTransaction(
+        transaction,
+        buildTicketAdjustmentAuditEvent({
+          adjustmentId: adjustmentRef.id,
+          requestId: normalizedRequestId,
+          operation: "ticket_decrease",
+          userId,
+          competitionId,
+          orderId,
+          quantity: selectedTickets.length,
+          direction: "decrease",
+          requestedOrigin,
+          reason: reasonText,
+          summary: `Decreased ${selectedTickets.length} ${requestedOrigin} ticket(s) from order ${orderId}.`,
+          source: "admin_order_decrease",
+        }),
+        { actor: createAdminAuditActor(adminUid) }
       );
 
       return result;

@@ -25,6 +25,7 @@ const IncreaseTicketsModal = ({
   onSuccess,
 }) => {
   const { t } = useTranslation('admin');
+  const [origin, setOrigin] = useState('paid');
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -47,6 +48,7 @@ const IncreaseTicketsModal = ({
 
   useEffect(() => {
     if (isOpen) {
+      setOrigin('paid');
       setQuantity(1);
       setReason('');
       setConfirmed(false);
@@ -75,6 +77,7 @@ const IncreaseTicketsModal = ({
         userId: getReferenceId(order.user_ref),
         competitionId: getReferenceId(order.competition_id),
         orderId: order.id,
+        origin,
         quantity,
         reason: reason.trim(),
         requestId,
@@ -147,6 +150,27 @@ const IncreaseTicketsModal = ({
               })}
             </p>
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="increase-origin" className="text-sm font-medium text-gray-300">
+            {t('orders.detail.increase.originLabel')}
+          </label>
+          <select
+            id="increase-origin"
+            value={origin}
+            onChange={(event) => setOrigin(event.target.value)}
+            disabled={isSubmitting}
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 disabled:opacity-50"
+          >
+            <option value="paid">{t('orders.detail.increase.originPaid')}</option>
+            <option value="bonus">{t('orders.detail.increase.originBonus')}</option>
+          </select>
+          <p className="text-xs text-gray-500">
+            {origin === 'paid'
+              ? t('orders.detail.increase.paidHint')
+              : t('orders.detail.increase.bonusHint')}
+          </p>
         </div>
 
         <div className="space-y-2">

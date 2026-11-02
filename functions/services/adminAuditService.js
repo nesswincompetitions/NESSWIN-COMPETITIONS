@@ -366,14 +366,18 @@ export function buildTicketAdjustmentAuditEvent({
   orderId = null,
   quantity = null,
   direction = null,
+  requestedOrigin = null,
   reason = null,
   summary = null,
+  source = "ticket_adjustments",
 }) {
   const actionByOperation = {
     ticket_increase: AUDIT_ACTIONS.TICKET_QUANTITY_INCREASED,
     ticket_decrease: AUDIT_ACTIONS.TICKET_QUANTITY_DECREASED,
     ticket_invalidation: AUDIT_ACTIONS.TICKET_INVALIDATED,
   };
+
+  const originSnapshot = requestedOrigin ? { requested_origin: requestedOrigin } : {};
 
   return {
     action: actionByOperation[operation] || AUDIT_ACTIONS.TICKET_ADJUSTED,
@@ -385,15 +389,20 @@ export function buildTicketAdjustmentAuditEvent({
         quantity === null || quantity === undefined ? "" : ` (${quantity} ticket(s))`
       }.`,
     reason,
-    before: direction ? { direction } : null,
-    after: quantity === null || quantity === undefined ? null : { quantity },
+    before: direction ? { direction, ...originSnapshot } : null,
+    after:
+      quantity === null || quantity === undefined
+        ? Object.keys(originSnapshot).length > 0
+          ? originSnapshot
+          : null
+        : { quantity, ...originSnapshot },
     related: {
       adjustment_id: adjustmentId,
       user_id: userId,
       competition_id: competitionId,
       order_id: orderId,
     },
-    source: "ticket_adjustments",
+    source,
     correlation_id: requestId,
   };
 }

@@ -2,6 +2,68 @@ import { countTicketOrigins } from "./ticketOrigin.js";
 
 export const TICKET_ADJUSTMENTS_COLLECTION = "ticket_adjustments";
 
+// Request IDs are restricted to [A-Za-z0-9_-]. The colon keeps chunk IDs out of
+// the logical request-ID namespace, so a request ID can never equal a chunk ID.
+export function buildParticipantRemovalChunkId(requestId, chunkIndex) {
+  return `${requestId}:chunk:${chunkIndex}`;
+}
+
+export async function assertRequestIdNotUsedByParticipantRemoval(
+  db,
+  requestId,
+  HttpsError
+) {
+  if (!requestId) return;
+  const chunkSnap = await db
+    .collection(TICKET_ADJUSTMENTS_COLLECTION)
+    .doc(buildParticipantRemovalChunkId(requestId, 0))
+    .get();
+  if (chunkSnap.exists) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different ticket adjustment."
+    );
+  }
+}
+
+export async function assertRequestIdNotUsedByParticipantRemovalInTransaction(
+  transaction,
+  db,
+  requestId,
+  HttpsError
+) {
+  if (!requestId) return;
+  const chunkSnap = await transaction.get(
+    db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(buildParticipantRemovalChunkId(requestId, 0))
+  );
+  if (chunkSnap.exists) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different ticket adjustment."
+    );
+  }
+}
+
+export async function assertRequestIdNotUsedByUnsuffixedOperationInTransaction(
+  transaction,
+  db,
+  requestId,
+  HttpsError
+) {
+  if (!requestId) return;
+  const adjustmentSnap = await transaction.get(
+    db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(requestId)
+  );
+  if (adjustmentSnap.exists) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different ticket adjustment."
+    );
+  }
+}
+
 export function buildTicketAdjustmentRecord({
   operation,
   source,

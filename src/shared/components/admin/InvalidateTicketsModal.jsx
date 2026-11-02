@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle, Ban, Loader2 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import Button from '@/shared/components/ui/Button';
 import { invalidateUserCompetitionTickets } from '@/modules/admin/competitions/services/ticketInvalidationService';
+
+const MAX_CONTINUATIONS = 50;
 
 const InvalidateTicketsModal = ({
   isOpen,
@@ -18,7 +20,6 @@ const InvalidateTicketsModal = ({
   cancelledCount = 0,
   hasWinnerTicket = false,
   finalityBlocked = false,
-  ticketDetails,
   onSuccess,
 }) => {
   const { t } = useTranslation('admin');
@@ -26,24 +27,19 @@ const InvalidateTicketsModal = ({
   const [confirmed, setConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [selectedTicketIds, setSelectedTicketIds] = useState([]);
+  const [partialState, setPartialState] = useState(null);
   const [requestId, setRequestId] = useState('');
+  const [progress, setProgress] = useState({
+    processed: 0,
+    remaining: activeTicketCount,
+    total: activeTicketCount,
+  });
   const wasOpenRef = useRef(false);
   const lastTargetKeyRef = useRef(null);
+  const activeTicketCountRef = useRef(activeTicketCount);
+  activeTicketCountRef.current = activeTicketCount;
 
-  const ticketDetailList = useMemo(
-    () => (Array.isArray(ticketDetails) ? ticketDetails : []),
-    [ticketDetails]
-  );
   const targetKey = `${userId ?? ''}:${competitionId ?? ''}`;
-  const selectableTickets = ticketDetailList.filter(
-    (ticket) => String(ticket.status || '').toLowerCase() === 'active' && !ticket.isWinner
-  );
-  const hasExplicitSelection = selectableTickets.length > 0;
-  const selectedCount = hasExplicitSelection ? selectedTicketIds.length : activeTicketCount;
-  const remainingCount = hasExplicitSelection
-    ? Math.max(0, selectableTickets.length - selectedCount)
-    : 0;
 
   useEffect(() => {
     if (!isOpen) {
@@ -58,70 +54,179 @@ const InvalidateTicketsModal = ({
       return;
     }
 
+    const initialCount = activeTicketCountRef.current;
     wasOpenRef.current = true;
     lastTargetKeyRef.current = targetKey;
     setReason('');
     setConfirmed(false);
     setIsSubmitting(false);
     setErrorMessage('');
-    setSelectedTicketIds(
-      ticketDetailList
-        .filter((ticket) => String(ticket.status || '').toLowerCase() === 'active' && !ticket.isWinner)
-        .map((ticket) => ticket.id)
-    );
+    setPartialState(null);
+    setProgress({
+      processed: 0,
+      remaining: initialCount,
+      total: initialCount,
+    });
     setRequestId(
       typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `invalidate-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
-  // ticketDetails may refresh while the modal stays open. Only opening the
-  // modal or changing the target should reset the administrator's input.
-  }, [isOpen, targetKey, ticketDetailList]);
+  }, [isOpen, targetKey]);
 
   const blocked = finalityBlocked || hasWinnerTicket || activeTicketCount === 0;
   const canSubmit =
     !isSubmitting &&
     !blocked &&
+    !partialState?.blocked &&
     confirmed &&
     reason.trim().length > 0 &&
-    selectedCount > 0;
-
-  const toggleTicket = (ticketId) => {
-    if (isSubmitting) return;
-    setSelectedTicketIds((current) =>
-      current.includes(ticketId)
-        ? current.filter((id) => id !== ticketId)
-        : [...current, ticketId]
-    );
-  };
+    activeTicketCount > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
     setIsSubmitting(true);
     setErrorMessage('');
+    const previousPartial = partialState;
+    setPartialState(null);
+
+    let processed = 0;
+    let lastResult = null;
 
     try {
-      const result = await invalidateUserCompetitionTickets(
-        userId,
-        competitionId,
-        reason.trim(),
-        hasExplicitSelection ? { ticketIds: selectedTicketIds, requestId } : {}
+      for (let attempt = 0; attempt < MAX_CONTINUATIONS; attempt += 1) {
+        const result = await invalidateUserCompetitionTickets(
+          userId,
+          competitionId,
+          reason.trim(),
+          { requestId }
+        );
+        lastResult = result;
+
+        processed = Number(
+          result?.processedCount ?? processed + Number(result?.invalidatedCount || 0)
+        );
+        const remaining = Number(result?.remainingCount ?? 0);
+        const total = Number(
+          result?.totalEligibleCount ?? processed + remaining
+        );
+        setProgress({ processed, remaining, total });
+
+        if (result?.success === false) {
+          const retryable = result?.retryable === true;
+          const partial = {
+            operationId: result?.operationId || requestId,
+            processed: Number(result?.processedCount ?? processed),
+            remaining: Number(result?.remainingCount ?? 0),
+            retryable,
+            blocked: result?.blocked === true || !retryable,
+          };
+          setPartialState(partial);
+          toast.error(
+            retryable
+              ? t('competitions.detail.participants.invalidate.partialRetry', {
+                  processed: partial.processed,
+                  remaining: partial.remaining,
+                })
+              : t('competitions.detail.participants.invalidate.partialBlocked', {
+                  processed: partial.processed,
+                  remaining: partial.remaining,
+                })
+          );
+          return;
+        }
+
+        if (result?.complete === true || result?.hasMore === false) {
+          break;
+        }
+        if (result?.retryable === false) {
+          break;
+        }
+      }
+
+      if (lastResult?.complete !== true && lastResult?.hasMore !== false) {
+        const retryable = lastResult?.retryable === true;
+        const partial = {
+          operationId: lastResult?.operationId || requestId,
+          processed: Number(lastResult?.processedCount ?? processed),
+          remaining: Number(lastResult?.remainingCount ?? 0),
+          retryable,
+          blocked: lastResult?.blocked === true || !retryable,
+        };
+        setPartialState(partial);
+        setProgress({
+          processed: partial.processed,
+          remaining: partial.remaining,
+          total: Number(
+            lastResult?.totalEligibleCount ??
+              partial.processed + partial.remaining
+          ),
+        });
+        toast.error(
+          retryable
+            ? t('competitions.detail.participants.invalidate.partialRetry', {
+                processed: partial.processed,
+                remaining: partial.remaining,
+              })
+            : t('competitions.detail.participants.invalidate.partialBlocked', {
+                processed: partial.processed,
+                remaining: partial.remaining,
+              })
+        );
+        return;
+      }
+
+      const totalInvalidated = Number(
+        lastResult?.processedCount ?? lastResult?.invalidatedCount ?? processed
       );
-      if (result?.invalidatedCount > 0) {
+      if (totalInvalidated > 0) {
         toast.success(
           t('competitions.detail.participants.invalidate.success', {
-            count: result.invalidatedCount,
+            count: totalInvalidated,
           })
         );
       } else {
         toast(t('competitions.detail.participants.invalidate.nothing'));
       }
-      onSuccess?.(result);
+      onSuccess?.(lastResult);
       onClose();
     } catch (error) {
-      setErrorMessage(error?.message || t('competitions.detail.participants.invalidate.error'));
-      toast.error(error?.message || t('competitions.detail.participants.invalidate.error'));
+      const message =
+        error?.message || t('competitions.detail.participants.invalidate.error');
+      const knownProcessed = Number(lastResult?.processedCount ?? processed);
+      const knownRemaining = Number(
+        lastResult?.remainingCount ?? progress.remaining ?? 0
+      );
+
+      if (lastResult || knownProcessed > 0) {
+        const partial = {
+          operationId: lastResult?.operationId || requestId,
+          processed: knownProcessed,
+          remaining: knownRemaining,
+          retryable: true,
+          blocked: false,
+        };
+        setPartialState(partial);
+        setProgress({
+          processed: partial.processed,
+          remaining: partial.remaining,
+          total: Number(
+            lastResult?.totalEligibleCount ??
+              partial.processed + partial.remaining
+          ),
+        });
+      } else if (previousPartial) {
+        setPartialState(previousPartial);
+        setProgress({
+          processed: previousPartial.processed,
+          remaining: previousPartial.remaining,
+          total: previousPartial.processed + previousPartial.remaining,
+        });
+      }
+
+      setErrorMessage(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -146,16 +251,9 @@ const InvalidateTicketsModal = ({
             <p>{t('competitions.detail.participants.invalidate.warning')}</p>
             <p>
               {t('competitions.detail.participants.invalidate.affected', {
-                count: selectedCount,
+                count: activeTicketCount,
               })}
             </p>
-            {hasExplicitSelection && (
-              <p>
-                {t('competitions.detail.participants.invalidate.remainingSelected', {
-                  count: remainingCount,
-                })}
-              </p>
-            )}
             {alreadyInvalidCount > 0 && (
               <p>
                 {t('competitions.detail.participants.invalidate.alreadyInvalid', {
@@ -167,6 +265,13 @@ const InvalidateTicketsModal = ({
               <p>
                 {t('competitions.detail.participants.invalidate.cancelled', {
                   count: cancelledCount,
+                })}
+              </p>
+            )}
+            {activeTicketCount > 400 && (
+              <p>
+                {t('competitions.detail.participants.invalidate.largeOperation', {
+                  count: activeTicketCount,
                 })}
               </p>
             )}
@@ -191,41 +296,47 @@ const InvalidateTicketsModal = ({
           </div>
         )}
 
-        {hasExplicitSelection && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-gray-300">
-                {t('competitions.detail.participants.invalidate.selectTickets')}
+        {(isSubmitting || progress.processed > 0) && (
+          <div className="px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300">
+            {t('competitions.detail.participants.invalidate.progress', {
+              processed: progress.processed,
+              total: progress.total,
+              remaining: progress.remaining,
+            })}
+          </div>
+        )}
+
+        {partialState && (
+          <div
+            className={`px-3 py-2.5 border rounded-lg text-sm space-y-1 ${
+              partialState.blocked
+                ? 'bg-red-400/10 border-red-400/30 text-red-300'
+                : 'bg-yellow-400/10 border-yellow-400/30 text-yellow-300'
+            }`}
+          >
+            <p>
+              {partialState.retryable
+                ? t('competitions.detail.participants.invalidate.partialRetry', {
+                    processed: partialState.processed,
+                    remaining: partialState.remaining,
+                  })
+                : t('competitions.detail.participants.invalidate.partialBlocked', {
+                    processed: partialState.processed,
+                    remaining: partialState.remaining,
+                  })}
+            </p>
+            <p className="font-mono text-xs opacity-80">
+              {t('competitions.detail.participants.invalidate.partialDetails', {
+                operationId: partialState.operationId,
+                processed: partialState.processed,
+                remaining: partialState.remaining,
+              })}
+            </p>
+            {partialState.blocked && (
+              <p>
+                {t('competitions.detail.participants.invalidate.manualReview')}
               </p>
-              <button
-                type="button"
-                onClick={() => setSelectedTicketIds(selectableTickets.map((ticket) => ticket.id))}
-                disabled={isSubmitting || selectedCount === selectableTickets.length}
-                className="text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-40"
-              >
-                {t('competitions.detail.participants.invalidate.selectAll')}
-              </button>
-            </div>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
-              {selectableTickets.map((ticket) => (
-                <label
-                  key={ticket.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedTicketIds.includes(ticket.id)}
-                      onChange={() => toggleTicket(ticket.id)}
-                      disabled={isSubmitting}
-                      className="h-4 w-4 rounded border-white/20 bg-white/5 accent-red-500"
-                    />
-                    <span className="font-mono">{ticket.sequence}</span>
-                  </span>
-                  <span className="text-xs text-gray-500">{ticket.ticketNumber || ''}</span>
-                </label>
-              ))}
-            </div>
+            )}
           </div>
         )}
 
@@ -245,7 +356,7 @@ const InvalidateTicketsModal = ({
             onChange={(event) => setReason(event.target.value)}
             placeholder={t('competitions.detail.participants.invalidate.reasonPlaceholder')}
             className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
-            disabled={isSubmitting || blocked}
+            disabled={isSubmitting || blocked || partialState?.blocked}
           />
         </div>
 
@@ -254,7 +365,7 @@ const InvalidateTicketsModal = ({
             type="checkbox"
             checked={confirmed}
             onChange={(event) => setConfirmed(event.target.checked)}
-            disabled={isSubmitting || blocked}
+            disabled={isSubmitting || blocked || partialState?.blocked}
             className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 accent-red-500"
           />
           <span>{t('competitions.detail.participants.invalidate.confirmCheckbox')}</span>

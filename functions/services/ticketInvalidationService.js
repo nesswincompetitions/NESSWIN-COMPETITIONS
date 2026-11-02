@@ -13,11 +13,28 @@ import { normalizeTicketStatus } from "./ticketEligibility.js";
 import {
   TICKET_ADJUSTMENTS_COLLECTION,
   adjustmentReplayMatches,
+  assertRequestIdNotUsedByParticipantRemoval,
+  assertRequestIdNotUsedByParticipantRemovalInTransaction,
+  assertRequestIdNotUsedByUnsuffixedOperationInTransaction,
+  buildParticipantRemovalChunkId,
   buildTicketAdjustmentRecord,
 } from "./ticketAdjustmentAudit.js";
+import {
+  buildTicketAdjustmentAuditEvent,
+  createAdminAuditActor,
+  createAdminAuditService,
+} from "./adminAuditService.js";
 
 export const INVALIDATION_MAX_TICKETS = ADJUSTMENT_MAX_TICKETS;
+export const PARTICIPANT_REMOVAL_CHUNK_SIZE = ADJUSTMENT_MAX_TICKETS;
+export const PARTICIPANT_REMOVAL_MAX_CHUNKS_PER_CALL = 10;
 
+// Scalability note: this runs five unbounded equality queries and deduplicates
+// in memory because historical tickets use several user-reference formats.
+// Cost grows with all tickets owned by the user across competitions, and every
+// chunked participant-removal call repeats this prefetch. Pagination is not
+// used because the operation needs a complete eligible set to compute stable
+// chunk progress; adding it would require a durable ordering/cursor contract.
 async function fetchUserTicketDocs(db, userId, userRef) {
   const queries = [
     db.collection("ticket").where("user_id", "==", userRef).get(),
@@ -60,18 +77,319 @@ function normalizeSelectedTicketIds(ticketIds) {
   return { ticketIds: normalized };
 }
 
-function buildInvalidationResult(ticketIds, ticketSequences, totalRelevantCount) {
+function getTicketSortNumber(data) {
+  return isFiniteNonNegativeInteger(data?.ticket_number)
+    ? data.ticket_number
+    : Number.MAX_SAFE_INTEGER;
+}
+
+function sortTicketDocs(ticketDocs) {
+  return [...ticketDocs].sort((left, right) => {
+    const numberDiff = getTicketSortNumber(left.data()) - getTicketSortNumber(right.data());
+    if (numberDiff !== 0) return numberDiff;
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function classifyParticipantTickets(ticketDocs, userId, competitionId) {
+  const relevant = [];
+  const active = [];
+  const alreadyInvalid = [];
+  const cancelled = [];
+  const skipped = [];
+  const winners = [];
+
+  ticketDocs.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (!ticketBelongsToCompetition(data, competitionId)) return;
+    relevant.push(docSnap);
+
+    if (isWinnerTicket(data)) {
+      winners.push(docSnap);
+      return;
+    }
+
+    const status = normalizeTicketStatus(data.status);
+    if (status === "active") {
+      active.push(docSnap);
+    } else if (status === "invalid") {
+      alreadyInvalid.push(docSnap);
+    } else if (status === "cancelled") {
+      cancelled.push(docSnap);
+    } else {
+      skipped.push(docSnap);
+    }
+  });
+
   return {
+    relevant: sortTicketDocs(relevant),
+    active: sortTicketDocs(active),
+    alreadyInvalid,
+    cancelled,
+    skipped,
+    winners,
+  };
+}
+
+function isParticipantRemovalNoop(existing, expected) {
+  const existingUser = existing.user_ref?.id || existing.user_ref;
+  const existingCompetition = existing.competition_ref?.id || existing.competition_ref;
+  const existingReason = typeof existing.reason === "string" ? existing.reason.trim() : "";
+
+  return (
+    existing.operation === "ticket_invalidation" &&
+    existing.source === "admin_all_active_tickets" &&
+    existing.request_id === expected.requestId &&
+    existing.result?.mode === "participant_removal" &&
+    existing.result?.noop === true &&
+    Number(existing.quantity) === 0 &&
+    existingUser === expected.userId &&
+    existingCompetition === expected.competitionId &&
+    existingReason === expected.reasonText
+  );
+}
+
+function assertChunkIdentity(existing, expected, HttpsError) {
+  const existingUser = existing.user_ref?.id || existing.user_ref;
+  const existingCompetition = existing.competition_ref?.id || existing.competition_ref;
+  const existingReason = typeof existing.reason === "string" ? existing.reason.trim() : "";
+
+  if (
+    existing.operation !== "ticket_invalidation" ||
+    existing.source !== "admin_all_active_tickets" ||
+    existing.request_id !== expected.requestId ||
+    existingUser !== expected.userId ||
+    existingCompetition !== expected.competitionId ||
+    existingReason !== expected.reasonText
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different ticket adjustment."
+    );
+  }
+}
+
+async function findParticipantRemovalProgress(
+  db,
+  expected,
+  activeTicketIds,
+  HttpsError
+) {
+  let chunkIndex = 0;
+  let processedCount = 0;
+  const processedTicketIds = new Set();
+
+  while (true) {
+    const chunkRef = db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(buildParticipantRemovalChunkId(expected.requestId, chunkIndex));
+    const chunkSnap = await chunkRef.get();
+    if (!chunkSnap.exists) break;
+
+    const chunk = chunkSnap.data();
+    assertChunkIdentity(chunk, expected, HttpsError);
+
+    if (!isFiniteNonNegativeInteger(Number(chunk.quantity))) {
+      throw new HttpsError(
+        "failed-precondition",
+        "A participant removal chunk has a malformed quantity. Resolve the operation before retrying."
+      );
+    }
+
+    const ticketIds = Array.isArray(chunk.ticket_ids) ? chunk.ticket_ids : [];
+    ticketIds.forEach((ticketId) => {
+      const normalized = String(ticketId || "").trim();
+      if (!normalized) return;
+      if (activeTicketIds.has(normalized)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "A previously processed participant removal ticket is still active. Resolve the operation before retrying."
+        );
+      }
+      processedTicketIds.add(normalized);
+    });
+
+    processedCount += Number(chunk.quantity);
+    chunkIndex += 1;
+  }
+
+  return { nextChunkIndex: chunkIndex, processedCount, processedTicketIds };
+}
+
+async function invalidateTicketsInTransaction({
+  db,
+  admin,
+  auditService,
+  transaction,
+  adminUid,
+  adminRef,
+  userRef,
+  userId,
+  competitionRef,
+  competitionId,
+  ticketRefs,
+  ticketIds,
+  reasonText,
+  adjustmentId,
+  requestId,
+  source,
+  adjustmentExtras = {},
+  resultExtras = {},
+  HttpsError,
+}) {
+  const freshCompetitionSnap = await transaction.get(competitionRef);
+  if (!freshCompetitionSnap.exists) {
+    throw new HttpsError("not-found", "Competition not found.");
+  }
+
+  const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
+    allowSoldOut: true,
+    requireDrawDate: true,
+  });
+  if (freshBlock) {
+    throw new HttpsError("failed-precondition", freshBlock);
+  }
+
+  const ticketSnaps = await Promise.all(ticketRefs.map((ref) => transaction.get(ref)));
+  const ticketNumbers = [];
+  const ticketSequences = [];
+  const ticketOrigins = [];
+  const orderRefs = [];
+  const seenOrderIds = new Set();
+  const toInvalidate = [];
+
+  ticketSnaps.forEach((ticketSnap, index) => {
+    if (!ticketSnap.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "A selected ticket no longer exists. No tickets were changed."
+      );
+    }
+
+    const ticketData = ticketSnap.data();
+    if (
+      !ticketBelongsToUser(ticketData, userId) ||
+      !ticketBelongsToCompetition(ticketData, competitionId)
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Every selected ticket must belong to the specified user and competition. No tickets were changed."
+      );
+    }
+    if (isWinnerTicket(ticketData)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Winning tickets cannot be invalidated. No tickets were changed."
+      );
+    }
+    if (normalizeTicketStatus(ticketData.status) !== "active") {
+      throw new HttpsError(
+        "failed-precondition",
+        "Every selected ticket must be active. No tickets were changed."
+      );
+    }
+
+    const ticketId = ticketIds[index];
+    toInvalidate.push({ ref: ticketSnap.ref, ticketId, data: ticketData });
+    ticketSequences.push(
+      ticketData.ticket_sequence ?? ticketData.ticket_number ?? ticketId
+    );
+    ticketNumbers.push(
+      isFiniteNonNegativeInteger(ticketData.ticket_number)
+        ? ticketData.ticket_number
+        : null
+    );
+    ticketOrigins.push(getTicketOrigin(ticketData));
+
+    const orderId = getReferenceId(ticketData.order_id);
+    if (orderId && !seenOrderIds.has(orderId)) {
+      seenOrderIds.add(orderId);
+      orderRefs.push(ticketData.order_id);
+    }
+  });
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  toInvalidate.forEach(({ ref }) => {
+    transaction.update(ref, {
+      status: "invalid",
+      invalidated_at: now,
+      invalidated_by: adminRef,
+      invalidation_reason: reasonText,
+      status_before_invalidation: "active",
+      updated_at: now,
+    });
+  });
+
+  const result = {
     success: true,
     complete: true,
-    invalidatedCount: ticketIds.length,
+    invalidatedCount: toInvalidate.length,
     alreadyInvalidCount: 0,
     cancelledCount: 0,
     skippedCount: 0,
-    totalRelevantCount,
-    ticketIds,
+    totalRelevantCount: toInvalidate.length,
+    ticketIds: toInvalidate.map(({ ticketId }) => ticketId),
     ticketSequences,
+    ...resultExtras,
   };
+
+  const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(adjustmentId);
+  transaction.set(
+    adjustmentRef,
+    buildTicketAdjustmentRecord({
+      operation: "ticket_invalidation",
+      source,
+      userRef,
+      competitionRef,
+      orderRefs,
+      primaryOrderRef: orderRefs[0] || null,
+      quantity: toInvalidate.length,
+      direction: "decrease",
+      ticketIds: result.ticketIds,
+      ticketNumbers,
+      ticketSequences,
+      ticketOrigins,
+      quantityScope: adjustmentExtras.quantityScope || "selected_active_tickets",
+      previousQuantity: adjustmentExtras.previousQuantity ?? toInvalidate.length,
+      newQuantity: adjustmentExtras.newQuantity ?? 0,
+      activeCountScope: adjustmentExtras.activeCountScope || "selected_tickets",
+      activeCountBefore: adjustmentExtras.activeCountBefore ?? null,
+      activeCountAfter: adjustmentExtras.activeCountAfter ?? null,
+      selectedCountBefore:
+        adjustmentExtras.selectedCountBefore ?? toInvalidate.length,
+      selectedCountAfter: adjustmentExtras.selectedCountAfter ?? 0,
+      inventoryBefore: null,
+      inventoryAfter: null,
+      reason: reasonText,
+      actorRef: adminRef,
+      actorRole: "admin",
+      paymentEffect: "none",
+      requestId,
+      result,
+      serverNow: now,
+    })
+  );
+
+  auditService.recordEventInTransaction(
+    transaction,
+    buildTicketAdjustmentAuditEvent({
+      adjustmentId: adjustmentRef.id,
+      requestId,
+      operation: "ticket_invalidation",
+      userId,
+      competitionId,
+      quantity: toInvalidate.length,
+      direction: "decrease",
+      reason: reasonText,
+      summary:
+        resultExtras.summary ||
+        `Invalidated ${toInvalidate.length} ticket(s) for ${userId} in ${competitionId}.`,
+      source,
+    }),
+    { actor: createAdminAuditActor(adminUid) }
+  );
+
+  return result;
 }
 
 export function createInvalidateUserCompetitionTicketsHandler({
@@ -81,6 +399,8 @@ export function createInvalidateUserCompetitionTicketsHandler({
   assertAdmin,
   HttpsError,
 }) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
   return async function handleInvalidateUserCompetitionTickets(request) {
     const adminUid = await assertAdmin(request);
     const { userId, competitionId, reason, ticketIds, requestId } = request.data || {};
@@ -115,33 +435,36 @@ export function createInvalidateUserCompetitionTicketsHandler({
         );
       }
     } else if (requestId !== undefined) {
-      throw new HttpsError(
-        "invalid-argument",
-        "requestId is only supported when ticketIds are provided."
-      );
+      normalizedRequestId = normalizeRequestId(requestId);
+      if (!normalizedRequestId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "requestId must be a valid operation identifier when provided."
+        );
+      }
     }
 
     const userRef = db.collection("user").doc(userId);
     const competitionRef = db.collection("competition").doc(competitionId);
     const adminRef = db.collection("user").doc(adminUid);
-    const replayExpectation = hasExplicitSelection
-      ? {
-          operation: "ticket_invalidation",
-          source: "admin_selected_tickets",
-          direction: "decrease",
-          quantity: selectedTicketIds.length,
-          ticketIds: selectedTicketIds,
-          reason: reasonText,
-          userRef,
-          competitionRef,
-          primaryOrderRef: null,
-        }
-      : null;
 
-    // A completed request remains replayable even if the competition has since
-    // entered a blocked draw or finality state. Authorization already ran above.
     if (hasExplicitSelection) {
-      const existingAdjustment = await db.collection(TICKET_ADJUSTMENTS_COLLECTION)
+      const replayExpectation = {
+        operation: "ticket_invalidation",
+        source: "admin_selected_tickets",
+        direction: "decrease",
+        quantity: selectedTicketIds.length,
+        ticketIds: selectedTicketIds,
+        reason: reasonText,
+        userRef,
+        competitionRef,
+        primaryOrderRef: null,
+      };
+
+      // A completed request remains replayable even if the competition has since
+      // entered a blocked draw or finality state. Authorization already ran above.
+      const existingAdjustment = await db
+        .collection(TICKET_ADJUSTMENTS_COLLECTION)
         .doc(normalizedRequestId)
         .get();
       if (existingAdjustment.exists) {
@@ -154,6 +477,94 @@ export function createInvalidateUserCompetitionTicketsHandler({
         }
         return existing.result;
       }
+
+      await assertRequestIdNotUsedByParticipantRemoval(
+        db,
+        normalizedRequestId,
+        HttpsError
+      );
+
+      const [userSnap, competitionSnap] = await Promise.all([
+        userRef.get(),
+        competitionRef.get(),
+      ]);
+
+      if (!userSnap.exists) {
+        throw new HttpsError("not-found", "User not found.");
+      }
+      if (!competitionSnap.exists) {
+        throw new HttpsError("not-found", "Competition not found.");
+      }
+
+      const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
+        allowSoldOut: true,
+        requireDrawDate: true,
+      });
+      if (preflightBlock) {
+        throw new HttpsError("failed-precondition", preflightBlock);
+      }
+
+      const result = await db.runTransaction(async (transaction) => {
+        const adjustmentRef = db
+          .collection(TICKET_ADJUSTMENTS_COLLECTION)
+          .doc(normalizedRequestId);
+        const existingAdjustment = await transaction.get(adjustmentRef);
+        await assertRequestIdNotUsedByParticipantRemovalInTransaction(
+          transaction,
+          db,
+          normalizedRequestId,
+          HttpsError
+        );
+        if (existingAdjustment.exists) {
+          const existing = existingAdjustment.data();
+          if (!adjustmentReplayMatches(existing, replayExpectation)) {
+            throw new HttpsError(
+              "failed-precondition",
+              "This request ID was already used for a different ticket adjustment."
+            );
+          }
+          return existing.result;
+        }
+
+        return invalidateTicketsInTransaction({
+          db,
+          admin,
+          auditService,
+          transaction,
+          adminUid,
+          adminRef,
+          userRef,
+          userId,
+          competitionRef,
+          competitionId,
+          ticketRefs: selectedTicketIds.map((id) => db.collection("ticket").doc(id)),
+          ticketIds: selectedTicketIds,
+          reasonText,
+          adjustmentId: normalizedRequestId,
+          requestId: normalizedRequestId,
+          source: "admin_selected_tickets",
+          adjustmentExtras: {
+            quantityScope: "selected_active_tickets",
+            previousQuantity: selectedTicketIds.length,
+            newQuantity: 0,
+            activeCountScope: "selected_tickets",
+            activeCountBefore: null,
+            activeCountAfter: null,
+            selectedCountBefore: selectedTicketIds.length,
+            selectedCountAfter: 0,
+          },
+          resultExtras: {
+            summary: `Invalidated ${selectedTicketIds.length} selected ticket(s) for ${userId} in ${competitionId}.`,
+          },
+          HttpsError,
+        });
+      });
+
+      logger.info(
+        `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} selectedInvalidated=${result.invalidatedCount}`
+      );
+
+      return result;
     }
 
     const [userSnap, competitionSnap] = await Promise.all([
@@ -168,350 +579,532 @@ export function createInvalidateUserCompetitionTicketsHandler({
       throw new HttpsError("not-found", "Competition not found.");
     }
 
-    // Draw date and finality state remain required for every invalidation path,
-    // including legacy all-active calls. Inventory counters are not used here.
-    const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
-      allowSoldOut: true,
-      requireDrawDate: true,
+    const userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
+    const classified = classifyParticipantTickets(
+      userTicketDocs,
+      userId,
+      competitionId
+    );
+
+    const resultCounts = {
+      alreadyInvalidCount: classified.alreadyInvalid.length,
+      cancelledCount: classified.cancelled.length,
+      skippedCount: classified.skipped.length,
+      totalRelevantCount: classified.relevant.length,
+    };
+
+    const buildParticipantRemovalPartialResponse = ({
+      error,
+      retryable,
+      processedCount,
+      remainingCount,
+      totalEligibleCount,
+      ticketIds = [],
+      ticketSequences = [],
+      chunksProcessed = 0,
+    }) => ({
+      success: false,
+      complete: false,
+      hasMore: remainingCount > 0,
+      retryable,
+      blocked: !retryable,
+      error,
+      mode: "participant_removal",
+      operationId: normalizedRequestId,
+      invalidatedCount: ticketIds.length,
+      processedCount,
+      remainingCount,
+      totalEligibleCount,
+      ticketIds,
+      ticketSequences,
+      chunksProcessed,
+      ...resultCounts,
+      paymentEffect: "none",
     });
-    if (preflightBlock) {
-      throw new HttpsError("failed-precondition", preflightBlock);
-    }
 
-    if (hasExplicitSelection) {
-      const result = await db.runTransaction(async (transaction) => {
-        const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(normalizedRequestId);
-        const existingAdjustment = await transaction.get(adjustmentRef);
-        if (existingAdjustment.exists) {
-          const existing = existingAdjustment.data();
-          if (!adjustmentReplayMatches(existing, replayExpectation)) {
-            throw new HttpsError(
-              "failed-precondition",
-              "This request ID was already used for a different ticket adjustment."
-            );
-          }
-          return existing.result;
-        }
-
-        const freshCompetitionSnap = await transaction.get(competitionRef);
-        if (!freshCompetitionSnap.exists) {
-          throw new HttpsError("not-found", "Competition not found.");
-        }
-        const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
-          allowSoldOut: true,
-          requireDrawDate: true,
-        });
-        if (freshBlock) {
-          throw new HttpsError("failed-precondition", freshBlock);
-        }
-
-        const ticketRefs = selectedTicketIds.map((id) => db.collection("ticket").doc(id));
-        const ticketSnaps = await Promise.all(ticketRefs.map((ref) => transaction.get(ref)));
-        const ticketSequences = [];
-        const ticketNumbers = [];
-        const ticketOrigins = [];
-        const orderRefs = [];
-        const seenOrderIds = new Set();
-
-        ticketSnaps.forEach((ticketSnap, index) => {
-          if (!ticketSnap.exists) {
-            throw new HttpsError(
-              "failed-precondition",
-              "A selected ticket no longer exists. No tickets were changed."
-            );
-          }
-
-          const ticketData = ticketSnap.data();
-          if (
-            !ticketBelongsToUser(ticketData, userId) ||
-            !ticketBelongsToCompetition(ticketData, competitionId)
-          ) {
-            throw new HttpsError(
-              "failed-precondition",
-              "Every selected ticket must belong to the specified user and competition. No tickets were changed."
-            );
-          }
-          if (isWinnerTicket(ticketData)) {
-            throw new HttpsError(
-              "failed-precondition",
-              "Winning tickets cannot be invalidated. No tickets were changed."
-            );
-          }
-          if (normalizeTicketStatus(ticketData.status) !== "active") {
-            throw new HttpsError(
-              "failed-precondition",
-              "Every selected ticket must be active. No tickets were changed."
-            );
-          }
-
-          ticketSequences.push(
-            ticketData.ticket_sequence ?? ticketData.ticket_number ?? selectedTicketIds[index]
-          );
-          ticketNumbers.push(
-            isFiniteNonNegativeInteger(ticketData.ticket_number)
-              ? ticketData.ticket_number
-              : null
-          );
-          ticketOrigins.push(getTicketOrigin(ticketData));
-
-          const orderId = getReferenceId(ticketData.order_id);
-          if (orderId && !seenOrderIds.has(orderId)) {
-            seenOrderIds.add(orderId);
-            orderRefs.push(ticketData.order_id);
-          }
-        });
-
-        const now = admin.firestore.FieldValue.serverTimestamp();
-        ticketRefs.forEach((ref) => {
-          transaction.update(ref, {
-            status: "invalid",
-            invalidated_at: now,
-            invalidated_by: adminRef,
-            invalidation_reason: reasonText,
-            status_before_invalidation: "active",
-            updated_at: now,
-          });
-        });
-
-        const result = buildInvalidationResult(
-          selectedTicketIds,
-          ticketSequences,
-          selectedTicketIds.length
-        );
-
-        transaction.set(
-          adjustmentRef,
-          buildTicketAdjustmentRecord({
-            operation: "ticket_invalidation",
-            source: "admin_selected_tickets",
-            userRef,
-            competitionRef,
-            orderRefs,
-            primaryOrderRef: orderRefs[0] || null,
-            quantity: selectedTicketIds.length,
-            direction: "decrease",
-            ticketIds: selectedTicketIds,
-            ticketNumbers,
-            ticketSequences,
-            ticketOrigins,
-            quantityScope: "selected_active_tickets",
-            previousQuantity: selectedTicketIds.length,
-            newQuantity: 0,
-            // The selected set is the only active-ticket scope verified here.
-            activeCountScope: "selected_tickets",
-            activeCountBefore: null,
-            activeCountAfter: null,
-            selectedCountBefore: selectedTicketIds.length,
-            selectedCountAfter: 0,
-            inventoryBefore: null,
-            inventoryAfter: null,
-            reason: reasonText,
-            actorRef: adminRef,
-            actorRole: "admin",
-            paymentEffect: "none",
-            requestId: normalizedRequestId,
-            result,
-            serverNow: now,
-          })
-        );
-
-        return result;
+    if (!normalizedRequestId) {
+      const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
+        allowSoldOut: true,
+        requireDrawDate: true,
       });
+      if (preflightBlock) {
+        throw new HttpsError("failed-precondition", preflightBlock);
+      }
+
+      if (classified.winners.length > 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          "A winning ticket was found for this user. Winner tickets cannot be invalidated."
+        );
+      }
+
+      if (classified.relevant.length > INVALIDATION_MAX_TICKETS) {
+        throw new HttpsError(
+          "failed-precondition",
+          `This user has ${classified.relevant.length} tickets in this competition. The safe limit for one invalidation request is ${INVALIDATION_MAX_TICKETS}. Retry with a requestId to process this participant removal in safe chunks. No tickets were changed.`
+        );
+      }
+
+      if (classified.active.length === 0) {
+        return {
+          success: true,
+          complete: true,
+          invalidatedCount: 0,
+          alreadyInvalidCount: resultCounts.alreadyInvalidCount,
+          cancelledCount: resultCounts.cancelledCount,
+          skippedCount: resultCounts.skippedCount,
+          totalRelevantCount: resultCounts.totalRelevantCount,
+          ticketIds: [],
+          ticketSequences: [],
+        };
+      }
+
+      const result = await db.runTransaction(async (transaction) =>
+        invalidateTicketsInTransaction({
+          db,
+          admin,
+          auditService,
+          transaction,
+          adminUid,
+          adminRef,
+          userRef,
+          userId,
+          competitionRef,
+          competitionId,
+          ticketRefs: classified.active.map((docSnap) => docSnap.ref),
+          ticketIds: classified.active.map((docSnap) => docSnap.id),
+          reasonText,
+          adjustmentId: db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc().id,
+          requestId: null,
+          source: "admin_all_active_tickets",
+          adjustmentExtras: {
+            quantityScope: "all_active_tickets",
+            previousQuantity: classified.active.length,
+            newQuantity: 0,
+            activeCountScope: "all_active_tickets",
+            activeCountBefore: classified.active.length,
+            activeCountAfter: 0,
+            selectedCountBefore: classified.active.length,
+            selectedCountAfter: 0,
+          },
+          resultExtras: {
+            ...resultCounts,
+            summary: `Invalidated ${classified.active.length} active ticket(s) for ${userId} in ${competitionId}.`,
+          },
+          HttpsError,
+        })
+      );
 
       logger.info(
-        `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} selectedInvalidated=${result.invalidatedCount}`
+        `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} invalidated=${result.invalidatedCount} alreadyInvalid=${result.alreadyInvalidCount} cancelled=${result.cancelledCount} skipped=${result.skippedCount}`
       );
 
       return result;
     }
 
-    const userTicketDocs = await fetchUserTicketDocs(db, userId, userRef);
-    const relevantTickets = userTicketDocs.filter((docSnap) =>
-      ticketBelongsToCompetition(docSnap.data(), competitionId)
-    );
-
-    if (relevantTickets.length > INVALIDATION_MAX_TICKETS) {
+    const existingRequestRecord = await db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(normalizedRequestId)
+      .get();
+    if (existingRequestRecord.exists) {
+      const existing = existingRequestRecord.data();
+      if (
+        isParticipantRemovalNoop(existing, {
+          requestId: normalizedRequestId,
+          userId,
+          competitionId,
+          reasonText,
+        })
+      ) {
+        return existing.result;
+      }
       throw new HttpsError(
         "failed-precondition",
-        `This user has ${relevantTickets.length} tickets in this competition. The safe limit for one invalidation request is ${INVALIDATION_MAX_TICKETS}. No tickets were changed.`
+        "This request ID was already used for a different ticket adjustment."
       );
     }
 
-    if (relevantTickets.length === 0) {
-      return {
+    const activeTicketIds = new Set(classified.active.map((docSnap) => docSnap.id));
+    const progress = await findParticipantRemovalProgress(
+      db,
+      { requestId: normalizedRequestId, userId, competitionId, reasonText },
+      activeTicketIds,
+      HttpsError
+    );
+
+    let remainingDocs = classified.active.filter(
+      (docSnap) => !progress.processedTicketIds.has(docSnap.id)
+    );
+    let processedCount = progress.processedCount;
+    let nextChunkIndex = progress.nextChunkIndex;
+    const totalEligibleCount = processedCount + remainingDocs.length;
+
+    if (remainingDocs.length === 0) {
+      if (progress.nextChunkIndex > 0) {
+        return {
+          success: true,
+          complete: true,
+          hasMore: false,
+          retryable: false,
+          mode: "participant_removal",
+          operationId: normalizedRequestId,
+          invalidatedCount: 0,
+          processedCount,
+          remainingCount: 0,
+          totalEligibleCount: processedCount,
+          ticketIds: [],
+          ticketSequences: [],
+          chunksProcessed: 0,
+          ...resultCounts,
+          paymentEffect: "none",
+        };
+      }
+
+      const noopResult = {
         success: true,
         complete: true,
+        hasMore: false,
+        retryable: false,
+        mode: "participant_removal",
+        noop: true,
+        operationId: normalizedRequestId,
         invalidatedCount: 0,
-        alreadyInvalidCount: 0,
-        cancelledCount: 0,
-        skippedCount: 0,
-        totalRelevantCount: 0,
+        processedCount: 0,
+        remainingCount: 0,
+        totalEligibleCount: 0,
         ticketIds: [],
         ticketSequences: [],
+        chunksProcessed: 0,
+        ...resultCounts,
+        paymentEffect: "none",
       };
-    }
 
-    const result = await db.runTransaction(async (transaction) => {
-      const freshCompetitionSnap = await transaction.get(competitionRef);
-
-      if (!freshCompetitionSnap.exists) {
-        throw new HttpsError("not-found", "Competition not found.");
-      }
-      const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
-        allowSoldOut: true,
-        requireDrawDate: true,
-      });
-      if (freshBlock) {
-        throw new HttpsError("failed-precondition", freshBlock);
-      }
-
-      const ticketSnaps = await Promise.all(
-        relevantTickets.map((docSnap) => transaction.get(docSnap.ref))
-      );
-
-      const toInvalidate = [];
-      const alreadyInvalid = [];
-      const cancelled = [];
-      const skipped = [];
-
-      ticketSnaps.forEach((ticketSnap, index) => {
-        const expectedDoc = relevantTickets[index];
-
-        if (!ticketSnap.exists) {
-          throw new HttpsError(
-            "aborted",
-            "A ticket changed while preparing this invalidation. No tickets were changed; retry the request."
-          );
-        }
-
-        const ticketData = ticketSnap.data();
-
-        if (
-          !ticketBelongsToUser(ticketData, userId) ||
-          !ticketBelongsToCompetition(ticketData, competitionId)
-        ) {
+      return db.runTransaction(async (transaction) => {
+        const existingSnap = await transaction.get(
+          db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc(normalizedRequestId)
+        );
+        if (existingSnap.exists) {
+          const existing = existingSnap.data();
+          if (
+            isParticipantRemovalNoop(existing, {
+              requestId: normalizedRequestId,
+              userId,
+              competitionId,
+              reasonText,
+            })
+          ) {
+            return existing.result;
+          }
           throw new HttpsError(
             "failed-precondition",
-            "A ticket no longer belongs to the selected user and competition. No tickets were changed."
+            "This request ID was already used for a different ticket adjustment."
           );
         }
 
-        if (isWinnerTicket(ticketData)) {
+        const chunkSnap = await transaction.get(
+          db
+            .collection(TICKET_ADJUSTMENTS_COLLECTION)
+            .doc(buildParticipantRemovalChunkId(normalizedRequestId, 0))
+        );
+        if (chunkSnap.exists) {
+          throw new HttpsError(
+            "failed-precondition",
+            "This request ID was already used for a different ticket adjustment."
+          );
+        }
+
+        const freshUserSnap = await transaction.get(userRef);
+        if (!freshUserSnap.exists) {
+          throw new HttpsError("not-found", "User not found.");
+        }
+        const freshCompetitionSnap = await transaction.get(competitionRef);
+        if (!freshCompetitionSnap.exists) {
+          throw new HttpsError("not-found", "Competition not found.");
+        }
+
+        const freshBlock = getCompetitionAdjustmentBlock(
+          freshCompetitionSnap.data(),
+          {
+            allowSoldOut: true,
+            requireDrawDate: true,
+          }
+        );
+        if (freshBlock) {
+          throw new HttpsError("failed-precondition", freshBlock);
+        }
+
+        const winnerTicketSnaps = await Promise.all(
+          classified.winners.map((docSnap) => transaction.get(docSnap.ref))
+        );
+        if (
+          winnerTicketSnaps.some(
+            (ticketSnap) => ticketSnap.exists && isWinnerTicket(ticketSnap.data())
+          )
+        ) {
           throw new HttpsError(
             "failed-precondition",
             "A winning ticket was found for this user. Winner tickets cannot be invalidated."
           );
         }
 
-        const status = normalizeTicketStatus(ticketData.status);
-        if (status === "active") {
-          toInvalidate.push({
-            ref: expectedDoc.ref,
-            sequence: ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id,
-            ticketNumber: isFiniteNonNegativeInteger(ticketData.ticket_number)
-              ? ticketData.ticket_number
-              : null,
-            origin: getTicketOrigin(ticketData),
-            orderRef: ticketData.order_id || null,
-          });
-        } else if (status === "invalid") {
-          alreadyInvalid.push(ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id);
-        } else if (status === "cancelled") {
-          cancelled.push(ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id);
-        } else {
-          skipped.push(ticketData.ticket_sequence ?? ticketData.ticket_number ?? expectedDoc.id);
-        }
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const adjustmentRef = db
+          .collection(TICKET_ADJUSTMENTS_COLLECTION)
+          .doc(normalizedRequestId);
+
+        transaction.set(
+          adjustmentRef,
+          buildTicketAdjustmentRecord({
+            operation: "ticket_invalidation",
+            source: "admin_all_active_tickets",
+            userRef,
+            competitionRef,
+            orderRefs: [],
+            primaryOrderRef: null,
+            quantity: 0,
+            direction: "decrease",
+            ticketIds: [],
+            ticketNumbers: [],
+            ticketSequences: [],
+            ticketOrigins: [],
+            quantityScope: "participant_removal_noop",
+            requestedOrigin: null,
+            previousQuantity: 0,
+            newQuantity: 0,
+            activeCountScope: "participant_removal_noop",
+            activeCountBefore: 0,
+            activeCountAfter: 0,
+            selectedCountBefore: 0,
+            selectedCountAfter: 0,
+            inventoryBefore: null,
+            inventoryAfter: null,
+            orderSnapshot: null,
+            reason: reasonText,
+            actorRef: adminRef,
+            actorRole: "admin",
+            paymentEffect: "none",
+            requestId: normalizedRequestId,
+            result: noopResult,
+            serverNow: now,
+          })
+        );
+
+        auditService.recordEventInTransaction(
+          transaction,
+          buildTicketAdjustmentAuditEvent({
+            adjustmentId: adjustmentRef.id,
+            requestId: normalizedRequestId,
+            operation: "ticket_invalidation",
+            userId,
+            competitionId,
+            quantity: 0,
+            direction: "decrease",
+            reason: reasonText,
+            summary: `Participant removal reserved with no eligible tickets for ${userId} in ${competitionId}.`,
+            source: "admin_all_active_tickets",
+          }),
+          { actor: createAdminAuditActor(adminUid) }
+        );
+
+        return noopResult;
       });
+    }
 
-      if (toInvalidate.length === 0) {
-        return {
-          success: true,
-          complete: true,
-          invalidatedCount: 0,
-          alreadyInvalidCount: alreadyInvalid.length,
-          cancelledCount: cancelled.length,
-          skippedCount: skipped.length,
-          totalRelevantCount: ticketSnaps.length,
-          ticketIds: [],
-          ticketSequences: [],
-        };
-      }
-
-      const now = admin.firestore.FieldValue.serverTimestamp();
-      toInvalidate.forEach(({ ref }) => {
-        transaction.update(ref, {
-          status: "invalid",
-          invalidated_at: now,
-          invalidated_by: adminRef,
-          invalidation_reason: reasonText,
-          status_before_invalidation: "active",
-          updated_at: now,
+    const preflightBlock = getCompetitionAdjustmentBlock(competitionSnap.data(), {
+      allowSoldOut: true,
+      requireDrawDate: true,
+    });
+    if (preflightBlock) {
+      if (progress.processedCount > 0) {
+        return buildParticipantRemovalPartialResponse({
+          error: preflightBlock,
+          retryable: false,
+          processedCount,
+          remainingCount: remainingDocs.length,
+          totalEligibleCount: processedCount + remainingDocs.length,
         });
-      });
+      }
+      throw new HttpsError("failed-precondition", preflightBlock);
+    }
 
-      const orderRefs = [];
-      const seenOrderIds = new Set();
-      toInvalidate.forEach(({ orderRef }) => {
-        const orderId = getReferenceId(orderRef);
-        if (orderId && !seenOrderIds.has(orderId)) {
-          seenOrderIds.add(orderId);
-          orderRefs.push(orderRef);
-        }
-      });
+    if (classified.winners.length > 0) {
+      const winnerBlock =
+        "A winning ticket was found for this user. Winner tickets cannot be invalidated.";
+      if (progress.processedCount > 0) {
+        return buildParticipantRemovalPartialResponse({
+          error: winnerBlock,
+          retryable: false,
+          processedCount,
+          remainingCount: remainingDocs.length,
+          totalEligibleCount: processedCount + remainingDocs.length,
+        });
+      }
+      throw new HttpsError("failed-precondition", winnerBlock);
+    }
 
-      const result = {
-        success: true,
-        complete: true,
-        invalidatedCount: toInvalidate.length,
-        alreadyInvalidCount: alreadyInvalid.length,
-        cancelledCount: cancelled.length,
-        skippedCount: skipped.length,
-        totalRelevantCount: ticketSnaps.length,
-        ticketIds: toInvalidate.map(({ ref }) => ref.id),
-        ticketSequences: toInvalidate.map(({ sequence }) => sequence),
-      };
+    const invalidatedTicketIds = [];
+    const invalidatedTicketSequences = [];
+    let chunksProcessed = 0;
+    let operationError = null;
 
-      const adjustmentRef = db.collection(TICKET_ADJUSTMENTS_COLLECTION).doc();
-      transaction.set(
-        adjustmentRef,
-        buildTicketAdjustmentRecord({
-          operation: "ticket_invalidation",
-          source: "admin_all_active_tickets",
-          userRef,
-          competitionRef,
-          orderRefs,
-          primaryOrderRef: orderRefs[0] || null,
-          quantity: toInvalidate.length,
-          direction: "decrease",
-          ticketIds: result.ticketIds,
-          ticketNumbers: toInvalidate.map(({ ticketNumber }) => ticketNumber),
-          ticketSequences: result.ticketSequences,
-          ticketOrigins: toInvalidate.map(({ origin }) => origin),
-          quantityScope: "all_active_tickets",
-          previousQuantity: toInvalidate.length,
-          newQuantity: 0,
-          activeCountScope: "all_active_tickets",
-          activeCountBefore: toInvalidate.length,
-          activeCountAfter: 0,
-          selectedCountBefore: toInvalidate.length,
-          selectedCountAfter: 0,
-          reason: reasonText,
-          actorRef: adminRef,
-          actorRole: "admin",
-          paymentEffect: "none",
-          requestId: null,
-          result,
-          serverNow: now,
-        })
+    while (
+      remainingDocs.length > 0 &&
+      chunksProcessed < PARTICIPANT_REMOVAL_MAX_CHUNKS_PER_CALL
+    ) {
+      const chunkDocs = remainingDocs.slice(0, PARTICIPANT_REMOVAL_CHUNK_SIZE);
+      const chunkIds = chunkDocs.map((docSnap) => docSnap.id);
+      const adjustmentId = buildParticipantRemovalChunkId(
+        normalizedRequestId,
+        nextChunkIndex
       );
 
-      return result;
-    });
+      try {
+        const result = await db.runTransaction(async (transaction) => {
+          const adjustmentRef = db
+            .collection(TICKET_ADJUSTMENTS_COLLECTION)
+            .doc(adjustmentId);
+          const existingAdjustment = await transaction.get(adjustmentRef);
+          await assertRequestIdNotUsedByUnsuffixedOperationInTransaction(
+            transaction,
+            db,
+            normalizedRequestId,
+            HttpsError
+          );
+          if (existingAdjustment.exists) {
+            const existing = existingAdjustment.data();
+            assertChunkIdentity(
+              existing,
+              { requestId: normalizedRequestId, userId, competitionId, reasonText },
+              HttpsError
+            );
+            return existing.result;
+          }
+
+          return invalidateTicketsInTransaction({
+            db,
+            admin,
+            auditService,
+            transaction,
+            adminUid,
+            adminRef,
+            userRef,
+            userId,
+            competitionRef,
+            competitionId,
+            ticketRefs: chunkDocs.map((docSnap) => docSnap.ref),
+            ticketIds: chunkIds,
+            reasonText,
+            adjustmentId,
+            requestId: normalizedRequestId,
+            source: "admin_all_active_tickets",
+            adjustmentExtras: {
+              quantityScope: "participant_removal_chunk",
+              previousQuantity: remainingDocs.length,
+              newQuantity: remainingDocs.length - chunkDocs.length,
+              activeCountScope: "participant_removal",
+              activeCountBefore: remainingDocs.length,
+              activeCountAfter: remainingDocs.length - chunkDocs.length,
+              selectedCountBefore: chunkDocs.length,
+              selectedCountAfter: 0,
+            },
+            resultExtras: {
+              ...resultCounts,
+              mode: "participant_removal",
+              operationId: normalizedRequestId,
+              chunkIndex: nextChunkIndex,
+              processedCount: processedCount + chunkDocs.length,
+              remainingCount: remainingDocs.length - chunkDocs.length,
+              totalEligibleCount,
+              hasMore: remainingDocs.length - chunkDocs.length > 0,
+              complete: remainingDocs.length - chunkDocs.length === 0,
+              summary: `Invalidated ${chunkDocs.length} participant ticket(s) for ${userId} in ${competitionId} (chunk ${nextChunkIndex + 1}).`,
+            },
+            HttpsError,
+          });
+        });
+
+        const resultTicketIds = Array.isArray(result?.ticketIds)
+          ? result.ticketIds
+          : chunkIds;
+        const resultTicketSequences = Array.isArray(result?.ticketSequences)
+          ? result.ticketSequences
+          : [];
+
+        invalidatedTicketIds.push(...resultTicketIds);
+        invalidatedTicketSequences.push(...resultTicketSequences);
+
+        const removedIds = new Set(resultTicketIds);
+        const beforeLength = remainingDocs.length;
+        remainingDocs = remainingDocs.filter(
+          (docSnap) => !removedIds.has(docSnap.id)
+        );
+        if (remainingDocs.length === beforeLength) {
+          throw new HttpsError(
+            "failed-precondition",
+            "A participant removal chunk did not invalidate any of the remaining tickets. Resolve the operation before retrying."
+          );
+        }
+
+        processedCount += resultTicketIds.length;
+        nextChunkIndex += 1;
+        chunksProcessed += 1;
+      } catch (error) {
+        operationError = error;
+        break;
+      }
+    }
+
+    const remainingCount = remainingDocs.length;
+    const complete = remainingCount === 0 && !operationError;
+
+    if (operationError) {
+      if (progress.processedCount === 0 && invalidatedTicketIds.length === 0) {
+        throw operationError;
+      }
+
+      const retryable =
+        operationError?.code !== "failed-precondition" &&
+        operationError?.code !== "not-found";
+
+      logger.error(
+        `[invalidateUserCompetitionTickets] participant removal partially processed admin=${adminUid} user=${userId} competition=${competitionId} operation=${normalizedRequestId} processed=${processedCount} remaining=${remainingCount}:`,
+        operationError
+      );
+
+      return buildParticipantRemovalPartialResponse({
+        error:
+          operationError?.message ||
+          "Participant removal stopped before all eligible tickets were processed.",
+        retryable,
+        processedCount,
+        remainingCount,
+        totalEligibleCount: processedCount + remainingCount,
+        ticketIds: invalidatedTicketIds,
+        ticketSequences: invalidatedTicketSequences,
+        chunksProcessed,
+      });
+    }
 
     logger.info(
-      `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} invalidated=${result.invalidatedCount} alreadyInvalid=${result.alreadyInvalidCount} cancelled=${result.cancelledCount} skipped=${result.skippedCount}`
+      `[invalidateUserCompetitionTickets] admin=${adminUid} user=${userId} competition=${competitionId} participantRemoval=${normalizedRequestId} invalidated=${invalidatedTicketIds.length} processed=${processedCount} remaining=${remainingCount} complete=${complete}`
     );
 
-    return result;
+    return {
+      success: true,
+      complete,
+      hasMore: !complete,
+      retryable: !complete,
+      mode: "participant_removal",
+      operationId: normalizedRequestId,
+      invalidatedCount: invalidatedTicketIds.length,
+      processedCount,
+      remainingCount,
+      totalEligibleCount: processedCount + remainingCount,
+      ticketIds: invalidatedTicketIds,
+      ticketSequences: invalidatedTicketSequences,
+      chunksProcessed,
+      ...resultCounts,
+      paymentEffect: "none",
+    };
   };
 }

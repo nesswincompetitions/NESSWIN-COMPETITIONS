@@ -4,13 +4,14 @@ export const increaseUserCompetitionTickets = ({
   userId,
   competitionId,
   orderId,
+  origin,
   quantity,
   reason,
   requestId,
 }) =>
   callFunction(
     'increaseUserCompetitionTickets',
-    { userId, competitionId, orderId, quantity, reason, requestId },
+    { userId, competitionId, orderId, origin, quantity, reason, requestId },
     'Failed to add tickets.'
   );
 
