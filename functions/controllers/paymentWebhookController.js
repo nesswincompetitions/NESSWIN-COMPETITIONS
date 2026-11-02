@@ -15,6 +15,7 @@ import {
 } from "../services/stripeSettlementService.js";
 import { PAYMENT_SETTLEMENT } from "../services/ticketOrigin.js";
 import { processAdditionalPaymentWebhookEvent } from "../services/additionalPaymentService.js";
+import { processRefundWebhookEvent } from "../services/refundOrderService.js";
 import Stripe from "stripe";
 
 export function createStripeWebhookHandler({
@@ -53,6 +54,20 @@ export function createStripeWebhookHandler({
   }
 
   logger.info(`[stripeWebhook] Received event type: ${event.type}`);
+
+  if (typeof event.type === "string" && event.type.startsWith("refund.")) {
+    const outcome = await processRefundWebhookEvent({
+      db,
+      admin,
+      logger,
+      event,
+      stripe,
+    });
+    if (outcome) {
+      return res.status(outcome.statusCode).send(outcome.body);
+    }
+    return res.status(200).send("Refund event ignored.");
+  }
 
   const additionalPaymentRequestId =
     event?.data?.object?.metadata?.additionalPaymentRequestId;

@@ -68,11 +68,20 @@ export async function fetchOrderDetail(orderId) {
 }
 
 /**
- * Marks an order as Refunded via Cloud Function (securely cancels tickets & notifies user).
+ * Reads verified Stripe refund eligibility for an order.
  */
-export async function refundOrder(orderId) {
+export async function getOrderRefundEligibility(orderId) {
+  const fn = httpsCallable(functions, 'getOrderRefundEligibility');
+  const result = await fn({ orderId });
+  return result.data;
+}
+
+/**
+ * Issues a Stripe refund for a paid order. This never changes ticket status.
+ */
+export async function refundOrder({ orderId, amountMinor, reason, requestId }) {
   const refundOrderFn = httpsCallable(functions, 'refundOrder');
-  const result = await refundOrderFn({ orderId });
+  const result = await refundOrderFn({ orderId, amountMinor, reason, requestId });
   return result.data;
 }
 

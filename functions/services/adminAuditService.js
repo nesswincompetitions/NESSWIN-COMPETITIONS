@@ -110,6 +110,12 @@ const SAFE_SNAPSHOT_FIELDS = new Set([
   "previous_quantity",
   "new_quantity",
   "payment_effect",
+  "refund_amount_minor",
+  "refund_status",
+  "refunded_amount",
+  "refunded_amount_minor",
+  "remaining_refundable_minor",
+  "original_amount_minor",
   "invalidation_reason",
   "status_before_invalidation",
   "restricted",
@@ -126,6 +132,7 @@ const RELATED_ID_FIELDS = [
   "adjustment_id",
   "referral_id",
   "payment_request_id",
+  "refund_id",
 ];
 
 function isPlainObject(value) {

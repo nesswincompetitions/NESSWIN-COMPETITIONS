@@ -241,6 +241,33 @@
           "submittingBlock": "Removing and blocking participant...",
           "successBlock": "Removed and blocked the participant from this competition after invalidating {{count}} ticket(s).",
           "nothingBlock": "Participant blocked from this competition. No tickets needed to be invalidated."
+        },
+        "adjust": {
+          "open": "Adjust ticket quantity",
+          "title": "Adjust Ticket Quantity",
+          "warning": "This invalidates only the selected tickets. It does not refund payments, restore bonus credits, release capacity, renumber tickets, or remove participant history.",
+          "loadingOrders": "Loading participant payment orders...",
+          "noEligibleOrder": "This participant has no paid order with adjustable active tickets.",
+          "orderLabel": "Payment order",
+          "orderOption": "Order #{{id}} · {{count}} total ticket(s)",
+          "orderHint": "Ticket decrease is order-scoped. Select the original payment order to adjust.",
+          "originLabel": "Ticket type",
+          "originPaid": "Paid tickets ({{count}} eligible)",
+          "originBonus": "Bonus tickets ({{count}} eligible)",
+          "eligibleCount": "{{count}} eligible active ticket(s) for this order and ticket type.",
+          "noEligible": "No eligible active tickets exist for this order and ticket type.",
+          "quantityLabel": "Quantity to decrease",
+          "currentEligible": "Current eligible",
+          "projectedRemaining": "Projected remaining",
+          "quantityHint": "Maximum {{max}} tickets per request. Highest-numbered eligible tickets are invalidated first.",
+          "exceedsEligible": "Only {{count}} eligible active ticket(s) are available.",
+          "reasonLabel": "Reason",
+          "reasonPlaceholder": "Explain why these tickets are being decreased",
+          "confirmCheckbox": "I understand this only decreases ticket entitlement and does not issue a refund.",
+          "confirm": "Decrease tickets",
+          "submitting": "Decreasing tickets...",
+          "success": "Decreased {{count}} ticket(s). No refund was issued.",
+          "error": "Failed to decrease tickets."
         }
       },
       "draw": {
@@ -629,7 +656,47 @@
       "refundIssued": "Refund Issued",
       "refundAmount": "Amount",
       "refundDate": "Date",
-      "refundReason": "Reason"
+      "refundReason": "Reason",
+      "refund": {
+        "open": "Process refund",
+        "title": "Process Stripe Refund",
+        "orderLabel": "Order #{{id}}",
+        "unknownUser": "Unknown user",
+        "loading": "Verifying the original Stripe payment...",
+        "loadError": "Could not load refund eligibility.",
+        "originalAmount": "Original paid",
+        "previouslyRefunded": "Previously refunded",
+        "remaining": "Remaining refundable",
+        "calculationBasis": "The refundable amount is derived from the original settled Stripe payment and its Stripe refunds, not from the current competition ticket price.",
+        "warning": "This creates a real Stripe refund. It does not invalidate or restore tickets. Ticket changes must be made separately.",
+        "amountLabel": "Refund amount ({{currency}})",
+        "projectedRemaining": "Remaining after this refund: {{amount}}",
+        "refundAll": "Refund remaining",
+        "exceedsRemaining": "The amount cannot exceed {{amount}}.",
+        "invalidAmount": "Enter a valid amount with at most two decimal places.",
+        "reasonLabel": "Reason",
+        "reasonPlaceholder": "Explain why this refund is being issued",
+        "history": "Refund history",
+        "pendingId": "Pending Stripe confirmation",
+        "confirmCheckbox": "I confirm that {{amount}} will be refunded through Stripe.",
+        "confirm": "Issue refund",
+        "submitting": "Issuing refund...",
+        "success": "Stripe confirmed the refund of {{amount}}.",
+        "pending": "Stripe is still processing the refund. The order will update when Stripe confirms it.",
+        "failed": "Stripe did not confirm the refund.",
+        "pendingBanner": "A refund of {{amount}} is {{status}} with Stripe. Retry to reconcile this same request; do not create a new refund.",
+        "uncertain": "Stripe has not confirmed whether the refund was created. The request is preserved as pending; retry the same request ID to reconcile.",
+        "reconcile": "Reconcile refund",
+        "status": {
+          "pending": "Pending",
+          "requires_action": "Requires action",
+          "succeeded": "Succeeded",
+          "failed": "Failed",
+          "canceled": "Canceled",
+          "uncertain": "Uncertain"
+        },
+        "pendingWithStripe": "{{amount}} is pending with Stripe and is not counted as a completed refund."
+      }
     }
   },
   "winners": {
@@ -834,7 +901,15 @@
       "stateChangeNotice": "Credit state changed after prevalidation; the affected credits are excluded.",
       "errorToast": "Failed to revoke credits",
       "excludedNotice": "{{count}} credit(s) could not be revoked because their state changed (ownership/reward type/missing); they are excluded from this retry.",
-      "reconcileNotice": "The balance requires reconciliation before the remaining credits can be safely revoked. Retrying without fixing the balance will not succeed."
+      "reconcileNotice": "The balance requires reconciliation before the remaining credits can be safely revoked. Retrying without fixing the balance will not succeed.",
+      "quantityLabel": "Quantity to revoke",
+      "revokeAll": "Revoke all",
+      "currentAvailable": "Available",
+      "selected": "Selected",
+      "projectedRemaining": "Projected remaining",
+      "quantityHint": "Revoke between 1 and {{max}} unused credit(s).",
+      "exceedsAvailable": "Only {{count}} unused credit(s) are available.",
+      "selectionMismatch": "The selected credits do not match the requested quantity. Refresh and try again."
     }
   },
   "settings": {
@@ -883,7 +958,7 @@
     }
   },
   "additionalPayments": {
-    "requestButton": "Request payment",
+    "requestButton": "Request additional paid tickets",
     "copyLink": "Copy link",
     "copySuccess": "Payment link copied.",
     "copyError": "Could not copy the payment link.",

@@ -84,12 +84,15 @@ export async function grantAdminBonus(userId, quantity, reason = '') {
  * @param {string} userId - Target user ID owning the credits
  * @param {string[]} creditIds - Referral document IDs submitted by the UI grouping
  * @param {string} reason - Mandatory admin reason
+ * @param {string} [requestId] - Optional correlation ID for the audit event
  * @returns {Promise<Object>}
  */
-export async function revokeAdminBonus(userId, creditIds, reason) {
+export async function revokeAdminBonus(userId, creditIds, reason, requestId) {
   try {
     const revoke = httpsCallable(functions, 'revokeAdminBonus');
-    const resp = await revoke({ userId, creditIds, reason });
+    const payload = { userId, creditIds, reason };
+    if (requestId) payload.requestId = requestId;
+    const resp = await revoke(payload);
     return resp.data;
   } catch (error) {
     console.error("[BonusService] Error revoking admin bonus credits:", error);

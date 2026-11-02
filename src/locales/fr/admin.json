@@ -241,6 +241,33 @@
           "submittingBlock": "Retrait et blocage du participant...",
           "successBlock": "Participant retiré et bloqué de ce concours après invalidation de {{count}} ticket(s).",
           "nothingBlock": "Participant bloqué dans ce concours. Aucun ticket n'avait besoin d'être invalidé."
+        },
+        "adjust": {
+          "open": "Ajuster la quantité de tickets",
+          "title": "Ajuster la quantité de tickets",
+          "warning": "Cela invalide uniquement les tickets sélectionnés. Aucun remboursement, aucune restauration de crédits bonus, aucune libération de capacité, aucune renumérotation et aucune suppression de l'historique du participant n'a lieu.",
+          "loadingOrders": "Chargement des commandes payées du participant...",
+          "noEligibleOrder": "Ce participant n'a aucune commande payée avec des tickets actifs ajustables.",
+          "orderLabel": "Commande de paiement",
+          "orderOption": "Commande n° {{id}} · {{count}} ticket(s) au total",
+          "orderHint": "La réduction s'applique à une commande. Sélectionnez la commande de paiement d'origine à ajuster.",
+          "originLabel": "Type de ticket",
+          "originPaid": "Tickets payants ({{count}} éligibles)",
+          "originBonus": "Tickets bonus ({{count}} éligibles)",
+          "eligibleCount": "{{count}} ticket(s) actif(s) éligible(s) pour cette commande et ce type de ticket.",
+          "noEligible": "Aucun ticket actif éligible n'existe pour cette commande et ce type de ticket.",
+          "quantityLabel": "Quantité à réduire",
+          "currentEligible": "Éligibles actuels",
+          "projectedRemaining": "Restants prévus",
+          "quantityHint": "Maximum {{max}} tickets par demande. Les tickets éligibles portant les numéros les plus élevés sont invalidés en premier.",
+          "exceedsEligible": "Seuls {{count}} ticket(s) actif(s) éligible(s) sont disponibles.",
+          "reasonLabel": "Motif",
+          "reasonPlaceholder": "Expliquez pourquoi ces tickets sont réduits",
+          "confirmCheckbox": "Je comprends que cela réduit uniquement le droit aux tickets et n'émet aucun remboursement.",
+          "confirm": "Réduire les tickets",
+          "submitting": "Réduction des tickets...",
+          "success": "{{count}} ticket(s) réduit(s). Aucun remboursement émis.",
+          "error": "Impossible de réduire les tickets."
         }
       },
       "draw": {
@@ -614,7 +641,47 @@
       "refundIssued": "Remboursement émis",
       "refundAmount": "Montant",
       "refundDate": "Date",
-      "refundReason": "Raison"
+      "refundReason": "Raison",
+      "refund": {
+        "open": "Traiter le remboursement",
+        "title": "Traiter un remboursement Stripe",
+        "orderLabel": "Commande n° {{id}}",
+        "unknownUser": "Utilisateur inconnu",
+        "loading": "Vérification du paiement Stripe d’origine...",
+        "loadError": "Impossible de charger l'éligibilité au remboursement.",
+        "originalAmount": "Montant payé initial",
+        "previouslyRefunded": "Déjà remboursé",
+        "remaining": "Remboursable restant",
+        "calculationBasis": "Le montant remboursable est dérivé du paiement Stripe d'origine réglé et de ses remboursements Stripe, et non du prix actuel des tickets du concours.",
+        "warning": "Cela crée un vrai remboursement Stripe. Cela n’invalide ni ne restaure les tickets. Les modifications de tickets doivent être effectuées séparément.",
+        "amountLabel": "Montant du remboursement ({{currency}})",
+        "projectedRemaining": "Restant après ce remboursement : {{amount}}",
+        "refundAll": "Rembourser le reste",
+        "exceedsRemaining": "Le montant ne peut pas dépasser {{amount}}.",
+        "invalidAmount": "Saisissez un montant valide avec au maximum deux décimales.",
+        "reasonLabel": "Motif",
+        "reasonPlaceholder": "Expliquez pourquoi ce remboursement est émis",
+        "history": "Historique des remboursements",
+        "pendingId": "En attente de confirmation Stripe",
+        "confirmCheckbox": "Je confirme que {{amount}} sera remboursé via Stripe.",
+        "confirm": "Émettre le remboursement",
+        "submitting": "Émission du remboursement...",
+        "success": "Stripe a confirmé le remboursement de {{amount}}.",
+        "pending": "Stripe traite encore le remboursement. La commande sera mise à jour lorsque Stripe le confirmera.",
+        "failed": "Stripe n’a pas confirmé le remboursement.",
+        "pendingBanner": "Un remboursement de {{amount}} est {{status}} chez Stripe. Réessayez pour réconcilier cette même demande ; ne créez pas un nouveau remboursement.",
+        "uncertain": "Stripe n'a pas confirmé si le remboursement a été créé. La demande reste en attente ; réessayez avec le même ID de demande pour la réconcilier.",
+        "reconcile": "Réconcilier le remboursement",
+        "status": {
+          "pending": "En attente",
+          "requires_action": "Action requise",
+          "succeeded": "Réussi",
+          "failed": "Échoué",
+          "canceled": "Annulé",
+          "uncertain": "Incertain"
+        },
+        "pendingWithStripe": "{{amount}} est en attente chez Stripe et n'est pas compté comme remboursement terminé."
+      }
     }
   },
   "winners": {
@@ -819,7 +886,15 @@
       "stateChangeNotice": "L'état des crédits a changé après la prévalidation ; les crédits concernés sont exclus.",
       "errorToast": "Échec de la révocation des crédits",
       "excludedNotice": "{{count}} crédit(s) n'ont pas pu être révoqués car leur état a changé (propriétaire/type/absent) ; exclus de cette relance.",
-      "reconcileNotice": "Le solde nécessite une réconciliation avant que les crédits restants puissent être révoqués en toute sécurité. Réessayer sans corriger le solde ne réussira pas."
+      "reconcileNotice": "Le solde nécessite une réconciliation avant que les crédits restants puissent être révoqués en toute sécurité. Réessayer sans corriger le solde ne réussira pas.",
+      "quantityLabel": "Quantité à révoquer",
+      "revokeAll": "Tout révoquer",
+      "currentAvailable": "Disponibles",
+      "selected": "Sélectionnés",
+      "projectedRemaining": "Restants prévus",
+      "quantityHint": "Révoquez entre 1 et {{max}} crédit(s) inutilisé(s).",
+      "exceedsAvailable": "Seuls {{count}} crédit(s) inutilisé(s) sont disponibles.",
+      "selectionMismatch": "Les crédits sélectionnés ne correspondent pas à la quantité demandée. Actualisez et réessayez."
     }
   },
   "settings": {
@@ -868,7 +943,7 @@
     }
   },
   "additionalPayments": {
-    "requestButton": "Demander un paiement",
+    "requestButton": "Demander des tickets payants supplémentaires",
     "copyLink": "Copier le lien",
     "copySuccess": "Lien de paiement copié.",
     "copyError": "Impossible de copier le lien de paiement.",

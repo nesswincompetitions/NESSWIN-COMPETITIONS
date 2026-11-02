@@ -8,12 +8,13 @@ import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
   ArrowLeft, Trophy, ExternalLink,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard, MinusCircle
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
 import AdditionalPaymentModal from '@/shared/components/admin/AdditionalPaymentModal';
 import AdditionalPaymentRequestsPanel from '@/shared/components/admin/AdditionalPaymentRequestsPanel';
+import ParticipantTicketAdjustmentModal from '@/shared/components/admin/ParticipantTicketAdjustmentModal';
 
 import { toast } from 'react-hot-toast';
 import { Timestamp, doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
@@ -73,6 +74,7 @@ const CompetitionDetail = () => {
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
   const [invalidateTarget, setInvalidateTarget] = useState(null);
   const [additionalPaymentTarget, setAdditionalPaymentTarget] = useState(null);
+  const [ticketAdjustmentTarget, setTicketAdjustmentTarget] = useState(null);
   const [additionalPaymentRefreshKey, setAdditionalPaymentRefreshKey] = useState(0);
   const [participantsRefreshKey, setParticipantsRefreshKey] = useState(0);
 
@@ -583,8 +585,14 @@ const CompetitionDetail = () => {
   );
 
   const renderParticipants = () => {
+    const competitionStatusLower = String(competition?.status || '').toLowerCase();
     const canRequestAdditionalPayment =
-      String(competition?.status || '').toLowerCase() === 'active' &&
+      competitionStatusLower === 'active' &&
+      !competition?.winner_ref &&
+      !competition?.winner_ticket_ref &&
+      !competition?.draw_started_at;
+    const canAdjustParticipantTickets =
+      ['active', 'sold_out'].includes(competitionStatusLower) &&
       !competition?.winner_ref &&
       !competition?.winner_ticket_ref &&
       !competition?.draw_started_at;
@@ -708,6 +716,17 @@ const CompetitionDetail = () => {
                           >
                             <CreditCard size={14} />
                             {t('additionalPayments.requestButton')}
+                          </Button>
+                        )}
+                        {canAdjustParticipantTickets && activeTicketCount > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            onClick={() => setTicketAdjustmentTarget(p)}
+                          >
+                            <MinusCircle size={14} />
+                            {t('competitions.detail.participants.adjust.open')}
                           </Button>
                         )}
                         <Button
@@ -1295,6 +1314,14 @@ const CompetitionDetail = () => {
         onSuccess={() => {
           setAdditionalPaymentRefreshKey((key) => key + 1);
         }}
+      />
+      <ParticipantTicketAdjustmentModal
+        isOpen={!!ticketAdjustmentTarget}
+        onClose={() => setTicketAdjustmentTarget(null)}
+        participant={ticketAdjustmentTarget}
+        competitionId={competition?.id}
+        competitionTitle={competition?.title}
+        onSuccess={handleInvalidationSuccess}
       />
       <InvalidateTicketsModal
         isOpen={!!invalidateTarget}

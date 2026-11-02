@@ -16,6 +16,7 @@ import { formatStatus } from '@/shared/utils/formatters';
 import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import IncreaseTicketsModal from '@/shared/components/admin/IncreaseTicketsModal';
 import DecreaseTicketsModal from '@/shared/components/admin/DecreaseTicketsModal';
+import RefundOrderModal from '@/shared/components/admin/RefundOrderModal';
 import { recoverOrderFulfillment } from '@/modules/admin/orders/services/ordersService';
 
 const OrderDetail = () => {
@@ -27,6 +28,7 @@ const OrderDetail = () => {
   const { data: tickets, loading: ticketsLoading } = useOrderTicketsRealtime(id);
   const [isIncreaseOpen, setIsIncreaseOpen] = useState(false);
   const [isDecreaseOpen, setIsDecreaseOpen] = useState(false);
+  const [isRefundOpen, setIsRefundOpen] = useState(false);
   const [isRecoveryOpen, setIsRecoveryOpen] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState('');
@@ -103,6 +105,10 @@ const OrderDetail = () => {
     !order.competition_winner_ref &&
     !order.competition_winner_ticket_ref &&
     order.is_winner !== true;
+  const canProcessRefund =
+    (order.status || '').toLowerCase() === 'paid' &&
+    Number(order.total_amount || 0) > 0 &&
+    Boolean(order.stripe_payment_intent_id || order.stripe_checkout_session_id);
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 fade-in pb-20">
@@ -149,15 +155,16 @@ const OrderDetail = () => {
                   {t('orders.detail.decrease.open')}
                 </Button>
               )}
-              <Button
-                variant="outline"
-                className="flex items-center gap-2 text-gray-500 border-white/10"
-                disabled
-                title={t('orders.detail.refundUnavailableNote')}
-              >
-                <RefreshCcw size={16} />
-                {t('orders.detail.refundUnavailable')}
-              </Button>
+              {canProcessRefund && (
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => setIsRefundOpen(true)}
+                >
+                  <RefreshCcw size={16} />
+                  {t('orders.detail.refund.open')}
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -385,6 +392,12 @@ const OrderDetail = () => {
         userName={order.user_name}
         competitionTitle={order.competition_title}
         tickets={tickets}
+      />
+
+      <RefundOrderModal
+        isOpen={isRefundOpen}
+        onClose={() => setIsRefundOpen(false)}
+        order={order}
       />
 
       <ConfirmationModal

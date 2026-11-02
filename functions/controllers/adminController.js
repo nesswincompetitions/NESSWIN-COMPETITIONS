@@ -8,7 +8,7 @@ import {
   createDecreaseUserCompetitionTicketsHandler,
   createIncreaseUserCompetitionTicketsHandler,
 } from "../services/ticketAdjustmentService.js";
-import { createRefundOrderHandler } from "../services/refundOrderService.js";
+import { createRefundOrderHandler, createGetOrderRefundEligibilityHandler } from "../services/refundOrderService.js";
 
 /**
  * Callable: grantAdminBonus
@@ -165,9 +165,17 @@ export const decreaseUserCompetitionTickets = onCall(
 );
 
 /**
+ * Callable: getOrderRefundEligibility
+ * Payload: { orderId: string }
+ */
+export const getOrderRefundEligibility = onCall(
+  createGetOrderRefundEligibilityHandler({ db, assertAdmin, HttpsError })
+);
+
+/**
  * Callable: refundOrder
- * Rejects until a real payment-provider refund workflow exists.
+ * Payload: { orderId, amountMinor, reason, requestId }
  */
 export const refundOrder = onCall(
-  createRefundOrderHandler({ assertAdmin, HttpsError })
+  createRefundOrderHandler({ db, admin, logger, assertAdmin, HttpsError })
 );

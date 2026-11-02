@@ -241,6 +241,33 @@
           "submittingBlock": "Eliminando y bloqueando participante...",
           "successBlock": "Participante eliminado y bloqueado de esta competición tras invalidar {{count}} entrada(s).",
           "nothingBlock": "Participante bloqueado en esta competición. No fue necesario invalidar entradas."
+        },
+        "adjust": {
+          "open": "Ajustar cantidad de entradas",
+          "title": "Ajustar cantidad de entradas",
+          "warning": "Esto invalida solo las entradas seleccionadas. No reembolsa pagos, no restaura créditos de bonificación, no libera capacidad, no renumera entradas ni elimina el historial del participante.",
+          "loadingOrders": "Cargando pedidos de pago del participante...",
+          "noEligibleOrder": "Este participante no tiene un pedido pagado con entradas activas ajustables.",
+          "orderLabel": "Pedido de pago",
+          "orderOption": "Pedido n.º {{id}} · {{count}} entrada(s) en total",
+          "orderHint": "La reducción se aplica a un pedido. Seleccione el pedido de pago original que desea ajustar.",
+          "originLabel": "Tipo de entrada",
+          "originPaid": "Entradas pagadas ({{count}} elegibles)",
+          "originBonus": "Entradas de bonificación ({{count}} elegibles)",
+          "eligibleCount": "{{count}} entrada(s) activa(s) elegible(s) para este pedido y tipo de entrada.",
+          "noEligible": "No hay entradas activas elegibles para este pedido y tipo de entrada.",
+          "quantityLabel": "Cantidad a reducir",
+          "currentEligible": "Elegibles actuales",
+          "projectedRemaining": "Restantes previstas",
+          "quantityHint": "Máximo {{max}} entradas por solicitud. Se invalidan primero las entradas elegibles con el número más alto.",
+          "exceedsEligible": "Solo hay {{count}} entrada(s) activa(s) elegible(s) disponibles.",
+          "reasonLabel": "Motivo",
+          "reasonPlaceholder": "Explique por qué se reducen estas entradas",
+          "confirmCheckbox": "Entiendo que esto solo reduce la titularidad de las entradas y no emite un reembolso.",
+          "confirm": "Reducir entradas",
+          "submitting": "Reduciendo entradas...",
+          "success": "Se redujeron {{count}} entrada(s). No se emitió ningún reembolso.",
+          "error": "No se pudieron reducir las entradas."
         }
       },
       "draw": {
@@ -614,7 +641,47 @@
       "refundIssued": "Reembolso emitido",
       "refundAmount": "Monto",
       "refundDate": "Fecha",
-      "refundReason": "Razón"
+      "refundReason": "Razón",
+      "refund": {
+        "open": "Procesar reembolso",
+        "title": "Procesar reembolso de Stripe",
+        "orderLabel": "Pedido n.º {{id}}",
+        "unknownUser": "Usuario desconocido",
+        "loading": "Verificando el pago original de Stripe...",
+        "loadError": "No se pudo cargar la elegibilidad del reembolso.",
+        "originalAmount": "Pagado originalmente",
+        "previouslyRefunded": "Reembolsado previamente",
+        "remaining": "Reembolsable restante",
+        "calculationBasis": "El importe reembolsable se deriva del pago original liquidado en Stripe y de sus reembolsos de Stripe, no del precio actual de las entradas del sorteo.",
+        "warning": "Esto crea un reembolso real en Stripe. No invalida ni restaura entradas. Los cambios de entradas deben realizarse por separado.",
+        "amountLabel": "Importe del reembolso ({{currency}})",
+        "projectedRemaining": "Restante tras este reembolso: {{amount}}",
+        "refundAll": "Reembolsar el resto",
+        "exceedsRemaining": "El importe no puede superar {{amount}}.",
+        "invalidAmount": "Introduzca un importe válido con un máximo de dos decimales.",
+        "reasonLabel": "Motivo",
+        "reasonPlaceholder": "Explique por qué se emite este reembolso",
+        "history": "Historial de reembolsos",
+        "pendingId": "Pendiente de confirmación de Stripe",
+        "confirmCheckbox": "Confirmo que {{amount}} se reembolsarán a través de Stripe.",
+        "confirm": "Emitir reembolso",
+        "submitting": "Emitiendo reembolso...",
+        "success": "Stripe confirmó el reembolso de {{amount}}.",
+        "pending": "Stripe sigue procesando el reembolso. El pedido se actualizará cuando Stripe lo confirme.",
+        "failed": "Stripe no confirmó el reembolso.",
+        "pendingBanner": "Un reembolso de {{amount}} está {{status}} en Stripe. Reintente para reconciliar esta misma solicitud; no cree un nuevo reembolso.",
+        "uncertain": "Stripe no ha confirmado si se creó el reembolso. La solicitud se conserva como pendiente; reintente el mismo ID de solicitud para reconciliarla.",
+        "reconcile": "Reconciliar reembolso",
+        "status": {
+          "pending": "Pendiente",
+          "requires_action": "Requiere acción",
+          "succeeded": "Completado",
+          "failed": "Fallido",
+          "canceled": "Cancelado",
+          "uncertain": "Incierto"
+        },
+        "pendingWithStripe": "{{amount}} está pendiente en Stripe y no se cuenta como reembolso completado."
+      }
     }
   },
   "winners": {
@@ -819,7 +886,15 @@
       "stateChangeNotice": "El estado de los créditos cambió después de la prevalidación; los créditos afectados quedan excluidos.",
       "errorToast": "Error al revocar créditos",
       "excludedNotice": "{{count}} crédito(s) no pudieron revocarse porque su estado cambió (propietario/tipo/ausente); excluidos de este reintento.",
-      "reconcileNotice": "El saldo requiere reconciliación antes de revocar los créditos restantes de forma segura. Reintentar sin corregir el saldo no tendrá éxito."
+      "reconcileNotice": "El saldo requiere reconciliación antes de revocar los créditos restantes de forma segura. Reintentar sin corregir el saldo no tendrá éxito.",
+      "quantityLabel": "Cantidad a revocar",
+      "revokeAll": "Revocar todo",
+      "currentAvailable": "Disponibles",
+      "selected": "Seleccionadas",
+      "projectedRemaining": "Restantes previstas",
+      "quantityHint": "Revoque entre 1 y {{max}} crédito(s) no utilizados.",
+      "exceedsAvailable": "Solo hay {{count}} crédito(s) no utilizados disponibles.",
+      "selectionMismatch": "Los créditos seleccionados no coinciden con la cantidad solicitada. Actualice e inténtelo de nuevo."
     }
   },
   "settings": {
@@ -868,7 +943,7 @@
     }
   },
   "additionalPayments": {
-    "requestButton": "Solicitar pago",
+    "requestButton": "Solicitar entradas de pago adicionales",
     "copyLink": "Copiar enlace",
     "copySuccess": "Enlace de pago copiado.",
     "copyError": "No se pudo copiar el enlace de pago.",

@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import Modal from '@/shared/components/ui/Modal';
 import Button from '@/shared/components/ui/Button';
 import { AlertTriangle, Loader2, ShieldAlert, Undo2 } from 'lucide-react';
 import { revokeAdminBonus } from '@/modules/admin/bonus/services/bonusService';
+
+const makeRequestId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `revoke-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const BLOCKING_ERROR_CODES = new Set([
   'failed-precondition',
@@ -28,15 +33,25 @@ const RevokeBonusModal = ({
 }) => {
   const { t } = useTranslation('admin');
   const [reason, setReason] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [requestId, setRequestId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [partial, setPartial] = useState(null);
   const [retryIds, setRetryIds] = useState(null);
   const [excludedCount, setExcludedCount] = useState(0);
   const [blocked, setBlocked] = useState(false);
+  const initialUnusedRef = useRef(unusedQuantity);
+
+  useEffect(() => {
+    initialUnusedRef.current = unusedQuantity;
+  }, [unusedQuantity]);
 
   useEffect(() => {
     if (isOpen) {
+      const initialQuantity = initialUnusedRef.current > 0 ? initialUnusedRef.current : 1;
       setReason('');
+      setQuantity(initialQuantity);
+      setRequestId(makeRequestId());
       setPartial(null);
       setIsSubmitting(false);
       setRetryIds(null);
@@ -45,9 +60,11 @@ const RevokeBonusModal = ({
     }
   }, [isOpen, creditIds]);
 
-  const activeIds = retryIds ?? creditIds;
+  const requestedQuantity = retryIds ? retryIds.length : quantity;
+  const activeIds = retryIds ?? creditIds.slice(0, Math.max(0, Math.min(quantity, creditIds.length)));
   const selectedCount = activeIds.length;
   const displayedEligible = partial ? (partial.remainingCount ?? 0) : unusedQuantity;
+  const projectedRemaining = Math.max(0, unusedQuantity - selectedCount);
   const partialSummary = partial
     ? partial.revokedCount > 0
       ? t('bonusTickets.revoke.partialSummary', {
@@ -62,7 +79,10 @@ const RevokeBonusModal = ({
     !partial &&
     !blocked &&
     unusedQuantity > 0 &&
-    selectedCount > 0 &&
+    Number.isInteger(quantity) &&
+    quantity > 0 &&
+    quantity <= unusedQuantity &&
+    selectedCount === quantity &&
     reason.trim();
 
   const retryable =
@@ -82,7 +102,7 @@ const RevokeBonusModal = ({
 
     setIsSubmitting(true);
     try {
-      const result = await revokeAdminBonus(userId, submittedIds, reason.trim());
+      const result = await revokeAdminBonus(userId, submittedIds, reason.trim(), requestId);
       if (result?.complete) {
         toast.success(
           result.revokedCount > 0
@@ -217,6 +237,70 @@ const RevokeBonusModal = ({
             </Button>
           </div>
         )}
+
+        <div className="space-y-2">
+          <label htmlFor="revoke-quantity" className="text-sm font-medium text-gray-300">
+            {t('bonusTickets.revoke.quantityLabel')}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="revoke-quantity"
+              type="number"
+              min="1"
+              max={Math.max(unusedQuantity, 1)}
+              step="1"
+              value={quantity}
+              onChange={(event) => {
+                const next = Number.parseInt(event.target.value, 10);
+                setQuantity(Number.isFinite(next) ? next : 0);
+              }}
+              disabled={isSubmitting || Boolean(partial)}
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 disabled:opacity-50"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 h-[42px]"
+              onClick={() => setQuantity(unusedQuantity)}
+              disabled={isSubmitting || Boolean(partial) || unusedQuantity <= 0}
+            >
+              {t('bonusTickets.revoke.revokeAll')}
+            </Button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2">
+              <p className="text-lg font-bold text-white">{unusedQuantity}</p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                {t('bonusTickets.revoke.currentAvailable')}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2">
+              <p className="text-lg font-bold text-white">{selectedCount}</p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                {t('bonusTickets.revoke.selected')}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-2">
+              <p className="text-lg font-bold text-white">{projectedRemaining}</p>
+              <p className="text-[10px] uppercase tracking-wide text-gray-500">
+                {t('bonusTickets.revoke.projectedRemaining')}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            {t('bonusTickets.revoke.quantityHint', { max: unusedQuantity })}
+          </p>
+          {quantity > unusedQuantity && (
+            <p className="text-xs text-red-400">
+              {t('bonusTickets.revoke.exceedsAvailable', { count: unusedQuantity })}
+            </p>
+          )}
+          {requestedQuantity !== selectedCount && !partial && (
+            <p className="text-xs text-red-400">
+              {t('bonusTickets.revoke.selectionMismatch')}
+            </p>
+          )}
+        </div>
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-300">

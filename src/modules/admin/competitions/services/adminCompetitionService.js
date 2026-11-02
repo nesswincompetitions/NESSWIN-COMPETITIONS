@@ -163,6 +163,10 @@ export const fetchCompetitionParticipants = async (competitionId, participantUid
           ticketNumber: Number(data.ticket_number) || 0,
           status: String(data.status || '').toLowerCase(),
           isWinner: data.is_winner === true,
+          orderId: getReferenceId(data.order_id),
+          allocationType: typeof data.allocation_type === 'string' && data.allocation_type.trim()
+            ? data.allocation_type.trim()
+            : 'legacy_unknown',
         });
       }
     }

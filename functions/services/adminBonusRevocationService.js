@@ -1,3 +1,9 @@
+import {
+  AUDIT_ACTIONS,
+  createAdminAuditActor,
+  createAdminAuditService,
+} from "./adminAuditService.js";
+
 export const REVOKE_MAX_IDS = 5000;
 export const REVOKE_PREVALIDATION_GROUP = 500;
 export const REVOKE_MAX_CREDITS_PER_CHUNK = 250;
@@ -37,10 +43,12 @@ function buildRevokeAbort(type, message, meta = {}) {
  * attributed exactly once across the response counters.
  */
 export function createRevokeAdminBonusHandler({ db, admin, logger, assertAdmin, HttpsError }) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
   return async function handleRevokeAdminBonus(request) {
     const adminUid = await assertAdmin(request);
 
-    const { userId, creditIds, reason } = request.data || {};
+    const { userId, creditIds, reason, requestId } = request.data || {};
 
     if (!userId || typeof userId !== "string") {
       throw new HttpsError("invalid-argument", "userId is required.");
@@ -63,6 +71,10 @@ export function createRevokeAdminBonusHandler({ db, admin, logger, assertAdmin, 
     if (uniqueIds.length === 0) {
       throw new HttpsError("invalid-argument", "No valid credit IDs remain after deduplication.");
     }
+    const normalizedRequestId =
+      typeof requestId === "string" && /^[A-Za-z0-9_-]{8,128}$/.test(requestId.trim())
+        ? requestId.trim()
+        : null;
 
     const userRef = db.collection("user").doc(userId);
     const userSnap = await userRef.get();
@@ -247,6 +259,23 @@ export function createRevokeAdminBonusHandler({ db, admin, logger, assertAdmin, 
             free_tickets: admin.firestore.FieldValue.increment(-toRevoke.length),
             updated_at: serverTs,
           });
+
+          auditService.recordEventInTransaction(
+            transaction,
+            {
+              action: AUDIT_ACTIONS.BONUS_REVOKED,
+              entity_type: "bonus_credit",
+              entity_id: userId,
+              summary: `Revoked ${toRevoke.length} unused admin bonus credit(s).`,
+              reason: reasonText,
+              before: { free_tickets: rawBalance },
+              after: { free_tickets: rawBalance - toRevoke.length, reward_revoked: true },
+              related: { user_id: userId },
+              source: "admin_bonus_revocation",
+              correlation_id: normalizedRequestId,
+            },
+            { actor: createAdminAuditActor(adminUid) }
+          );
 
           return {
             revokedIds: toRevoke.map((r) => r.id),

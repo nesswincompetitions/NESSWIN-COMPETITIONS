@@ -189,6 +189,21 @@ describe('admin ticket decrease', () => {
     assert.equal(audit.request_id, 'req-decrease-001');
   });
 
+  it('does not initiate or record a refund when decreasing tickets', async () => {
+    const db = new MemoryDB();
+    seed(db);
+
+    const result = await makeHandler(db)(request({ origin: 'paid', quantity: 1 }));
+
+    assert.equal(result.paymentEffect, 'none');
+    const order = db.snapshot('order', 'o1').data();
+    assert.equal(order.status, 'paid');
+    assert.equal(order.stripe_payment_intent_id, 'pi_123');
+    assert.equal(order.refunds, undefined);
+    assert.equal(order.refunded_amount_minor, undefined);
+    assert.equal(order.refund_status, undefined);
+  });
+
   it('decreases each supported bonus origin independently', async () => {
     const cases = [
       ['pack_bonus', 't5'],

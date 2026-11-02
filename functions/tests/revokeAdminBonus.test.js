@@ -244,6 +244,7 @@ function request(creditIds, overrides = {}) {
       userId: overrides.userId ?? 'targetUser',
       creditIds,
       reason: overrides.reason ?? 'cleanup',
+      requestId: overrides.requestId,
     },
   };
 }
@@ -728,6 +729,47 @@ describe('revokeAdminBonus regression', () => {
     assert.equal(result.complete, true);
     assert.equal(result.revokedCount, 1);
     assert.equal(freeTickets(db), 9);
+    assertNoNotificationOrLedgerWrites(db);
+  });
+
+  it('22. writes a central audit event with the trusted actor and correlation ID', async () => {
+    const db = makeDb({ free_tickets: 10, credits: makeCredits(3) });
+    const { handler } = makeHandler(db);
+
+    const result = await handler(request(['c000', 'c001'], {
+      requestId: 'bonus-revoke-request-001',
+    }));
+
+    assert.equal(result.revokedCount, 2);
+    const events = [...db.collectionStore('admin_audit_events').values()];
+    assert.equal(events.length, 1);
+    assert.equal(events[0].action, 'bonus.revoked');
+    assert.equal(events[0].entity_type, 'bonus_credit');
+    assert.equal(events[0].entity_id, 'targetUser');
+    assert.equal(events[0].actor_uid, 'admin1');
+    assert.equal(events[0].actor_role, 'admin');
+    assert.equal(events[0].correlation_id, 'bonus-revoke-request-001');
+    assert.equal(events[0].before.free_tickets, 10);
+    assert.equal(events[0].after.free_tickets, 8);
+    assert.equal(events[0].reason, 'cleanup');
+  });
+
+  it('23. does not modify already-issued competition tickets', async () => {
+    const db = makeDb({ free_tickets: 5, credits: [{ id: 'c1' }] });
+    db.collectionStore('ticket').set('t1', {
+      status: 'active',
+      is_winner: false,
+      allocation_type: 'admin_bonus',
+      ticket_number: 1,
+    });
+    db.bumpVersion('ticket/t1');
+    const before = { ...stored(db, 'ticket', 't1') };
+    const { handler } = makeHandler(db);
+
+    const result = await handler(request(['c1']));
+
+    assert.equal(result.revokedCount, 1);
+    assert.deepEqual(stored(db, 'ticket', 't1'), before);
     assertNoNotificationOrLedgerWrites(db);
   });
 
