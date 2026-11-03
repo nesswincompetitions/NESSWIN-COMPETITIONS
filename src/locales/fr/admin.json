@@ -898,7 +898,7 @@
       "excludedNotice": "{{count}} crédit(s) n'ont pas pu être révoqués car leur état a changé (propriétaire/type/absent) ; exclus de cette relance.",
       "reconcileNotice": "Le solde nécessite une réconciliation avant que les crédits restants puissent être révoqués en toute sécurité. Réessayer sans corriger le solde ne réussira pas.",
       "quantityLabel": "Quantité à révoquer",
-      "revokeAll": "Tout révoquer",
+      "revokeAll": "Au maximum",
       "currentAvailable": "Disponibles",
       "selected": "Sélectionnés",
       "projectedRemaining": "Restants prévus",

@@ -913,7 +913,7 @@
       "excludedNotice": "{{count}} credit(s) could not be revoked because their state changed (ownership/reward type/missing); they are excluded from this retry.",
       "reconcileNotice": "The balance requires reconciliation before the remaining credits can be safely revoked. Retrying without fixing the balance will not succeed.",
       "quantityLabel": "Quantity to revoke",
-      "revokeAll": "Revoke all",
+      "revokeAll": "Set to max",
       "currentAvailable": "Available",
       "selected": "Selected",
       "projectedRemaining": "Projected remaining",

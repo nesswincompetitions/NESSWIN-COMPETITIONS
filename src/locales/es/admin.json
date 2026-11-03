@@ -898,7 +898,7 @@
       "excludedNotice": "{{count}} crédito(s) no pudieron revocarse porque su estado cambió (propietario/tipo/ausente); excluidos de este reintento.",
       "reconcileNotice": "El saldo requiere reconciliación antes de revocar los créditos restantes de forma segura. Reintentar sin corregir el saldo no tendrá éxito.",
       "quantityLabel": "Cantidad a revocar",
-      "revokeAll": "Revocar todo",
+      "revokeAll": "Al máximo",
       "currentAvailable": "Disponibles",
       "selected": "Seleccionadas",
       "projectedRemaining": "Restantes previstas",
