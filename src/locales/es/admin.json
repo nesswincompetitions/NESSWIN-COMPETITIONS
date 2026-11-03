@@ -190,6 +190,7 @@
         "tableTickets": "Entradas",
         "tableStatus": "Estado",
         "tableActions": "Acciones",
+        "moreActions": "Más acciones",
         "modalTitle": "Entradas del participante",
         "modalDesc": "Viendo las {{count}} entradas de {{name}}",
         "activeCount": "{{count}} activas",
@@ -244,6 +245,7 @@
         },
         "adjust": {
           "open": "Ajustar cantidad de entradas",
+          "openShort": "Ajustar entradas",
           "title": "Ajustar cantidad de entradas",
           "warning": "Esto invalida solo las entradas seleccionadas. No reembolsa pagos, no restaura créditos de bonificación, no libera capacidad, no renumera entradas ni elimina el historial del participante.",
           "loadingOrders": "Cargando pedidos de pago del participante...",
@@ -944,6 +946,7 @@
   },
   "additionalPayments": {
     "requestButton": "Solicitar entradas de pago adicionales",
+    "requestButtonShort": "Solicitar entradas",
     "copyLink": "Copiar enlace",
     "copySuccess": "Enlace de pago copiado.",
     "copyError": "No se pudo copiar el enlace de pago.",

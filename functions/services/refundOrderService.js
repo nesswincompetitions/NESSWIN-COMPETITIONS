@@ -48,9 +48,29 @@ function resolveRefundStatus(previousStatus, incomingStatus) {
   if (!incoming) {
     throw new Error(`Unsupported Stripe refund status: ${String(incomingStatus)}`);
   }
+  // Stripe `succeeded` is authoritative financial completion and may supersede
+  // a previously stored failed/canceled status. Those statuses are not
+  // reservation-holding, so the transition adds completed refund value without
+  // releasing the reservation a second time. Succeeded never regresses.
   return REFUND_STATUS_RANK[incoming] >= REFUND_STATUS_RANK[previous]
     ? incoming
     : previous;
+}
+
+function releaseReservedAmount(currentReservedMinor, amountMinor) {
+  const current = Number(currentReservedMinor) || 0;
+  const amount = Number(amountMinor) || 0;
+  if (amount > current) {
+    return {
+      reservedMinor: current,
+      underflow: {
+        currentReservedMinor: current,
+        amountMinor: amount,
+        shortfallMinor: amount - current,
+      },
+    };
+  }
+  return { reservedMinor: current - amount, underflow: null };
 }
 
 function classifyStripeRefundError(error) {
@@ -436,17 +456,22 @@ function planPersistedRefundUpdate({
 
   let reservedMinor = Number(orderData.refund_reserved_amount_minor) || 0;
   let refundedMinor = Number(orderData.refunded_amount_minor) || 0;
+  let reservationUnderflow = null;
 
   if (!wasSucceeded && nowSucceeded) {
     if (wasReserved) {
-      reservedMinor = Math.max(0, reservedMinor - amountMinor);
+      const release = releaseReservedAmount(reservedMinor, amountMinor);
+      reservedMinor = release.reservedMinor;
+      reservationUnderflow = release.underflow;
     }
     const totalCommittedAfter = priorStripeRefundedMinor + (
       resultIncludedInPrior ? 0 : amountMinor
     );
     refundedMinor = Math.max(refundedMinor, totalCommittedAfter);
   } else if (wasReserved && nowTerminalFailure) {
-    reservedMinor = Math.max(0, reservedMinor - amountMinor);
+    const release = releaseReservedAmount(reservedMinor, amountMinor);
+    reservedMinor = release.reservedMinor;
+    reservationUnderflow = release.underflow;
   }
 
   const nextRecord = {
@@ -514,12 +539,14 @@ function planPersistedRefundUpdate({
     reservedMinor,
     nextStatus,
     shouldAudit: statusChanged,
+    reservationUnderflow,
   };
 }
 
 async function persistRefundResult({
   db,
   auditService,
+  logger,
   orderRef,
   originalAmountMinor,
   paymentIntentId,
@@ -532,7 +559,7 @@ async function persistRefundResult({
 }) {
   const updatedAtMillis = Date.now();
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const freshOrderSnap = await transaction.get(orderRef);
     if (!freshOrderSnap.exists) {
       throw new Error("Order not found while recording the refund.");
@@ -546,6 +573,7 @@ async function persistRefundResult({
       reservedMinor,
       nextStatus,
       shouldAudit,
+      reservationUnderflow,
     } = planPersistedRefundUpdate({
         orderData: freshOrder,
         originalAmountMinor,
@@ -603,12 +631,25 @@ async function persistRefundResult({
       refundedAmountMinor: refundedMinor,
       reservedMinor,
       status: nextStatus,
+      reservationUnderflow,
     };
   });
+
+  if (result.reservationUnderflow && logger?.error) {
+    logger.error("[refundOrder] Reservation aggregate underflow detected", {
+      requestId,
+      storedReservedMinor: result.reservationUnderflow.currentReservedMinor,
+      recordAmountMinor: result.reservationUnderflow.amountMinor,
+      shortfallMinor: result.reservationUnderflow.shortfallMinor,
+    });
+  }
+
+  return result;
 }
 
 async function releaseFailedReservation({
   db,
+  logger,
   orderRef,
   requestId,
   submissionToken,
@@ -616,9 +657,9 @@ async function releaseFailedReservation({
 }) {
   const updatedAtMillis = Date.now();
   try {
-    await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (transaction) => {
       const freshSnap = await transaction.get(orderRef);
-      if (!freshSnap.exists) return;
+      if (!freshSnap.exists) return null;
       const freshOrder = freshSnap.data();
       const records = getRefundRecords(freshOrder);
       const index = records.findIndex((record) => record?.request_id === requestId);
@@ -636,18 +677,28 @@ async function releaseFailedReservation({
         updated_at: updatedAtMillis,
       };
       const refundedMinor = Number(freshOrder.refunded_amount_minor) || 0;
+      const release = releaseReservedAmount(
+        Number(freshOrder.refund_reserved_amount_minor) || 0,
+        amount
+      );
       transaction.update(orderRef, {
         refunds: nextRecords,
-        refund_reserved_amount_minor: Math.max(
-          0,
-          (Number(freshOrder.refund_reserved_amount_minor) || 0) - amount
-        ),
+        refund_reserved_amount_minor: release.reservedMinor,
         refund_status: refundedMinor > 0 ? "partial" : null,
         last_refund_status: "failed",
         last_refund_at: updatedAtMillis,
         updated_at: updatedAtMillis,
       });
+      return { reservationUnderflow: release.underflow };
     });
+    if (result?.reservationUnderflow && logger?.error) {
+      logger.error("[refundOrder] Reservation aggregate underflow detected", {
+        requestId,
+        storedReservedMinor: result.reservationUnderflow.currentReservedMinor,
+        recordAmountMinor: result.reservationUnderflow.amountMinor,
+        shortfallMinor: result.reservationUnderflow.shortfallMinor,
+      });
+    }
   } catch (error) {
     console.error("[refundOrder] Failed to release refund reservation:", error);
   }
@@ -658,6 +709,7 @@ function assertExistingReservationMatches({
   amountMinor,
   currency,
   reason,
+  paymentIntentId,
   HttpsError,
 }) {
   if (Number(record?.amount_minor) !== amountMinor) {
@@ -679,6 +731,12 @@ function assertExistingReservationMatches({
     throw new HttpsError(
       "failed-precondition",
       "This request ID was already used for a different refund reason."
+    );
+  }
+  if (getStripeValue(record?.payment_intent_id) !== paymentIntentId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This request ID was already used for a different refund payment intent."
     );
   }
 }
@@ -705,6 +763,15 @@ async function reserveOrClaimRefund({
     }
 
     const freshOrder = freshSnap.data();
+    const freshPaymentIntentId = getStripeValue(
+      freshOrder.stripe_payment_intent_id
+    );
+    if (!freshPaymentIntentId || freshPaymentIntentId !== paymentIntentId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The order payment intent changed during refund processing."
+      );
+    }
     const records = getRefundRecords(freshOrder);
     const existingIndex = records.findIndex(
       (record) => record && record.request_id === requestId
@@ -717,6 +784,7 @@ async function reserveOrClaimRefund({
         amountMinor,
         currency,
         reason,
+        paymentIntentId: freshPaymentIntentId,
         HttpsError,
       });
 
@@ -796,7 +864,7 @@ async function reserveOrClaimRefund({
       status: "pending",
       reason,
       actor_uid: actorUid,
-      payment_intent_id: paymentIntentId,
+      payment_intent_id: freshPaymentIntentId,
       submission_token: submissionToken,
       submission_started_at: nowMillis,
       submission_attempts: 1,
@@ -808,9 +876,6 @@ async function reserveOrClaimRefund({
       refunds: [...records, refundRecord],
       refund_reserved_amount_minor: reservedMinor + amountMinor,
       refund_status: refundedMinor > 0 ? "partial" : "pending",
-      ...(freshOrder.stripe_payment_intent_id
-        ? {}
-        : { stripe_payment_intent_id: paymentIntentId }),
       updated_at: nowMillis,
     });
 
@@ -995,6 +1060,7 @@ export function createRefundOrderHandler({
         amountMinor: normalizedAmountMinor,
         currency: context.currency,
         reason: reasonText,
+        paymentIntentId: context.paymentIntentId,
         HttpsError,
       });
 
@@ -1091,6 +1157,7 @@ export function createRefundOrderHandler({
         const persisted = await persistRefundResult({
           db,
           auditService,
+          logger,
           orderRef,
           originalAmountMinor: context.originalAmountMinor,
           paymentIntentId: context.paymentIntentId,
@@ -1163,6 +1230,7 @@ export function createRefundOrderHandler({
       if (classification.outcome === "definitive_failure") {
         await releaseFailedReservation({
           db,
+          logger,
           orderRef,
           requestId: normalizedRequestId,
           submissionToken,
@@ -1196,6 +1264,7 @@ export function createRefundOrderHandler({
         const persisted = await persistRefundResult({
           db,
           auditService,
+          logger,
           orderRef,
           originalAmountMinor: context.originalAmountMinor,
           paymentIntentId: context.paymentIntentId,
@@ -1245,6 +1314,7 @@ export function createRefundOrderHandler({
       persisted = await persistRefundResult({
         db,
         auditService,
+        logger,
         orderRef,
         originalAmountMinor: context.originalAmountMinor,
         paymentIntentId: context.paymentIntentId,
@@ -1429,6 +1499,7 @@ export async function processRefundWebhookEvent({
     const persisted = await persistRefundResult({
       db,
       auditService,
+      logger,
       orderRef,
       originalAmountMinor,
       paymentIntentId: refundPaymentIntentId,

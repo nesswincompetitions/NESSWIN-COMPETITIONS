@@ -190,6 +190,7 @@
         "tableTickets": "Tickets",
         "tableStatus": "Statut",
         "tableActions": "Actions",
+        "moreActions": "Plus d'actions",
         "modalTitle": "Tickets du participant",
         "modalDesc": "Affichage de tous les {{count}} tickets de {{name}}",
         "activeCount": "{{count}} actif(s)",
@@ -244,6 +245,7 @@
         },
         "adjust": {
           "open": "Ajuster la quantité de tickets",
+          "openShort": "Ajuster tickets",
           "title": "Ajuster la quantité de tickets",
           "warning": "Cela invalide uniquement les tickets sélectionnés. Aucun remboursement, aucune restauration de crédits bonus, aucune libération de capacité, aucune renumérotation et aucune suppression de l'historique du participant n'a lieu.",
           "loadingOrders": "Chargement des commandes payées du participant...",
@@ -944,6 +946,7 @@
   },
   "additionalPayments": {
     "requestButton": "Demander des tickets payants supplémentaires",
+    "requestButtonShort": "Demander des tickets",
     "copyLink": "Copier le lien",
     "copySuccess": "Lien de paiement copié.",
     "copyError": "Impossible de copier le lien de paiement.",

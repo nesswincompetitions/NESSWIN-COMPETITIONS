@@ -176,11 +176,11 @@ function seedWebhookReservation(db, recordOverrides = {}, orderOverrides = {}) {
   return record;
 }
 
-function makeHandler(db, stripe) {
+function makeHandler(db, stripe, logger = createMockLogger()) {
   return createRefundOrderHandler({
     db,
     admin: createMockAdmin(),
-    logger: createMockLogger(),
+    logger,
     assertAdmin: async () => ADMIN_UID,
     HttpsError: MockHttpsError,
     stripeFactory: () => stripe,
@@ -698,6 +698,146 @@ describe('admin Stripe refund', () => {
         /different refund currency/.test(error.message)
     );
     assert.equal(calls.create.length, 0);
+  });
+
+  it('replays when the stored and current PaymentIntent match', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    seedWebhookReservation(db, {
+      refund_id: 're_pi_match',
+      status: 'succeeded',
+    });
+    const { stripe, calls } = makeStripe();
+
+    const result = await makeHandler(db, stripe)(
+      refundRequest({
+        requestId: 'refund-webhook-001',
+        reason: 'webhook test',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.idempotentReplay, true);
+    assert.equal(calls.create.length, 0);
+    assert.equal(db.snapshot('order', 'o1').data().refunded_amount_minor, undefined);
+  });
+
+  it('rejects request-ID reuse when the stored PaymentIntent differs', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    seedWebhookReservation(db, {
+      refund_id: 're_pi_old',
+      status: 'succeeded',
+      payment_intent_id: 'pi_old',
+    });
+    const orderBefore = db.snapshot('order', 'o1').data();
+    const { stripe, calls } = makeStripe();
+
+    await assert.rejects(
+      makeHandler(db, stripe)(
+        refundRequest({
+          requestId: 'refund-webhook-001',
+          reason: 'webhook test',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' &&
+        /different refund payment intent/.test(error.message)
+    );
+
+    assert.equal(calls.create.length, 0);
+    assert.deepEqual(db.snapshot('order', 'o1').data(), orderBefore);
+  });
+
+  it('rejects a PaymentIntent change between the precheck and transaction', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    seedWebhookReservation(db, {
+      status: 'pending',
+      payment_intent_id: 'pi_1',
+    });
+    const { stripe, calls } = makeStripe();
+    db.beforeTransaction = () => {
+      const order = db.snapshot('order', 'o1').data();
+      db.setDocument('order', 'o1', {
+        ...order,
+        stripe_payment_intent_id: 'pi_changed',
+      });
+    };
+
+    await assert.rejects(
+      makeHandler(db, stripe)(
+        refundRequest({
+          requestId: 'refund-webhook-001',
+          reason: 'webhook test',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' &&
+        /order payment intent changed during refund processing/.test(
+          error.message
+        )
+    );
+
+    assert.equal(calls.create.length, 0);
+    const order = db.snapshot('order', 'o1').data();
+    assert.equal(order.stripe_payment_intent_id, 'pi_changed');
+    assert.equal(order.refund_reserved_amount_minor, 3000);
+    assert.equal(order.refunded_amount_minor, undefined);
+    assert.equal(order.refunds.length, 1);
+    assert.equal(order.refunds[0].status, 'pending');
+    assert.equal(order.refunds[0].payment_intent_id, 'pi_1');
+  });
+
+  it('detects reservation aggregate underflow on definitive failure release', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    db.setDocument('order', 'o1', {
+      ...db.snapshot('order', 'o1').data(),
+      refunds: [
+        {
+          request_id: REQUEST_ID,
+          refund_id: null,
+          amount_minor: 3000,
+          currency: 'GBP',
+          status: 'pending',
+          reason: 'customer goodwill',
+          actor_uid: ADMIN_UID,
+          payment_intent_id: 'pi_1',
+          created_at: Date.now() - 10000,
+          updated_at: Date.now() - 10000,
+        },
+      ],
+      refund_reserved_amount_minor: 1000,
+      refund_status: 'pending',
+    });
+    const errors = [];
+    const logger = {
+      info: () => {},
+      warn: () => {},
+      error: (...args) => errors.push(args),
+    };
+    const { stripe } = makeStripe({
+      createError: Object.assign(new Error('invalid request'), {
+        type: 'StripeInvalidRequestError',
+        statusCode: 400,
+      }),
+    });
+
+    await assert.rejects(
+      makeHandler(db, stripe, logger)(refundRequest()),
+      (error) => error.code === 'failed-precondition'
+    );
+
+    const order = db.snapshot('order', 'o1').data();
+    assert.equal(order.refunds[0].status, 'failed');
+    assert.equal(order.refund_reserved_amount_minor, 1000);
+    const underflowErrors = errors.filter(([message]) =>
+      /Reservation aggregate underflow detected/.test(message)
+    );
+    assert.equal(underflowErrors.length, 1);
+    assert.equal(underflowErrors[0][1].storedReservedMinor, 1000);
+    assert.equal(underflowErrors[0][1].recordAmountMinor, 3000);
   });
 
   it('replays a duplicate admin request without issuing a second Stripe refund', async () => {
@@ -1296,6 +1436,235 @@ describe('Stripe refund webhook reconciliation', () => {
     assert.equal(order.refunded_amount_minor, 3000);
     assert.equal(order.refund_status, 'partial');
     assert.equal(order.refunds[0].status, 'succeeded');
+  });
+
+  for (const priorStatus of ['failed', 'canceled']) {
+    it(`allows authoritative succeeded to supersede a stored ${priorStatus} refund`, async () => {
+      const db = new MemoryDB();
+      seed(db);
+      seedWebhookReservation(db, {
+        refund_id: 're_supersede',
+        status: priorStatus,
+        updated_at: Date.now() - 1000,
+      });
+      const { stripe } = makeStripe({
+        refunds: [
+          {
+            id: 're_supersede',
+            amount: 3000,
+            currency: 'gbp',
+            status: 'succeeded',
+            payment_intent: 'pi_1',
+            metadata: {
+              orderId: 'o1',
+              refundRequestId: 'refund-webhook-001',
+            },
+          },
+        ],
+      });
+      const event = {
+        type: 'refund.updated',
+        data: {
+          object: {
+            id: 're_supersede',
+            amount: 3000,
+            currency: 'gbp',
+            status: 'succeeded',
+            payment_intent: 'pi_1',
+            metadata: {
+              orderId: 'o1',
+              refundRequestId: 'refund-webhook-001',
+            },
+          },
+        },
+      };
+
+      const outcome = await processRefundWebhookEvent({
+        db,
+        admin: createMockAdmin(),
+        logger: createMockLogger(),
+        stripe,
+        event,
+      });
+
+      assert.equal(outcome.statusCode, 200);
+      let order = db.snapshot('order', 'o1').data();
+      assert.equal(order.refund_reserved_amount_minor, 0);
+      assert.equal(order.refunded_amount_minor, 3000);
+      assert.equal(order.refunded_amount, 30);
+      assert.equal(order.refund_status, 'partial');
+      assert.equal(order.refunds[0].status, 'succeeded');
+      const auditCount = db.collectionStore('admin_audit_events').size;
+
+      const duplicate = await processRefundWebhookEvent({
+        db,
+        admin: createMockAdmin(),
+        logger: createMockLogger(),
+        stripe,
+        event,
+      });
+      assert.equal(duplicate.statusCode, 200);
+      order = db.snapshot('order', 'o1').data();
+      assert.equal(order.refund_reserved_amount_minor, 0);
+      assert.equal(order.refunded_amount_minor, 3000);
+      assert.equal(db.collectionStore('admin_audit_events').size, auditCount);
+    });
+  }
+
+  it('keeps follow-up refund eligibility correct after failed to succeeded correction', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    seedWebhookReservation(db, {
+      refund_id: 're_failed_then_succeeded',
+      status: 'failed',
+    });
+    const { stripe, calls } = makeStripe({
+      refunds: [
+        {
+          id: 're_failed_then_succeeded',
+          amount: 3000,
+          currency: 'gbp',
+          status: 'succeeded',
+          payment_intent: 'pi_1',
+          metadata: {
+            orderId: 'o1',
+            refundRequestId: 'refund-webhook-001',
+          },
+        },
+      ],
+      createResult: {
+        id: 're_after_correction',
+        amount: 3000,
+        currency: 'gbp',
+        status: 'succeeded',
+        payment_intent: 'pi_1',
+        metadata: {
+          orderId: 'o1',
+          refundRequestId: 'refund-after-correction-001',
+          adminUid: ADMIN_UID,
+        },
+      },
+    });
+
+    const confirmation = await processRefundWebhookEvent({
+      db,
+      admin: createMockAdmin(),
+      logger: createMockLogger(),
+      stripe,
+      event: {
+        type: 'refund.updated',
+        data: {
+          object: {
+            id: 're_failed_then_succeeded',
+            amount: 3000,
+            currency: 'gbp',
+            status: 'succeeded',
+            payment_intent: 'pi_1',
+            metadata: {
+              orderId: 'o1',
+              refundRequestId: 'refund-webhook-001',
+            },
+          },
+        },
+      },
+    });
+    assert.equal(confirmation.statusCode, 200);
+
+    const followup = await makeHandler(db, stripe)(
+      refundRequest({
+        amountMinor: 3000,
+        reason: 'follow-up refund',
+        requestId: 'refund-after-correction-001',
+      })
+    );
+
+    assert.equal(followup.success, true);
+    assert.equal(calls.create.length, 1);
+    const order = db.snapshot('order', 'o1').data();
+    assert.equal(order.refund_reserved_amount_minor, 0);
+    assert.equal(order.refunded_amount_minor, 6000);
+  });
+
+  it('detects reservation aggregate underflow without clearing other reservations', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    seedWebhookReservation(
+      db,
+      {
+        refund_id: 're_underflow',
+        status: 'requires_action',
+      },
+      { refund_reserved_amount_minor: 1000 }
+    );
+    const errors = [];
+    const logger = {
+      info: () => {},
+      warn: () => {},
+      error: (...args) => errors.push(args),
+    };
+    const { stripe } = makeStripe({
+      refunds: [
+        {
+          id: 're_underflow',
+          amount: 3000,
+          currency: 'gbp',
+          status: 'succeeded',
+          payment_intent: 'pi_1',
+          metadata: {
+            orderId: 'o1',
+            refundRequestId: 'refund-webhook-001',
+          },
+        },
+      ],
+    });
+    const event = {
+      type: 'refund.updated',
+      data: {
+        object: {
+          id: 're_underflow',
+          amount: 3000,
+          currency: 'gbp',
+          status: 'succeeded',
+          payment_intent: 'pi_1',
+          metadata: {
+            orderId: 'o1',
+            refundRequestId: 'refund-webhook-001',
+          },
+        },
+      },
+    };
+
+    const outcome = await processRefundWebhookEvent({
+      db,
+      admin: createMockAdmin(),
+      logger,
+      stripe,
+      event,
+    });
+
+    assert.equal(outcome.statusCode, 200);
+    let order = db.snapshot('order', 'o1').data();
+    assert.equal(order.refund_reserved_amount_minor, 1000);
+    assert.equal(order.refunded_amount_minor, 3000);
+    assert.equal(order.refunds[0].status, 'succeeded');
+    assert.equal(errors.length, 1);
+    assert.match(errors[0][0], /Reservation aggregate underflow detected/);
+    assert.equal(errors[0][1].storedReservedMinor, 1000);
+    assert.equal(errors[0][1].recordAmountMinor, 3000);
+    assert.equal(errors[0][1].shortfallMinor, 2000);
+
+    const duplicate = await processRefundWebhookEvent({
+      db,
+      admin: createMockAdmin(),
+      logger,
+      stripe,
+      event,
+    });
+    assert.equal(duplicate.statusCode, 200);
+    order = db.snapshot('order', 'o1').data();
+    assert.equal(order.refund_reserved_amount_minor, 1000);
+    assert.equal(order.refunded_amount_minor, 3000);
+    assert.equal(errors.length, 1);
   });
 
   it('does not regress a succeeded refund on an out-of-order pending event', async () => {

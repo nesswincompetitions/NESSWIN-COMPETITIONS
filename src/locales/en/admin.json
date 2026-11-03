@@ -190,6 +190,7 @@
         "tableTickets": "Tickets",
         "tableStatus": "Status",
         "tableActions": "Actions",
+        "moreActions": "More actions",
         "modalTitle": "Participant Tickets",
         "modalDesc": "Viewing all {{count}} tickets for {{name}}",
         "activeCount": "{{count}} active",
@@ -244,6 +245,7 @@
         },
         "adjust": {
           "open": "Adjust ticket quantity",
+          "openShort": "Adjust tickets",
           "title": "Adjust Ticket Quantity",
           "warning": "This invalidates only the selected tickets. It does not refund payments, restore bonus credits, release capacity, renumber tickets, or remove participant history.",
           "loadingOrders": "Loading participant payment orders...",
@@ -959,6 +961,7 @@
   },
   "additionalPayments": {
     "requestButton": "Request additional paid tickets",
+    "requestButtonShort": "Request tickets",
     "copyLink": "Copy link",
     "copySuccess": "Payment link copied.",
     "copyError": "Could not copy the payment link.",

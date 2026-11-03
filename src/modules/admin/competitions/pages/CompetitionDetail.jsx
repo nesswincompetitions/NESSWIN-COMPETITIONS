@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -8,9 +8,10 @@ import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
   ArrowLeft, Trophy, ExternalLink,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard, MinusCircle
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard, MinusCircle, MoreHorizontal
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
+import Tooltip from '@/shared/components/ui/Tooltip';
 import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
 import AdditionalPaymentModal from '@/shared/components/admin/AdditionalPaymentModal';
 import AdditionalPaymentRequestsPanel from '@/shared/components/admin/AdditionalPaymentRequestsPanel';
@@ -44,6 +45,76 @@ const PARTICIPANT_INVALIDATION_BLOCKED_STATUSES = new Set([
   'cancelled',
   'deleted',
 ]);
+
+const ParticipantMoreActions = ({ menuLabel, removeLabel, onRemove, removeDisabled = false }) => {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    // Move focus into the menu for keyboard users.
+    const firstItem = menuRef.current?.querySelector('[role="menuitem"]:not([disabled])');
+    firstItem?.focus();
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative inline-block" ref={containerRef}>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={menuLabel}
+        title={menuLabel}
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-white/10 text-gray-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={menuLabel}
+          className="absolute right-0 top-full z-50 mt-1 min-w-44 overflow-hidden rounded-md border border-white/10 bg-zinc-900 py-1 shadow-2xl"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            disabled={removeDisabled}
+            onClick={() => {
+              setOpen(false);
+              onRemove();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10 focus-visible:bg-red-500/10 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Ban size={14} />
+            {removeLabel}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CompetitionDetail = () => {
   const { id } = useParams();
@@ -708,37 +779,37 @@ const CompetitionDetail = () => {
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {canRequestAdditionalPayment && !isRestricted && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9"
-                            onClick={() => setAdditionalPaymentTarget(p)}
-                          >
-                            <CreditCard size={14} />
-                            {t('additionalPayments.requestButton')}
-                          </Button>
+                          <Tooltip content={t('additionalPayments.requestButton')}>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              className="h-8 px-3 text-xs gap-1.5"
+                              aria-label={t('additionalPayments.requestButton')}
+                              onClick={() => setAdditionalPaymentTarget(p)}
+                            >
+                              <CreditCard size={14} />
+                              {t('additionalPayments.requestButtonShort')}
+                            </Button>
+                          </Tooltip>
                         )}
                         {canAdjustParticipantTickets && activeTicketCount > 0 && (
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-9"
+                            className="h-8 px-3 text-xs gap-1.5 bg-white/5"
+                            aria-label={t('competitions.detail.participants.adjust.open')}
                             onClick={() => setTicketAdjustmentTarget(p)}
                           >
                             <MinusCircle size={14} />
-                            {t('competitions.detail.participants.adjust.open')}
+                            {t('competitions.detail.participants.adjust.openShort')}
                           </Button>
                         )}
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          className="h-9"
-                          disabled={activeTicketCount === 0}
-                          onClick={() => setInvalidateTarget(p)}
-                        >
-                          <Ban size={14} />
-                          {t('competitions.detail.participants.invalidate.open')}
-                        </Button>
+                        <ParticipantMoreActions
+                          menuLabel={t('competitions.detail.participants.moreActions')}
+                          removeLabel={t('competitions.detail.participants.invalidate.open')}
+                          onRemove={() => setInvalidateTarget(p)}
+                          removeDisabled={activeTicketCount === 0}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>
