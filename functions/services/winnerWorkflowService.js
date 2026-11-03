@@ -1,6 +1,16 @@
 import { HttpsError } from "firebase-functions/v2/https";
 import { admin, db } from "../config/firebaseAdmin.js";
-import { isTicketBlockedFromWinnerSelection } from "./ticketEligibility.js";
+import {
+  isTicketBlockedFromWinnerSelection,
+  isUserBlockedFromWinnerSelection,
+} from "./ticketEligibility.js";
+import {
+  competitionHasWinnerReference,
+  isParticipantRestricted,
+  ticketBelongsToCompetition,
+} from "./ticketAdjustmentPolicy.js";
+
+const FIRESTORE_DOCUMENT_REFERENCE = admin.firestore?.DocumentReference;
 
 const HANDOOVER_KEYS = [
   "id_proof_url",
@@ -57,38 +67,133 @@ export function buildHandoverDefaults(existingDetails = {}) {
   }, base);
 }
 
-function toDocumentRef(value, fallbackCollection) {
+function toDocumentRef(value, fallbackCollection, database = db) {
   if (!value) {
     return null;
   }
 
-  if (typeof value.path === "string" && typeof value.id === "string") {
+  if (typeof value === "object") {
+    if (
+      typeof FIRESTORE_DOCUMENT_REFERENCE !== "function" ||
+      !(value instanceof FIRESTORE_DOCUMENT_REFERENCE)
+    ) {
+      return null;
+    }
+
+    if (typeof value.path !== "string" || typeof value.id !== "string") {
+      return null;
+    }
+
+    const documentId = value.id;
+    if (!documentId || !documentId.trim() || documentId.includes("/")) {
+      return null;
+    }
+
+    if (value.path !== `${fallbackCollection}/${documentId}`) {
+      return null;
+    }
+
     return value;
   }
 
-  if (typeof value === "string") {
-    return db.collection(fallbackCollection).doc(value);
+  if (typeof value !== "string") {
+    return null;
   }
 
-  return null;
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const hasLeadingSlash = trimmed.startsWith("/");
+  const normalized = hasLeadingSlash ? trimmed.slice(1) : trimmed;
+  const segments = normalized.split("/");
+
+  if (segments.length > 2) {
+    return null;
+  }
+
+  const hasCollectionPrefix = segments.length === 2;
+  if (hasLeadingSlash && !hasCollectionPrefix) {
+    return null;
+  }
+
+  const collection = hasCollectionPrefix ? segments[0] : null;
+  const documentId = hasCollectionPrefix ? segments[1] : segments[0];
+
+  if (hasCollectionPrefix && collection !== fallbackCollection) {
+    return null;
+  }
+
+  if (!documentId || documentId.includes("/")) {
+    return null;
+  }
+
+  try {
+    return database.collection(fallbackCollection).doc(documentId);
+  } catch {
+    return null;
+  }
 }
 
-function extractWinnerAndOrderRefs(ticketData) {
+function extractWinnerAndOrderRefs(ticketData, database = db) {
   const winnerRef =
-    toDocumentRef(ticketData.user_id, "user") ||
-    toDocumentRef(ticketData.user_ref, "user") ||
-    toDocumentRef(ticketData.user, "user");
+    toDocumentRef(ticketData.user_id, "user", database) ||
+    toDocumentRef(ticketData.user_ref, "user", database) ||
+    toDocumentRef(ticketData.user, "user", database);
 
   const orderRef =
-    toDocumentRef(ticketData.order_id, "order") ||
-    toDocumentRef(ticketData.order_ref, "order");
+    toDocumentRef(ticketData.order_id, "order", database) ||
+    toDocumentRef(ticketData.order_ref, "order", database);
 
   return { winnerRef, orderRef };
 }
 
+function buildCompetitionIdCandidates(competitionId) {
+  const normalized = normalizeText(competitionId);
+
+  if (!normalized) {
+    return [];
+  }
+
+  return [normalized, `competition/${normalized}`, `/competition/${normalized}`];
+}
+
+async function findTicketsForSequence({
+  database,
+  competitionRef,
+  competitionId,
+  ticketSequence,
+}) {
+  const competitionValueCandidates = [
+    competitionRef,
+    ...buildCompetitionIdCandidates(competitionId),
+  ];
+
+  const snapshots = await Promise.all(
+    competitionValueCandidates.map((competitionValue) =>
+      database
+        .collection("ticket")
+        .where("competition_id", "==", competitionValue)
+        .where("ticket_sequence", "==", ticketSequence)
+        .limit(2)
+        .get()
+    )
+  );
+
+  const ticketsByPath = new Map();
+  snapshots.forEach((snapshot) => {
+    snapshot.docs.forEach((ticketDoc) => {
+      ticketsByPath.set(ticketDoc.ref.path, ticketDoc);
+    });
+  });
+
+  return Array.from(ticketsByPath.values());
+}
+
 export async function selectWinnerTransaction(
   transaction,
-  { competitionRef, competitionId, ticketSequence, adminRef }
+  { competitionRef, competitionId, ticketSequence, adminRef, database = db }
 ) {
   const normalizedTicketSequence = normalizeText(ticketSequence).toUpperCase();
 
@@ -105,7 +210,7 @@ export async function selectWinnerTransaction(
   const competitionData = competitionSnap.data();
   const currentStatus = normalizeStatus(competitionData.status);
 
-  if (competitionData.winner_ref) {
+  if (competitionHasWinnerReference(competitionData)) {
     throw new HttpsError("failed-precondition", "A winner has already been selected for this competition.");
   }
 
@@ -113,31 +218,39 @@ export async function selectWinnerTransaction(
     throw new HttpsError("failed-precondition", "Start the live draw before selecting a winner.");
   }
 
-  const ticketsQuery = db
-    .collection("ticket")
-    .where("competition_id", "==", competitionRef)
-    .where("ticket_sequence", "==", normalizedTicketSequence)
-    .limit(2);
+  const matchingTickets = await findTicketsForSequence({
+    database,
+    competitionRef,
+    competitionId,
+    ticketSequence: normalizedTicketSequence,
+  });
 
-  const querySnap = await ticketsQuery.get();
-
-  if (querySnap.empty) {
+  if (matchingTickets.length === 0) {
     throw new HttpsError("not-found", "No ticket matches that sequence in this competition.");
   }
 
-  if (querySnap.docs.length > 1) {
+  if (matchingTickets.length > 1) {
     throw new HttpsError("failed-precondition", "Multiple tickets matched the provided sequence. Data integrity check failed.");
   }
 
-  const ticketRef = querySnap.docs[0].ref;
+  const ticketRef = matchingTickets[0].ref;
   const ticketSnap = await transaction.get(ticketRef);
+
+  if (!ticketSnap.exists) {
+    throw new HttpsError("not-found", "The selected ticket no longer exists.");
+  }
+
   const ticketData = ticketSnap.data();
+
+  if (!ticketBelongsToCompetition(ticketData, competitionId)) {
+    throw new HttpsError("failed-precondition", "The selected ticket does not belong to this competition.");
+  }
 
   if (isTicketBlockedFromWinnerSelection(ticketData.status)) {
     throw new HttpsError("failed-precondition", "The selected ticket is invalid and cannot be selected as a winner.");
   }
 
-  const { winnerRef, orderRef } = extractWinnerAndOrderRefs(ticketData);
+  const { winnerRef, orderRef } = extractWinnerAndOrderRefs(ticketData, database);
 
   if (!winnerRef) {
     throw new HttpsError("failed-precondition", "The winning ticket does not have a valid user reference.");
@@ -145,6 +258,20 @@ export async function selectWinnerTransaction(
 
   if (!orderRef) {
     throw new HttpsError("failed-precondition", "The winning ticket does not have a valid order reference.");
+  }
+
+  if (isParticipantRestricted(competitionData, winnerRef.id)) {
+    throw new HttpsError("failed-precondition", "The selected ticket belongs to a participant who was removed from this competition.");
+  }
+
+  const winnerSnap = await transaction.get(winnerRef);
+
+  if (!winnerSnap.exists) {
+    throw new HttpsError("not-found", "The winning ticket's user was not found.");
+  }
+
+  if (isUserBlockedFromWinnerSelection(winnerSnap.data())) {
+    throw new HttpsError("failed-precondition", "The selected ticket belongs to a user who is not eligible to win.");
   }
 
   const orderSnap = await transaction.get(orderRef);
@@ -158,9 +285,9 @@ export async function selectWinnerTransaction(
   }
 
   const now = admin.firestore.FieldValue.serverTimestamp();
-  const chatRef = db.collection("chats").doc(); // Clean auto-generated ID!
-  const winnerNotificationRef = db.collection("ff_user_push_notifications").doc(buildWinnerNotificationId(competitionId));
-  const broadcastNotificationRef = db.collection("ff_push_notifications").doc(buildBroadcastNotificationId(competitionId));
+  const chatRef = database.collection("chats").doc(); // Clean auto-generated ID!
+  const winnerNotificationRef = database.collection("ff_user_push_notifications").doc(buildWinnerNotificationId(competitionId));
+  const broadcastNotificationRef = database.collection("ff_push_notifications").doc(buildBroadcastNotificationId(competitionId));
 
   transaction.update(competitionRef, {
     status: "winner_announced",
