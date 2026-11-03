@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrderMetricsAuditHandler } from '../services/orderMetricsAuditService.js';
+import { classifyOrderFinancially } from '../services/orderMetricsService.js';
 import { MemoryDB, MockHttpsError } from './helpers/memoryFirestore.js';
 
 const adminAssert = async request => {
@@ -44,7 +45,7 @@ describe('read-only order metrics audit', () => {
     assert.equal(result.financial_classification.independent.gross, 115);
     assert.equal(result.financial_classification.independent.confirmed_refunds, 45);
     assert.equal(result.financial_classification.independent.net_revenue, 70);
-    assert.equal(result.financial_classification.independent.historically_verified_paid.count, 7);
+    assert.equal(result.financial_classification.independent.historically_verified_paid.count, 6);
     assert.equal(result.financial_classification.independent.fulfillment.unfulfilled.count, 1);
     assert.equal(result.financial_classification.refund_classification.confirmed_fully, 2);
     assert.equal(result.financial_classification.refund_classification.confirmed_major, 45);
@@ -52,8 +53,8 @@ describe('read-only order metrics audit', () => {
     assert.equal(result.financial_classification.independent.fulfillment.unfulfilled.count, 1);
     assert.equal(result.financial_classification.independent.fulfillment.failed.count, 1);
     assert.equal(result.financial_classification.independent.fulfillment.fulfilled.count, 1);
-    assert.equal(result.financial_classification.independent.fulfillment.unknown.count, 4);
-    assert.equal(result.financial_classification.order_counts.historically_verified_paid, 7);
+    assert.equal(result.financial_classification.independent.fulfillment.unknown.count, 3);
+    assert.equal(result.financial_classification.order_counts.historically_verified_paid, 6);
     assert.equal(result.financial_classification.order_counts.currently_refunded, 2);
     assert.equal(result.financial_classification.order_counts.confirmed_full_refund, 2);
     assert.equal(result.financial_classification.order_counts.unresolved_historical_payment, 1);
@@ -110,6 +111,32 @@ describe('read-only order metrics audit', () => {
     assert.equal(result.financial_classification.revenue_completeness.gross_revenue_complete, false);
     assert.equal(result.financial_classification.revenue_completeness.confirmed_refunds_complete, false);
     assert.equal(result.financial_classification.revenue_completeness.net_revenue_complete, false);
+  });
+
+  it('does not treat explicit failed or unpaid refunded states as historical payment', async () => {
+    const db = new MemoryDB({
+      order: {
+        failed: { status: 'Refunded', payment_status: 'failed', total_amount: 10, refunded_amount_minor: 1000 },
+        unpaid: { status: 'Refunded', payment_status: 'unpaid', total_amount: 10, refunded_amount_minor: 1000 },
+        paid: { status: 'Refunded', payment_status: 'paid', total_amount: 10, refunded_amount_minor: 1000 },
+        missing: { status: 'Refunded', total_amount: 10, refunded_amount_minor: 1000 },
+      },
+    });
+    const result = await createOrderMetricsAuditHandler({ db, assertAdmin: adminAssert })({ auth: { uid: 'admin' } });
+
+    assert.equal(result.financial_classification.independent.historically_verified_paid.count, 2);
+    assert.equal(result.financial_classification.order_counts.unresolved_historical_payment, 2);
+  });
+
+  it('normalizes status and payment-status values for audit classification', async () => {
+    const paidRefunded = { status: '  ReFuNdEd ', payment_status: '  PAID ', total_amount: 10, refunded_amount_minor: 1000 };
+    const paidPending = { status: ' pending ', payment_status: ' PAID ', total_amount: 10 };
+    const db = new MemoryDB({ order: { paidRefunded, paidPending } });
+    const result = await createOrderMetricsAuditHandler({ db, assertAdmin: adminAssert })({ auth: { uid: 'admin' } });
+
+    assert.equal(classifyOrderFinancially(paidRefunded).classification, 'fully_refunded');
+    assert.equal(classifyOrderFinancially(paidPending).classification, 'paid_unfulfilled');
+    assert.equal(result.financial_classification.independent.historically_verified_paid.count, 2);
   });
 
   it('handles multiple pages and reports complete totals', async () => {

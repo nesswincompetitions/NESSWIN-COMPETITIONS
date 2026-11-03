@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { HttpsError as DefaultHttpsError } from 'firebase-functions/v2/https';
 import {
-  computeOrderFinancialSummaryFromAggregates,
-  FINANCIAL_EXCLUDED_PAID_STATUS_VALUES,
-  PAID_ORDER_STATUS_VALUES,
-  REFUNDED_ORDER_STATUS_VALUES,
+  computeDetailedOrderFinancialSummary,
 } from './orderMetricsService.js';
 
 export const DASHBOARD_DOC_PATH = 'system_metrics/dashboard';
@@ -16,6 +13,8 @@ export const REFRESH_LOCK_TTL_MS = 10 * 60 * 1000;
 export const REFRESH_LOCK_WAIT_MS = 20 * 1000;
 export const REFRESH_LOCK_POLL_MS = 250;
 export const MANUAL_REFRESH_COOLDOWN_MS = 10 * 1000;
+export const ORDER_METRICS_PAGE_SIZE = 500;
+export const ORDER_METRICS_MAX_DOCUMENTS = 10_000;
 
 const ACTIVE_COMPETITION_STATUSES = new Set(['active', 'ready_to_draw', 'drawing']);
 const WINNER_COMPETITION_STATUSES = new Set(['winner_announced', 'completed', 'closed']);
@@ -85,49 +84,53 @@ export function createDashboardMetricsService({
   }
 
   async function readOrderFinancialTotals() {
-    const { AggregateField } = admin.firestore;
-    const ordersRef = db.collection('order');
-    const aggregateSpec = {
-      count: AggregateField.count(),
-      gross: AggregateField.sum('total_amount'),
-      refunded: AggregateField.sum('refunded_amount'),
-      tickets: AggregateField.sum('total_ticket'),
+    const orders = [];
+    let lastDoc = null;
+    let reachedScanLimit = false;
+
+    while (orders.length < ORDER_METRICS_MAX_DOCUMENTS) {
+      let query = db
+        .collection('order')
+        .orderBy('__name__')
+        .limit(Math.min(ORDER_METRICS_PAGE_SIZE, ORDER_METRICS_MAX_DOCUMENTS - orders.length));
+      if (lastDoc) query = query.startAfter(lastDoc);
+
+      const snapshot = await query.get();
+      snapshot.docs.forEach(doc => orders.push(doc.data()));
+      if (snapshot.size < ORDER_METRICS_PAGE_SIZE) break;
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      reachedScanLimit = orders.length >= ORDER_METRICS_MAX_DOCUMENTS;
+    }
+
+    if (reachedScanLimit) {
+      const hasMoreOrders = await db
+        .collection('order')
+        .orderBy('__name__')
+        .startAfter(lastDoc)
+        .limit(1)
+        .get();
+      if (!hasMoreOrders.empty) {
+        logger.error('[DashboardMetrics] Order scan exceeded the safety limit; metrics were not recalculated.', {
+          maxDocuments: ORDER_METRICS_MAX_DOCUMENTS,
+        });
+        throw new Error('Order metrics scan exceeded the configured safety limit.');
+      }
+    }
+
+    const summary = computeDetailedOrderFinancialSummary(orders);
+    if (summary.overflowCount > 0) {
+      logger.error('[DashboardMetrics] Financial totals exceeded the safe integer range; metrics were not recalculated.');
+      throw new Error('Financial metrics totals exceeded the safe integer range.');
+    }
+    logger.info('[DashboardMetrics] Order financial diagnostics', {
+      scanned: orders.length,
+      ...summary,
+    });
+    return {
+      totalOrders: summary.totalOrders,
+      totalRevenue: summary.totalRevenue,
+      totalTicketsSold: Math.trunc(summary.totalTicketsSold),
     };
-
-    const paidQuery = ordersRef.where('status', 'in', Array.from(PAID_ORDER_STATUS_VALUES));
-    const paidUnfulfilledQuery = ordersRef
-      .where('payment_status', '==', 'paid')
-      .where('status', 'not-in', Array.from(FINANCIAL_EXCLUDED_PAID_STATUS_VALUES));
-    const refundedQuery = ordersRef.where('status', 'in', Array.from(REFUNDED_ORDER_STATUS_VALUES));
-
-    const [paidSnap, unfulfilledSnap, refundedSnap] = await Promise.all([
-      paidQuery.aggregate(aggregateSpec).get(),
-      paidUnfulfilledQuery.aggregate(aggregateSpec).get(),
-      refundedQuery.aggregate(aggregateSpec).get(),
-    ]);
-
-    const paid = paidSnap.data();
-    const unfulfilled = unfulfilledSnap.data();
-    const refunded = refundedSnap.data();
-
-    console.log('[DashboardMetrics] Aggregate diagnostics', {
-      paid: paidSnap.data(),
-      unfulfilled: unfulfilledSnap.data(),
-      refunded: refundedSnap.data(),
-    });
-
-    return computeOrderFinancialSummaryFromAggregates({
-      paidCount: paid.count,
-      paidGross: paid.gross,
-      paidRefunded: paid.refunded,
-      paidTickets: paid.tickets,
-      unfulfilledCount: unfulfilled.count,
-      unfulfilledGross: unfulfilled.gross,
-      unfulfilledRefunded: unfulfilled.refunded,
-      unfulfilledTickets: unfulfilled.tickets,
-      refundedCount: refunded.count,
-      refundedTickets: refunded.tickets,
-    });
   }
 
   async function recalculateMetricsImpl() {

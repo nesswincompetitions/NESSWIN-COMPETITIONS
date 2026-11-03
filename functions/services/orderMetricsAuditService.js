@@ -94,11 +94,25 @@ function isUnexpectedStatus(value) {
 }
 
 function isHistoricallyPaid(order, refund) {
-  if (order?.payment_status === 'paid' && isFinanciallyPaidOrder(order) && !REFUNDED_STATUSES.has(order?.status)) return true;
+  const status = String(order?.status || '').trim().toLowerCase();
+  const paymentStatus = String(order?.payment_status || '').trim().toLowerCase();
+  const refundStatus = String(order?.refund_status || '').trim().toLowerCase();
+  const contradictoryPaymentState =
+    (['paid'].includes(status) && ['failed', 'unpaid', 'refunded'].includes(paymentStatus)) ||
+    (paymentStatus === 'paid' && status === 'failed') ||
+    (['refunded'].includes(status) && ['failed', 'unpaid'].includes(paymentStatus)) ||
+    (paymentStatus === 'refunded' && status !== 'refunded');
+  if (contradictoryPaymentState) return false;
+  if (
+    paymentStatus === 'paid' &&
+    status !== 'refunded' &&
+    status !== 'failed' &&
+    (refundStatus !== 'refunded' || refund.evidence)
+  ) return true;
   return Boolean(refund.evidence && (
-    REFUNDED_STATUSES.has(order?.status) ||
-    order?.payment_status === 'refunded' ||
-    order?.refund_status === 'refunded'
+    status === 'refunded' ||
+    paymentStatus === 'refunded' ||
+    refundStatus === 'refunded'
   ));
 }
 

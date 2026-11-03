@@ -5,16 +5,15 @@ import {
   query, 
   where, 
   getCountFromServer,
-  getAggregateFromServer,
   getDocs,
-  sum
 } from "firebase/firestore";
 import { db, functions } from '@/config/firebase';
 import { httpsCallable } from "firebase/functions";
 import {
-  FINANCIAL_EXCLUDED_PAID_STATUS_VALUES,
   PAID_ORDER_STATUS_VALUES,
+  REFUNDED_ORDER_STATUS_VALUES,
 } from '@/shared/utils/orderStatus';
+import { computeOrderFinancialSummaryFromOrders } from '../../../../../functions/services/orderMetricsService.js';
 
 const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
@@ -29,33 +28,27 @@ const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
 export async function fetchOrdersStats() {
   try {
     const ordersRef = collection(db, "order");
-    const paidQuery = query(ordersRef, where("status", "in", PAID_ORDER_STATUS_VALUES));
-    const paidUnfulfilledQuery = query(
+    const paidQuery = query(
       ordersRef,
-      where("payment_status", "==", "paid"),
-      where("status", "not-in", FINANCIAL_EXCLUDED_PAID_STATUS_VALUES)
+      where("status", "in", [...PAID_ORDER_STATUS_VALUES, ...REFUNDED_ORDER_STATUS_VALUES]),
     );
+    const paidUnfulfilledQuery = query(ordersRef, where("payment_status", "==", "paid"));
 
-    const [countSnap, paidAgg, paidUnfulfilledAgg] = await Promise.all([
+    const [countSnap, paidSnap, paidUnfulfilledSnap] = await Promise.all([
       getCountFromServer(ordersRef),
-      getAggregateFromServer(paidQuery, {
-        gross: sum("total_amount"),
-        refunded: sum("refunded_amount"),
-      }),
-      getAggregateFromServer(paidUnfulfilledQuery, {
-        gross: sum("total_amount"),
-        refunded: sum("refunded_amount"),
-      }),
+      getDocs(paidQuery),
+      getDocs(paidUnfulfilledQuery),
     ]);
 
-    const paid = paidAgg.data();
-    const paidUnfulfilled = paidUnfulfilledAgg.data();
-    const gross = Number(paid.gross || 0) + Number(paidUnfulfilled.gross || 0);
-    const refunded = Number(paid.refunded || 0) + Number(paidUnfulfilled.refunded || 0);
+    const ordersById = new Map();
+    [...paidSnap.docs, ...paidUnfulfilledSnap.docs].forEach(orderDoc => {
+      ordersById.set(orderDoc.id, orderDoc.data());
+    });
+    const financialSummary = computeOrderFinancialSummaryFromOrders([...ordersById.values()]);
 
     return {
       totalOrders: countSnap.data().count,
-      totalRevenue: Math.max(0, roundCurrency(gross - refunded)),
+      totalRevenue: roundCurrency(financialSummary.totalRevenue),
     };
   } catch (error) {
     console.error("[OrdersService] Error fetching orders stats:", error);
