@@ -1,29 +1,61 @@
 import { 
   doc, 
   getDoc,
-  updateDoc,
   collection, 
   query, 
   where, 
   getCountFromServer,
+  getAggregateFromServer,
   getDocs,
-  orderBy
+  sum
 } from "firebase/firestore";
 import { db, functions } from '@/config/firebase';
 import { httpsCallable } from "firebase/functions";
+import {
+  FINANCIAL_EXCLUDED_PAID_STATUS_VALUES,
+  PAID_ORDER_STATUS_VALUES,
+} from '@/shared/utils/orderStatus';
+
+const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 /**
  * Fetches instant aggregate metrics for the orders dashboard header.
+ *
+ * Total orders is the complete order population (same scope as the "All"
+ * filter). Total revenue is net collected value: verified paid orders plus
+ * paid-but-unfulfilled orders, minus confirmed refunds. Pending refund
+ * reservations are not subtracted and fully refunded orders contribute zero.
  */
 export async function fetchOrdersStats() {
   try {
-    const [countSnap, dashSnap] = await Promise.all([
-      getCountFromServer(collection(db, "order")),
-      getDoc(doc(db, "system_metrics", "dashboard"))
+    const ordersRef = collection(db, "order");
+    const paidQuery = query(ordersRef, where("status", "in", PAID_ORDER_STATUS_VALUES));
+    const paidUnfulfilledQuery = query(
+      ordersRef,
+      where("payment_status", "==", "paid"),
+      where("status", "not-in", FINANCIAL_EXCLUDED_PAID_STATUS_VALUES)
+    );
+
+    const [countSnap, paidAgg, paidUnfulfilledAgg] = await Promise.all([
+      getCountFromServer(ordersRef),
+      getAggregateFromServer(paidQuery, {
+        gross: sum("total_amount"),
+        refunded: sum("refunded_amount"),
+      }),
+      getAggregateFromServer(paidUnfulfilledQuery, {
+        gross: sum("total_amount"),
+        refunded: sum("refunded_amount"),
+      }),
     ]);
+
+    const paid = paidAgg.data();
+    const paidUnfulfilled = paidUnfulfilledAgg.data();
+    const gross = Number(paid.gross || 0) + Number(paidUnfulfilled.gross || 0);
+    const refunded = Number(paid.refunded || 0) + Number(paidUnfulfilled.refunded || 0);
+
     return {
       totalOrders: countSnap.data().count,
-      totalRevenue: dashSnap.exists() ? (dashSnap.data().total_revenue || 0) : 0
+      totalRevenue: Math.max(0, roundCurrency(gross - refunded)),
     };
   } catch (error) {
     console.error("[OrdersService] Error fetching orders stats:", error);

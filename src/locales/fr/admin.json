@@ -106,11 +106,19 @@
     "activeCompetitions": "Concours actifs",
     "recentOrders": "Commandes récentes",
     "quickActions": "Actions rapides",
-    "upcomingDraws": "Tirages en cours",
-    "table": {
-      "name": "Nom",
-      "status": "Statut",
-      "ticketsSold": "Tickets vendus",
+  "upcomingDraws": "Tirages en cours",
+  "refresh": {
+    "button": "Actualiser les métriques",
+    "refreshing": "Actualisation...",
+    "success": "Métriques du tableau de bord actualisées.",
+    "error": "Impossible d'actualiser les métriques du tableau de bord.",
+    "lastUpdated": "Dernière actualisation réussie : {{time}}",
+    "never": "Jamais"
+  },
+  "table": {
+    "name": "Nom",
+    "status": "Statut",
+    "ticketsSold": "Tickets vendus",
       "revenue": "Revenus",
       "drawDate": "Date du tirage",
       "actions": "Actions",

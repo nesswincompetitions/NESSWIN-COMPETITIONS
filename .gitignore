@@ -33,3 +33,5 @@ dist-ssr
 skills-lock.json
 docs/
 functions/firerstore-rules.txt
+firestore.indexes.local-backup.json
+imp

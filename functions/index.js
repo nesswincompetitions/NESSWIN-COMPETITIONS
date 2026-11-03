@@ -33,12 +33,15 @@ export {
 	onUserChangeDashboard,
 	onUserDeletedDashboard,
 	onOrderCreatedDashboard,
+	onOrderUpdatedDashboard,
 	onOrderDeletedDashboard,
 	onChatCreatedDashboard,
 	onChatUpdatedDashboard,
 	syncDashboardMetricsScheduled,
 	onDayChangeSync,
 	syncDashboardMetrics,
+	refreshDashboardMetrics,
 } from "./controllers/dashboardController.js";
+export { auditOrderMetricsReadOnly } from "./controllers/orderMetricsAuditController.js";
 export { onCompetitionStatusUpdate } from "./controllers/competitionNotificationController.js";
 export { stripeWebhook } from "./controllers/paymentWebhookController.js";

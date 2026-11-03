@@ -9,12 +9,25 @@ import {
   limit
 } from "firebase/firestore";
 import { db } from '@/config/firebase';
+import { callFunction } from '@/shared/services/functionClient';
 
 /**
  * Returns today's date string in "YYYY-MM-DD" format (en-CA locale matches this).
  */
 function getTodayStr() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+}
+
+/**
+ * Requests a full dashboard metrics recalculation. Admin authorization is
+ * enforced by the callable backend, not by this client helper.
+ */
+export async function refreshDashboardMetrics() {
+  return callFunction(
+    'refreshDashboardMetrics',
+    {},
+    'Unable to refresh dashboard metrics. Please try again.'
+  );
 }
 
 /**

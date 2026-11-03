@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/shared/components/ui/Card';
@@ -7,11 +7,13 @@ import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import SearchInput from '@/shared/components/ui/SearchInput';
 import {
-  Calendar, Download, Eye,
+  Download, Eye,
   ChevronDown, RefreshCcw, ShoppingBag, Loader2
 } from 'lucide-react';
-import { useAdminDashboardData, useAdminOrdersFeedPaginated, useAdminCompetitionsFeed } from '@/shared/hooks/useAdminData';
+import { useAdminOrdersFeedPaginated, useAdminCompetitionsFeed } from '@/shared/hooks/useAdminData';
 import { exportToCSV } from '@/shared/utils/csvExport';
+import { normalizeOrderStatus } from '@/shared/utils/orderStatus';
+import { fetchOrdersStats } from '../services/ordersService';
 import { toast } from 'react-hot-toast';
 
 const OrdersList = () => {
@@ -21,8 +23,10 @@ const OrdersList = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [selectedComp, setSelectedComp] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCompDropdownOpen, setIsCompDropdownOpen] = useState(false);
+  const [, setIsCompDropdownOpen] = useState(false);
   const compDropdownRef = useRef(null);
+  const [ordersStats, setOrdersStats] = useState({ totalOrders: 0, totalRevenue: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   const { data: allComps } = useAdminCompetitionsFeed();
   
@@ -44,10 +48,30 @@ const OrdersList = () => {
     refresh
   } = useAdminOrdersFeedPaginated({ selectedCompId, activeStatus }, 20);
   
-  const { data: dashboardStats, loading: statsLoading } = useAdminDashboardData();
+  const loadOrdersStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const stats = await fetchOrdersStats();
+      setOrdersStats(stats);
+    } catch (error) {
+      console.error('[OrdersList] Failed to load order statistics:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOrdersStats();
+  }, [loadOrdersStats]);
+
   const loading = ordersLoading || statsLoading;
-  const totalOrders = dashboardStats.totalOrders || 0;
-  const totalRevenue = dashboardStats.totalRevenue || 0;
+  const totalOrders = ordersStats.totalOrders || 0;
+  const totalRevenue = ordersStats.totalRevenue || 0;
+
+  const handleRefresh = () => {
+    refresh();
+    void loadOrdersStats();
+  };
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -95,7 +119,7 @@ const OrdersList = () => {
     if (fulfillmentStatus === 'failed') {
       return <Badge variant="danger">{t('orders.table.fulfillmentFailed')}</Badge>;
     }
-    const s = (status || '').toLowerCase();
+    const s = normalizeOrderStatus(status);
     switch (s) {
       case 'paid': return <Badge variant="success">{t('common.paid')}</Badge>;
       case 'pending': return <Badge variant="warning">{t('common.pending')}</Badge>;
@@ -109,21 +133,15 @@ const OrdersList = () => {
     return allComps || [];
   }, [allComps]);
 
-  const { currentOrders, totalFiltered } = useMemo(() => {
-    const filtered = orders.filter(o => {
-      const search = searchTerm.toLowerCase();
+  const currentOrders = useMemo(() => {
+    const search = searchTerm.toLowerCase();
+    return orders.filter(o => {
       const orderId = (o.id || '').toLowerCase();
       const userName = (o.userName || '').toLowerCase();
       const userEmail = (o.userEmail || '').toLowerCase();
-      
-      const matchesSearch = orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
-      return matchesSearch;
-    });
 
-    return { 
-      currentOrders: filtered, 
-      totalFiltered: filtered.length
-    };
+      return orderId.includes(search) || userName.includes(search) || userEmail.includes(search);
+    });
   }, [orders, searchTerm]);
 
   return (
@@ -156,7 +174,7 @@ const OrdersList = () => {
             <span className="text-sm">{t('common.export')}</span>
           </Button>
           <button
-            onClick={refresh}
+            onClick={handleRefresh}
             title="Refresh Data"
             className="w-11 h-11 flex items-center justify-center rounded-md border border-white/10 bg-transparent hover:border-yellow-500/40 hover:bg-yellow-500/5 transition-all duration-300 shrink-0 group"
           >

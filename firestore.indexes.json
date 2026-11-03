@@ -19,30 +19,13 @@
         {
           "fieldPath": "last_message_time",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "chats",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "assigned_admin_id",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "chat_type",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "last_message_time",
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -55,8 +38,13 @@
         {
           "fieldPath": "participants",
           "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -73,8 +61,13 @@
         {
           "fieldPath": "last_message_time",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -91,8 +84,13 @@
         {
           "fieldPath": "participants",
           "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -105,8 +103,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -123,8 +126,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -141,8 +149,13 @@
         {
           "fieldPath": "last_message_time",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -155,8 +168,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -169,8 +187,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -187,8 +210,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -205,8 +233,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -227,8 +260,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "chats",
@@ -241,8 +279,13 @@
         {
           "fieldPath": "lastMessageTime",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "competition",
@@ -255,8 +298,13 @@
         {
           "fieldPath": "status",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "competition",
@@ -269,8 +317,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "competition",
@@ -283,8 +336,13 @@
         {
           "fieldPath": "draw_date",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "competition",
@@ -297,8 +355,13 @@
         {
           "fieldPath": "draw_date",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "free_ticket_log",
@@ -311,8 +374,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -325,8 +393,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -343,8 +416,90 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "order",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "payment_status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "order",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "payment_status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "refunded_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "order",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "payment_status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "refunded_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_ticket",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -355,14 +510,15 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "competition_id",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -373,10 +529,46 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "created_at",
-          "order": "DESCENDING"
+          "fieldPath": "refunded_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "order",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "refunded_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_amount",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "total_ticket",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -389,8 +581,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "order",
@@ -403,8 +600,13 @@
         {
           "fieldPath": "free_ticket",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -421,8 +623,32 @@
         {
           "fieldPath": "created_at",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "referrer_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "reward_issued",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -439,22 +665,13 @@
         {
           "fieldPath": "created_at",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "referrals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "referrer_id",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "reward_issued",
+          "fieldPath": "__name__",
           "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -467,8 +684,13 @@
         {
           "fieldPath": "reward_issued",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -485,8 +707,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -503,8 +730,13 @@
         {
           "fieldPath": "created_at",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "referrals",
@@ -517,8 +749,36 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "referrals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "reward_type",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "referrer_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "skill_attempts",
@@ -535,22 +795,32 @@
         {
           "fieldPath": "attempted_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
-      "collectionGroup": "ticket_adjustments",
+      "collectionGroup": "ticket",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "user_ref",
+          "fieldPath": "competition_id",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "competition_ref",
-          "order": "ASCENDING"
+          "fieldPath": "ticket_number",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "ticket",
@@ -567,8 +837,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "ticket",
@@ -581,26 +856,13 @@
         {
           "fieldPath": "ticket_number",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "ticket",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "user_id",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "competition_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "ticket_number",
+          "fieldPath": "__name__",
           "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "ticket",
@@ -613,8 +875,13 @@
         {
           "fieldPath": "created_at",
           "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "user",
@@ -631,8 +898,13 @@
         {
           "fieldPath": "active_chats",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "user",
@@ -649,8 +921,13 @@
         {
           "fieldPath": "activeChats",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     },
     {
       "collectionGroup": "user",
@@ -663,22 +940,13 @@
         {
           "fieldPath": "active_chats",
           "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "ticket",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "competition_id",
-          "order": "ASCENDING"
         },
         {
-          "fieldPath": "ticket_number",
-          "order": "DESCENDING"
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
-      ]
+      ],
+      "density": "SPARSE_ALL"
     }
   ],
   "fieldOverrides": [

@@ -1,29 +1,65 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-hot-toast';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/components/ui/Table';
 import Button from '@/shared/components/ui/Button';
 import Badge from '@/shared/components/ui/Badge';
 import {
   Trophy, Ticket, PoundSterling, Users,
-  CheckCircle, Clock, Plus, Eye, User, ShoppingCart, Loader2
+  CheckCircle, Clock, Plus, Eye, User, ShoppingCart, Loader2, RefreshCw
 } from 'lucide-react';
 
 import { useAdminDashboardData } from '@/shared/hooks/useAdminData';
 import { formatStatus } from '@/shared/utils/formatters';
+import { refreshDashboardMetrics } from '@/modules/admin/dashboard/services/dashboardService';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { t } = useTranslation('admin');
-  const { data: stats, loading: loadingStats } = useAdminDashboardData();
+  const { t, i18n } = useTranslation('admin');
+  const { data: stats, loading: loadingStats, refresh } = useAdminDashboardData();
+  const [refreshing, setRefreshing] = React.useState(false);
+  const refreshingRef = React.useRef(false);
 
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
     const timer = setInterval(() => setTick(t => t + 1), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  const formatRefreshTime = (value) => {
+    if (!value) return t('dashboard.refresh.never');
+    const date = value.toDate ? value.toDate() : new Date(value);
+    if (Number.isNaN(date.getTime())) return t('dashboard.refresh.never');
+    return date.toLocaleString(i18n.language || 'en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const handleRefreshMetrics = async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+
+    try {
+      const result = await refreshDashboardMetrics();
+      if (!result?.success) {
+        throw new Error(t('dashboard.refresh.error'));
+      }
+      toast.success(t('dashboard.refresh.success'));
+      refresh();
+    } catch (error) {
+      toast.error(error?.message || t('dashboard.refresh.error'));
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  };
 
   const kpiData = [
     { title: t('dashboard.kpi.activeCompetitions'), value: stats.activeCompetitions.toLocaleString(), icon: Trophy, color: 'text-primary' },
@@ -70,10 +106,28 @@ const Dashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 fade-in">
-      <header className="flex flex-col gap-2 md:flex-row md:items-center justify-between pb-2">
+      <header className="flex flex-col gap-3 md:flex-row md:items-center justify-between pb-2">
         <div>
           <h1 className="text-3xl font-serif font-bold">{t('dashboard.title')}</h1>
           <p className="text-gray-400 mt-1">{t('dashboard.subtitle')}</p>
+        </div>
+        <div className="flex flex-col items-start md:items-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshMetrics}
+            loading={refreshing}
+            disabled={refreshing}
+            aria-label={t('dashboard.refresh.button')}
+          >
+            {!refreshing && <RefreshCw size={16} />}
+            <span>{refreshing ? t('dashboard.refresh.refreshing') : t('dashboard.refresh.button')}</span>
+          </Button>
+          <p className="text-xs text-gray-500">
+            {t('dashboard.refresh.lastUpdated', {
+              time: formatRefreshTime(stats.lastRefreshedAt),
+            })}
+          </p>
         </div>
       </header>
 

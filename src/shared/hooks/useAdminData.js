@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { doc, getDoc, limit, onSnapshot, orderBy, where } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { useFirestorePagination } from '@/shared/hooks/useFirestorePagination';
 import { queryClient } from '@/config/queryClient';
+import { getOrderStatusQueryValues } from '@/shared/utils/orderStatus';
 
 // Admin ticket views must not inherit the shared hook's 100-document default.
 // An order can exceed 100 tickets through bundle bonuses and admin adjustments.
@@ -239,12 +240,15 @@ const useEnrichment = (items, userRefKey, compRefKey) => {
   return { userMap, compMap, resolving: resolving || needsResolution };
 };
 
-const useRealtimeDocument = (pathSegments) => {
+const useRealtimeDocument = (pathSegments, refreshToken = 0) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const pathKey = useMemo(() => JSON.stringify(Array.isArray(pathSegments) ? pathSegments : []), [pathSegments]);
+  const pathKey = useMemo(
+    () => JSON.stringify({ path: Array.isArray(pathSegments) ? pathSegments : [], refreshToken }),
+    [pathSegments, refreshToken]
+  );
 
   useEffect(() => {
     const segments = Array.isArray(pathSegments) ? pathSegments.filter(Boolean) : [];
@@ -463,9 +467,11 @@ export const useAdminUsersFeed = (limitCount = 50) => {
 };
 
 export const useAdminDashboardData = () => {
-  const dashboardStats = useRealtimeDocument(['system_metrics', 'dashboard']);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const refresh = useCallback(() => setRefreshToken(token => token + 1), []);
+  const dashboardStats = useRealtimeDocument(['system_metrics', 'dashboard'], refreshToken);
   const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }), []);
-  const todayHistory = useRealtimeDocument(['system_metrics', 'dashboard', 'daily_history', todayStr]);
+  const todayHistory = useRealtimeDocument(['system_metrics', 'dashboard', 'daily_history', todayStr], refreshToken);
   const { data: competitions, loading: competitionsLoading, error: competitionsError } = useRealtimeCollection('competition', []);
   const { data: recentOrders, loading: ordersLoading, error: ordersError } = useRecentOrders(5);
   const { userMap, compMap, resolving } = useEnrichment(recentOrders, 'user_ref', 'competition_id');
@@ -545,9 +551,12 @@ export const useAdminDashboardData = () => {
       activeCompetitionsList,
       upcomingDrawsList,
       recentOrdersList,
+      lastRefreshedAt: dashboardStats.data?.last_refreshed_at || null,
+      lastRefreshAttemptedAt: dashboardStats.data?.last_refresh_attempted_at || null,
     },
     loading: dashboardStats.loading || competitionsLoading || ordersLoading || resolving,
     error: dashboardStats.error || competitionsError || ordersError,
+    refresh,
   };
 };
 
@@ -981,9 +990,12 @@ export const useAdminOrdersFeedPaginated = (filters = {}, pageSize = 20) => {
 
   const baseConstraints = useMemo(() => {
     const constraints = [];
+    const statusValues = getOrderStatusQueryValues(activeStatus);
 
-    if (activeStatus && activeStatus !== 'all') {
-      constraints.push(where('status', '==', activeStatus));
+    if (statusValues?.length === 1) {
+      constraints.push(where('status', '==', statusValues[0]));
+    } else if (statusValues?.length > 1) {
+      constraints.push(where('status', 'in', statusValues));
     }
 
     if (selectedCompId && selectedCompId !== 'all') {

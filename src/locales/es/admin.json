@@ -106,11 +106,19 @@
     "activeCompetitions": "Sorteos activos",
     "recentOrders": "Pedidos recientes",
     "quickActions": "Acciones rápidas",
-    "upcomingDraws": "Sorteos en curso",
-    "table": {
-      "name": "Nombre",
-      "status": "Estado",
-      "ticketsSold": "Entradas vendidas",
+  "upcomingDraws": "Sorteos en curso",
+  "refresh": {
+    "button": "Actualizar métricas",
+    "refreshing": "Actualizando...",
+    "success": "Métricas del panel actualizadas.",
+    "error": "No se pudieron actualizar las métricas del panel.",
+    "lastUpdated": "Última actualización correcta: {{time}}",
+    "never": "Nunca"
+  },
+  "table": {
+    "name": "Nombre",
+    "status": "Estado",
+    "ticketsSold": "Entradas vendidas",
       "revenue": "Ingresos",
       "drawDate": "Fecha del sorteo",
       "actions": "Acciones",

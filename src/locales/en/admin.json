@@ -106,11 +106,19 @@
     "activeCompetitions": "Active Competitions",
     "recentOrders": "Recent Orders",
     "quickActions": "Quick Actions",
-    "upcomingDraws": "Ongoing Draws",
-    "table": {
-      "name": "Name",
-      "status": "Status",
-      "ticketsSold": "Tickets Sold",
+  "upcomingDraws": "Ongoing Draws",
+  "refresh": {
+    "button": "Refresh metrics",
+    "refreshing": "Refreshing...",
+    "success": "Dashboard metrics refreshed.",
+    "error": "Failed to refresh dashboard metrics.",
+    "lastUpdated": "Last successful refresh: {{time}}",
+    "never": "Never"
+  },
+  "table": {
+    "name": "Name",
+    "status": "Status",
+    "ticketsSold": "Tickets Sold",
       "revenue": "Revenue",
       "drawDate": "Draw Date",
       "actions": "Actions",

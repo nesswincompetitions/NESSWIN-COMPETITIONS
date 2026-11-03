@@ -73,6 +73,7 @@ export function useFirestorePagination({
   // For page 1, the cursor is null (or undefined)
   const cursorsRef = useRef({ 1: null });
   const lastDocRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   // Compute a stable query signature to prevent infinite fetching loops
   const constraintsSignature = useMemo(() => {
@@ -81,13 +82,15 @@ export function useFirestorePagination({
   }, [baseConstraints]);
 
   // Fetch total count matching query (without page limits)
-  const fetchTotalCount = useCallback(async (baseQuery) => {
+  const fetchTotalCount = useCallback(async (baseQuery, requestId) => {
     try {
       const countSnap = await getCountFromServer(baseQuery);
+      if (requestId !== requestIdRef.current) return;
       const count = countSnap.data().count;
       setTotalCount(count);
       setTotalPages(Math.ceil(count / pageSize) || 1);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error(`[useFirestorePagination:${collectionName}] Error fetching count:`, err);
     }
   }, [collectionName, pageSize]);
@@ -100,6 +103,8 @@ export function useFirestorePagination({
         setLoading(false);
         return;
       }
+
+      const requestId = ++requestIdRef.current;
 
       try {
         if (isRefresh || pageNumber === 1) {
@@ -117,7 +122,7 @@ export function useFirestorePagination({
 
         // Fetch count if it's the first page or forced refresh
         if (isRefresh || pageNumber === 1) {
-          void fetchTotalCount(baseQuery);
+          void fetchTotalCount(baseQuery, requestId);
         }
 
         // Retrieve starting cursor for this page
@@ -134,6 +139,8 @@ export function useFirestorePagination({
 
         const paginatedQuery = query(collectionRef, ...queryParams);
         const snapshot = await getDocs(paginatedQuery);
+
+        if (requestId !== requestIdRef.current) return;
 
         const fetchedItems = snapshot.docs.map(doc => ({
           id: doc.id,
@@ -158,20 +165,33 @@ export function useFirestorePagination({
         setHasMore(snapshot.docs.length === pageSize);
         setCurrentPage(pageNumber);
       } catch (err) {
+        if (requestId !== requestIdRef.current) return;
         console.error(`[useFirestorePagination:${collectionName}] Fetch error:`, err);
+        setItems([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        setCurrentPage(1);
+        setHasMore(false);
         setError(err);
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [collectionName, constraintsSignature, pageSize, mode, fetchTotalCount]
+    [collectionName, baseConstraints, pageSize, mode, fetchTotalCount]
   );
 
   // Initialize page on parameter changes
   useEffect(() => {
     cursorsRef.current = { 1: null };
     lastDocRef.current = null;
+    setItems([]);
+    setTotalCount(0);
+    setTotalPages(1);
+    setCurrentPage(1);
+    setHasMore(false);
     void loadPage(1, true);
   }, [collectionName, constraintsSignature, pageSize, loadPage]);
 
