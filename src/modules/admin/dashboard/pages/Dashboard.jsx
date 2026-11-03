@@ -15,12 +15,15 @@ import { useAdminDashboardData } from '@/shared/hooks/useAdminData';
 import { formatStatus } from '@/shared/utils/formatters';
 import { refreshDashboardMetrics } from '@/modules/admin/dashboard/services/dashboardService';
 
+const DASHBOARD_METRICS_STALE_AFTER_MS = 90 * 60 * 1000;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation('admin');
   const { data: stats, loading: loadingStats, refresh } = useAdminDashboardData();
   const [refreshing, setRefreshing] = React.useState(false);
   const refreshingRef = React.useRef(false);
+  const automaticRefreshAttemptedRef = React.useRef(false);
 
   const [, setTick] = React.useState(0);
   React.useEffect(() => {
@@ -41,7 +44,7 @@ const Dashboard = () => {
     });
   };
 
-  const handleRefreshMetrics = async () => {
+  const handleRefreshMetrics = React.useCallback(async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     setRefreshing(true);
@@ -59,7 +62,21 @@ const Dashboard = () => {
       refreshingRef.current = false;
       setRefreshing(false);
     }
-  };
+  }, [refresh, t]);
+
+  React.useEffect(() => {
+    if (loadingStats || refreshing || automaticRefreshAttemptedRef.current) return;
+
+    const refreshedAt = stats.lastRefreshedAt;
+    const refreshedAtMillis = refreshedAt?.toMillis?.() ?? new Date(refreshedAt || 0).getTime();
+    const metricsAreStale = !Number.isFinite(refreshedAtMillis) ||
+      Date.now() - refreshedAtMillis > DASHBOARD_METRICS_STALE_AFTER_MS;
+
+    if (!metricsAreStale) return;
+
+    automaticRefreshAttemptedRef.current = true;
+    void handleRefreshMetrics();
+  }, [handleRefreshMetrics, loadingStats, refreshing, stats.lastRefreshedAt]);
 
   const kpiData = [
     { title: t('dashboard.kpi.activeCompetitions'), value: stats.activeCompetitions.toLocaleString(), icon: Trophy, color: 'text-primary' },
