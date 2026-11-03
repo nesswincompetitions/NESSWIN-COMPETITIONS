@@ -470,7 +470,7 @@ const CompetitionDetail = () => {
   const handleStartLiveDraw = async () => {
     if (!competition?.id) return;
 
-    if (!competition.instagram_live_url) {
+    if (!String(competition.instagram_live_url || '').trim()) {
       toast.error('Instagram Live URL is required to start the draw. Please add it in the Edit tab.');
       return;
     }
@@ -487,7 +487,8 @@ const CompetitionDetail = () => {
       toast.success('Live draw started', { id: loadingToast });
     } catch (err) {
       console.error('Error starting live draw:', err);
-      toast.error('Failed to start the live draw. Please try again.', { id: loadingToast });
+      const message = typeof err?.message === 'string' ? err.message.trim() : '';
+      toast.error(message || 'Failed to start the live draw. Please try again.', { id: loadingToast });
     } finally {
       setIsStartingDraw(false);
     }
@@ -515,9 +516,8 @@ const CompetitionDetail = () => {
       });
     } catch (err) {
       console.error('Error selecting winner:', err);
-      const knownWinnerErrors = ['No active ticket', 'Ticket not found', 'Invalid ticket', 'already has a winner'];
-      const isKnown = knownWinnerErrors.some((m) => err.message?.includes(m));
-      toast.error(isKnown ? err.message : 'Failed to select winner. Please try again.', { id: loadingToast });
+      const message = typeof err?.message === 'string' ? err.message.trim() : '';
+      toast.error(message || 'Failed to select winner. Please try again.', { id: loadingToast });
     } finally {
       setIsSelectingWinner(false);
     }
