@@ -858,7 +858,19 @@
       "numberOfTickets": "Número de entradas",
       "expiryDateOptional": "Fecha de vencimiento (Opcional)",
       "reasonNote": "Razón / Nota",
-      "reasonPlaceholder": "¿Por qué está dando estas entradas?"
+      "reasonPlaceholder": "¿Por qué está dando estas entradas?",
+      "assignSuccess": "Se otorgaron {{count}} entrada(s) correctamente.",
+      "assignReplay": "Esta concesión ya se completó. No se emitieron entradas adicionales.",
+      "assignPartial": "Se otorgaron {{granted}} de {{requested}} entrada(s). Quedan {{remaining}}; reintente para continuar.",
+      "assignError": "No se pudieron otorgar las entradas bonus.",
+      "resumeNotice": "Reanudando una concesión incompleta: {{granted}} de {{requested}} créditos ya otorgados, quedan {{remaining}}. El usuario, la cantidad y la razón están bloqueados hasta completar o abandonar esta operación.",
+      "resumeUncertainNotice": "El resultado de la concesión anterior es incierto. Se conservan el ID de solicitud y los datos originales. Reintentar reconciliará de forma segura los fragmentos completados o parcialmente confirmados; el usuario, la cantidad y la razón permanecen bloqueados.",
+      "resumeSubmit": "Reanudar concesión",
+      "abandonOpen": "Abandonar la concesión incompleta y empezar una nueva",
+      "abandonTitle": "¿Abandonar la concesión incompleta?",
+      "abandonDescription": "Ya se otorgaron {{granted}} crédito(s) y se mantendrán. Quedan {{remaining}} crédito(s) incompletos. Empezar una nueva concesión usa un nuevo ID de solicitud y puede duplicar créditos si pretendía reanudar.",
+      "abandonUncertainDescription": "La concesión anterior puede haberse completado total o parcialmente. Abandonarla inicia un nuevo ID de solicitud, por lo que reintentar la cantidad original podría duplicar créditos. Abandone solo si pretende empezar una nueva concesión.",
+      "abandonConfirm": "Abandonar y empezar nueva"
     },
     "empty": {
       "title": "No se han emitido entradas bonus",

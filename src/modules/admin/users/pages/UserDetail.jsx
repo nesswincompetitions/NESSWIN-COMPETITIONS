@@ -50,10 +50,23 @@ import { formatStatus } from '@/shared/utils/formatters';
 import { isActiveTicket, normalizeTicketStatus } from '@/shared/utils/ticketStatus';
 import Modal from '@/shared/components/ui/Modal';
 import { grantAdminBonus } from '@/modules/admin/bonus/services/bonusService';
+import {
+  createGrantDraft,
+  createIncompleteGrant,
+  isIncompleteGrantLocked,
+  resolveGrantFailure,
+  updateIncompleteGrantProgress,
+} from '@/modules/admin/bonus/utils/grantOperationState';
 import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
 import BonusEntryAction from '@/shared/components/admin/BonusEntryAction';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import useRealtimeCollection from '@/shared/hooks/useRealtimeCollection';
 import { Clock } from 'lucide-react';
+
+const makeRequestId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `grant-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const renderBonusStatus = (entry, t) => {
   const hasUsed = entry.used_quantity > 0;
@@ -139,7 +152,12 @@ const UserDetail = () => {
   const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
   const [bonusQuantity, setBonusQuantity] = useState(1);
   const [bonusReason, setBonusReason] = useState('');
+  const [bonusRequestId, setBonusRequestId] = useState('');
+  const [bonusError, setBonusError] = useState('');
+  const [pendingBonusGrant, setPendingBonusGrant] = useState(null);
+  const [isAbandonBonusOpen, setIsAbandonBonusOpen] = useState(false);
   const [isSubmittingBonus, setIsSubmittingBonus] = useState(false);
+  const bonusPayloadLocked = isIncompleteGrantLocked(pendingBonusGrant);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const ticketViewTruncated = (tickets?.length || 0) >= ADMIN_TICKET_VIEW_LIMIT;
 
@@ -236,22 +254,103 @@ const UserDetail = () => {
   const handleAssignBonus = async e => {
     e.preventDefault();
     setIsSubmittingBonus(true);
+    setBonusError('');
     try {
-      const result = await grantAdminBonus(id, bonusQuantity, bonusReason);
-      if (result.success) {
-        toast.success(result.message);
+      const result = await grantAdminBonus(
+        id,
+        bonusQuantity,
+        bonusReason,
+        bonusRequestId
+      );
+      if (result?.success) {
+        const message = result.idempotentReplay
+          ? t('bonusTickets.modal.assignReplay')
+          : t('bonusTickets.modal.assignSuccess', {
+              count: result.grantedQuantity ?? bonusQuantity,
+            });
+        toast.success(message);
         setIsBonusModalOpen(false);
         setBonusQuantity(1);
         setBonusReason('');
+        setBonusRequestId('');
+        setBonusError('');
+        setPendingBonusGrant(null);
       } else {
-        toast.error(result.message || 'Failed to grant bonus');
+        const payload = pendingBonusGrant?.payload ?? {
+          userId: id,
+          userName: profile?.display_name || profile?.name || profile?.email || id,
+          quantity: bonusQuantity,
+          reason: bonusReason,
+        };
+        const nextPending = pendingBonusGrant
+          ? updateIncompleteGrantProgress(pendingBonusGrant, result)
+          : createIncompleteGrant({
+              requestId: bonusRequestId,
+              payload,
+              result,
+            });
+
+        if (nextPending) {
+          setPendingBonusGrant(nextPending);
+          setBonusRequestId(nextPending.requestId);
+        }
+
+        const message = t('bonusTickets.modal.assignPartial', {
+          granted: result?.grantedQuantity ?? 0,
+          requested: result?.requestedQuantity ?? bonusQuantity,
+          remaining: result?.remainingQuantity ?? bonusQuantity,
+        });
+        setBonusError(message);
+        toast.error(message);
       }
     } catch (error) {
       console.error('Error granting bonus:', error);
-      toast.error('An error occurred while granting bonus');
+      const payload = pendingBonusGrant?.payload ?? {
+        userId: id,
+        userName: profile?.display_name || profile?.name || profile?.email || id,
+        quantity: bonusQuantity,
+        reason: bonusReason,
+      };
+      const nextPending = resolveGrantFailure(pendingBonusGrant, {
+        requestId: bonusRequestId,
+        payload,
+        error,
+      });
+
+      if (nextPending) {
+        setPendingBonusGrant(nextPending);
+        setBonusRequestId(nextPending.requestId);
+      }
+
+      const message = error?.message || t('bonusTickets.modal.assignError');
+      setBonusError(message);
+      toast.error(message);
     } finally {
       setIsSubmittingBonus(false);
     }
+  };
+
+  const handleOpenBonusModal = () => {
+    const draft = createGrantDraft({
+      pendingOperation: pendingBonusGrant,
+      makeRequestId,
+    });
+    setBonusRequestId(draft.requestId);
+    setBonusError('');
+    if (draft.isResume) {
+      setBonusQuantity(draft.payload.quantity);
+      setBonusReason(draft.payload.reason);
+    }
+    setIsBonusModalOpen(true);
+  };
+
+  const handleAbandonIncompleteGrant = () => {
+    setPendingBonusGrant(null);
+    setBonusRequestId(makeRequestId());
+    setBonusQuantity(1);
+    setBonusReason('');
+    setBonusError('');
+    setIsAbandonBonusOpen(false);
   };
 
   const formatDate = ts => {
@@ -548,7 +647,7 @@ const UserDetail = () => {
           <Button
             variant="primary"
             className="flex items-center gap-2"
-            onClick={() => setIsBonusModalOpen(true)}
+            onClick={handleOpenBonusModal}
           >
             <Plus size={16} />
             {t('users.detail.bonusTab.assignBonus')}
@@ -849,6 +948,28 @@ const UserDetail = () => {
         title={t('users.detail.bonusTab.assignBonus')}
       >
         <form onSubmit={handleAssignBonus} className="space-y-4">
+          {pendingBonusGrant && (
+            <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
+              <p>
+                {pendingBonusGrant.uncertain
+                  ? t('bonusTickets.modal.resumeUncertainNotice')
+                  : t('bonusTickets.modal.resumeNotice', {
+                      granted: pendingBonusGrant.progress.grantedQuantity,
+                      requested: pendingBonusGrant.progress.requestedQuantity,
+                      remaining: pendingBonusGrant.progress.remainingQuantity,
+                    })}
+              </p>
+              <button
+                type="button"
+                className="text-xs font-medium text-red-300 underline hover:text-red-200 disabled:opacity-50"
+                onClick={() => setIsAbandonBonusOpen(true)}
+                disabled={isSubmittingBonus}
+              >
+                {t('bonusTickets.modal.abandonOpen')}
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">
               {t('users.detail.bonusTab.numTickets')}
@@ -861,7 +982,7 @@ const UserDetail = () => {
               value={bonusQuantity}
               onChange={e => setBonusQuantity(parseInt(e.target.value))}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50"
-              disabled={isSubmittingBonus}
+              disabled={isSubmittingBonus || bonusPayloadLocked}
             />
           </div>
 
@@ -873,10 +994,17 @@ const UserDetail = () => {
               value={bonusReason}
               onChange={e => setBonusReason(e.target.value)}
               placeholder={t('users.detail.bonusTab.reasonPlaceholder')}
+              maxLength={2000}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-primary/50 resize-none h-20"
-              disabled={isSubmittingBonus}
+              disabled={isSubmittingBonus || bonusPayloadLocked}
             />
           </div>
+
+          {bonusError && (
+            <div className="px-3 py-2.5 bg-red-400/10 border border-red-400/30 rounded-lg text-sm text-red-300">
+              {bonusError}
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
             <Button
@@ -898,6 +1026,8 @@ const UserDetail = () => {
                   <Loader2 size={16} className="animate-spin" />
                   {t('users.detail.bonusTab.issuing')}
                 </>
+              ) : pendingBonusGrant ? (
+                t('bonusTickets.modal.resumeSubmit')
               ) : (
                 t('users.detail.bonusTab.issueTickets')
               )}
@@ -905,6 +1035,23 @@ const UserDetail = () => {
           </div>
         </form>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isAbandonBonusOpen}
+        onClose={() => setIsAbandonBonusOpen(false)}
+        onConfirm={handleAbandonIncompleteGrant}
+        title={t('bonusTickets.modal.abandonTitle')}
+        description={
+          pendingBonusGrant?.uncertain
+            ? t('bonusTickets.modal.abandonUncertainDescription')
+            : t('bonusTickets.modal.abandonDescription', {
+                granted: pendingBonusGrant?.progress?.grantedQuantity ?? 0,
+                remaining: pendingBonusGrant?.progress?.remainingQuantity ?? 0,
+              })
+        }
+        confirmLabel={t('bonusTickets.modal.abandonConfirm')}
+        cancelLabel={t('common.cancel')}
+      />
 
       {revokeTarget && (
         <RevokeBonusModal

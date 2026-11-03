@@ -873,7 +873,19 @@
       "numberOfTickets": "Number of Tickets",
       "expiryDateOptional": "Expiry Date (Optional)",
       "reasonNote": "Reason / Note",
-      "reasonPlaceholder": "Why are you giving these tickets?"
+      "reasonPlaceholder": "Why are you giving these tickets?",
+      "assignSuccess": "Granted {{count}} ticket(s) successfully.",
+      "assignReplay": "This grant was already completed. No additional tickets were issued.",
+      "assignPartial": "{{granted}} of {{requested}} ticket(s) were granted. {{remaining}} remain; retry to continue.",
+      "assignError": "Failed to grant bonus tickets.",
+      "resumeNotice": "Resuming incomplete grant: {{granted}} of {{requested}} credits already granted, {{remaining}} remaining. The user, quantity, and reason are locked until this operation is completed or abandoned.",
+      "resumeUncertainNotice": "The previous grant outcome is uncertain. The original request ID and payload are preserved. Retrying will safely reconcile completed or partially committed chunks; the user, quantity, and reason remain locked.",
+      "resumeSubmit": "Resume grant",
+      "abandonOpen": "Abandon incomplete grant and start a new one",
+      "abandonTitle": "Abandon incomplete grant?",
+      "abandonDescription": "{{granted}} credit(s) have already been granted and will remain. {{remaining}} credit(s) are still incomplete. Starting a new grant uses a new request ID and may grant duplicate credits if you intended to resume.",
+      "abandonUncertainDescription": "The previous grant may have completed or partially completed. Abandoning it starts a new request ID, so retrying the original quantity could duplicate credits. Only abandon if you intend to start a new grant.",
+      "abandonConfirm": "Abandon and start new"
     },
     "empty": {
       "title": "No bonus tickets issued",

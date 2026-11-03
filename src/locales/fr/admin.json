@@ -858,7 +858,19 @@
       "numberOfTickets": "Nombre de tickets",
       "expiryDateOptional": "Date d'expiration (Facultatif)",
       "reasonNote": "Raison / Note",
-      "reasonPlaceholder": "Pourquoi donnez-vous ces tickets ?"
+      "reasonPlaceholder": "Pourquoi donnez-vous ces tickets ?",
+      "assignSuccess": "{{count}} ticket(s) bonus attribué(s) avec succès.",
+      "assignReplay": "Cette attribution est déjà terminée. Aucun ticket supplémentaire n’a été émis.",
+      "assignPartial": "{{granted}} ticket(s) sur {{requested}} ont été attribués. Il en reste {{remaining}} ; réessayez pour continuer.",
+      "assignError": "Impossible d’attribuer les tickets bonus.",
+      "resumeNotice": "Reprise d’une attribution incomplète : {{granted}} crédit(s) sur {{requested}} déjà attribués, {{remaining}} restant(s). L’utilisateur, la quantité et la raison sont verrouillés jusqu’à la fin ou l’abandon de cette opération.",
+      "resumeUncertainNotice": "Le résultat de l’attribution précédente est incertain. L’identifiant de requête et les données d’origine sont conservés. Réessayer réconciliera en toute sécurité les fragments terminés ou partiellement validés ; l’utilisateur, la quantité et la raison restent verrouillés.",
+      "resumeSubmit": "Reprendre l’attribution",
+      "abandonOpen": "Abandonner l’attribution incomplète et en démarrer une nouvelle",
+      "abandonTitle": "Abandonner l’attribution incomplète ?",
+      "abandonDescription": "{{granted}} crédit(s) ont déjà été attribués et resteront en place. Il reste {{remaining}} crédit(s) incomplet(s). Démarrer une nouvelle attribution utilise un nouvel identifiant de requête et peut dupliquer des crédits si vous vouliez reprendre.",
+      "abandonUncertainDescription": "L’attribution précédente a peut-être été terminée ou partiellement effectuée. L’abandonner démarre un nouvel identifiant de requête ; réessayer la quantité d’origine pourrait donc dupliquer des crédits. N’abandonnez que si vous souhaitez démarrer une nouvelle attribution.",
+      "abandonConfirm": "Abandonner et recommencer"
     },
     "empty": {
       "title": "Aucun ticket bonus émis",

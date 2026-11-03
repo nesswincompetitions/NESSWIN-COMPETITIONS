@@ -18,7 +18,20 @@ import Tooltip from '@/shared/components/ui/Tooltip';
 import RevokeBonusModal from '@/shared/components/admin/RevokeBonusModal';
 import BonusEntryAction from '@/shared/components/admin/BonusEntryAction';
 import { isActiveBonusEntry } from '@/modules/admin/bonus/utils/bonusEntrySelectors';
+import {
+  createGrantDraft,
+  createIncompleteGrant,
+  isIncompleteGrantLocked,
+  resolveGrantFailure,
+  updateIncompleteGrantProgress,
+} from '@/modules/admin/bonus/utils/grantOperationState';
+import ConfirmationModal from '@/shared/components/ui/ConfirmationModal';
 import { m as motion, AnimatePresence } from 'framer-motion';
+
+const makeRequestId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `grant-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const isSupportedAdminBonusCredit = (ticket) =>
   typeof ticket.reward_value === 'number' &&
@@ -89,9 +102,14 @@ const BonusTickets = () => {
   const [assignAmount, setAssignAmount] = useState(1);
   const [assignReason, setAssignReason] = useState('');
   const [assignExpiry, setAssignExpiry] = useState('');
+  const [assignRequestId, setAssignRequestId] = useState('');
+  const [assignError, setAssignError] = useState('');
+  const [pendingGrantOperation, setPendingGrantOperation] = useState(null);
+  const [isAbandonGrantOpen, setIsAbandonGrantOpen] = useState(false);
   const [userSearchResults, setUserSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const grantPayloadLocked = isIncompleteGrantLocked(pendingGrantOperation);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const userMap = useMemo(() => Object.fromEntries(users.map((user) => [user.id, user])), [users]);
 
@@ -201,6 +219,7 @@ const BonusTickets = () => {
   };
 
   const handleUserSearch = async (e) => {
+    if (grantPayloadLocked) return;
     const value = e.target.value;
     setAssignUser(value);
     setAssignUserId('');
@@ -267,23 +286,112 @@ const BonusTickets = () => {
     }
 
     setIsSubmitting(true);
+    setAssignError('');
     try {
-      const result = await grantAdminBonus(assignUserId, qty, assignReason);
-      if (result.success) {
-        toast.success(result.message);
+      const result = await grantAdminBonus(
+        assignUserId,
+        qty,
+        assignReason,
+        assignRequestId
+      );
+      if (result?.success) {
+        const message = result.idempotentReplay
+          ? t('bonusTickets.modal.assignReplay')
+          : t('bonusTickets.modal.assignSuccess', {
+              count: result.grantedQuantity ?? qty,
+            });
+        toast.success(message);
         setAssignUser('');
         setAssignUserId('');
         setAssignAmount(1);
         setAssignReason('');
         setAssignExpiry('');
+        setAssignRequestId('');
+        setAssignError('');
+        setPendingGrantOperation(null);
         setIsAssignModalOpen(false);
+      } else {
+        const payload = pendingGrantOperation?.payload ?? {
+          userId: assignUserId,
+          userName: assignUser,
+          quantity: qty,
+          reason: assignReason,
+        };
+        const nextPending = pendingGrantOperation
+          ? updateIncompleteGrantProgress(pendingGrantOperation, result)
+          : createIncompleteGrant({
+              requestId: assignRequestId,
+              payload,
+              result,
+            });
+
+        if (nextPending) {
+          setPendingGrantOperation(nextPending);
+          setAssignRequestId(nextPending.requestId);
+        }
+
+        const message = t('bonusTickets.modal.assignPartial', {
+          granted: result?.grantedQuantity ?? 0,
+          requested: result?.requestedQuantity ?? qty,
+          remaining: result?.remainingQuantity ?? qty,
+        });
+        setAssignError(message);
+        toast.error(message);
       }
     } catch (error) {
       console.error('Error granting bonus:', error);
-      toast.error('Failed to grant bonus tickets. Please try again.');
+      const payload = pendingGrantOperation?.payload ?? {
+        userId: assignUserId,
+        userName: assignUser,
+        quantity: qty,
+        reason: assignReason,
+      };
+      const nextPending = resolveGrantFailure(pendingGrantOperation, {
+        requestId: assignRequestId,
+        payload,
+        error,
+      });
+
+      if (nextPending) {
+        setPendingGrantOperation(nextPending);
+        setAssignRequestId(nextPending.requestId);
+      }
+
+      const message = error?.message || t('bonusTickets.modal.assignError');
+      setAssignError(message);
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleOpenAssignModal = () => {
+    const draft = createGrantDraft({
+      pendingOperation: pendingGrantOperation,
+      makeRequestId,
+    });
+    setAssignRequestId(draft.requestId);
+    setAssignError('');
+    if (draft.isResume) {
+      setAssignUser(draft.payload.userName);
+      setAssignUserId(draft.payload.userId);
+      setAssignAmount(draft.payload.quantity);
+      setAssignReason(draft.payload.reason);
+    }
+    setIsAssignModalOpen(true);
+  };
+
+  const handleAbandonIncompleteGrant = () => {
+    setPendingGrantOperation(null);
+    setAssignRequestId(makeRequestId());
+    setAssignUser('');
+    setAssignUserId('');
+    setAssignAmount(1);
+    setAssignReason('');
+    setAssignExpiry('');
+    setAssignError('');
+    setUserSearchResults([]);
+    setIsAbandonGrantOpen(false);
   };
 
   const handleCloseModal = () => {
@@ -294,6 +402,8 @@ const BonusTickets = () => {
       setAssignAmount(1);
       setAssignReason('');
       setAssignExpiry('');
+      setAssignRequestId(pendingGrantOperation?.requestId || '');
+      setAssignError('');
       setUserSearchResults([]);
     }
   };
@@ -319,7 +429,7 @@ const BonusTickets = () => {
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="primary" className="flex items-center gap-2" onClick={() => setIsAssignModalOpen(true)}>
+        <Button variant="primary" className="flex items-center gap-2" onClick={handleOpenAssignModal}>
           <Plus size={16} /> {t('bonusTickets.issueTickets')}
         </Button>
         <Button variant="outline" className="flex items-center gap-2" onClick={handleExportCSV} disabled={!tickets.length}>
@@ -443,6 +553,28 @@ const BonusTickets = () => {
         title={t('bonusTickets.issueTickets')}
       >
         <form onSubmit={handleAssignSubmit} className="space-y-4">
+          {pendingGrantOperation && (
+            <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 text-sm text-amber-200">
+              <p>
+                {pendingGrantOperation.uncertain
+                  ? t('bonusTickets.modal.resumeUncertainNotice')
+                  : t('bonusTickets.modal.resumeNotice', {
+                      granted: pendingGrantOperation.progress.grantedQuantity,
+                      requested: pendingGrantOperation.progress.requestedQuantity,
+                      remaining: pendingGrantOperation.progress.remainingQuantity,
+                    })}
+              </p>
+              <button
+                type="button"
+                className="text-xs font-medium text-red-300 underline hover:text-red-200 disabled:opacity-50"
+                onClick={() => setIsAbandonGrantOpen(true)}
+                disabled={isSubmitting}
+              >
+                {t('bonusTickets.modal.abandonOpen')}
+              </button>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-300">{t('bonusTickets.modal.searchUser')}</label>
             <div className="relative">
@@ -454,11 +586,11 @@ const BonusTickets = () => {
                 onChange={handleUserSearch}
                 placeholder={t('bonusTickets.modal.searchUserPlaceholder')}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
-                disabled={isSubmitting}
+                disabled={isSubmitting || grantPayloadLocked}
                 autoComplete="off"
               />
               
-              {assignUser && (userSearchResults.length > 0 || isSearching) && (
+              {!grantPayloadLocked && assignUser && (userSearchResults.length > 0 || isSearching) && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg z-50 max-h-48 overflow-y-auto">
                   {isSearching ? (
                     <div className="p-3 text-center text-gray-400">
@@ -502,7 +634,7 @@ const BonusTickets = () => {
               onChange={handleAmountChange}
               placeholder="Enter number of tickets (1-1000)"
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50"
-              disabled={isSubmitting}
+              disabled={isSubmitting || grantPayloadLocked}
             />
           </div>
 
@@ -512,10 +644,17 @@ const BonusTickets = () => {
               value={assignReason}
               onChange={(e) => setAssignReason(e.target.value)}
               placeholder={t('bonusTickets.modal.reasonPlaceholder')}
+              maxLength={2000}
               className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/50 resize-none h-24"
-              disabled={isSubmitting}
+              disabled={isSubmitting || grantPayloadLocked}
             />
           </div>
+
+          {assignError && (
+            <div className="px-3 py-2.5 bg-red-400/10 border border-red-400/30 rounded-lg text-sm text-red-300">
+              {assignError}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10 mt-6">
             <Button 
@@ -537,6 +676,8 @@ const BonusTickets = () => {
                   <Loader2 size={16} className="animate-spin" />
                   Granting...
                 </>
+              ) : pendingGrantOperation ? (
+                t('bonusTickets.modal.resumeSubmit')
               ) : (
                 `${t('bonusTickets.issueTickets')}`
               )}
@@ -544,6 +685,23 @@ const BonusTickets = () => {
           </div>
         </form>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isAbandonGrantOpen}
+        onClose={() => setIsAbandonGrantOpen(false)}
+        onConfirm={handleAbandonIncompleteGrant}
+        title={t('bonusTickets.modal.abandonTitle')}
+        description={
+          pendingGrantOperation?.uncertain
+            ? t('bonusTickets.modal.abandonUncertainDescription')
+            : t('bonusTickets.modal.abandonDescription', {
+                granted: pendingGrantOperation?.progress?.grantedQuantity ?? 0,
+                remaining: pendingGrantOperation?.progress?.remainingQuantity ?? 0,
+              })
+        }
+        confirmLabel={t('bonusTickets.modal.abandonConfirm')}
+        cancelLabel={t('common.cancel')}
+      />
 
       {revokeTarget && (
         <RevokeBonusModal

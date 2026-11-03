@@ -52,13 +52,14 @@ export async function searchUsers(searchTerm) {
  * @param {string} userId - The user ID receiving the bonus
  * @param {number} quantity - Number of tickets to grant (must be positive)
  * @param {string} reason - Admin's reason for granting (optional)
- * @returns {Promise<{ success: boolean, message: string }>}
+ * @param {string} requestId - Idempotency key for this grant operation
+ * @returns {Promise<{ success: boolean, complete: boolean, message: string }>}
  */
-export async function grantAdminBonus(userId, quantity, reason = '') {
+export async function grantAdminBonus(userId, quantity, reason = '', requestId) {
   try {
     const grant = httpsCallable(functions, 'grantAdminBonus');
-    const resp = await grant({ userId, quantity, reason });
-    // resp.data should contain { success, message }
+    const resp = await grant({ userId, quantity, reason, requestId });
+    // resp.data contains the grant result and replay/partial progress
     return resp.data;
   } catch (error) {
     console.error("[BonusService] Error granting admin bonus:", error);
