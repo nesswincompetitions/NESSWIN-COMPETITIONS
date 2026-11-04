@@ -37,18 +37,27 @@ export default function Tooltip({ children, content, position = 'top' }) {
       case 'top':
         return {
           top: coords.top - space,
-          left: coords.left + coords.width / 2,
-          transform: 'translate(-50%, -100%)'
+          left: coords.left + coords.width / 2
         };
       case 'bottom':
         return {
           top: coords.top + coords.height + space,
-          left: coords.left + coords.width / 2,
-          transform: 'translateX(-50%)'
+          left: coords.left + coords.width / 2
         };
       default:
         return { top: coords.top, left: coords.left };
     }
+  };
+
+  // Framer Motion overwrites style.transform, so keep the centering offset
+  // in its transform template instead of in getPositionStyles.
+  const transformTemplate = (_, generated) => {
+    const alignment = position === 'top'
+      ? 'translate(-50%, -100%)'
+      : position === 'bottom'
+        ? 'translateX(-50%)'
+        : '';
+    return `${alignment} ${generated}`.trim();
   };
 
   return (
@@ -67,6 +76,7 @@ export default function Tooltip({ children, content, position = 'top' }) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: position === 'top' ? 5 : -5 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
+              transformTemplate={transformTemplate}
               style={{
                 position: 'absolute',
                 ...getPositionStyles(),
