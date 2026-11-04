@@ -278,6 +278,24 @@
           "submitting": "Réduction des tickets...",
           "success": "{{count}} ticket(s) réduit(s). Aucun remboursement émis.",
           "error": "Impossible de réduire les tickets."
+        },
+        "postDraw": {
+          "open": "Corriger les tickets après le tirage",
+          "openShort": "Correction après tirage",
+          "title": "Correction exceptionnelle des tickets après le tirage",
+          "warning": "Il s'agit d'une opération exceptionnelle pour les tickets explicitement sélectionnés après l'annonce du gagnant ou la fin du concours. Elle ne dépublie pas et ne modifie pas le gagnant, n'émet aucun remboursement, ne libère aucune capacité, ne renumérote pas les tickets et ne supprime pas l'historique des tickets.",
+          "noEligible": "Aucun ticket actif non gagnant n'est disponible pour correction.",
+          "selectTickets": "Sélectionnez les tickets à invalider",
+          "selectHint": "Seuls les tickets que vous sélectionnez explicitement seront invalidés. Les tickets gagnants et les commandes gagnantes sont toujours refusés.",
+          "selectedCount": "{{count}} ticket(s) sélectionné(s)",
+          "maxWarning": "Maximum {{max}} tickets par demande.",
+          "reasonLabel": "Motif",
+          "reasonPlaceholder": "Expliquez pourquoi cette correction après tirage est nécessaire",
+          "confirmCheckbox": "Je comprends que cela ne dépublie pas et ne modifie pas le gagnant, n'émet aucun remboursement et ne supprime pas l'historique des tickets.",
+          "confirm": "Appliquer la correction après tirage",
+          "submitting": "Application de la correction...",
+          "success": "{{count}} ticket(s) corrigé(s) après le tirage. Le gagnant publié est inchangé.",
+          "error": "Impossible d'appliquer la correction après tirage."
         }
       },
       "draw": {

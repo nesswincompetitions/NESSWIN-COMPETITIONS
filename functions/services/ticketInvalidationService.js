@@ -1,10 +1,12 @@
 import {
   ADJUSTMENT_MAX_TICKETS,
   getCompetitionAdjustmentBlock,
+  getPostDrawCorrectionBlock,
   getReferenceId,
   isFiniteNonNegativeInteger,
   isParticipantRestricted,
   isWinnerTicket,
+  normalizeAdjustmentReason,
   normalizeRequestId,
   PARTICIPANT_RESTRICTION_FIELD,
   ticketBelongsToCompetition,
@@ -409,6 +411,7 @@ async function invalidateTicketsInTransaction({
   source,
   adjustmentExtras = {},
   resultExtras = {},
+  postDrawCorrection = false,
   HttpsError,
 }) {
   const freshCompetitionSnap = await transaction.get(competitionRef);
@@ -416,19 +419,26 @@ async function invalidateTicketsInTransaction({
     throw new HttpsError("not-found", "Competition not found.");
   }
 
-  const freshBlock = getCompetitionAdjustmentBlock(freshCompetitionSnap.data(), {
-    allowSoldOut: true,
-    requireDrawDate: true,
-  });
+  const freshCompetitionData = freshCompetitionSnap.data();
+  const freshBlock = postDrawCorrection
+    ? getPostDrawCorrectionBlock(freshCompetitionData)
+    : getCompetitionAdjustmentBlock(freshCompetitionData, {
+        allowSoldOut: true,
+        requireDrawDate: true,
+      });
   if (freshBlock) {
     throw new HttpsError("failed-precondition", freshBlock);
   }
 
+  const winnerTicketId = postDrawCorrection
+    ? getReferenceId(freshCompetitionData.winner_ticket_ref)
+    : null;
   const ticketSnaps = await Promise.all(ticketRefs.map((ref) => transaction.get(ref)));
   const ticketNumbers = [];
   const ticketSequences = [];
   const ticketOrigins = [];
   const orderRefs = [];
+  const orderRefsToCheck = [];
   const seenOrderIds = new Set();
   const toInvalidate = [];
 
@@ -456,6 +466,12 @@ async function invalidateTicketsInTransaction({
         "Winning tickets cannot be invalidated. No tickets were changed."
       );
     }
+    if (postDrawCorrection && winnerTicketId === ticketSnap.ref.id) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The published winning ticket cannot be corrected. No tickets were changed."
+      );
+    }
     if (normalizeTicketStatus(ticketData.status) !== "active") {
       throw new HttpsError(
         "failed-precondition",
@@ -479,8 +495,23 @@ async function invalidateTicketsInTransaction({
     if (orderId && !seenOrderIds.has(orderId)) {
       seenOrderIds.add(orderId);
       orderRefs.push(ticketData.order_id);
+      if (postDrawCorrection) {
+        orderRefsToCheck.push(db.collection("order").doc(orderId));
+      }
     }
   });
+
+  if (postDrawCorrection && orderRefsToCheck.length > 0) {
+    const orderSnaps = await Promise.all(
+      orderRefsToCheck.map((ref) => transaction.get(ref))
+    );
+    if (orderSnaps.some((snap) => snap.exists && snap.data()?.is_winner === true)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "A selected ticket belongs to a winning order and cannot be corrected. No tickets were changed."
+      );
+    }
+  }
 
   const now = admin.firestore.FieldValue.serverTimestamp();
   toInvalidate.forEach(({ ref }) => {
@@ -564,6 +595,166 @@ async function invalidateTicketsInTransaction({
   );
 
   return result;
+}
+
+export function createCorrectCompetitionTicketsAfterDrawHandler({
+  db,
+  admin,
+  logger,
+  assertAdmin,
+  HttpsError,
+}) {
+  const auditService = createAdminAuditService({ db, admin, logger, HttpsError });
+
+  return async function handleCorrectCompetitionTicketsAfterDraw(request) {
+    const adminUid = await assertAdmin(request);
+    const { userId, competitionId, ticketIds, reason, requestId } = request.data || {};
+
+    if (!userId || typeof userId !== "string") {
+      throw new HttpsError("invalid-argument", "userId is required.");
+    }
+    if (!competitionId || typeof competitionId !== "string") {
+      throw new HttpsError("invalid-argument", "competitionId is required.");
+    }
+
+    const reasonText = normalizeAdjustmentReason(reason);
+    if (!reasonText) {
+      throw new HttpsError(
+        "invalid-argument",
+        "A reason is required to correct tickets after the draw."
+      );
+    }
+
+    const selectedIdsResult = normalizeSelectedTicketIds(ticketIds);
+    if (selectedIdsResult.error) {
+      throw new HttpsError("invalid-argument", selectedIdsResult.error);
+    }
+    const selectedTicketIds = selectedIdsResult.ticketIds;
+
+    const normalizedRequestId = normalizeRequestId(requestId);
+    if (!normalizedRequestId) {
+      throw new HttpsError("invalid-argument", "A valid requestId is required.");
+    }
+
+    const userRef = db.collection("user").doc(userId);
+    const competitionRef = db.collection("competition").doc(competitionId);
+    const adminRef = db.collection("user").doc(adminUid);
+    const replayExpectation = {
+      operation: "ticket_invalidation",
+      source: "admin_post_draw_correction",
+      direction: "decrease",
+      quantity: selectedTicketIds.length,
+      ticketIds: selectedTicketIds,
+      reason: reasonText,
+      userRef,
+      competitionRef,
+      primaryOrderRef: null,
+    };
+
+    const existingAdjustment = await db
+      .collection(TICKET_ADJUSTMENTS_COLLECTION)
+      .doc(normalizedRequestId)
+      .get();
+    if (existingAdjustment.exists) {
+      const existing = existingAdjustment.data();
+      if (!adjustmentReplayMatches(existing, replayExpectation)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This request ID was already used for a different ticket adjustment."
+        );
+      }
+      return { ...existing.result, idempotentReplay: true };
+    }
+
+    await assertRequestIdNotUsedByParticipantRemoval(
+      db,
+      normalizedRequestId,
+      HttpsError
+    );
+
+    const [userSnap, competitionSnap] = await Promise.all([
+      userRef.get(),
+      competitionRef.get(),
+    ]);
+
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    if (!competitionSnap.exists) {
+      throw new HttpsError("not-found", "Competition not found.");
+    }
+
+    const preflightBlock = getPostDrawCorrectionBlock(competitionSnap.data());
+    if (preflightBlock) {
+      throw new HttpsError("failed-precondition", preflightBlock);
+    }
+
+    const result = await db.runTransaction(async (transaction) => {
+      const adjustmentRef = db
+        .collection(TICKET_ADJUSTMENTS_COLLECTION)
+        .doc(normalizedRequestId);
+      const existingAdjustment = await transaction.get(adjustmentRef);
+      await assertRequestIdNotUsedByParticipantRemovalInTransaction(
+        transaction,
+        db,
+        normalizedRequestId,
+        HttpsError
+      );
+      if (existingAdjustment.exists) {
+        const existing = existingAdjustment.data();
+        if (!adjustmentReplayMatches(existing, replayExpectation)) {
+          throw new HttpsError(
+            "failed-precondition",
+            "This request ID was already used for a different ticket adjustment."
+          );
+        }
+        return { ...existing.result, idempotentReplay: true };
+      }
+
+      return invalidateTicketsInTransaction({
+        db,
+        admin,
+        auditService,
+        transaction,
+        adminUid,
+        adminRef,
+        userRef,
+        userId,
+        competitionRef,
+        competitionId,
+        ticketRefs: selectedTicketIds.map((id) => db.collection("ticket").doc(id)),
+        ticketIds: selectedTicketIds,
+        reasonText,
+        adjustmentId: normalizedRequestId,
+        requestId: normalizedRequestId,
+        source: "admin_post_draw_correction",
+        adjustmentExtras: {
+          quantityScope: "selected_post_draw_tickets",
+          previousQuantity: selectedTicketIds.length,
+          newQuantity: 0,
+          activeCountScope: "selected_post_draw_tickets",
+          activeCountBefore: null,
+          activeCountAfter: null,
+          selectedCountBefore: selectedTicketIds.length,
+          selectedCountAfter: 0,
+        },
+        resultExtras: {
+          mode: "post_draw_correction",
+          ticketStatusBefore: "active",
+          ticketStatusAfter: "invalid",
+          summary: `Post-draw correction invalidated ${selectedTicketIds.length} ticket(s) for ${userId} in ${competitionId}.`,
+        },
+        postDrawCorrection: true,
+        HttpsError,
+      });
+    });
+
+    logger.info(
+      `[correctCompetitionTicketsAfterDraw] admin=${adminUid} user=${userId} competition=${competitionId} corrected=${result.invalidatedCount}`
+    );
+
+    return result;
+  };
 }
 
 export function createInvalidateUserCompetitionTicketsHandler({

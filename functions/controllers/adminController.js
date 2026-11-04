@@ -3,7 +3,10 @@ import { logger } from "firebase-functions";
 import { admin, db } from "../config/firebaseAdmin.js";
 import { assertAdmin, toHttpsError } from "../services/functionGuards.js";
 import { createRevokeAdminBonusHandler } from "../services/adminBonusRevocationService.js";
-import { createInvalidateUserCompetitionTicketsHandler } from "../services/ticketInvalidationService.js";
+import {
+  createCorrectCompetitionTicketsAfterDrawHandler,
+  createInvalidateUserCompetitionTicketsHandler,
+} from "../services/ticketInvalidationService.js";
 import {
   createDecreaseUserCompetitionTicketsHandler,
   createIncreaseUserCompetitionTicketsHandler,
@@ -442,6 +445,14 @@ export const revokeAdminBonus = onCall(
  */
 export const invalidateUserCompetitionTickets = onCall(
   createInvalidateUserCompetitionTicketsHandler({ db, admin, logger, assertAdmin, HttpsError })
+);
+
+/**
+ * Callable: correctCompetitionTicketsAfterDraw
+ * Payload: { userId, competitionId, ticketIds, reason, requestId }
+ */
+export const correctCompetitionTicketsAfterDraw = onCall(
+  createCorrectCompetitionTicketsAfterDrawHandler({ db, admin, logger, assertAdmin, HttpsError })
 );
 
 /**

@@ -138,6 +138,24 @@ export function getCompetitionAdjustmentBlock(
   return null;
 }
 
+export const POST_DRAW_CORRECTION_ALLOWED_STATUSES = new Set([
+  "winner_announced",
+  "completed",
+]);
+
+export function getPostDrawCorrectionBlock(competitionData) {
+  if (!competitionData) {
+    return "Competition not found.";
+  }
+
+  const status = normalizeStatus(competitionData.status);
+  if (!POST_DRAW_CORRECTION_ALLOWED_STATUSES.has(status)) {
+    return "Tickets can only be corrected after the winner has been announced or the competition is completed.";
+  }
+
+  return null;
+}
+
 const COMPETITION_MUTATION_BLOCKED_STATUSES = new Set([
   "ready_to_draw",
   "drawing",

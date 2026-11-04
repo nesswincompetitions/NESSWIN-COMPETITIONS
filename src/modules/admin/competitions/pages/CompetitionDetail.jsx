@@ -8,11 +8,12 @@ import Badge from '@/shared/components/ui/Badge';
 import CompetitionForm from '@/modules/admin/competitions/components/CompetitionForm';
 import {
   ArrowLeft, Trophy, ExternalLink,
-  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard, MinusCircle, MoreHorizontal
+  Users, Edit3, LayoutDashboard, Clock, Tag, Ticket, CheckCircle2, Loader2, Trash2, Ban, CreditCard, MinusCircle, MoreHorizontal, ShieldAlert
 } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import Tooltip from '@/shared/components/ui/Tooltip';
 import InvalidateTicketsModal from '@/shared/components/admin/InvalidateTicketsModal';
+import PostDrawCorrectionModal from '@/shared/components/admin/PostDrawCorrectionModal';
 import AdditionalPaymentModal from '@/shared/components/admin/AdditionalPaymentModal';
 import AdditionalPaymentRequestsPanel from '@/shared/components/admin/AdditionalPaymentRequestsPanel';
 import ParticipantTicketAdjustmentModal from '@/shared/components/admin/ParticipantTicketAdjustmentModal';
@@ -45,6 +46,8 @@ const PARTICIPANT_INVALIDATION_BLOCKED_STATUSES = new Set([
   'cancelled',
   'deleted',
 ]);
+
+const POST_DRAW_CORRECTION_STATUSES = new Set(['winner_announced', 'completed']);
 
 const ParticipantMoreActions = ({ menuLabel, removeLabel, onRemove, removeDisabled = false }) => {
   const [open, setOpen] = useState(false);
@@ -144,6 +147,7 @@ const CompetitionDetail = () => {
   const [participantTicketsModalOpen, setParticipantTicketsModalOpen] = useState(false);
   const [selectedParticipantForTickets, setSelectedParticipantForTickets] = useState(null);
   const [invalidateTarget, setInvalidateTarget] = useState(null);
+  const [postDrawCorrectionTarget, setPostDrawCorrectionTarget] = useState(null);
   const [additionalPaymentTarget, setAdditionalPaymentTarget] = useState(null);
   const [ticketAdjustmentTarget, setTicketAdjustmentTarget] = useState(null);
   const [additionalPaymentRefreshKey, setAdditionalPaymentRefreshKey] = useState(0);
@@ -667,6 +671,7 @@ const CompetitionDetail = () => {
       !competition?.winner_ref &&
       !competition?.winner_ticket_ref &&
       !competition?.draw_started_at;
+    const canCorrectAfterDraw = POST_DRAW_CORRECTION_STATUSES.has(competitionStatusLower);
 
     return (
       <div className="space-y-6">
@@ -722,6 +727,9 @@ const CompetitionDetail = () => {
                       isWinner: false,
                     }));
                 const activeTicketCount = p.activeTicketCount ?? ticketDetails.filter((ticket) => ticket.status === 'active').length;
+                const activeNonWinnerTicketCount = ticketDetails.filter(
+                  (ticket) => ticket.status === 'active' && ticket.isWinner !== true
+                ).length;
                 const invalidatedTicketCount = p.invalidatedTicketCount ?? 0;
                 const cancelledTicketCount = p.cancelledTicketCount ?? 0;
                 const isRestricted = (competition?.restricted_participants || []).some(
@@ -802,6 +810,18 @@ const CompetitionDetail = () => {
                           >
                             <MinusCircle size={14} />
                             {t('competitions.detail.participants.adjust.openShort')}
+                          </Button>
+                        )}
+                        {canCorrectAfterDraw && activeNonWinnerTicketCount > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-3 text-xs gap-1.5 border-red-500/30 bg-red-500/5 text-red-400 hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-300"
+                            aria-label={t('competitions.detail.participants.postDraw.open')}
+                            onClick={() => setPostDrawCorrectionTarget(p)}
+                          >
+                            <ShieldAlert size={14} />
+                            {t('competitions.detail.participants.postDraw.openShort')}
                           </Button>
                         )}
                         <ParticipantMoreActions
@@ -1410,6 +1430,14 @@ const CompetitionDetail = () => {
           Boolean(competition?.winner_ref) ||
           Boolean(competition?.winner_ticket_ref)
         }
+        onSuccess={handleInvalidationSuccess}
+      />
+      <PostDrawCorrectionModal
+        isOpen={!!postDrawCorrectionTarget}
+        onClose={() => setPostDrawCorrectionTarget(null)}
+        participant={postDrawCorrectionTarget}
+        competitionId={competition?.id}
+        competitionTitle={competition?.title}
         onSuccess={handleInvalidationSuccess}
       />
     </div>

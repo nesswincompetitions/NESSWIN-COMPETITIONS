@@ -278,6 +278,24 @@
           "submitting": "Reduciendo entradas...",
           "success": "Se redujeron {{count}} entrada(s). No se emitió ningún reembolso.",
           "error": "No se pudieron reducir las entradas."
+        },
+        "postDraw": {
+          "open": "Corregir entradas después del sorteo",
+          "openShort": "Corrección posterior",
+          "title": "Corrección excepcional de entradas después del sorteo",
+          "warning": "Esta es una operación excepcional para entradas seleccionadas explícitamente después de que se haya anunciado el ganador o de que el sorteo esté completado. No despublica ni cambia al ganador, no emite reembolsos, no libera capacidad, no renumera entradas ni elimina el historial de entradas.",
+          "noEligible": "No hay entradas activas que no sean ganadoras disponibles para corregir.",
+          "selectTickets": "Seleccione las entradas a invalidar",
+          "selectHint": "Solo se invalidarán las entradas que seleccione explícitamente. Las entradas ganadoras y los pedidos ganadores siempre se rechazan.",
+          "selectedCount": "{{count}} entrada(s) seleccionada(s)",
+          "maxWarning": "Máximo {{max}} entradas por solicitud.",
+          "reasonLabel": "Motivo",
+          "reasonPlaceholder": "Explique por qué se requiere esta corrección posterior al sorteo",
+          "confirmCheckbox": "Entiendo que esto no despublica ni cambia al ganador, no emite un reembolso ni elimina el historial de entradas.",
+          "confirm": "Aplicar corrección posterior",
+          "submitting": "Aplicando corrección...",
+          "success": "Se corrigieron {{count}} entrada(s) después del sorteo. El ganador publicado no cambia.",
+          "error": "No se pudo aplicar la corrección posterior al sorteo."
         }
       },
       "draw": {

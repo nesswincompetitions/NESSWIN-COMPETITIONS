@@ -18,3 +18,16 @@ export const invalidateUserCompetitionTickets = (
     },
     'Failed to invalidate tickets.'
   );
+
+export const correctCompetitionTicketsAfterDraw = ({
+  userId,
+  competitionId,
+  ticketIds,
+  reason,
+  requestId,
+}) =>
+  callFunction(
+    'correctCompetitionTicketsAfterDraw',
+    { userId, competitionId, ticketIds, reason, requestId },
+    'Failed to correct tickets after the draw.'
+  );

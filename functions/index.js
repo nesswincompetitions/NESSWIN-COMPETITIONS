@@ -16,7 +16,7 @@ export { softDeleteUser } from "./controllers/userController.js";
 export { getSkillQuestion, submitSkillAnswer } from "./controllers/skillGateController.js";
 
 // Admin & Dashboard
-export { grantAdminBonus, revokeAdminBonus, invalidateUserCompetitionTickets, increaseUserCompetitionTickets, decreaseUserCompetitionTickets, getOrderRefundEligibility, refundOrder } from "./controllers/adminController.js";
+export { grantAdminBonus, revokeAdminBonus, invalidateUserCompetitionTickets, correctCompetitionTicketsAfterDraw, increaseUserCompetitionTickets, decreaseUserCompetitionTickets, getOrderRefundEligibility, refundOrder } from "./controllers/adminController.js";
 export { listAdminAuditEvents } from "./controllers/adminAuditController.js";
 export {
 	createAdditionalPaymentRequest,

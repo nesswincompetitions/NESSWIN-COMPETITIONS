@@ -278,6 +278,24 @@
           "submitting": "Decreasing tickets...",
           "success": "Decreased {{count}} ticket(s). No refund was issued.",
           "error": "Failed to decrease tickets."
+        },
+        "postDraw": {
+          "open": "Correct tickets after draw",
+          "openShort": "Post-draw correction",
+          "title": "Exceptional Post-Draw Ticket Correction",
+          "warning": "This is an exceptional operation for explicitly selected tickets after the winner has been announced or the competition is completed. It does not unpublish or change the winner, issue refunds, release capacity, renumber tickets, or delete historical ticket records.",
+          "noEligible": "There are no active non-winner tickets available for correction.",
+          "selectTickets": "Select tickets to invalidate",
+          "selectHint": "Only the tickets you explicitly select will be invalidated. Winning tickets and winning orders are always rejected.",
+          "selectedCount": "{{count}} ticket(s) selected",
+          "maxWarning": "Maximum {{max}} tickets per request.",
+          "reasonLabel": "Reason",
+          "reasonPlaceholder": "Explain why this post-draw correction is required",
+          "confirmCheckbox": "I understand this does not unpublish or change the winner, issue a refund, or delete historical ticket records.",
+          "confirm": "Apply post-draw correction",
+          "submitting": "Applying correction...",
+          "success": "Corrected {{count}} ticket(s) after the draw. The published winner is unchanged.",
+          "error": "Failed to apply the post-draw correction."
         }
       },
       "draw": {
