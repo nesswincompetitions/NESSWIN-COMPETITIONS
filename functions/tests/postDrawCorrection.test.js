@@ -547,6 +547,207 @@ describe('post-draw correction ticket validation', () => {
   });
 });
 
+describe('post-draw correction order reference compatibility', () => {
+  it('rejects a canonical order_id that points to a winning order', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    addTicket(db, refs, 'canonicalWinningOrderTicket', {
+      order_id: refs.winnerOrderRef,
+    });
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['canonicalWinningOrderTicket'],
+          requestId: 'req-canonical-winning-order',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' && /winning order/.test(error.message)
+    );
+
+    assertNoCorrectionWrites(db, 'canonicalWinningOrderTicket');
+  });
+
+  it('rejects a legacy order_ref that points to a winning order', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    addTicket(db, refs, 'legacyWinningOrderTicket', {
+      order_id: null,
+      order_ref: refs.winnerOrderRef,
+    });
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['legacyWinningOrderTicket'],
+          requestId: 'req-legacy-winning-order',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' && /winning order/.test(error.message)
+    );
+
+    assertNoCorrectionWrites(db, 'legacyWinningOrderTicket');
+  });
+
+  it('allows a legacy order_ref that points to a non-winning order', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    addTicket(db, refs, 'legacyNonWinningOrderTicket', {
+      order_id: null,
+      order_ref: refs.orderRef,
+    });
+
+    const result = await makeCorrectionHandler(db)(
+      correctionRequest({
+        ticketIds: ['legacyNonWinningOrderTicket'],
+        requestId: 'req-legacy-non-winning-order',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.invalidatedCount, 1);
+    assert.equal(
+      db.snapshot('ticket', 'legacyNonWinningOrderTicket').data().status,
+      'invalid'
+    );
+    const adjustment = db.snapshot(
+      'ticket_adjustments',
+      'req-legacy-non-winning-order'
+    ).data();
+    assert.equal(adjustment.source, 'admin_post_draw_correction');
+    assert.equal(adjustment.primary_order_ref.path, refs.orderRef.path);
+    assert.equal(adjustment.result.mode, 'post_draw_correction');
+  });
+
+  it('rejects a mixed selection with a legacy winning-order ticket without partial writes', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    addTicket(db, refs, 'legacyWinningOrderTicket', {
+      order_id: null,
+      order_ref: refs.winnerOrderRef,
+    });
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['t1', 'legacyWinningOrderTicket'],
+          requestId: 'req-mixed-legacy-winning-order',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' && /winning order/.test(error.message)
+    );
+
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
+    assert.equal(
+      db.snapshot('ticket', 'legacyWinningOrderTicket').data().status,
+      'active'
+    );
+    assert.equal(db.collectionStore('ticket_adjustments').size, 0);
+    assert.equal(auditEvents(db).length, 0);
+  });
+
+  it('keeps canonical order_id behaviour unchanged', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+
+    const result = await makeCorrectionHandler(db)(
+      correctionRequest({
+        ticketIds: ['t1'],
+        requestId: 'req-canonical-unchanged',
+      })
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.mode, 'post_draw_correction');
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'invalid');
+    const adjustment = db.snapshot(
+      'ticket_adjustments',
+      'req-canonical-unchanged'
+    ).data();
+    assert.equal(adjustment.primary_order_ref.path, refs.orderRef.path);
+    assert.equal(adjustment.result.mode, 'post_draw_correction');
+  });
+
+  it('rejects an order reference that cannot be resolved', async () => {
+    const db = new MemoryDB();
+    const refs = seed(db);
+    addTicket(db, refs, 'malformedOrderReferenceTicket', {
+      order_id: null,
+      order_ref: {},
+    });
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['malformedOrderReferenceTicket'],
+          requestId: 'req-malformed-order-reference',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' &&
+        /cannot be resolved/.test(error.message)
+    );
+
+    assertNoCorrectionWrites(db, 'malformedOrderReferenceTicket');
+  });
+});
+
+describe('post-draw correction validation', () => {
+  it('rejects a missing ticket ID without writes', async () => {
+    const db = new MemoryDB();
+    seed(db);
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['missingTicket'],
+          requestId: 'req-missing-ticket',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' && /no longer exists/.test(error.message)
+    );
+
+    assertNoCorrectionWrites(db);
+  });
+
+  it('rejects a blank reason without writes', async () => {
+    const db = new MemoryDB();
+    seed(db);
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          reason: '   ',
+          requestId: 'req-blank-reason',
+        })
+      ),
+      (error) => error.code === 'invalid-argument'
+    );
+
+    assertNoCorrectionWrites(db);
+  });
+
+  it('rejects a blank request ID without writes', async () => {
+    const db = new MemoryDB();
+    seed(db);
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          requestId: '   ',
+        })
+      ),
+      (error) => error.code === 'invalid-argument'
+    );
+
+    assertNoCorrectionWrites(db);
+  });
+});
+
 describe('post-draw correction integrity', () => {
   it('preserves ticket identity and unrelated records', async () => {
     const db = new MemoryDB();
@@ -927,5 +1128,36 @@ describe('post-draw correction draw race', () => {
     assert.equal(db.snapshot('ticket', 'winnerTicket').data().status, 'winner');
     assert.equal(db.snapshot('ticket', 'winnerTicket').data().is_winner, true);
     assert.equal(db.snapshot('order', 'oWinner').data().is_winner, true);
+  });
+
+  it('retries and rejects when a selected order becomes a winning order after it was read', async () => {
+    const db = new MemoryDB();
+    seed(db);
+    let injected = false;
+    db.afterTransactionRead = async (ref) => {
+      if (ref.path === 'order/o1' && !injected) {
+        injected = true;
+        db.setDocument('order', 'o1', {
+          ...db.snapshot('order', 'o1').data(),
+          is_winner: true,
+        });
+      }
+    };
+
+    await assert.rejects(
+      makeCorrectionHandler(db)(
+        correctionRequest({
+          ticketIds: ['t1'],
+          requestId: 'req-race-order-winner',
+        })
+      ),
+      (error) =>
+        error.code === 'failed-precondition' && /winning order/.test(error.message)
+    );
+
+    assert.equal(injected, true);
+    assert.equal(db.snapshot('ticket', 't1').data().status, 'active');
+    assert.equal(db.collectionStore('ticket_adjustments').size, 0);
+    assert.equal(auditEvents(db).length, 0);
   });
 });

@@ -491,10 +491,31 @@ async function invalidateTicketsInTransaction({
     );
     ticketOrigins.push(getTicketOrigin(ticketData));
 
-    const orderId = getReferenceId(ticketData.order_id);
+    let orderReference = ticketData.order_id;
+    let orderId = getReferenceId(orderReference);
+
+    if (postDrawCorrection) {
+      const orderReferenceCandidates = [ticketData.order_id, ticketData.order_ref];
+      orderReference = orderReferenceCandidates.find((candidate) =>
+        getReferenceId(candidate)
+      );
+      orderId = getReferenceId(orderReference);
+      const hasOrderReference = orderReferenceCandidates.some(
+        (candidate) =>
+          candidate !== undefined && candidate !== null && candidate !== ""
+      );
+
+      if (!orderId && hasOrderReference) {
+        throw new HttpsError(
+          "failed-precondition",
+          "A selected ticket has an order reference that cannot be resolved. No tickets were changed."
+        );
+      }
+    }
+
     if (orderId && !seenOrderIds.has(orderId)) {
       seenOrderIds.add(orderId);
-      orderRefs.push(ticketData.order_id);
+      orderRefs.push(orderReference);
       if (postDrawCorrection) {
         orderRefsToCheck.push(db.collection("order").doc(orderId));
       }
