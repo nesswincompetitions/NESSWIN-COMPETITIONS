@@ -136,6 +136,26 @@ The application will be available at `http://localhost:5173`.
 
 ---
 
+## 🚧 Maintenance Mode
+
+The site ships with **maintenance mode enabled by default**. Every URL renders the
+reusable "Temporarily Unavailable" page (English, French and Spanish) instead of the
+application, so no public or admin route can be reached.
+
+To bring the full website back online, open `src/config/siteStatus.js` and change:
+
+```js
+export const MAINTENANCE_MODE = false;
+```
+
+Then commit and push. Vercel will redeploy automatically — no dashboard or environment
+variables needed.
+
+The page itself lives in `src/shared/pages/MaintenancePage.jsx` and its copy is under the
+`maintenance` key in `src/locales/{en,fr,es}/user.json`.
+
+---
+
 ## 📦 Build & Deployment
 
 ### Production Build

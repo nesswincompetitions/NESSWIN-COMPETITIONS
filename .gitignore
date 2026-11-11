@@ -32,3 +32,9 @@ dist-ssr
 .claude/
 skills-lock.json
 docs/
+
+imp/
+
+firestore.indexes.local-backup.json
+
+functions/firerstore-rules.txt

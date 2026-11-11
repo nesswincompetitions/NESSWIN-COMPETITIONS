@@ -563,5 +563,26 @@
     "verifying": "Verifying...",
     "skillQuestion": "Skill Question",
     "missWarning": "A new question appears after each miss"
+  },
+  "maintenance": {
+    "pageTitle": "Temporarily Unavailable | NessWin",
+    "badge": "Temporarily Unavailable",
+    "title": "We'll Be Right Back",
+    "message": "NessWin is taking a short break while we carry out essential maintenance. Your account, tickets and entries are safe — we'll be back online as soon as possible.",
+    "eta": "We expect to be back very soon.",
+    "reassurance": "Thank you for your patience.",
+    "languageLabel": "Language",
+    "status": "Maintenance in progress",
+    "supportLabel": "Need urgent help?",
+    "supportText": "Our support team is still here for you at",
+    "rights": "© 2026 NessWin. All rights reserved.",
+    "points": {
+      "maintenanceTitle": "Planned maintenance",
+      "maintenanceText": "Our team is making improvements to give you a better experience.",
+      "dataTitle": "Your data is safe",
+      "dataText": "Accounts, tickets and competition entries remain secure.",
+      "backTitle": "Back very soon",
+      "backText": "We're working quickly to restore full access."
+    }
   }
 }

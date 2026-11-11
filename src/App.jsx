@@ -7,6 +7,8 @@ import { Toaster } from 'react-hot-toast';
 import { LazyMotion, domAnimation } from 'framer-motion';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/config/queryClient';
+import { MAINTENANCE_MODE } from '@/config/siteStatus';
+import MaintenancePage from '@/shared/pages/MaintenancePage';
 
 // Minimal full-screen spinner shown while a lazy page chunk is being downloaded.
 // Matches the app's dark background so there's no white flash.
@@ -42,26 +44,30 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <LazyMotion features={domAnimation}>
-        <AuthProvider>
-          <UserProvider>
-            <Router>
-              <Toaster position="top-center" />
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-                  {UserRoutes}
-                  {AdminRoutes}
+    MAINTENANCE_MODE ? (
+      <MaintenancePage />
+    ) : (
+      <QueryClientProvider client={queryClient}>
+        <LazyMotion features={domAnimation}>
+          <AuthProvider>
+            <UserProvider>
+              <Router>
+                <Toaster position="top-center" />
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    {UserRoutes}
+                    {AdminRoutes}
 
-                  {/* If the route does not exist (404), redirect to Home */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </Router>
-          </UserProvider>
-        </AuthProvider>
-      </LazyMotion>
-    </QueryClientProvider>
+                    {/* If the route does not exist (404), redirect to Home */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </Router>
+            </UserProvider>
+          </AuthProvider>
+        </LazyMotion>
+      </QueryClientProvider>
+    )
   );
 };
 
